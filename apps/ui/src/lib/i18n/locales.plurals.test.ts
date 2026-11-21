@@ -51,6 +51,7 @@ const REQUIRED_FORMS: Record<string, string[]> = {
 const COUNT_BEFORE_INVARIANT_WORD = new Set([
     'about.instance.uptime_hours',
     'about.instance.uptime_minutes',
+    'about.outbound.show_everything_note',
     'dashboard.field_log.birds_none_counted',
     'dashboard.field_log.birds_unknown',
     'dashboard.field_log.preview_frame_position',
@@ -59,24 +60,23 @@ const COUNT_BEFORE_INVARIANT_WORD = new Set([
     'events.filters.only_active',
     'events.heard.more_species',
     'events.total_count',
+    'jobs.analyze_unknowns_candidates_remain',
     'jobs.errors_export_count',
+    'jobs.errors_metric_of',
     'jobs.global_not_responding',
-    'jobs.stale_hint',
+    'jobs.lane_queued_count',
+    'jobs.lane_running_count',
     'leaderboard.check.some_selected',
     'leaderboard.includes_unidentified',
     'notifications.bell_unread',
-    'notifications.global_progress_stale',
     'settings.data.archive_failed_count',
     'settings.data.archive_usage_detail',
-    'settings.detection.band_needs_attention',
-    'settings.detection.model_manager_count',
-    'settings.detection.model_manager_show_advanced',
     'taxonomy.more'
 ]);
 
 const COUNT_BEFORE_WORD = /\{count\}\s+[\p{L}{]/u;
-/** "sighting(s)", "Tag(e)", "giorno(i)": a word that guesses at its own plural beside a placeholder. */
-const BRACKETED_PLURAL = /\p{L}\((?:s|e|en|i)\)/u;
+/** "sighting(s)", "Tag(e)", "giorno(i)", "обнаружен(а)": a word that guesses at its own plural or gender. */
+const BRACKETED_PLURAL = /\p{L}\((?:s|es|e|en|n|i|x|а|ы|и|ов|ей)\)/u;
 
 type Ast = ReturnType<ReturnType<typeof getMessageFormatter>['getAst']>;
 type AstElement = Ast[number];
@@ -144,6 +144,23 @@ describe('counted strings', () => {
         expect(russian).toEqual(['1 визит', '3 визита', '5 визитов', '11 визитов', '21 визит', '24 визита', '25 визитов']);
     });
 
+    it('counts the groups, events and snapshots of a diagnostics bundle each with its own word', () => {
+        const one = { groups: 1, events: 1, snapshots: 1 };
+        const several = { groups: 2, events: 14, snapshots: 3 };
+        expect(format(en as LocaleRoot, 'jobs.error_bundles_stats', one)).toBe('1 group · 1 event · 1 snapshot');
+        expect(format(en as LocaleRoot, 'jobs.error_bundles_stats', several)).toBe('2 groups · 14 events · 3 snapshots');
+        for (const [localeName, messages] of LOCALES) {
+            for (const key of ['jobs.error_bundles_stats']) {
+                const message = new Map(leaves(messages)).get(key) ?? '';
+                expect(plurals(message).map((use) => use.name), `${localeName} ${key}`).toEqual(['groups', 'events', 'snapshots']);
+                expect(message, `${localeName} ${key}`).not.toContain('•');
+            }
+        }
+        const errorsPage = Object.entries(sources).find(([path]) => path.endsWith('/pages/Errors.svelte'))?.[1] ?? '';
+        expect(errorsPage).toContain("$_('jobs.error_bundles_stats'");
+        expect(errorsPage).not.toMatch(/\} groups/);
+    });
+
     it('let the count choose the English word that follows it', () => {
         const fixed = leaves(en as LocaleRoot)
             .filter(([key, value]) => COUNT_BEFORE_WORD.test(value) && !COUNT_BEFORE_INVARIANT_WORD.has(key))
@@ -151,10 +168,10 @@ describe('counted strings', () => {
         expect(fixed).toEqual([]);
     });
 
-    it('never guess at a plural with brackets beside a placeholder', () => {
+    it('never guess at a plural or a gender with brackets, beside a placeholder or not', () => {
         for (const [localeName, messages] of LOCALES) {
             const guessed = leaves(messages)
-                .filter(([, value]) => /\{\w+[},]/.test(value) && BRACKETED_PLURAL.test(value))
+                .filter(([, value]) => BRACKETED_PLURAL.test(value))
                 .map(([key, value]) => `${localeName} ${key}: ${value}`);
             expect(guessed).toEqual([]);
         }

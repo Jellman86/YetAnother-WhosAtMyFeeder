@@ -15,7 +15,7 @@ describe('Notifications timeline layout', () => {
         for (const name of ['all', 'birds', 'updates', 'jobs', 'errors']) {
             expect(en.notifications[`filter_${name}` as keyof typeof en.notifications]).toBeTruthy();
         }
-        expect(en.notifications.clear_notifications).toBe('Clear notifications');
+        expect(en.notifications.clear_notifications).toBe('Clear all notifications');
     });
 
     it('paginates the filtered river instead of rendering the full retained history', () => {
@@ -37,7 +37,8 @@ describe('Notifications timeline layout', () => {
         expect(appSource).toContain('const isOwnerOnly = isNotificationRoute(currentRoute)');
         expect(source).toContain('serverJobsStore.mergeActive(jobProgressStore.activeJobs)');
         expect(source).toContain('buildTimelineItems(');
-        expect(source).toContain('untrack(() => serverJobsStore.retain())');
+        // The jobs come with the pushed status; nothing is claimed before the first one.
+        expect(source).toContain('isOwner && serverJobsStore.snapshot === null');
     });
 
     it('keeps every timeline control at the repository touch-target minimum', () => {
@@ -49,19 +50,22 @@ describe('Notifications timeline layout', () => {
     it('keeps amber for what needs a person', () => {
         // The progress bar used to run a three colour gradient through the attention colour.
         expect(source).not.toContain('from-accent-500');
-        expect(source).toContain("running: 'bg-brand-500 border-brand-500'");
-        // layout-patterns §1.3: "Amber is reserved for 'this needs a person'", and accent-* is a
-        // brand colour the classic theme paints emerald. attention-* is amber in every theme.
-        expect(source).toContain("attention: 'bg-attention-500 border-attention-500'");
-        // "Anything meaning confirmed ... must use success-* so it stays green in every theme."
-        expect(source).toContain("done: 'bg-success-500 border-success-500'");
+        expect(source).toContain("running: 'bg-accent border-accent'");
+        // layout-patterns §1.3: "Amber is reserved for 'this needs a person'": the attention status
+        // token is amber in every theme, while the accent follows the theme's brand colour.
+        expect(source).toContain("attention: 'bg-status-attention border-status-attention'");
+        // Anything meaning confirmed uses the ok status token, so it stays green in every theme.
+        expect(source).toContain("done: 'bg-status-ok border-status-ok'");
         expect(source).not.toMatch(/\baccent-\d|emerald-/);
     });
 
     it('makes opening a notification a real control', () => {
         // Was a <p> that looked like an action and could not be focused or clicked.
         expect(source).toContain('onclick={() => openItem(item)}');
-        expect(source).toContain('btn btn-secondary focus-ring');
+        // The whole row is the link, with a chevron: a boxed Open on every row doubled the list.
+        expect(source).toContain('data-notification-row="link"');
+        expect(source).toContain('data-notification-chevron');
+        expect(source).not.toMatch(/btn btn-secondary focus-ring[^\n]*\n[^\n]*openItem/);
     });
 
     it('states what the empty page will hold instead of that it is empty', () => {
@@ -70,6 +74,10 @@ describe('Notifications timeline layout', () => {
         expect(en.notifications.empty_body).toContain('Newest first');
         // The page owns background work now, so the empty state has to say so.
         expect(en.notifications.empty_body).toContain('background work');
+        // The shared state primitive, so an empty page reads as every other empty page does.
+        expect(source).toContain("import StateBlock from '../components/ui/StateBlock.svelte';");
+        expect(source).toMatch(/<StateBlock\s+state="empty"\s+title=\{\$_\('notifications\.empty_title'/);
+        expect(source).toContain('state="empty" variant="inline" cause={$_(\'notifications.empty_filtered\'');
     });
 
     it('centres the rail and its markers in one column instead of offsetting by hand', () => {
@@ -84,7 +92,10 @@ describe('Notifications timeline layout', () => {
     it('keeps the rail unbroken between rows and capped at the outer dots', () => {
         // Vertical padding lives on the content column, not the row: as a grid item the rail's
         // box stopped at the row's padding and the line broke between every entry.
-        expect(source).toContain('flex items-start gap-3 py-3');
+        expect(source).toContain('class="min-w-0 py-1"');
+        // Dismiss sits under the words, never beside the chevron, so the time and chevron column holds.
+        expect(source.indexOf('data-notification-dismiss')).toBeGreaterThan(source.indexOf('data-notification-row="plain"'));
+        expect(source).toContain('ml-11 min-h-11 px-2 text-xs');
         expect(source).toContain("? 'top-7 bottom-0'");
         expect(source).toContain("? 'top-0 h-7'");
         expect(source).toContain('{#if group.items.length > 1}');
@@ -102,7 +113,7 @@ describe('Notifications timeline layout', () => {
     });
 
     it('does not repeat the date on rows the group heading already dates', () => {
-        expect(source).toContain("group.key === 'older' || group.key === 'yesterday'");
+        expect(source).toContain("groupKey === 'older' || groupKey === 'yesterday'");
     });
 });
 
@@ -112,10 +123,16 @@ describe('a job that stopped reporting', () => {
         expect(source).toContain("$_('notifications.job_stopped'");
         expect(source).toContain("$_('notifications.job_stopped_label')");
         // A stopped job's bar is grey and static, never the brand colour that means work in flight.
-        expect(source).toContain("'bg-slate-400 dark:bg-slate-500'");
+        expect(source).toContain("isStoppedJob(item) ? 'bg-status-neutral'");
         expect(source).toContain('notificationCenter.remove(item.id)');
         expect(en.notifications.job_stopped).toContain('Nothing is still running');
         expect(en.notifications.job_stopped).toContain('{time}');
-        expect(en.notifications.global_progress_stale).not.toContain('stale');
+    });
+
+    it("keeps every row's time and progress on one right edge, with or without a chevron", () => {
+        // A row that opens nothing has no chevron; without a spacer of the chevron's width its time
+        // and progress bar ran 16px further right than the rows around it.
+        expect(source).toContain('<span class="h-4 w-4 shrink-0" aria-hidden="true" data-notification-chevron-space></span>');
+        expect(source).toContain('<svg class="mt-1 h-4 w-4 shrink-0 text-muted"');
     });
 });

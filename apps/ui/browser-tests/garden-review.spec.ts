@@ -7,7 +7,11 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 
 type Capture = Record<string, unknown> & { id: string };
 
-const modelStatus = { country: 'GBR', catalogue_ready: true, busy: false, error: null, models: [{ variant: '4.0.3b', installed: true, size_bytes: 223999179 }] };
+// Both Garden models are here: manual review and dismissal open once the automatic check can run.
+const modelStatus = {
+    country: 'GBR', catalogue_ready: true, busy: false, error: null,
+    models: [{ variant: '4.0.3a', installed: true, size_bytes: 223998782 }, { variant: '4.0.3b', installed: true, size_bytes: 223999179 }]
+};
 const motionStatus = { cameras: [], installed: false, catalogue_ready: true, busy: false, state: 'disabled', message: 'Motion collection is off.' };
 
 const id = 'a'.repeat(32);
@@ -40,6 +44,13 @@ async function mockGarden(page: Page, mock: Mock) {
         if (path === '/api/garden/visits' || (path.startsWith('/api/garden/visits/') && path.endsWith('/captures'))) {
             const items = mock.items(url.searchParams.get('status') ?? 'reviewable');
             return route.fulfill({ json: gardenVisitResponse(items, url) });
+        }
+        if (path === '/api/garden/timeline') {
+            // The page re-reads an open capture here when a review moves it to a new visit.
+            const status = url.searchParams.get('status') ?? 'reviewable';
+            const items = mock.items(status).filter(item => item.camera === url.searchParams.get('camera')
+                && item.observed_at === url.searchParams.get('start'));
+            return route.fulfill({ json: { items, total: items.length, limit: 200, offset: 0 } });
         }
         if (path === '/api/garden/identification') return route.fulfill({ json: mock.identification ?? modelStatus });
         if (path === '/api/garden/motion') return route.fulfill({ json: motionStatus });
@@ -80,6 +91,9 @@ async function nextPhoto(page: Page) {
 async function openFirst(page: Page) {
     await page.locator('[data-garden-card]').first().getByRole('button', { name: /^Open Garden capture/ }).click();
     await expect(record(page)).toBeVisible();
+    // The manual override is drawn only once Garden's status has been read; until then the record
+    // says it is checking. Decide whether to open it after that read, not before it lands.
+    await expect(record(page).locator('[data-garden-manual-closed="reading"]')).toHaveCount(0);
     const override = record(page).locator('[data-garden-manual-override]');
     if (await override.count() && !(await override.evaluate(node => (node as HTMLDetailsElement).open))) {
         await override.locator('summary').click();
@@ -118,7 +132,7 @@ test('automatic rejections explain the result and can return to review without a
     await openFirst(page);
     await expect(record(page).locator('[data-garden-automatic-check]')).toContainText('Blank scene or vehicle suggested.');
     await fitsNarrowScreen(page);
-    await record(page).getByRole('button', { name: 'Return to review' }).click();
+    await record(page).getByRole('button', { name: 'Return to Needs your call' }).click();
     await expect(record(page)).toHaveCount(0);
     await wideAgain(page);
     await chooseReview(page, 'pending');
@@ -223,18 +237,18 @@ for (const sourceKind of ['motion', 'frigate_event']) {
             });
             await openReview(page, 'dismissed');
             await openFirst(page);
-            const restore = record(page).getByRole('button', { name: 'Return to review' });
+            const restore = record(page).getByRole('button', { name: 'Return to Needs your call' });
             if (photoAvailable) {
                 await expect(restore).toBeEnabled();
                 await restore.click();
-                await expect(toasts(page)).toContainText('Photo returned to review.');
+                await expect(toasts(page)).toContainText('Photo returned to Needs your call.');
                 await chooseReview(page, 'pending');
                 await openFirst(page);
                 await expect(record(page).getByText(sourceKind === 'motion' ? 'Candidate from retained motion footage' : 'Frigate suggested: cat')).toBeVisible();
                 expect(writes).toBe(1);
             } else {
                 await expect(restore).toBeDisabled();
-                await expect(record(page).getByText('Photo unavailable. It cannot return to review.')).toBeVisible();
+                await expect(record(page).getByText('Photo unavailable. It cannot return to Needs your call.')).toBeVisible();
                 expect(writes).toBe(0);
             }
             await fitsNarrowScreen(page);
@@ -256,10 +270,10 @@ test('owner can dismiss a false capture, restore it and review at narrow widths'
     await expect(record(page).getByRole('button', { name: 'Confirm animal manually' })).toBeDisabled();
     await record(page).getByRole('button', { name: 'Dismiss capture' }).click();
     await expect(record(page)).toHaveCount(0);
-    await expect(page.getByText('No Garden captures need review')).toBeVisible();
+    await expect(page.getByText('No Garden captures need your call')).toBeVisible();
     await chooseReview(page, 'dismissed');
     await openFirst(page);
-    await record(page).getByRole('button', { name: 'Return to review' }).click();
+    await record(page).getByRole('button', { name: 'Return to Needs your call' }).click();
     await chooseReview(page, 'pending');
     await openFirst(page);
     await expect(record(page).getByText('Frigate suggested: cat')).toBeVisible();
@@ -278,7 +292,7 @@ test('owner confirms presence only after the photo loads', async ({ page }) => {
     await expect(record(page).getByRole('button', { name: 'Confirm animal manually' })).toBeEnabled();
     await record(page).getByRole('button', { name: 'Confirm animal manually' }).click();
     await expect(record(page)).toHaveCount(0);
-    await expect(page.getByText('No Garden captures need review')).toBeVisible();
+    await expect(page.getByText('No Garden captures need your call')).toBeVisible();
     await chooseReview(page, 'confirmed');
     await openFirst(page);
     await expect(record(page).getByText('Frigate suggested: cat')).toBeVisible();
@@ -296,10 +310,10 @@ test('a failed read is visible and Try again recovers', async ({ page }) => {
     const retry = alert.getByRole('button', { name: 'Try again', exact: true });
     await expect(retry).toBeVisible();
     // A failed read is never an empty review queue.
-    await expect(page.getByText('No Garden captures need review')).toHaveCount(0);
+    await expect(page.getByText('No Garden captures need your call')).toHaveCount(0);
     failed = false;
     await retry.click();
-    await expect(page.getByText('No Garden captures need review')).toBeVisible();
+    await expect(page.getByText('No Garden captures need your call')).toBeVisible();
 });
 
 for (const outcome of ['species', 'group', 'unknown'] as const) {
@@ -330,8 +344,12 @@ for (const outcome of ['species', 'group', 'unknown'] as const) {
             await expect(record(page).getByRole('button', { name: `Confirm ${name}`, exact: true })).toHaveCount(0);
         } else {
             if (outcome === 'group') await expect(record(page).getByText('Animal group only; species is unresolved.')).toBeVisible();
+            // Naming the animal moves it to a new visit, so the page re-reads the open capture to keep it.
+            const reread = page.waitForResponse(response => new URL(response.url()).pathname === '/api/garden/timeline');
             await record(page).getByRole('button', { name: `Confirm ${name}`, exact: true }).click();
             await expect(record(page).locator('[data-garden-capture-status]')).toHaveText('Animal and species confirmed by you');
+            await reread;
+            await expect(record(page)).toBeVisible();
             await record(page).getByRole('button', { name: 'Discard identification', exact: true }).click();
             await expect(record(page).locator('[data-garden-capture-status]')).toHaveText('Animal confirmed, species not named');
         }
@@ -362,7 +380,7 @@ test('a model that is not downloaded points to Settings instead of downloading f
     page.on('request', request => { if (request.method() === 'POST') posts.push(new URL(request.url()).pathname); });
     await openReview(page, 'confirmed');
     await openFirst(page);
-    await expect(record(page).getByText('This model is not downloaded. Download it under Garden models in Settings → Beta features.')).toBeVisible();
+    await expect(record(page).getByText('This model is not downloaded. Download it under Garden models in Settings → Identifying birds.')).toBeVisible();
     await expect(record(page).getByRole('button', { name: 'Suggest species', exact: true })).toBeDisabled();
     await expect(page.getByRole('button', { name: /^Download/ })).toHaveCount(0);
     expect(posts).toEqual([]);
@@ -524,7 +542,7 @@ for (const concurrentReview of [false, true]) {
                 await expect(toasts(page)).toContainText('1 photo was unchanged');
             }
             await page.getByRole('button', { name: 'Undo group dismissal', exact: true }).click();
-            await expect(toasts(page)).toContainText(`${concurrentReview ? 78 : 79} photos returned to review.`);
+            await expect(toasts(page)).toContainText(`${concurrentReview ? 78 : 79} photos returned to Needs your call.`);
             expect(writes[1].ids).not.toContain(animalId);
             if (concurrentReview) expect(writes[1].ids).not.toContain(concurrentId);
             expect(states.get(animalId)).toBe('confirmed');
@@ -575,7 +593,7 @@ for (const action of ['confirm', 'dismiss'] as const) {
         await nextPhoto(page);
         await record(page).getByRole('button', { name: action === 'confirm' ? 'Confirm animal manually' : 'Dismiss capture', exact: true }).click();
         await expect(toasts(page)).toContainText(action === 'confirm' ? 'Photo confirmed.' : 'Capture dismissed.');
-        await expect(toasts(page)).toContainText('Other photos in this group still need review.');
+        await expect(toasts(page)).toContainText('Other photos in this group still need your call.');
         await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${row.id}/snapshot`));
         await expect(page.locator('[data-explorer-count]')).toContainText('1 Garden visit · 1 capture');
         expect(writes).toEqual([second]);
@@ -610,6 +628,83 @@ test('confirmation in a position group applies only to the displayed original ph
     await nextPhoto(page);
     await record(page).getByRole('button', { name: 'Confirm animal manually', exact: true }).click();
     expect(confirmed).toEqual([second]);
+});
+
+test('the Garden review link reads Garden captures even when owner settings arrive after the page', async ({ page }) => {
+    // In the app the Explorer mounts while /api/settings is still loading. The link must not read
+    // bird visits meanwhile and then label them as an empty Garden queue (UI audit, 725 bird visits
+    // shown as "Showing 1-24 of 725" under "No Garden captures need your call").
+    const reads: URL[] = [];
+    await mockGarden(page, { items: requested => (requested === 'pending' ? [row] : []) });
+    await page.route(url => url.pathname === '/api/visits', route => {
+        reads.push(new URL(route.request().url()));
+        return route.fulfill({ json: { total: 725, gap_seconds: 60, visits: [] } });
+    });
+    await page.route(url => url.pathname === '/api/garden/visits', route => {
+        reads.push(new URL(route.request().url()));
+        return route.fallback();
+    });
+    await page.route(url => url.pathname === '/api/settings', async route => {
+        await new Promise(resolve => setTimeout(resolve, 400));
+        return route.fulfill({ json: { enrichment_summary_provider: 'disabled', beta_garden_animals: true, garden_cameras: ['patio'] } });
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=explorer&settings=late&visitors=garden&review=pending');
+
+    await expect(page.locator('[data-garden-card]')).toHaveCount(1);
+    await expect(page.locator('[data-explorer-count]')).toContainText('1 Garden visit · 1 capture');
+    await expect(page.getByText('No Garden captures need your call')).toHaveCount(0);
+    await expect(page.getByText(/of 725/)).toHaveCount(0);
+    // The first and only read is the one the link asked for.
+    expect(reads.map(url => `${url.pathname}?status=${url.searchParams.get('status')}`)).toEqual(['/api/garden/visits?status=pending']);
+    await expect.poll(() => new URL(page.url()).searchParams.get('review')).toBe('pending');
+});
+
+test('the Garden review link reads nothing until owner settings load, says so, and recovers on retry', async ({ page }) => {
+    const reads: string[] = [];
+    let settingsAnswers = 0;
+    await mockGarden(page, { items: requested => (requested === 'pending' ? [row] : []) });
+    await page.route(url => ['/api/visits', '/api/events', '/api/garden/visits'].includes(url.pathname), route => {
+        reads.push(new URL(route.request().url()).pathname);
+        return route.fallback();
+    });
+    await page.route(url => url.pathname === '/api/settings', route => {
+        settingsAnswers += 1;
+        return settingsAnswers === 1
+            ? route.fulfill({ status: 500, json: { detail: 'Internal Server Error' } })
+            : route.fulfill({ json: { enrichment_summary_provider: 'disabled', beta_garden_animals: true, garden_cameras: ['patio'] } });
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=explorer&settings=late&visitors=garden&review=pending');
+
+    const failure = page.locator('[data-explorer-error]');
+    await expect(failure).toContainText('Your settings could not be loaded, so the Explorer cannot tell which visitors to show.');
+    // Neither the old bug's bird read nor any other history read happened with unknown settings.
+    expect(reads).toEqual([]);
+    await expect(page.getByText('No Garden captures need your call')).toHaveCount(0);
+
+    await failure.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.locator('[data-garden-card]')).toHaveCount(1);
+    await expect(page.locator('[data-explorer-error]')).toHaveCount(0);
+    expect(reads).toEqual(['/api/garden/visits']);
+});
+
+test('a visitor following a Garden link never waits on owner settings', async ({ page }) => {
+    let settingsReads = 0;
+    await mockGarden(page, { items: () => [] });
+    await page.route(url => url.pathname === '/api/settings', route => {
+        settingsReads += 1;
+        return route.fulfill({ status: 500, json: { detail: 'Owner privileges required' } });
+    });
+    const reads: string[] = [];
+    await page.route(url => url.pathname === '/api/garden/visits', route => {
+        reads.push(new URL(route.request().url()).pathname);
+        return route.fallback();
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=explorer&guest=1&settings=late&visitors=garden&review=pending');
+    // The owner shares Garden in this fixture, so the visitor reads it straight away.
+    await expect(page.locator('[data-explorer-count]')).toContainText('0 Garden visits');
+    await expect(page.locator('[data-explorer-error]')).toHaveCount(0);
+    expect(reads).toEqual(['/api/garden/visits']);
+    expect(settingsReads).toBe(0);
 });
 
 test('an old Garden page link with the beta off says so instead of silently showing birds', async ({ page }) => {
@@ -735,7 +830,7 @@ const birdCheck = (reason: 'bird_camera' | 'wild_bird') => ({
 });
 
 for (const [reason, text] of [
-    ['bird_camera', 'Bird, handled by bird detection on this camera.'],
+    ['bird_camera', 'A bird, which this camera already records as a bird visit.'],
     ['wild_bird', 'Wild bird. Turn on birds for this camera to record it.']
 ] as const) {
     test(`a dismissed ${reason} capture says who records birds and asks once about chickens`, async ({ page }) => {
@@ -746,7 +841,7 @@ for (const [reason, text] of [
         await expect(record(page).locator('[data-garden-automatic-check]')).toContainText(text);
         const suggestion = record(page).locator('[data-domestic-suggestion="chicken"]');
         await expect(suggestion).toContainText('This looks like a domestic bird: Chickens.');
-        await expect(suggestion.getByRole('link', { name: 'Open Domestic birds you keep' })).toHaveAttribute('href', /\/settings\/beta$/);
+        await expect(suggestion.getByRole('link', { name: 'Open “Domestic birds you keep”' })).toHaveAttribute('href', /\/settings\/beta$/);
         await suggestion.getByRole('button', { name: 'Not now' }).click();
         await expect(suggestion).toHaveCount(0);
         await page.reload();
@@ -773,4 +868,16 @@ test('a declared chicken from a bird event is named Chicken with the bird model 
     await record(page).locator('[data-garden-capture-details] summary').first().click();
     await expect(record(page).locator('[data-garden-domestic-route]')).toContainText('Gallus gallus');
     await expect(record(page).locator('[data-garden-domestic-route]')).toContainText('93%');
+});
+
+test('a Garden card opens its record from its time and score line too, while play stays its own control', async ({ page }) => {
+    await mockGarden(page, { items: requested => requested === 'pending' ? [{ ...row, status: 'pending' }] : [] });
+    await openReview(page, 'pending');
+    const card = page.locator('[data-garden-card]').first();
+    // The readings sit over the card's open control and let clicks through; only play takes its own.
+    // A click where a person sees the time, not on the element, which takes no pointer events.
+    const time = await card.locator('[data-garden-card-readings] time').boundingBox();
+    if (!time) throw new Error('the card shows no time');
+    await page.mouse.click(time.x + time.width / 2, time.y + time.height / 2);
+    await expect(record(page)).toBeVisible();
 });

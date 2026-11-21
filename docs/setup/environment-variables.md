@@ -63,6 +63,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `CONTAINER_LOG_MAX_SIZE` | `10m` | Compose-only size at which the monolithic container's JSON log rotates. |
 | `CONTAINER_LOG_MAX_FILES` | `3` | Compose-only number of rotated monolithic container log files to retain. |
 | `APPEARANCE__EXPLORER_VIEW` | `cards` | How the Explorer lists detections: `cards` shows a snapshot each, `list` shows one compact row each with the times aligned for scanning. |
+| `VISITS__GAP_SECONDS` | `60` | The visit gap: captures of one species on one camera no more than this many seconds apart are one visit, for birds and Garden animals. `5` to `300`; a value outside that range is ignored with a warning and `60` is used. Set in **Settings → Identifying birds → Counting visits**. |
 | `SPECIES_INFO__SOURCE` | `auto` | Species info source: `auto`, `inat`, `wikipedia`. |
 | `DISPLAY__DATE_FORMAT` | `locale` | Date format: `locale`, `mdy`, `dmy`, `ymd`. |
 | `DISPLAY__TIME_FORMAT` | `locale` | Clock format: `locale`, `12h`, `24h`. `locale` follows the browser. |
@@ -149,8 +150,8 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `MAINTENANCE__RETENTION_DAYS` | `0` | Days to keep detection history (`0` = keep forever). |
 | `MAINTENANCE__CLEANUP_ENABLED` | `true` | Run the periodic cleanup job. |
 | `MAINTENANCE__MAX_CONCURRENT` | `1` | Per-kind maintenance capacity (`1`–`8`). Different kinds can overlap within the total limit; see [maintenance concurrency](configuration.md#maintenance-concurrency). |
-| `MAINTENANCE__AUTO_DELETE_MISSING_CLIPS` | `false` | Prune records whose Frigate clip is gone. |
-| `MAINTENANCE__FRIGATE_MISSING_BEHAVIOR` | `mark_missing` | How to treat a detection whose Frigate event or media has gone: `mark_missing` (flag it, keep the row), `keep` (do nothing), or `delete` (**permanently remove** the detection). |
+| `MAINTENANCE__AUTO_DELETE_MISSING_CLIPS` | `false` | Prune records whose Frigate clip is gone. Legacy: while `MAINTENANCE__FRIGATE_MISSING_BEHAVIOR` is unset it selects `delete`, so a record whose photo YA-WAMF still holds is marked missing instead. |
+| `MAINTENANCE__FRIGATE_MISSING_BEHAVIOR` | `mark_missing` | How to treat a detection whose Frigate event or media has gone: `mark_missing` (flag it, keep the row), `keep` (do nothing), or `delete` (**permanently remove** the detection, unless YA-WAMF still holds its photo or it is a favourite, in which case it is marked missing). |
 
 `MEDIA_CACHE__ENABLED` and `MEDIA_CACHE__CACHE_SNAPSHOTS` were removed (#622): photographs and visit
 media are always kept, within the retention and size limits. Either variable is still read once, on
@@ -284,7 +285,7 @@ Discord / Pushover / Telegram / Email:
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `SYSTEM__DEBUG_UI_ENABLED` | `false` | Show the Debug settings tab. |
+| `SYSTEM__DEBUG_UI_ENABLED` | `false` | Show the developer tools: a troubleshooting switch under **Settings → Identifying birds → More options → Hardware → Memory and isolation** and the iNaturalist submission preview. |
 | `SYSTEM__BETA_GARDEN_ANIMALS` | `false` | Turn on the Garden animals beta feature. |
 | `FRIGATE__GARDEN_NOTIFICATIONS_ENABLED` | `false` | Opt in to separate Garden alerts while the beta is enabled. |
 | `FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS` | _(derived)_ | `true` sends Garden alerts on the bird channels that are switched on and configured; `false` uses `FRIGATE__GARDEN_NOTIFICATION_CHANNELS`. Unset, a saved choice wins, otherwise it is `true` unless channels were chosen. |
@@ -329,7 +330,7 @@ override** — they're per-install data rather than deployment config:
   above do have env overrides; these four do not.
 - **Home Assistant weather entity overrides:** the individual temperature, wind
   speed, wind direction, cloud cover, precipitation, rain, and snowfall entities
-  under `ha_weather`. `ENABLED`, `BASE_URL`, `ACCESS_TOKEN`, and `WEATHER_ENTITY`
+  under `ha_weather`, and the optional `illuminance_entity`. `ENABLED`, `BASE_URL`, `ACCESS_TOKEN`, and `WEATHER_ENTITY`
   are env-configurable; the per-measurement overrides are not.
 - **Selected cameras**, their feeder/nest roles, Frigate ingest labels, and the audio source mapping.
 - **Audio tuning:** correlation window, buffer age and minimum audio confidence.

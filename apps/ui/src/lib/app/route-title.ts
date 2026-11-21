@@ -10,6 +10,7 @@ export type RouteId =
     | 'leaderboard'
     | 'audio_history'
     | 'notifications'
+    | 'health'
     | 'settings'
     | 'model_evaluation'
     | 'about';
@@ -21,13 +22,15 @@ const ROUTE_PREFIXES: ReadonlyArray<[prefix: string, id: RouteId]> = [
     ['/audio', 'audio_history'],
     ['/settings', 'settings'],
     ['/notifications', 'notifications'],
+    // Not /health: that address is the backend's own health check, which nginx answers.
+    ['/system-health', 'health'],
     ['/diagnostics/model-eval', 'model_evaluation'],
     ['/about', 'about']
 ];
 
 // Pages that register a refresh action once their code has loaded. The header holds the control's
 // place from the start, so it does not arrive with the page and move the controls beside it.
-const REFRESHABLE_ROUTES: ReadonlySet<RouteId> = new Set(['dashboard', 'explorer', 'leaderboard', 'settings']);
+const REFRESHABLE_ROUTES: ReadonlySet<RouteId> = new Set(['dashboard', 'explorer', 'leaderboard', 'settings', 'health', 'model_evaluation']);
 
 const PRODUCT_NAME = 'YA-WAMF';
 

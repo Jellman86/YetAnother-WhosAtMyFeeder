@@ -45,38 +45,38 @@
     <section class="panel flex flex-col gap-5" aria-labelledby="spotlight-checks-title" data-spotlight-checks>
         <div class="flex flex-col gap-5 lg:flex-row lg:items-center">
             <div class="min-w-0 lg:w-96 lg:shrink-0">
-                <p class="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
-                    <span class="h-2 w-2 rounded-full bg-amber-500" aria-hidden="true"></span>{$_('leaderboard.spotlight_needs_check', { default: 'Needs a check' })}
+                <p class="flex items-center gap-2 text-sm font-bold text-status-attention">
+                    <span class="h-2 w-2 rounded-full bg-status-attention-line" aria-hidden="true"></span>{$_('leaderboard.spotlight_needs_check', { default: 'Needs a check' })}
                 </p>
-                <h3 id="spotlight-checks-title" class="mt-1 font-display text-2xl font-bold text-slate-900 dark:text-white">
+                <h2 id="spotlight-checks-title" class="mt-1 font-display text-2xl font-bold text-strong">
                     {$_('leaderboard.check.entry_title', { values: { count: checks.length }, default: '{count} species may be misnamed' })}
-                </h3>
-                <p class="mt-1 text-base text-slate-600 dark:text-slate-300">
+                </h2>
+                <p class="mt-1 text-base text-muted">
                     {nearbyRadiusKm
                         ? $_('leaderboard.check.entry_body', { values: { distance: displayDistance(nearbyRadiusKm, $_) }, default: 'Each rests on the camera alone, and no birder has reported it within {distance}.' })
                         : $_('leaderboard.check.entry_body_plain', { default: 'Each rests on the camera alone.' })}
                     {#if oncheck}{' '}{$_('leaderboard.check.entry_action', { default: 'See what was photographed and say what it was.' })}{/if}
                 </p>
             </div>
-            <ul class="flex min-w-0 flex-1 gap-3 overflow-x-auto pb-1 [scrollbar-width:thin]">
+            <ul class="flex min-w-0 flex-1 gap-3 overflow-x-auto pb-1 scrollbar-thin">
                 {#each checks as row, index (`${row.key}|${index}`)}
                     {@const thumb = pictureFor(row)}
                     <li class="shrink-0">
                         <button
                             type="button"
-                            class="group block w-28 text-left focus-visible:outline-none"
+                            class="group block w-28 text-left focus-visible:outline-hidden"
                             aria-label={oncheck
                                 ? $_('leaderboard.check.open_one', { values: { species: row.displayName }, default: 'Check {species}' })
                                 : `${$_('leaderboard.spotlight_review', { default: 'Review' })} ${row.displayName}`}
                             onclick={() => (oncheck ? oncheck(row.key) : onopen(row.key))}
                         >
                             {#if thumb}
-                                <img src={thumb.url} alt="" loading="lazy" decoding="async" class="h-28 w-28 rounded-2xl object-cover ring-1 ring-line transition group-hover:ring-2 group-hover:ring-amber-400 group-focus-visible:ring-4 group-focus-visible:ring-brand-400" onerror={() => markFailed(thumb.raw)} />
+                                <img src={thumb.url} alt="" loading="lazy" decoding="async" class="h-28 w-28 rounded-2xl object-cover ring-1 ring-line transition group-hover:ring-2 group-hover:ring-accent-line group-focus-visible:ring-4 group-focus-visible:ring-focus" onerror={() => markFailed(thumb.raw)} />
                             {:else}
                                 <span class="block h-28 w-28 rounded-2xl bg-surface-raised ring-1 ring-line" aria-hidden="true"></span>
                             {/if}
-                            <span class="mt-2 block text-sm font-semibold leading-snug text-slate-900 dark:text-white">{row.displayName}</span>
-                            <span class="block text-sm tabular-nums text-slate-500 dark:text-slate-400">{row.count.toLocaleString()} {countLabel(row.count)}</span>
+                            <span class="mt-2 block text-sm font-semibold leading-snug text-strong">{row.displayName}</span>
+                            <span class="block text-sm tabular-nums text-muted">{row.count.toLocaleString()} {countLabel(row.count)}</span>
                         </button>
                     </li>
                 {/each}

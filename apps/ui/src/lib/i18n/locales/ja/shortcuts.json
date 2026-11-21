@@ -4,10 +4,14 @@
   "actions": "操作",
   "open_panel": "ショートカットパネルを開く",
   "go_dashboard": "ダッシュボードへ",
-  "go_events": "イベントへ",
+  "go_events": "エクスプローラーへ",
   "go_species": "リーダーボードへ",
   "go_settings": "設定へ",
-  "close_modal": "モーダルを閉じる",
+  "close_modal": "ダイアログを閉じる",
   "refresh": "ページを更新",
-  "go_notifications": "通知へ"
+  "go_notifications": "通知へ",
+  "previous_day": "前の日",
+  "next_day": "次の日",
+  "all_days": "すべての日を表示",
+  "search": "このページを検索（エクスプローラーと設定）"
 }

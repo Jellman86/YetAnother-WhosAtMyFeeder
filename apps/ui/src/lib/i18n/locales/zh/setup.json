@@ -8,11 +8,20 @@
   "status": {
     "ok": "已配置",
     "attention": "需要处理",
-    "optional": "可选"
+    "optional": "可选",
+    "no_password": "无密码",
+    "connected": "已连接",
+    "unreachable": "无法访问",
+    "model_missing": "需要下载",
+    "model_failed": "无法加载",
+    "model_loading": "正在加载",
+    "model_ready": "就绪",
+    "model_running": "运行中",
+    "model_chosen": "已选择"
   },
   "account": {
     "title": "管理员账户与访问权限",
-    "already": "身份验证已配置。可在“设置 → 安全”中管理。",
+    "already": "身份验证已配置。可在“设置 → 共享与集成”中管理。",
     "description": "使用管理员密码保护仪表盘，或在受信任的网络中不启用身份验证运行。"
   },
   "connection": {
@@ -23,7 +32,6 @@
     "mqtt_username": "用户名",
     "mqtt_password": "密码",
     "mqtt_password_saved": "除非输入新密码，否则将保留已保存的密码。",
-    "continue_hint": "设置已保存。您可以先继续，稍后再修复连接，但在 Frigate 可访问之前不会收到检测。",
     "description": "YA-WAMF 通过 MQTT 从 Frigate 读取检测，并通过其 API 获取快照。请填写这两项的地址，然后进行测试。",
     "frigate_auth_hint": "如果您的 Frigate 需要登录，请在 YA-WAMF 的启动环境中设置 FRIGATE_AUTH_TOKEN，重新启动后再次测试。",
     "frigate_auth_link": "环境变量",
@@ -33,7 +41,12 @@
     "mqtt_port": "端口",
     "mqtt_server": "MQTT 代理",
     "save_test": "保存并测试连接",
-    "frigate_ok": "已连接到 Frigate {version}"
+    "frigate_ok": "已连接到 Frigate {version}",
+    "blocked": "保存并测试连接后即可继续，或选择“稍后设置”。",
+    "later": "稍后设置",
+    "later_note": "手边还没有 Frigate 或代理服务器？请选择“稍后设置”。在“设置 → 摄像头与连接”中把两者都连上之前，不会收到到访记录，无法获取照片或片段，摄像头步骤也无法列出你的摄像头。",
+    "check_frigate": "Frigate 接口",
+    "check_mqtt": "MQTT 代理服务器"
   },
   "cameras": {
     "title": "摄像头与检测",
@@ -42,6 +55,8 @@
     "gates_link": "调优指南 →",
     "list": "摄像头（逗号分隔）",
     "list_unread": "无法读取 Frigate 的摄像头列表，因此无法检查这些名称。名称不完全匹配的摄像头永远不会看到鸟。留空可监视所有摄像头。",
+    "list_timed_out": "Frigate 在 {seconds} 秒内没有响应，因此无法核对这些名称。名称不完全匹配的摄像头永远看不到鸟。留空则监视所有摄像头。",
+    "reading": "正在向 Frigate 查询摄像头，最多等待 {seconds} 秒。无需等待即可继续：已保存的摄像头保持不变。",
     "not_in_frigate": "Frigate 中没有此名称的摄像头，因此它永远不会看到鸟。",
     "offline": "无预览",
     "pick": "要监视的摄像头",
@@ -50,8 +65,8 @@
     "watching_some": "{count, plural, other {正在监视 # 个摄像头。}}其他摄像头将被忽略。"
   },
   "model": {
-    "title": "分类模型与硬件",
-    "description": "YA-WAMF 内置轻量级 CPU 后备模型。请选择模型，必要时在此下载，然后在继续前验证实际镜像与硬件路径。",
+    "title": "模型和硬件",
+    "description": "选择用来识别鸟类的模型。如果此安装中没有，请在此下载，然后在继续之前确认它能在这台机器上运行。",
     "download_required": "请先在此下载并校验该模型，再在此硬件上进行验证。",
     "download_timeout": "下载时间超出预期。请检查连接后重试。",
     "validation_timeout": "硬件验证已超过 30 分钟。任务可能仍在“诊断”中收尾；请先查看其状态，再开始新的验证。",
@@ -59,7 +74,6 @@
     "detected": "检测到的加速器",
     "no_results": "尚未评估任何已安装的模型。",
     "provider_hint": "仅显示在此镜像、此主机上可用且适用于所选模型的提供程序。",
-    "results_hint": "每个设备的完整编译、延迟和准确度详情位于“设置 → 调试 → 模型评估工具”。“调试”选项卡在启用调试界面后显示（SYSTEM__DEBUG_UI_ENABLED=true）。",
     "revalidate": "重新验证",
     "row_ok": "可运行",
     "row_warn": "需检查",
@@ -71,10 +85,10 @@
     "validation_success": "硬件验证已成功完成。",
     "verified": "已验证的提供程序：{list}",
     "location_title": "喂食器位置",
-    "location_hint": "验证或继续时会先保存这些坐标，与设置 → 集成 → 位置中的喂食器位置相同。此模型不使用日期或位置精度半径。",
+    "location_hint": "验证或继续时会先保存这些坐标，与设置 → 共享与集成 → 位置中的喂食器位置相同。此模型不使用日期或位置精度半径。",
     "location_incomplete": "请输入纬度和经度，或将两项都留空。",
     "location_empty": "不使用位置信息：此模型也能在没有位置的情况下识别鸟类。",
-    "ram_note": "建议约 {ram} MB 内存。",
+    "ram_note": "建议约 {ram} MB 内存。",
     "phase_starting": "正在开始检查…",
     "phase_preparing": "正在准备检查…",
     "phase_sweep": "正在每个设备上检查此模型…",
@@ -89,7 +103,14 @@
     "readiness_retry": "检查已完成，但无法刷新模型就绪状态。正在重试；您可以离开此步骤并稍后返回。",
     "best_provider": "最佳已验证提供程序：{provider}，每张图像 {ms} 毫秒",
     "best_provider_without_timing": "最佳已验证提供程序：{provider}",
-    "failed_providers": "失败：{providers}"
+    "failed_providers": "失败：{providers}",
+    "blocked_downloading": "下载完成后即可继续。",
+    "blocked_no_model": "选择一个模型即可继续，或跳过此步骤以保留当前使用的模型。",
+    "blocked_download": "下载此模型即可继续，或跳过此步骤以保留当前使用的模型。",
+    "blocked_check": "在此硬件上检查该模型后即可继续，或跳过此步骤以保留当前使用的模型。",
+    "blocked_location": "输入喂食器的纬度和经度即可继续，或将两者都留空。",
+    "blocked_provider": "此主机没有所选设备。请选择其他设备或“自动”后继续。",
+    "download_needed": "需要下载"
   },
   "quality": {
     "title": "最佳可用快照",
@@ -106,7 +127,7 @@
     "note_bw": "向社区电台报告。请在设置中添加电台令牌。",
     "note_ebird": "附近观测、地图以及可选的分布范围筛选。请在设置中添加 API 密钥。",
     "note_inat": "经所有者审核后提交。请在设置中连接您的账号。",
-    "notifications_note": "通知渠道在“设置 → 通知”中配置。Home Assistant 需在外部安装和配置；请参阅集成指南。"
+    "notifications_note": "通知渠道在“设置 → 提醒”中配置。Home Assistant 需在外部安装和配置；请参阅集成指南。"
   },
   "history": {
     "title": "导入现有检测",
@@ -115,7 +136,6 @@
     "enable_help": "仅在分类质量提高时更新检测，并保留已保存的音频与天气信息。",
     "range": "历史范围",
     "import_continue": "导入并继续",
-    "continue_without": "不导入并继续",
     "job_title": "检测历史导入",
     "job_starting": "正在扫描 Frigate 事件历史",
     "audio_note": "Frigate 历史可恢复视觉检测和快照，但无法重建未保存的 BirdNET-Go 音频。"
@@ -139,12 +159,19 @@
       "model_wrong_kind": "裁剪检测器被选作分类器",
       "model_retired": "已停用保存的分类模型",
       "model_fallback": "内置后备模型",
+      "model_missing": "此安装中没有 {model}，因此目前还没有模型在识别鸟类。",
+      "model_missing_bundled": "此安装中没有内置模型，因此目前还没有模型在识别鸟类。",
+      "model_failed": "{model} 已安装但无法加载，因此没有模型在识别鸟类。",
+      "model_failed_bundled": "内置模型已安装但无法加载，因此没有模型在识别鸟类。",
+      "model_bundled": "内置模型",
       "quality_best": "最佳可用快照",
       "quality_standard": "标准快照",
       "integrations_needs": "需要设置：{integrations}",
       "integrations_configured": "已配置：{integrations}",
       "integrations_birdnet_listening": "BirdNET-Go 正在通过 MQTT 监听，但没有可用于检查的 URL",
-      "integrations_none": "均未启用"
+      "integrations_none": "均未启用",
+      "frigate": "Frigate",
+      "connection_unreachable": "无法访问：{items}。请检查地址，并确认两者都在运行。"
     },
     "description": "以下是各部分的当前状态。可进入任意部分进行修改，不会影响其他部分。",
     "done": "完成",
@@ -155,7 +182,7 @@
   "skip": "跳过设置",
   "skip_failed": "跳过失败：无法连接服务器。",
   "skip_confirm_title": "跳过设置并打开应用?",
-  "skip_confirm_body_no_account": "在您于设置 → 安全中设置密码之前,应用将在无密码状态下运行。此向导涵盖的所有内容都可以稍后配置,并且您可以随时从设置 → 设置向导重新运行它。",
+  "skip_confirm_body_no_account": "在您于设置 → 共享与集成中设置密码之前,应用将在无密码状态下运行。此向导涵盖的所有内容都可以稍后配置,并且您可以随时从设置 → 设置向导重新运行它。",
   "skip_confirm_body": "此向导涵盖的所有内容都可以稍后配置,并且您可以随时从设置 → 设置向导重新运行它。",
   "skip_confirm_action": "跳过并打开应用",
   "back": "上一步",
@@ -170,14 +197,16 @@
     "cover_cameras": "选择摄像头",
     "cover_connect": "连接 Frigate 与 MQTT",
     "cover_integrations": "启用集成",
-    "cover_model": "在您的硬件上验证模型",
-    "description": "开始让您的喂食器上线。设置只需几分钟，可选项可以跳过，之后也可以随时从设置导航中重新运行。",
+    "cover_model": "检查模型能否在本机运行",
+    "description": "只需几分钟。可选项可以跳过，之后随时可以在“设置”中重新运行设置向导。",
     "start": "开始",
-    "title": "欢迎使用 YA-WAMF"
+    "title": "设置 YA-WAMF",
+    "covers": "设置向导会请你："
   },
   "working": "处理中…",
   "skip_step": "跳过此步骤",
   "step_list": "设置步骤",
+  "progress": "设置进度",
   "step_names": {
     "welcome": "欢迎",
     "account": "账户",
@@ -186,8 +215,15 @@
     "model": "模型",
     "quality": "快照",
     "integrations": "集成",
-    "history": "历史",
-    "telemetry": "使用统计",
+    "history": "可选项",
     "review": "检查"
+  },
+  "blocked": {
+    "loading": "当前设置加载完成后即可继续。",
+    "load_failed": "无法加载当前设置，因此这里无法保存任何内容。请使用上方的“重试加载设置”。"
+  },
+  "extras": {
+    "title": "可选项",
+    "description": "完成前还有两个选择。两者默认关闭，除非你开启，之后也都可以在“设置”中更改。"
   }
 }

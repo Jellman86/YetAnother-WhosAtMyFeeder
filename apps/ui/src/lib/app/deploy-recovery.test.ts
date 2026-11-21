@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDeployRecovery, isLikelyStaleBundleError } from './deploy-recovery';
 
 function createStorage() {
@@ -29,49 +29,6 @@ describe('isLikelyStaleBundleError', () => {
 });
 
 describe('createDeployRecovery', () => {
-    it('reloads once for a stale-bundle runtime failure signature', () => {
-        const storage = createStorage();
-        const reload = vi.fn();
-        const warn = vi.fn();
-        const recovery = createDeployRecovery({
-            appVersion: '2.9.1-dev+old',
-            storage,
-            reload,
-            warn
-        });
-
-        const result = recovery.handleRuntimeFailure({
-            message: 'error loading dynamically imported module: http://127.0.0.1:9852/assets/leaflet-src-DYyUWJOP.js'
-        });
-
-        expect(result).toBe('reload');
-        expect(reload).toHaveBeenCalledTimes(1);
-        expect(warn).not.toHaveBeenCalled();
-    });
-
-    it('warns instead of reloading again for the same stale-bundle runtime signature', () => {
-        const storage = createStorage();
-        const reload = vi.fn();
-        const warn = vi.fn();
-        const recovery = createDeployRecovery({
-            appVersion: '2.9.1-dev+old',
-            storage,
-            reload,
-            warn
-        });
-
-        recovery.handleRuntimeFailure({
-            message: 'Failed to fetch dynamically imported module'
-        });
-        const result = recovery.handleRuntimeFailure({
-            message: 'Failed to fetch dynamically imported module'
-        });
-
-        expect(result).toBe('warn');
-        expect(reload).toHaveBeenCalledTimes(1);
-        expect(warn).toHaveBeenCalledTimes(1);
-    });
-
     it('ignores generic runtime failures', () => {
         const recovery = createDeployRecovery({
             appVersion: '2.9.1-dev+old',
@@ -355,27 +312,168 @@ describe('createDeployRecovery', () => {
 
     it('increments recovery count on every trigger and exposes it via getRecoveryCount', () => {
         const storage = createStorage();
-        const reload = vi.fn();
-        const warn = vi.fn();
         const recovery = createDeployRecovery({
             appVersion: '2.9.1-dev+old',
             storage,
-            reload,
-            warn
+            reload: vi.fn(),
+            warn: vi.fn()
         });
 
         expect(recovery.getRecoveryCount()).toBe(0);
 
         // First trigger → reload, count goes to 1
-        recovery.handleRuntimeFailure({
-            message: 'Failed to fetch dynamically imported module'
-        });
+        recovery.observeHealth({ version: '2.9.2-dev+new' });
         expect(recovery.getRecoveryCount()).toBe(1);
 
         // Second trigger → warn (same signature), count goes to 2
-        recovery.handleRuntimeFailure({
-            message: 'Failed to fetch dynamically imported module'
-        });
+        recovery.observeHealth({ version: '2.9.2-dev+new' });
         expect(recovery.getRecoveryCount()).toBe(2);
+    });
+});
+
+/**
+ * A failed import looks the same whether a deploy removed the chunk or the browser ended the load
+ * because the reader is going elsewhere (Safari does this as a navigation starts, and gives no
+ * beforeunload on iPhone). So the server is asked which build it runs, and only a different build
+ * reloads; the tab's one automatic reload is spent only when that reload happens.
+ */
+describe('a failed import', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    const IMPORT_FAILED = { message: 'Importing a module script failed.' };
+    const UPDATED = 'updated while this tab was open';
+    const UNREACHABLE = 'could not be reached to check for an update';
+
+    function setUp(answer: () => Promise<{ version?: string } | null>, storage = createStorage()) {
+        const reload = vi.fn();
+        const warn = vi.fn();
+        const report = vi.fn();
+        const readDeployment = vi.fn(answer);
+        const recovery = createDeployRecovery({
+            appVersion: '2.9.1-dev+old', storage, reload, warn, report, readDeployment, deploymentCheckMs: 5000,
+            warningMessage: UPDATED, unreachableMessage: UNREACHABLE
+        });
+        return { recovery, reload, warn, report, readDeployment, storage };
+    }
+
+    it('on the same build does not reload, warn or spend the attempt: the route offers its own retry', async () => {
+        vi.useFakeTimers();
+        const storage = createStorage();
+        const same = setUp(async () => ({ version: '2.9.1-dev+old' }), storage);
+        expect(same.recovery.handleRuntimeFailure(IMPORT_FAILED)).toBe('checking');
+        await vi.advanceTimersByTimeAsync(0);
+        expect(same.reload).not.toHaveBeenCalled();
+        expect(same.warn).not.toHaveBeenCalled();
+        expect(same.report).not.toHaveBeenCalled();
+
+        // The attempt is still there for a real deploy later in the same tab.
+        const later = setUp(async () => ({ version: '2.9.2-dev+new' }), storage);
+        later.recovery.handleRuntimeFailure(IMPORT_FAILED);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(later.reload).toHaveBeenCalledTimes(1);
+    });
+
+    it('on a different build reloads once, spending the attempt as it reloads', async () => {
+        vi.useFakeTimers();
+        const { recovery, reload, warn, report, storage } = setUp(async () => ({ version: '2.9.2-dev+new' }));
+        recovery.handleRuntimeFailure(IMPORT_FAILED);
+        expect(storage.getItem('yawamf_deploy_recovery_attempt_v1')).toBeNull();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(reload).toHaveBeenCalledTimes(1);
+        expect(warn).not.toHaveBeenCalled();
+        expect(report).toHaveBeenCalledWith({ action: 'reload', reason: 'runtime_failure', frontendVersion: '2.9.1-dev+old', backendVersion: '2.9.2-dev+new' });
+        expect(storage.getItem('yawamf_deploy_recovery_attempt_v1')).toContain('2.9.2-dev+new');
+        // One deploy, one reload: the pushed status naming the same build does not reload again.
+        expect(recovery.observeHealth({ version: '2.9.2-dev+new' })).toBe('warn');
+        expect(reload).toHaveBeenCalledTimes(1);
+    });
+
+    it('after the reload it caused, a reloaded page on the same old build says Refresh rather than looping', async () => {
+        vi.useFakeTimers();
+        const first = setUp(async () => ({ version: '2.9.2-dev+new' }));
+        first.recovery.handleRuntimeFailure(IMPORT_FAILED);
+        await vi.advanceTimersByTimeAsync(0);
+        const again = setUp(async () => ({ version: '2.9.2-dev+new' }), first.storage);
+        again.recovery.handleRuntimeFailure(IMPORT_FAILED);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(again.reload).not.toHaveBeenCalled();
+        // The server named a different build, so saying the app was updated is a measured fact.
+        expect(again.warn).toHaveBeenCalledTimes(1);
+        expect(again.warn).toHaveBeenCalledWith(UPDATED);
+    });
+
+    it('when the server cannot be asked, does not reload and says it could not check for an update', async () => {
+        vi.useFakeTimers();
+        const { recovery, reload, warn, storage } = setUp(async () => {
+            throw new TypeError('Load failed');
+        });
+        recovery.handleRuntimeFailure(IMPORT_FAILED);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(reload).not.toHaveBeenCalled();
+        // Nothing says the app was updated: the page could not be opened and the server not asked.
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith(UNREACHABLE);
+        expect(storage.getItem('yawamf_deploy_recovery_attempt_v1')).toBeNull();
+    });
+
+    it('when the server does not answer in time, does not reload and says it could not check for an update', async () => {
+        vi.useFakeTimers();
+        const { recovery, reload, warn } = setUp(() => new Promise(() => undefined));
+        recovery.handleRuntimeFailure(IMPORT_FAILED);
+        await vi.advanceTimersByTimeAsync(4999);
+        expect(warn).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(reload).not.toHaveBeenCalled();
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith(UNREACHABLE);
+    });
+
+    it('when the server answers without naming its build, says it could not check, not that the app was updated', async () => {
+        vi.useFakeTimers();
+        const { recovery, reload, warn } = setUp(async () => ({}));
+        recovery.handleRuntimeFailure(IMPORT_FAILED);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(reload).not.toHaveBeenCalled();
+        expect(warn).toHaveBeenCalledWith(UNREACHABLE);
+    });
+
+    it('two failures together ask once and reload once, with no Refresh message flashed first', async () => {
+        vi.useFakeTimers();
+        const { recovery, reload, warn, readDeployment } = setUp(async () => ({ version: '2.9.2-dev+new' }));
+        recovery.handleRuntimeFailure(IMPORT_FAILED);
+        recovery.handleRuntimeFailure({ message: 'Failed to fetch dynamically imported module' });
+        await vi.advanceTimersByTimeAsync(0);
+        // A third, while the page is already reloading, says nothing either.
+        recovery.handleRuntimeFailure(IMPORT_FAILED);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(readDeployment).toHaveBeenCalledTimes(1);
+        expect(reload).toHaveBeenCalledTimes(1);
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('a leave the reader cancels cannot swallow the reload: it happens as the server answers, with nothing left waiting', async () => {
+        // Settings asks "Leave site?" when there are unsaved changes. Nothing here waits on a timer or
+        // reads whether the page is leaving, so choosing Stay leaves no reload skipped and no attempt spent.
+        vi.useFakeTimers();
+        const { recovery, reload } = setUp(async () => ({ version: '2.9.2-dev+new' }));
+        recovery.handleRuntimeFailure(IMPORT_FAILED);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(reload).toHaveBeenCalledTimes(1);
+        expect(vi.getTimerCount()).toBe(0);
+        expect(recovery.observeHealth({ version: '2.9.3-dev+newer' })).toBe('reload');
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it('without a way to ask the server, never reloads on a failed import', async () => {
+        vi.useFakeTimers();
+        const reload = vi.fn();
+        const warn = vi.fn();
+        const recovery = createDeployRecovery({ appVersion: '2.9.1-dev+old', storage: createStorage(), reload, warn });
+        recovery.handleRuntimeFailure(IMPORT_FAILED);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(reload).not.toHaveBeenCalled();
+        expect(warn).toHaveBeenCalledTimes(1);
     });
 });

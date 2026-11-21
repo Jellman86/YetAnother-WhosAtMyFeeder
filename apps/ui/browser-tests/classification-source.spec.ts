@@ -7,7 +7,10 @@ for (const surface of ['record', 'queue']) {
         await page.route('https://fonts.gstatic.com/**', route => route.abort());
         await page.route(url => url.pathname.startsWith('/api/'), route => route.fulfill({ json: [] }));
         await page.goto(`/browser-tests/review-media.html?surface=${surface}&queue=dunnock`);
-        await expect(page.locator('[data-classification-source]').first()).toBeVisible();
+        // Nothing recorded how this bird was named yet, so the record says nothing about it.
+        await page.waitForFunction(() => Boolean(window.reviewMedia));
+        await expect(page.getByRole('dialog').first()).toBeVisible();
+        await expect(page.locator('[data-classification-source]')).toHaveCount(0);
         await page.evaluate(() => window.reviewMedia?.updateParent({
             classification_input: { source: 'full_frame', is_cropped: false },
             initial_classification_input: { source: 'full_frame', is_cropped: false }

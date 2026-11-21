@@ -1,13 +1,15 @@
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from app.auth import AuthContext, require_owner
+from app.models.service_connections import ServiceConnectionsResponse
 from app.routers.stats import SystemTelemetryHistoryResponse, build_system_telemetry_history
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.media_probe import collect_video_sample_diagnostic
+from app.services.service_connections import collect_service_connections
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 
@@ -18,6 +20,11 @@ _BACKFILL_STALE_JOB_SECONDS = 600.0
 
 _VIDEO_DIAGNOSTIC_COMPONENTS = {"auto_video_classifier", "video_classifier"}
 _VIDEO_BREAKER_REASON_CODES = {"video_circuit_open", "video_circuit_opened", "circuit_open"}
+
+
+class DiagnosticDismissalStateResponse(BaseModel):
+    dismissed_count: int = Field(description="How many occurrences the dismissal covers; a later one ends it.")
+    dismissed_at: str = Field(description="When the owner dismissed it.")
 
 
 class BackendDiagnosticEventResponse(BaseModel):
@@ -36,12 +43,22 @@ class BackendDiagnosticEventResponse(BaseModel):
     worker_pool: str | None = None
     runtime_recovery: dict[str, Any] | None = None
     snapshot_ref: str | None = None
+    count: int = Field(1, description="How many times this fault was recorded; repeats share one entry.")
+    first_seen: str | None = Field(None, description="When the first occurrence was recorded.")
+    last_seen: str | None = Field(None, description="When the newest occurrence was recorded; equals `timestamp`.")
+    dismissed: bool = Field(
+        False,
+        description="Hidden on Health by the owner. False again once an occurrence newer than the dismissal is recorded.",
+    )
+    dismissal: DiagnosticDismissalStateResponse | None = Field(None, description="Set while `dismissed` is true.")
 
 
 class BackendDiagnosticsSnapshotResponse(BaseModel):
     captured_at: str
     capacity: int
-    total_events: int
+    total_events: int = Field(description="Distinct entries held, after repeats are grouped.")
+    total_occurrences: int = Field(0, description="Recorded occurrences across every entry held.")
+    dismissed_events: int = Field(0, description="Entries held that the owner has dismissed, across every entry held.")
     filtered_events: int
     returned_events: int
     severity_counts: dict[str, int]
@@ -82,6 +99,7 @@ class DiagnosticsWorkspaceResponse(BaseModel):
     backend_diagnostics: BackendDiagnosticsSnapshotResponse
     focused_diagnostics: FocusedDiagnosticsResponse
     health: dict[str, Any]
+    connections: ServiceConnectionsResponse | None = None
     classifier: dict[str, Any]
     taxonomy_repair: dict[str, Any]
     maintenance_coordinator: dict[str, Any]
@@ -96,6 +114,7 @@ class DiagnosticsBundleSummaryResponse(BaseModel):
     backfill_running_jobs: int
     backfill_failed_jobs: int
     video_sample_format: str = "unknown"
+    dismissed_events: int = 0
 
 
 class DiagnosticsBundleServerResponse(BaseModel):
@@ -142,6 +161,39 @@ class DiagnosticsBundleResponse(BaseModel):
 class ClearDiagnosticsWorkspaceResponse(BaseModel):
     cleared_events: int
     remaining_events: int
+
+
+DiagnosticEntryId = Annotated[str, Field(min_length=1, max_length=64)]
+
+
+class DiagnosticDismissalEntryRequest(BaseModel):
+    id: DiagnosticEntryId
+    count: int = Field(ge=1, strict=True, description="How many occurrences the owner saw, the entry's `count`.")
+
+
+class DismissDiagnosticsRequest(BaseModel):
+    entries: list[DiagnosticDismissalEntryRequest] = Field(min_length=1, max_length=200)
+
+
+class DiagnosticDismissalResponse(BaseModel):
+    id: str
+    component: str
+    reason_code: str
+    dismissed_count: int
+    dismissed_at: str
+
+
+class DismissDiagnosticsResponse(BaseModel):
+    dismissed: list[DiagnosticDismissalResponse]
+    missing: list[str] = Field(description="Entries no longer in the history, so there was nothing to dismiss.")
+
+
+class RestoreDiagnosticsRequest(BaseModel):
+    ids: list[DiagnosticEntryId] = Field(min_length=1, max_length=200)
+
+
+class RestoreDiagnosticsResponse(BaseModel):
+    restored: list[str] = Field(description="Entries that were dismissed and now show again.")
 
 
 def _is_video_diagnostic_event(event: dict[str, Any]) -> bool:
@@ -265,12 +317,14 @@ def _build_backfill_focus(backend_snapshot: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
-    from app.main import build_health_payload
+    from app.main import collect_health_payload
     from app.routers.classifier import classifier_service
     from app.routers.settings import canonical_identity_repair_service
     from app.services.maintenance_coordinator import maintenance_coordinator
 
-    health = build_health_payload()
+    # Measured first, so the health verdict below already counts a Frigate that stopped answering.
+    connections = await collect_service_connections(refresh_frigate=True)
+    health = await collect_health_payload()
     backend_diagnostics = error_diagnostics_history.snapshot(limit=limit)
     taxonomy_repair = canonical_identity_repair_service.get_status()
     maintenance_status = await maintenance_coordinator.get_status()
@@ -283,7 +337,8 @@ async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
             "backfill": _build_backfill_focus(backend_diagnostics),
         },
         "health": health,
-        "classifier": classifier_service.get_status(),
+        "connections": connections.model_dump(),
+        "classifier": await classifier_service.collect_status(),
         "taxonomy_repair": taxonomy_repair,
         "maintenance_coordinator": maintenance_status,
         "startup_warnings": health.get("startup_warnings") or [],
@@ -322,6 +377,7 @@ async def _collect_bundle_payload(limit: int) -> dict[str, Any]:
             "backfill_running_jobs": len(backfill_focus.get("running_jobs") or []),
             "backfill_failed_jobs": len(backfill_focus.get("failed_jobs") or []),
             "video_sample_format": media_sample.get("codec_tag") or "unknown",
+            "dismissed_events": int(backend_diagnostics.get("dismissed_events") or 0),
         },
         "server": {
             "service": health.get("service") or "unknown",
@@ -367,6 +423,17 @@ async def get_owner_workspace_diagnostics(
     return await _collect_workspace_payload(limit)
 
 
+@router.get("/connections", response_model=ServiceConnectionsResponse)
+async def get_service_connections(
+    _auth: AuthContext = Depends(require_owner),
+) -> ServiceConnectionsResponse:
+    """Whether the MQTT broker session is up and Frigate's API answers, as last measured.
+
+    A Frigate reading older than a minute is refreshed with one short request first.
+    """
+    return await collect_service_connections(refresh_frigate=True)
+
+
 @router.get("/bundle", response_model=DiagnosticsBundleResponse)
 async def get_owner_diagnostics_bundle(
     limit: int = Query(default=200, ge=1, le=1000),
@@ -386,3 +453,26 @@ async def clear_owner_workspace_diagnostics(
         "cleared_events": cleared_events,
         "remaining_events": 0,
     }
+
+
+@router.post("/dismissals", response_model=DismissDiagnosticsResponse)
+async def dismiss_owner_workspace_diagnostics(
+    body: DismissDiagnosticsRequest,
+    _auth: AuthContext = Depends(require_owner),
+):
+    """Hide backend history entries on Health for everyone, each up to the occurrences the owner saw.
+
+    Nothing is deleted: a newer occurrence shows the entry again, restore shows it now, and
+    clearing the error history removes the dismissals with everything else.
+    """
+    result = error_diagnostics_history.dismiss([(entry.id, entry.count) for entry in body.entries])
+    return {"dismissed": result.dismissed, "missing": result.missing}
+
+
+@router.post("/dismissals/restore", response_model=RestoreDiagnosticsResponse)
+async def restore_owner_workspace_diagnostics(
+    body: RestoreDiagnosticsRequest,
+    _auth: AuthContext = Depends(require_owner),
+):
+    """Show dismissed backend history entries on Health again."""
+    return {"restored": error_diagnostics_history.restore(body.ids)}

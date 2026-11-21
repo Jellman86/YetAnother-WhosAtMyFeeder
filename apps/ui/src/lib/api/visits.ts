@@ -1,4 +1,4 @@
-import { API_BASE, fetchWithAbort } from './core';
+import { API_BASE, fetchWithAbort, mapGuarded, type Guarded } from './core';
 import type { components, paths } from './generated/openapi';
 import type { Detection } from './types';
 import type { FetchEventsOptions } from './events';
@@ -14,6 +14,8 @@ export type DetectionVisit = Omit<VisitResponse, 'representative' | 'latest' | '
 export interface VisitOptions extends FetchEventsOptions {
     startTime?: string;
     endTime?: string;
+    /** A bound on the whole read, body included; omit for the Explorer's own unbounded reads. */
+    timeoutMs?: number;
 }
 
 function requiredTimestamp(value: string | null): string {
@@ -41,6 +43,7 @@ function detection(data: components['schemas']['DetectionResponse']): Detection 
         weather_precipitation: data.weather_precipitation ?? undefined,
         weather_rain: data.weather_rain ?? undefined,
         weather_snowfall: data.weather_snowfall ?? undefined,
+        illuminance_lux: data.illuminance_lux ?? undefined,
         video_classification_score: data.video_classification_score ?? undefined,
         video_classification_label: data.video_classification_label ?? undefined,
         video_classification_timestamp: data.video_classification_timestamp ?? undefined,
@@ -67,18 +70,26 @@ function query(options: VisitOptions): URLSearchParams {
     return params;
 }
 
-export async function fetchVisits(options: VisitOptions = {}): Promise<{ visits: DetectionVisit[]; total: number; gap_seconds: number }> {
-    const result = await fetchWithAbort<paths['/api/visits']['get']['response']>(options.signal ? null : options.requestKey ?? 'visits', `${API_BASE}/visits?${query(options)}`, { signal: options.signal });
-    return {
+/** The visits reads' deadline, body included, unless a caller sets its own. */
+const VISITS_TIMEOUT_MS = 30_000;
+
+export function fetchVisits(options: VisitOptions = {}): Guarded<{ visits: DetectionVisit[]; total: number; gap_seconds: number }> {
+    // A caller's own key is kept beside its signal; only the shared default key gives way to a signal.
+    const read = fetchWithAbort<paths['/api/visits']['get']['response']>(
+        options.requestKey ?? (options.signal ? null : 'visits'),
+        `${API_BASE}/visits?${query(options)}`,
+        { signal: options.signal, timeoutMs: options.timeoutMs ?? VISITS_TIMEOUT_MS }
+    );
+    return mapGuarded(read, (result) => ({
         ...result,
         visits: result.visits.map((visit) => ({
             ...visit, start_time: requiredTimestamp(visit.start_time), end_time: requiredTimestamp(visit.end_time), representative: detection(visit.representative), latest: detection(visit.latest),
             peak_capture: visit.peak_capture ? detection(visit.peak_capture) : null
         }))
-    };
+    }));
 }
 
 export async function fetchVisitCaptures(visitId: string, options: VisitOptions = {}): Promise<{ captures: Detection[]; total: number }> {
-    const result = await fetchWithAbort<paths['/api/visits/{visit_id}/captures']['get']['response']>(options.signal ? null : options.requestKey ?? `visit-captures:${visitId}`, `${API_BASE}/visits/${encodeURIComponent(visitId)}/captures?${query(options)}`, { signal: options.signal });
+    const result = await fetchWithAbort<paths['/api/visits/{visit_id}/captures']['get']['response']>(options.signal ? null : options.requestKey ?? `visit-captures:${visitId}`, `${API_BASE}/visits/${encodeURIComponent(visitId)}/captures?${query(options)}`, { signal: options.signal, timeoutMs: options.timeoutMs ?? VISITS_TIMEOUT_MS });
     return { ...result, captures: result.captures.map(detection) };
 }

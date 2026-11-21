@@ -514,7 +514,7 @@ test('a Garden animal gets the same tree with its own Garden visits and no world
     await expect(card).toHaveCount(0);
     await svg.locator('[data-family-tree-node="72"]').hover();
     await expect(card.locator('[data-taxon-card-caption]')).toHaveText('Your photo of Red Fox');
-    await expect(page.locator('[data-family-tree] footer')).toContainText('SpeciesNet taxonomy');
+    await expect(page.locator('[data-family-tree] [data-family-tree-source]')).toContainText('SpeciesNet taxonomy');
     expect(errors).toEqual([]);
 });
 
@@ -721,4 +721,29 @@ test('a card that scrolls inside fades at its foot until its end, where the desc
     const lines = await card.locator('[data-taxon-card-description] p').first().evaluate((element) =>
         Math.round(element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight)));
     expect(lines).toBeLessThanOrEqual(3);
+});
+
+test('the ladder and the tree name the species as the record that opened them does', async ({ page }, testInfo) => {
+    // The catalogue calls this bird "Dunnock"; the record it is shown under calls it "Hedge Sparrow".
+    const { errors } = await prepare(page, '/browser-tests/family-tree.html?common=Hedge%20Sparrow');
+    const card = page.locator('[data-taxonomy-lineage]');
+    await expect(card.locator('[aria-current="true"]')).toContainText('Hedge Sparrow');
+    await expect(card).not.toContainText('Dunnock');
+    // Every other rank keeps the catalogue's name.
+    await expect(card.locator('li')).toHaveText([/Class\s*Aves/, /Order\s*Passeriformes/, /Family\s*Accentors/, /Genus\s*Prunella/, /Species\s*Hedge Sparrow/]);
+    await card.screenshot({ path: testInfo.outputPath('ladder-record-name.png') });
+    await page.getByRole('button', { name: 'Open the family tree' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Family tree of Hedge Sparrow' });
+    await expect(dialog).toBeVisible();
+    // The selected node is the same bird as the title, so it carries the same name in every layout.
+    const selected = dialog.getByRole('treeitem', { selected: true });
+    await expect(selected.first()).toContainText('Hedge Sparrow');
+    await expect(dialog).not.toContainText('Dunnock');
+    await dialog.screenshot({ path: testInfo.outputPath('tree-record-name.png') });
+    for (const layout of ['fan', 'outline']) {
+        await dialog.locator(`[data-family-tree-mode="${layout}"]`).click();
+        await expect(dialog.getByRole('treeitem', { selected: true }).first()).toContainText('Hedge Sparrow');
+        await expect(dialog).not.toContainText('Dunnock');
+    }
+    expect(errors).toEqual([]);
 });

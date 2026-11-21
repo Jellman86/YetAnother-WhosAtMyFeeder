@@ -3,6 +3,8 @@ import type { DetectionVisit } from '../api/visits';
 import { heardWindow } from './heard-timeline';
 import { groupGardenReview } from './garden-review-groups';
 import { domesticBirdName } from './domestic-birds';
+import { VISIT_GAP_MS } from './visit-grouping';
+import type { GardenCheckState } from '../settings/model-readiness';
 
 /**
  * Where Garden captures sit in the Explorer.
@@ -158,7 +160,37 @@ export function gardenRowDetail(capture: GardenCapture, view: GardenEntryView): 
 /** Who is reading: only the owner confirmed anything, so only the owner is told "by you". */
 export type GardenViewer = 'owner' | 'visitor';
 
-export function gardenEntryText(capture: GardenCapture, view: GardenEntryView, t: Translate, viewer: GardenViewer): { title: string; state: string } {
+/**
+ * Why a capture nobody has identified is still waiting. When the automatic check cannot run, the
+ * wait has a cause the owner can act on, so it is named as what was measured: the model's own
+ * state, or the thing that blocks Garden's checks. Otherwise nothing more is claimed.
+ */
+function waitingState(check: GardenCheckState | null | undefined, t: Translate): string {
+    if (check?.kind === 'blocked') {
+        return check.blocker === 'species_data'
+            ? t('garden.explorer.state_waiting_species_data', 'Waiting: Garden species data is unavailable, so nothing can identify this yet.')
+            : t('garden.explorer.state_waiting_service', 'Waiting: Garden checks have stopped. {detail}', { detail: check.detail });
+    }
+    if (check?.readiness === 'missing') {
+        return t('garden.explorer.state_waiting_model_missing', 'Waiting: the automatic check model is not downloaded, so nothing can identify this yet.');
+    }
+    if (check?.readiness === 'queued') {
+        return t('garden.explorer.state_waiting_model_queued', 'Waiting: the automatic check model is downloading. Identification starts when it finishes.');
+    }
+    return t('garden.explorer.state_waiting_automatic', 'Waiting for automatic identification');
+}
+
+/**
+ * `checkModel` is what stands before the automatic check, where the caller has read it (the capture
+ * dialog, for an owner); a list row that has not read it passes nothing and says only that it waits.
+ */
+export function gardenEntryText(
+    capture: GardenCapture,
+    view: GardenEntryView,
+    t: Translate,
+    viewer: GardenViewer,
+    checkModel?: GardenCheckState | null
+): { title: string; state: string } {
     if (capture.status === 'dismissed') {
         return {
             title: t('garden.explorer.dismissed_title', 'Dismissed capture'),
@@ -170,15 +202,15 @@ export function gardenEntryText(capture: GardenCapture, view: GardenEntryView, t
         ?? (capture.status === 'pending'
             ? t('garden.explorer.possible_animal', 'Possible animal')
             : t('garden.explorer.unnamed_animal', 'Animal, not named'));
-    if (capture.status === 'pending' && !view.review) return { title, state: t('garden.explorer.state_waiting_automatic', 'Waiting for automatic identification') };
+    if (capture.status === 'pending' && !view.review) return { title, state: waitingState(checkModel, t) };
     if (view.review === 'presence') {
         const reason = capture.automatic_check?.decision_reason;
-        if (reason === 'location_required') return { title, state: t('garden.automatic_location_required', 'Animal detected. Set a country in Settings → Location so the model can name it automatically.') };
+        if (reason === 'location_required') return { title, state: t('garden.automatic_location_required', 'Animal detected. Set a country in Settings → Integrations → Location so the model can name it automatically.') };
         if (reason === 'identity_unavailable') return { title, state: t('garden.automatic_identity_unavailable', 'Animal detected, but its name could not be bound to the local catalogue. No automatic name was saved.') };
         if (reason === 'below_threshold') return { title, state: t('garden.explorer.state_below_threshold', 'Animal detected; species below the naming threshold') };
         return { title, state: t('garden.explorer.state_manual', 'Manual review: automatic naming is off or an owner override is active') };
     }
-    if (view.review === 'species') return { title, state: t('garden.explorer.state_species', 'Needs review: suggested species') };
+    if (view.review === 'species') return { title, state: t('garden.explorer.state_species', 'Needs your call: suggested species') };
     if (route) {
         return {
             title,
@@ -201,9 +233,6 @@ export type GardenReview = 'reviewable' | 'pending' | 'confirmed' | 'dismissed';
 export function gardenBelongs(capture: GardenCapture, review: GardenReview): boolean {
     return review === 'reviewable' ? capture.status === 'pending' || capture.status === 'confirmed' : capture.status === review;
 }
-
-/** The bird visit rule's gap: captures less than a minute apart are one stay. */
-const GARDEN_VISIT_GAP_MS = 60_000;
 
 export interface GardenVisit {
     id: string;
@@ -251,12 +280,12 @@ export function gardenVisitIdentity(capture: GardenCapture): string {
 }
 
 /**
- * Folds Garden captures into visits, as bird captures are: one camera, one animal, captures less
- * than a minute apart. Unconfirmed motion proposals keep their position stacks instead and never
+ * Folds Garden captures into visits, as bird captures are: one camera, one animal, captures no
+ * further apart than the bird visit gap. Unconfirmed motion proposals keep their position stacks instead and never
  * merge by time, because a stationary false proposal at the feeder can run for hours and would
  * otherwise swallow a real animal passing through.
  */
-export function groupGardenVisits(captures: readonly GardenCapture[]): GardenVisit[] {
+export function groupGardenVisits(captures: readonly GardenCapture[], gapMs: number = VISIT_GAP_MS): GardenVisit[] {
     const order = new Map(captures.map((capture, index) => [capture.id, index]));
     const time = (capture: GardenCapture): number => Date.parse(capture.observed_at);
     const units = groupGardenReview(captures);
@@ -272,7 +301,7 @@ export function groupGardenVisits(captures: readonly GardenCapture[]): GardenVis
         const key = `${first.camera}\u0000${gardenVisitIdentity(first)}`;
         const at = time(first);
         const current = open.get(key);
-        if (current && at - current.latest <= GARDEN_VISIT_GAP_MS) {
+        if (current && at - current.latest <= gapMs) {
             current.visit.items.push(first);
             current.latest = Math.max(current.latest, at);
         } else {

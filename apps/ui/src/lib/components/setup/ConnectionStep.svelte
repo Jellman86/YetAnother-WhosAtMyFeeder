@@ -1,4 +1,5 @@
 <script lang="ts">
+    import StatusIcon from '../ui/StatusIcon.svelte';
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fetchSettings, updateSettings, type SettingsUpdate } from '../../api/settings';
@@ -6,7 +7,9 @@
     import { testMQTTPublish } from '../../api/maintenance';
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
     import WizardStepLayout from './WizardStepLayout.svelte';
+    import { loadBlockedReason } from './continue-blocked';
     import WizardLoadState, { type WizardLoadStatus } from './WizardLoadState.svelte';
+    import SettingsToggle from '../settings/_primitives/SettingsToggle.svelte';
 
     type TestState = { ok: boolean; message: string } | null;
 
@@ -36,6 +39,16 @@
         passwordRevision
     ]));
     let savedOnce = $derived(savedSignature !== '' && savedSignature === formSignature);
+    // Both links measured working: only then is there nothing left to warn about.
+    let connected = $derived(Boolean(frigateResult?.ok && mqttResult?.ok));
+    let results = $derived([
+        { id: 'frigate', label: $_('setup.connection.check_frigate', { default: 'Frigate API' }), result: frigateResult },
+        { id: 'mqtt', label: $_('setup.connection.check_mqtt', { default: 'MQTT broker' }), result: mqttResult }
+    ].flatMap((row) => (row.result ? [{ id: row.id, label: row.label, ok: row.result.ok, message: row.result.message }] : [])));
+    let blockedReason = $derived(
+        loadBlockedReason(loadState, $_)
+        || (savedOnce ? '' : $_('setup.connection.blocked', { default: 'Save and test the connection to continue, or choose “Set up later”.' }))
+    );
 
     async function load(): Promise<void> {
         loadState = 'loading';
@@ -118,40 +131,50 @@
 <WizardStepLayout
     title={$_('setup.connection.title', { default: 'Frigate & MQTT connection' })}
     description={$_('setup.connection.description', {
-        default: 'YA-WAMF reads detections from Frigate over MQTT and fetches snapshots from its API. Point it at both, then test.'
+        default: 'YA-WAMF hears about each bird from Frigate over MQTT, and fetches its snapshot from Frigate’s API. Enter both addresses, then test.'
     })}
     canContinue={loadState === 'ready' && savedOnce}
+    {blockedReason}
+    showSkip
+    skipLabel={$_('setup.connection.later', { default: 'Set up later' })}
     {busy}
 >
     <WizardLoadState state={loadState} onRetry={load}>
         <div>
-            <label for="setup-frigate-url" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.connection.frigate_url', { default: 'Frigate URL' })}</label>
+            <label for="setup-frigate-url" class="text-sm font-medium text-ink">{$_('setup.connection.frigate_url', { default: 'Frigate URL' })}</label>
             <input id="setup-frigate-url" type="url" placeholder="http://frigate:5000" bind:value={frigateUrl} class="input-base mt-1" />
         </div>
 
-        <div class="border-y border-slate-200/80 py-3 dark:border-slate-700/70">
-            <label class="flex min-h-11 items-start gap-3">
-                <span class="min-w-0 flex-1">
-                    <span class="block text-sm font-semibold text-slate-800 dark:text-slate-100">
+        <div class="border-y border-line py-3">
+            <!-- The same switch Settings uses for this choice. -->
+            <div class="flex min-h-11 items-start gap-3">
+                <span id="setup-mqtt-auth-label" class="min-w-0 flex-1">
+                    <span class="block text-sm font-semibold text-strong">
                         {$_('setup.connection.mqtt_auth', { default: 'MQTT authentication' })}
                     </span>
-                    <span class="block text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                    <span class="block text-xs leading-relaxed text-muted">
                         {$_('setup.connection.mqtt_auth_hint', { default: 'Enable this only when your broker requires a username and password.' })}
                     </span>
                 </span>
-                <input type="checkbox" bind:checked={mqttAuth} class="mt-1 h-5 w-5 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
-            </label>
+                <SettingsToggle
+                    checked={mqttAuth}
+                    labelledBy="setup-mqtt-auth-label"
+                    srLabel={$_('setup.connection.mqtt_auth', { default: 'MQTT authentication' })}
+                    disabled={busy}
+                    onchange={(next) => (mqttAuth = next)}
+                />
+            </div>
 
             {#if mqttAuth}
-                <div class="mt-3 grid gap-3 border-l-2 border-brand-100 pl-4 dark:border-brand-900/60 sm:grid-cols-2">
+                <div class="mt-3 grid gap-3 border-l-2 border-line-soft pl-4 sm:grid-cols-2">
                     <div>
-                        <label for="setup-mqtt-username" class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <label for="setup-mqtt-username" class="text-sm font-medium text-ink">
                             {$_('setup.connection.mqtt_username', { default: 'Username' })}
                         </label>
                         <input id="setup-mqtt-username" type="text" autocomplete="off" bind:value={mqttUsername} class="input-base mt-1" />
                     </div>
                     <div>
-                        <label for="setup-mqtt-password" class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <label for="setup-mqtt-password" class="text-sm font-medium text-ink">
                             {$_('setup.connection.mqtt_password', { default: 'Password' })}
                         </label>
                         <input
@@ -164,7 +187,7 @@
                             class="input-base mt-1"
                         />
                         {#if mqttPasswordSaved && !mqttPassword}
-                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                            <p class="mt-1 text-xs text-muted">
                                 {$_('setup.connection.mqtt_password_saved', { default: 'A saved password will be kept unless you enter a replacement.' })}
                             </p>
                         {/if}
@@ -174,43 +197,56 @@
         </div>
         <div class="grid grid-cols-3 gap-3">
             <div class="col-span-2">
-                <label for="setup-mqtt-server" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.connection.mqtt_server', { default: 'MQTT broker' })}</label>
+                <label for="setup-mqtt-server" class="text-sm font-medium text-ink">{$_('setup.connection.mqtt_server', { default: 'MQTT broker' })}</label>
                 <input id="setup-mqtt-server" type="text" placeholder="mqtt" bind:value={mqttServer} class="input-base mt-1" />
             </div>
             <div>
-                <label for="setup-mqtt-port" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.connection.mqtt_port', { default: 'Port' })}</label>
+                <label for="setup-mqtt-port" class="text-sm font-medium text-ink">{$_('setup.connection.mqtt_port', { default: 'Port' })}</label>
                 <input id="setup-mqtt-port" type="number" bind:value={mqttPort} class="input-base mt-1" />
             </div>
         </div>
 
         <button type="button" class="btn btn-secondary px-5 py-2.5" disabled={busy} onclick={saveAndTest}>
-            {$_('setup.connection.save_test', { default: 'Save & test connection' })}
+            {savedOnce && results.length > 0 ? $_('common.test_again', { default: 'Test again' }) : $_('setup.connection.save_test', { default: 'Save & test connection' })}
         </button>
 
         {#if saveError}
-            <div role="alert" class="border-l-2 border-rose-500 bg-rose-50/70 px-3 py-2 text-sm text-rose-800 dark:bg-rose-950/20 dark:text-rose-200">{saveError}</div>
+            <div role="alert" class="border-l-2 border-status-fail-line bg-status-fail-soft px-3 py-2 text-sm text-status-fail">{saveError}</div>
         {/if}
 
-        {#each [frigateResult, mqttResult].filter(Boolean) as result}
-            <div role="status" class="flex items-start gap-2 rounded-md p-2 text-sm {result?.ok ? 'bg-success-50 text-success-800 dark:bg-success-900/20 dark:text-success-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200'}">
-                {#if result?.ok}
-                    <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" /></svg>
-                {:else}
-                    <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.7 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z" /></svg>
-                {/if}
-                <span>{result?.message}</span>
-            </div>
-        {/each}
+        {#if results.length > 0}
+            <!-- The checklist shape every connection test uses: one bordered list, a row per check,
+                 the outcome in a word and then the cause. A failure is red, like its row elsewhere. -->
+            <ol class="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line" role="status" data-setup-connection-results>
+                {#each results as row (row.id)}
+                    <li class="flex items-start gap-3 p-3.5 {row.ok ? '' : 'bg-status-fail-soft'}" data-setup-connection-result={row.ok ? 'passed' : 'failed'}>
+                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center {row.ok ? 'text-status-ok' : 'text-status-fail'}"><StatusIcon tone={row.ok ? 'ok' : 'fail'} class="h-5 w-5" /></span>
+                        <div class="min-w-0 flex-1 space-y-0.5">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h3 class="text-sm font-bold text-strong">{row.label}</h3>
+                                <span class="text-xs font-semibold {row.ok ? 'text-muted' : 'text-status-fail'}">
+                                    {row.ok ? $_('common.diagnostic_state_passed', { default: 'Passed' }) : $_('common.diagnostic_state_failed', { default: 'Failed' })}
+                                </span>
+                            </div>
+                            <p class="text-xs leading-relaxed text-muted wrap-anywhere">{row.message}</p>
+                        </div>
+                    </li>
+                {/each}
+            </ol>
+        {/if}
 
         {#if frigateResult && !frigateResult.ok}
-            <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400" data-setup-frigate-auth-hint>
+            <p class="text-xs leading-relaxed text-muted" data-setup-frigate-auth-hint>
                 {$_('setup.connection.frigate_auth_hint', { default: 'If your Frigate requires a sign-in, set FRIGATE_AUTH_TOKEN in the environment YA-WAMF starts with, restart it, then test again.' })}
-                <a href={TOKEN_DOCS_URL} target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-600 underline dark:text-brand-400">{$_('setup.connection.frigate_auth_link', { default: 'Environment variables' })}</a>
+                <a href={TOKEN_DOCS_URL} target="_blank" rel="noopener noreferrer" class="font-semibold text-accent-ink underline">{$_('setup.connection.frigate_auth_link', { default: 'Environment variables' })}</a>
             </p>
         {/if}
 
-        {#if savedOnce && !frigateResult?.ok}
-            <p class="text-xs text-slate-500 dark:text-slate-400">{$_('setup.connection.continue_hint', { default: "Settings are saved. You can continue and fix the connection later, but detections won't flow until Frigate is reachable." })}</p>
+        {#if !connected}
+            <!-- The way past a Frigate or broker that is not up yet, with exactly what waits on it. -->
+            <p class="text-xs leading-relaxed text-muted" data-setup-connection-later>
+                {$_('setup.connection.later_note', { default: 'No Frigate or broker to hand? Choose “Set up later”. Until both are connected under Settings → Cameras & connection, no visits arrive, no photos or clips can be fetched, and the cameras step cannot list your cameras.' })}
+            </p>
         {/if}
     </WizardLoadState>
 </WizardStepLayout>

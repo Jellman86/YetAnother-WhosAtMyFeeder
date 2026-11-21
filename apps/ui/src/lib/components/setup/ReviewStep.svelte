@@ -4,17 +4,39 @@
     import { setupWizardStore, WIZARD_STEPS } from '../../stores/setup_wizard.svelte';
     import type { SetupSectionId, SetupSectionState, SetupSectionStatus } from '../../api/setup';
     import WizardStepLayout from './WizardStepLayout.svelte';
+    import { reviewStatusLabel, reviewStatusTone } from './review-status';
+    import { fetchClassifierStatus, type ClassifierStatus } from '../../api/classifier';
+    import { classifierReadiness, reportedModelId } from '../../settings/model-readiness';
+    import { modelActivityStore } from '../../stores/model_activity.svelte';
 
     const STATUS_BADGE: Record<SetupSectionStatus, string> = {
-        ok: 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-200',
-        attention: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
-        optional: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+        ok: 'bg-status-ok-soft text-status-ok',
+        attention: 'bg-status-attention-soft text-status-attention',
+        optional: 'bg-surface-raised text-muted'
     };
 
     let sections = $derived(setupWizardStore.setupState?.sections ?? []);
 
+    // The classifier's own report, the one the model step reads, so both steps say the same state.
+    let classifierStatus = $state.raw<ClassifierStatus | null>(null);
+    // With work this app started on the model (a download begun on the model step), as every surface reads it.
+    const modelReadiness = $derived(
+        classifierStatus ? classifierReadiness(classifierStatus, modelActivityStore.phase(reportedModelId(classifierStatus))) : null
+    );
+
+    // Without it the row keeps the server's own finding, so a failed read claims nothing more.
+    function readClassifier(): void {
+        fetchClassifierStatus().then((status) => (classifierStatus = status)).catch(() => (classifierStatus = null));
+    }
+
     onMount(() => {
         void setupWizardStore.refresh();
+        readClassifier();
+        // Work on the model is the server's to report; when it ends, the model is read again.
+        return modelActivityStore.watch(() => {
+            void setupWizardStore.refresh();
+            readClassifier();
+        });
     });
 
     function openSection(section: SetupSectionId): void {
@@ -22,17 +44,11 @@
         if (step) setupWizardStore.openFromReview(step.id);
     }
 
-    function statusLabel(status: SetupSectionStatus): string {
-        if (status === 'ok') return $_('setup.status.ok', { default: 'Configured' });
-        if (status === 'attention') return $_('setup.status.attention', { default: 'Needs attention' });
-        return $_('setup.status.optional', { default: 'Optional' });
-    }
-
     function sectionLabel(section: SetupSectionId): string {
         const labels: Record<SetupSectionId, string> = {
-            account: $_('setup.account.title', { default: 'Admin account & access' }),
+            account: $_('setup.account.title', { default: 'Owner account and access' }),
             connection: $_('setup.connection.title', { default: 'Frigate & MQTT connection' }),
-            cameras: $_('setup.cameras.title', { default: 'Cameras & detection' }),
+            cameras: $_('setup.cameras.title', { default: 'Cameras' }),
             model: $_('setup.model.title', { default: 'Classifier model & hardware' }),
             quality: $_('setup.quality.title', { default: 'Best available snapshots' }),
             integrations: $_('setup.integrations.title', { default: 'Integrations' })
@@ -51,7 +67,16 @@
             case 'account_not_configured':
                 return $_('setup.review.detail.account_not_configured', { default: 'Not configured' });
             case 'connection_ready':
+            case 'connection_connected':
                 return text('url');
+            case 'connection_unreachable': {
+                const unreachableLabels: Record<string, string> = {
+                    mqtt: $_('setup.review.detail.mqtt_broker', { default: 'MQTT broker' }),
+                    frigate: $_('setup.review.detail.frigate', { default: 'Frigate' })
+                };
+                const items = text('items').split(',').filter(Boolean).map((item) => unreachableLabels[item] ?? item);
+                return $_('setup.review.detail.connection_unreachable', { values: { items: items.join(', ') }, default: `Could not reach: ${items.join(', ')}. Check the addresses and that both are running.` });
+            }
             case 'connection_missing': {
                 const itemLabels: Record<string, string> = {
                     frigate_url: $_('setup.review.detail.frigate_url', { default: 'Frigate URL' }),
@@ -67,13 +92,25 @@
             case 'cameras_all':
                 return $_('setup.review.detail.cameras_all', { default: 'All cameras' });
             case 'model_wrong_kind':
-                return $_('setup.review.detail.model_wrong_kind', { default: 'A crop detector is selected as the classifier' });
+                return $_('setup.review.detail.model_wrong_kind', { default: 'A bird finder is chosen where a model that names birds is needed' });
             case 'model_retired':
-                return $_('setup.review.detail.model_retired', { default: 'The saved classifier has been retired' });
+                return $_('setup.review.detail.model_retired', { default: 'The saved model is no longer offered' });
+            case 'model_missing':
+                return text('model')
+                    ? $_('setup.review.detail.model_missing', { values: { model: text('model') }, default: '{model} is not on this install, so nothing is naming birds yet.' })
+                    : $_('setup.review.detail.model_missing_bundled', { default: 'The bundled model is not on this install, so nothing is naming birds yet.' });
+            case 'model_failed':
+                return text('model')
+                    ? $_('setup.review.detail.model_failed', { values: { model: text('model') }, default: '{model} is installed but could not be loaded, so nothing is naming birds.' })
+                    : $_('setup.review.detail.model_failed_bundled', { default: 'The bundled model is installed but could not be loaded, so nothing is naming birds.' });
+            case 'model_loading':
+            case 'model_ready':
+            case 'model_running':
+                return text('model') || $_('setup.review.detail.model_bundled', { default: 'Bundled model' });
             case 'model_selected':
                 return text('model');
             case 'model_fallback':
-                return $_('setup.review.detail.model_fallback', { default: 'Bundled fallback' });
+                return $_('setup.review.detail.model_fallback', { default: 'Built-in model, used as a fallback' });
             case 'quality_best':
                 return $_('setup.review.detail.quality_best', { default: 'Best available snapshots' });
             case 'quality_standard':
@@ -111,12 +148,12 @@
     onContinue={() => setupWizardStore.close()}
 >
     {#if setupWizardStore.refreshing && sections.length === 0}
-        <div role="status" class="flex min-h-28 items-center justify-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-            <span class="h-5 w-5 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" aria-hidden="true"></span>
+        <div role="status" class="flex min-h-28 items-center justify-center gap-3 text-sm text-muted">
+            <span class="h-5 w-5 animate-spin rounded-full border-2 border-accent-line/30 border-t-accent" aria-hidden="true"></span>
             {$_('setup.review.loading', { default: 'Checking the saved setup…' })}
         </div>
     {:else if setupWizardStore.refreshFailed && sections.length === 0}
-        <div role="alert" class="space-y-3 border-l-2 border-rose-500 bg-rose-50/70 px-4 py-3 text-sm text-rose-800 dark:bg-rose-950/20 dark:text-rose-200">
+        <div role="alert" class="space-y-3 border-l-2 border-status-fail-line bg-status-fail-soft px-4 py-3 text-sm text-status-fail">
             <p>{$_('setup.review.load_failed', { default: 'The setup summary could not be loaded. Your saved settings were not changed.' })}</p>
             <button type="button" class="btn btn-secondary min-h-11 px-4 py-2" onclick={() => setupWizardStore.refresh()}>
                 {$_('setup.review.retry', { default: 'Retry summary' })}
@@ -124,22 +161,22 @@
         </div>
     {:else}
     {#if setupWizardStore.refreshFailed}
-        <div role="alert" class="flex flex-wrap items-center justify-between gap-2 border-l-2 border-amber-500 bg-amber-50/70 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+        <div role="alert" class="flex flex-wrap items-center justify-between gap-2 border-l-2 border-status-attention-line bg-status-attention-soft px-3 py-2 text-sm text-status-attention">
             <span>{$_('setup.review.stale', { default: 'Showing the last setup summary because the latest refresh failed.' })}</span>
             <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={() => setupWizardStore.refresh()}>{$_('common.retry', { default: 'Retry' })}</button>
         </div>
     {/if}
-    <ul class="divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+    <ul class="divide-y divide-line border-y border-line">
         {#each sections as section}
             <li class="flex items-center justify-between gap-3 p-3">
                 <div class="min-w-0">
-                    <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{sectionLabel(section.id)}</p>
+                    <p class="text-sm font-medium text-strong">{sectionLabel(section.id)}</p>
                     {#if sectionDetail(section)}
-                        <p class="break-words text-xs leading-relaxed text-slate-500 dark:text-slate-400">{sectionDetail(section)}</p>
+                        <p class="wrap-break-word text-xs leading-relaxed text-muted">{sectionDetail(section)}</p>
                     {/if}
                 </div>
                 <div class="flex shrink-0 items-center gap-2">
-                    <span class="rounded-full px-2 py-0.5 text-xs font-semibold {STATUS_BADGE[section.status]}">{statusLabel(section.status)}</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-semibold {STATUS_BADGE[reviewStatusTone(section, modelReadiness)]}" data-setup-status={section.detail_code ?? section.status} data-setup-tone={reviewStatusTone(section, modelReadiness)} data-setup-readiness={section.id === 'model' ? modelReadiness ?? undefined : undefined}>{reviewStatusLabel(section, $_, modelReadiness)}</span>
                     <button type="button" class="btn btn-ghost px-3 py-1.5 text-xs" onclick={() => openSection(section.id)}>
                         {$_('setup.review.edit', { default: 'Review' })}
                     </button>

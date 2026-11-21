@@ -8,11 +8,20 @@
   "status": {
     "ok": "Configurado",
     "attention": "Requer atenção",
-    "optional": "Opcional"
+    "optional": "Opcional",
+    "no_password": "Sem senha",
+    "connected": "Conectado",
+    "unreachable": "Inacessível",
+    "model_missing": "Falta baixar",
+    "model_failed": "Não foi possível carregar",
+    "model_loading": "Carregando",
+    "model_ready": "Pronto",
+    "model_running": "Em execução",
+    "model_chosen": "Escolhido"
   },
   "account": {
     "title": "Conta de administrador e acesso",
-    "already": "A autenticação já está configurada. Gerencie-a em Configurações → Segurança.",
+    "already": "A autenticação já está configurada. Gerencie-a em Configurações → Compartilhamento e integrações.",
     "description": "Proteja o painel com uma senha de proprietário ou execute sem autenticação em uma rede confiável."
   },
   "connection": {
@@ -23,7 +32,6 @@
     "mqtt_username": "Usuário",
     "mqtt_password": "Senha",
     "mqtt_password_saved": "A senha salva será mantida, a menos que você digite outra.",
-    "continue_hint": "As configurações foram salvas. Você pode continuar e corrigir a conexão depois, mas as detecções não chegarão até que o Frigate esteja acessível.",
     "description": "O YA-WAMF lê as detecções do Frigate via MQTT e obtém os snapshots pela API dele. Informe os dois e depois teste.",
     "frigate_auth_hint": "Se o seu Frigate exigir início de sessão, defina FRIGATE_AUTH_TOKEN no ambiente com que o YA-WAMF arranca, reinicie-o e teste novamente.",
     "frigate_auth_link": "Variáveis de ambiente",
@@ -33,7 +41,12 @@
     "mqtt_port": "Porta",
     "mqtt_server": "Broker MQTT",
     "save_test": "Salvar e testar conexão",
-    "frigate_ok": "Conectado ao Frigate {version}"
+    "frigate_ok": "Conectado ao Frigate {version}",
+    "blocked": "Guarde e teste a ligação para continuar, ou escolha «Configurar mais tarde».",
+    "later": "Configurar mais tarde",
+    "later_note": "Não tem o Frigate ou o broker à mão? Escolha «Configurar mais tarde». Até que ambos estejam ligados em Configurações → Câmeras e conexão, não chegam visitas, não é possível obter fotos nem clipes, e o passo das câmaras não consegue listar as suas câmaras.",
+    "check_frigate": "API do Frigate",
+    "check_mqtt": "Broker MQTT"
   },
   "cameras": {
     "title": "Câmeras e detecção",
@@ -42,6 +55,8 @@
     "gates_link": "Guia de ajuste →",
     "list": "Câmeras (separadas por vírgula)",
     "list_unread": "Não foi possível ler a lista de câmaras do Frigate, por isso estes nomes não podem ser verificados. Um nome que não corresponda exatamente nunca verá uma ave. Deixe vazio para vigiar todas as câmaras.",
+    "list_timed_out": "O Frigate não respondeu em {seconds} segundos, então estes nomes não podem ser verificados. Um nome que não corresponde exatamente nunca vê uma ave. Deixe em branco para observar todas as câmeras.",
+    "reading": "Consultando as câmeras no Frigate, por até {seconds} segundos. Você pode continuar sem esperar: as câmeras já salvas ficam como estão.",
     "not_in_frigate": "O Frigate não tem nenhuma câmara com este nome, por isso nunca verá uma ave.",
     "offline": "Sem pré-visualização",
     "pick": "Câmaras a vigiar",
@@ -50,8 +65,8 @@
     "watching_some": "{count, plural, one {A vigiar # câmara.} other {A vigiar # câmaras.}} As outras câmaras são ignoradas."
   },
   "model": {
-    "title": "Modelo de classificação e hardware",
-    "description": "O YA-WAMF inclui uma alternativa leve para CPU. Escolha um modelo, transfira-o aqui se necessário e valide o caminho exato da imagem e do hardware antes de continuar.",
+    "title": "Modelo e hardware",
+    "description": "Escolha o modelo que identifica as aves. Transfira-o aqui se esta instalação não o tiver e verifique que funciona nesta máquina antes de continuar.",
     "download_required": "Transfira e verifique este modelo aqui antes de o validar neste hardware.",
     "download_timeout": "O download está demorando mais do que o esperado. Verifique a conexão e tente novamente.",
     "validation_timeout": "A validação do hardware ultrapassou 30 minutos. Ela ainda pode estar terminando em Diagnóstico; verifique o status antes de iniciar outra execução.",
@@ -59,7 +74,6 @@
     "detected": "Aceleradores detectados",
     "no_results": "Nenhum modelo instalado foi avaliado.",
     "provider_hint": "Só são mostrados os provedores disponíveis nesta imagem, neste host e para o modelo selecionado.",
-    "results_hint": "Os detalhes completos de compilação, latência e precisão por dispositivo estão em Configurações → Debug → Ferramenta de avaliação de modelos. A aba Debug aparece quando a interface de depuração está ativada (SYSTEM__DEBUG_UI_ENABLED=true).",
     "revalidate": "Validar novamente",
     "row_ok": "Executa",
     "row_warn": "Verificar",
@@ -71,10 +85,10 @@
     "validation_success": "Validação de hardware concluída com sucesso.",
     "verified": "Provedores validados: {list}",
     "location_title": "Localização do comedouro",
-    "location_hint": "A validação ou continuação guarda primeiro estas coordenadas, as mesmas de Definições → Integrações → Localização. Este modelo não usa a data nem um raio de precisão.",
+    "location_hint": "A validação ou continuação guarda primeiro estas coordenadas, as mesmas de Configurações → Compartilhamento e integrações → Localização. Este modelo não usa a data nem um raio de precisão.",
     "location_incomplete": "Introduza a latitude e a longitude, ou deixe ambos os campos vazios.",
     "location_empty": "Não será usada uma localização: este modelo identifica aves sem ela.",
-    "ram_note": "Recomendam-se cerca de {ram} MB de RAM.",
+    "ram_note": "Recomendam-se cerca de {ram} MB de RAM.",
     "phase_starting": "A iniciar a verificação…",
     "phase_preparing": "A preparar a verificação…",
     "phase_sweep": "A verificar este modelo em cada dispositivo…",
@@ -87,9 +101,16 @@
     "provider_replaced": "{previous} não passou na verificação deste modelo, pelo que foi selecionado {provider}.",
     "no_passing_provider": "Este modelo não passou na verificação. Reveja os resultados e tente novamente antes de continuar.",
     "readiness_retry": "A verificação terminou, mas não foi possível atualizar o estado do modelo. Nova tentativa em curso; pode sair deste passo e voltar mais tarde.",
-    "best_provider": "Melhor fornecedor validado: {provider}, {ms} ms por imagem",
+    "best_provider": "Melhor fornecedor validado: {provider}, {ms} ms por imagem",
     "best_provider_without_timing": "Melhor fornecedor validado: {provider}",
-    "failed_providers": "Falharam: {providers}"
+    "failed_providers": "Falharam: {providers}",
+    "blocked_downloading": "Pode continuar quando a transferência terminar.",
+    "blocked_no_model": "Escolha um modelo para continuar, ou ignore este passo para manter o modelo em uso agora.",
+    "blocked_download": "Transfira este modelo para continuar, ou ignore este passo para manter o modelo em uso agora.",
+    "blocked_check": "Verifique este modelo neste hardware para continuar, ou ignore este passo para manter o modelo em uso agora.",
+    "blocked_location": "Introduza a latitude e a longitude do comedouro para continuar, ou deixe ambas vazias.",
+    "blocked_provider": "Este anfitrião não tem o dispositivo escolhido. Escolha outro, ou Automático, para continuar.",
+    "download_needed": "transferência necessária"
   },
   "quality": {
     "title": "Melhores snapshots disponíveis",
@@ -106,7 +127,7 @@
     "note_bw": "Envia relatórios para estações da comunidade. Adicione um token de estação em Configurações.",
     "note_ebird": "Avistamentos próximos, mapas e um filtro de área opcional. Adicione uma chave de API em Configurações.",
     "note_inat": "Envios revisados pelo proprietário. Conecte sua conta em Configurações.",
-    "notifications_note": "Os canais de notificação são configurados em Configurações → Notificações. O Home Assistant é instalado e configurado externamente; consulte o guia de integração."
+    "notifications_note": "Os canais de notificação são configurados em Configurações → Alertas. O Home Assistant é instalado e configurado externamente; consulte o guia de integração."
   },
   "history": {
     "title": "Importar detecções existentes",
@@ -115,7 +136,6 @@
     "enable_help": "As detecções só são atualizadas quando a classificação melhora; áudio e meteorologia são preservados.",
     "range": "Período do histórico",
     "import_continue": "Importar e continuar",
-    "continue_without": "Continuar sem importar",
     "job_title": "Importação do histórico",
     "job_starting": "A pesquisar o histórico do Frigate",
     "audio_note": "O histórico do Frigate restaura detecções visuais e snapshots, mas não recria o áudio do BirdNET-Go que ainda não tinha sido salvo."
@@ -139,12 +159,19 @@
       "model_wrong_kind": "Um detector de recorte está selecionado como classificador",
       "model_retired": "O classificador salvo foi descontinuado",
       "model_fallback": "Alternativa incluída",
+      "model_missing": "{model} não está nesta instalação, então ainda nada identifica as aves.",
+      "model_missing_bundled": "O modelo incluído não está nesta instalação, então ainda nada identifica as aves.",
+      "model_failed": "{model} está instalado, mas não pôde ser carregado, então nada identifica as aves.",
+      "model_failed_bundled": "O modelo incluído está instalado, mas não pôde ser carregado, então nada identifica as aves.",
+      "model_bundled": "Modelo incluído",
       "quality_best": "Melhores snapshots disponíveis",
       "quality_standard": "Instantâneos padrão",
       "integrations_needs": "Requer configuração: {integrations}",
       "integrations_configured": "Configurado: {integrations}",
       "integrations_birdnet_listening": "O BirdNET-Go está a ouvir via MQTT, sem URL para o verificar",
-      "integrations_none": "Nenhuma ativa"
+      "integrations_none": "Nenhuma ativa",
+      "frigate": "Frigate",
+      "connection_unreachable": "Não foi possível alcançar: {items}. Verifique os endereços e se ambos estão em execução."
     },
     "description": "Veja a situação de cada seção. Entre em qualquer uma para alterá-la; nada mais é afetado.",
     "done": "Concluído",
@@ -155,7 +182,7 @@
   "skip": "Pular configuração",
   "skip_failed": "Falha ao pular: não foi possível contatar o servidor.",
   "skip_confirm_title": "Pular a configuração e abrir o aplicativo?",
-  "skip_confirm_body_no_account": "O aplicativo funcionará sem senha até você definir uma em Configurações → Segurança. Tudo o que este assistente cobre pode ser configurado depois, e você pode executá-lo novamente a qualquer momento em Configurações → Assistente de configuração.",
+  "skip_confirm_body_no_account": "O aplicativo funcionará sem senha até você definir uma em Configurações → Compartilhamento e integrações. Tudo o que este assistente cobre pode ser configurado depois, e você pode executá-lo novamente a qualquer momento em Configurações → Assistente de configuração.",
   "skip_confirm_body": "Tudo o que este assistente cobre pode ser configurado depois, e você pode executá-lo novamente a qualquer momento em Configurações → Assistente de configuração.",
   "skip_confirm_action": "Pular e abrir o aplicativo",
   "back": "Voltar",
@@ -170,14 +197,16 @@
     "cover_cameras": "Escolher suas câmeras",
     "cover_connect": "Conectar Frigate e MQTT",
     "cover_integrations": "Ativar integrações",
-    "cover_model": "Validar o modelo no seu hardware",
-    "description": "Vamos colocar seu comedouro online. Isso leva alguns minutos, as escolhas opcionais podem ser puladas e você pode executar o assistente novamente a qualquer momento pela navegação de Configurações.",
+    "cover_model": "Verificar se o modelo funciona nesta máquina",
+    "description": "Demora alguns minutos. As opções facultativas podem ser ignoradas e pode repetir a configuração a qualquer momento nas Definições.",
     "start": "Começar",
-    "title": "Bem-vindo ao YA-WAMF"
+    "title": "Configurar o YA-WAMF",
+    "covers": "A configuração vai pedir-lhe para:"
   },
   "working": "Processando…",
   "skip_step": "Ignorar passo",
   "step_list": "Etapas de configuração",
+  "progress": "Progresso da configuração",
   "step_names": {
     "welcome": "Boas-vindas",
     "account": "Conta",
@@ -186,8 +215,15 @@
     "model": "Modelo",
     "quality": "Instantâneos",
     "integrations": "Integrações",
-    "history": "Histórico",
-    "telemetry": "Estatísticas de uso",
+    "history": "Opcionais",
     "review": "Revisão"
+  },
+  "blocked": {
+    "loading": "Pode continuar assim que as definições atuais forem carregadas.",
+    "load_failed": "Não foi possível carregar as definições atuais, por isso nada pode ser guardado aqui. Use «Tentar carregar as definições novamente» acima."
+  },
+  "extras": {
+    "title": "Extras opcionais",
+    "description": "Duas escolhas antes de terminar. Ambas ficam desligadas a menos que as ligue, e ambas podem ser alteradas mais tarde nas Definições."
   }
 }

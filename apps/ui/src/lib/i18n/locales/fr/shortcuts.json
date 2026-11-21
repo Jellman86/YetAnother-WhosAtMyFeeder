@@ -1,13 +1,17 @@
 {
-  "title": "Raccourcis Clavier",
+  "title": "Raccourcis clavier",
   "navigation": "Navigation",
   "actions": "Actions",
   "open_panel": "Ouvrir le panneau des raccourcis",
   "go_dashboard": "Aller au Tableau de bord",
-  "go_events": "Aller aux Événements",
+  "go_events": "Aller à l’Explorateur",
   "go_species": "Aller au Classement",
   "go_settings": "Aller aux Paramètres",
-  "close_modal": "Fermer la fenêtre",
+  "close_modal": "Fermer la boîte de dialogue",
   "refresh": "Actualiser la page",
-  "go_notifications": "Aller aux Notifications"
+  "go_notifications": "Aller aux Notifications",
+  "previous_day": "Jour précédent",
+  "next_day": "Jour suivant",
+  "all_days": "Afficher tous les jours",
+  "search": "Rechercher dans cette page (Explorateur et Paramètres)"
 }

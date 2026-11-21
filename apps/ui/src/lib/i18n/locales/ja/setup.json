@@ -8,11 +8,20 @@
   "status": {
     "ok": "設定済み",
     "attention": "確認が必要",
-    "optional": "任意"
+    "optional": "任意",
+    "no_password": "パスワードなし",
+    "connected": "接続済み",
+    "unreachable": "到達不可",
+    "model_missing": "ダウンロードが必要",
+    "model_failed": "読み込めませんでした",
+    "model_loading": "読み込み中",
+    "model_ready": "準備完了",
+    "model_running": "動作中",
+    "model_chosen": "選択済み"
   },
   "account": {
     "title": "管理者アカウントとアクセス",
-    "already": "認証はすでに設定されています。設定 → セキュリティで管理してください。",
+    "already": "認証はすでに設定されています。設定 → 共有と統合で管理してください。",
     "description": "所有者パスワードでダッシュボードを保護するか、信頼できるネットワーク上で認証なしで実行します。"
   },
   "connection": {
@@ -23,7 +32,6 @@
     "mqtt_username": "ユーザー名",
     "mqtt_password": "パスワード",
     "mqtt_password_saved": "新しい値を入力しない限り、保存済みパスワードが保持されます。",
-    "continue_hint": "設定は保存されました。続行して接続を後で修正することもできますが、Frigate に接続できるまで検出は取り込まれません。",
     "description": "YA-WAMF は MQTT 経由で Frigate から検出を読み取り、その API からスナップショットを取得します。両方の接続先を指定してからテストしてください。",
     "frigate_auth_hint": "Frigate でサインインが必要な場合は、YA-WAMF の起動環境に FRIGATE_AUTH_TOKEN を設定して再起動し、もう一度テストしてください。",
     "frigate_auth_link": "環境変数",
@@ -33,7 +41,12 @@
     "mqtt_port": "ポート",
     "mqtt_server": "MQTT ブローカー",
     "save_test": "保存して接続をテスト",
-    "frigate_ok": "Frigate {version} に接続しました"
+    "frigate_ok": "Frigate {version} に接続しました",
+    "blocked": "続行するには接続を保存してテストするか、「あとで設定」を選んでください。",
+    "later": "あとで設定",
+    "later_note": "Frigate やブローカーがまだ用意できていませんか。「あとで設定」を選んでください。設定 → カメラと接続で両方がつながるまで、訪問は届かず、写真やクリップは取得できず、カメラの手順でカメラを一覧表示できません。",
+    "check_frigate": "Frigate の API",
+    "check_mqtt": "MQTT ブローカー"
   },
   "cameras": {
     "title": "カメラと検出",
@@ -42,6 +55,8 @@
     "gates_link": "調整ガイド →",
     "list": "カメラ（カンマ区切り）",
     "list_unread": "Frigate のカメラ一覧を読み取れなかったため、これらの名前を確認できません。名前が完全に一致しないと鳥を検出できません。すべてのカメラを監視するには空欄のままにしてください。",
+    "list_timed_out": "Frigate が {seconds} 秒以内に応答しなかったため、これらの名前は確認できません。完全に一致しない名前のカメラは鳥を検出しません。空のままにすると、すべてのカメラを監視します。",
+    "reading": "Frigate にカメラの一覧を問い合わせています（最大 {seconds} 秒）。待たずに続行できます。保存済みのカメラはそのまま残ります。",
     "not_in_frigate": "Frigate にこの名前のカメラはないため、鳥を検出することはありません。",
     "offline": "プレビューなし",
     "pick": "監視するカメラ",
@@ -50,8 +65,8 @@
     "watching_some": "{count, plural, other {# 台のカメラを監視しています。}}他のカメラは無視されます。"
   },
   "model": {
-    "title": "分類モデルとハードウェア",
-    "description": "YA-WAMF には軽量な CPU フォールバックが含まれています。モデルを選び、必要ならここでダウンロードし、続行前に実際のイメージとハードウェア経路を検証してください。",
+    "title": "モデルとハードウェア",
+    "description": "鳥を識別するモデルを選んでください。このインストールにない場合はここでダウンロードし、続ける前にこのマシンで動くことを確認してください。",
     "download_required": "このハードウェアで検証する前に、ここでモデルをダウンロードして確認してください。",
     "download_timeout": "ダウンロードに予想以上の時間がかかっています。接続を確認して再試行してください。",
     "validation_timeout": "ハードウェア検証が 30 分を超えました。診断画面でまだ完了処理中の可能性があります。別の検証を開始する前に状態を確認してください。",
@@ -59,7 +74,6 @@
     "detected": "検出されたアクセラレーター",
     "no_results": "評価されたインストール済みモデルはありません。",
     "provider_hint": "このイメージ、このホスト、選択したモデルで利用可能なプロバイダーのみを表示します。",
-    "results_hint": "デバイスごとのコンパイル、遅延、精度の詳細は設定 → デバッグ → モデル評価ツールで確認できます。「デバッグ」タブは、デバッグ UI を有効にすると表示されます（SYSTEM__DEBUG_UI_ENABLED=true）。",
     "revalidate": "再検証",
     "row_ok": "動作",
     "row_warn": "要確認",
@@ -71,10 +85,10 @@
     "validation_success": "ハードウェア検証が正常に完了しました。",
     "verified": "検証済みプロバイダー: {list}",
     "location_title": "給餌台の位置",
-    "location_hint": "検証または続行すると、まずこの座標を保存します。設定 → 連携 → 位置情報と同じ給餌台の位置です。このモデルは日付や位置の精度半径を使用しません。",
+    "location_hint": "検証または続行すると、まずこの座標を保存します。設定 → 共有と統合 → 位置情報と同じ給餌台の位置です。このモデルは日付や位置の精度半径を使用しません。",
     "location_incomplete": "緯度と経度の両方を入力するか、両方を空欄にしてください。",
     "location_empty": "位置情報は使用しません。このモデルは位置情報なしでも鳥を識別します。",
-    "ram_note": "約 {ram} MB の RAM を推奨します。",
+    "ram_note": "約 {ram} MB の RAM を推奨します。",
     "phase_starting": "チェックを開始しています…",
     "phase_preparing": "チェックを準備しています…",
     "phase_sweep": "各デバイスでこのモデルをチェックしています…",
@@ -87,9 +101,16 @@
     "provider_replaced": "{previous} はこのモデルの検証に合格しなかったため、代わりに {provider} を選択しました。",
     "no_passing_provider": "このモデルはチェックに合格しませんでした。結果を確認し、もう一度試してから続行してください。",
     "readiness_retry": "検証は完了しましたが、モデルの準備状態を更新できませんでした。再試行中です。このステップを離れて後で戻ることもできます。",
-    "best_provider": "検証済みの最適なプロバイダー: {provider}、画像あたり {ms} ms",
+    "best_provider": "検証済みの最適なプロバイダー: {provider}、画像あたり {ms} ms",
     "best_provider_without_timing": "検証済みの最適なプロバイダー: {provider}",
-    "failed_providers": "失敗: {providers}"
+    "failed_providers": "失敗: {providers}",
+    "blocked_downloading": "ダウンロードが終わると続行できます。",
+    "blocked_no_model": "続行するにはモデルを選ぶか、この手順をスキップして現在使用中のモデルをそのまま使ってください。",
+    "blocked_download": "続行するにはこのモデルをダウンロードするか、この手順をスキップして現在使用中のモデルをそのまま使ってください。",
+    "blocked_check": "続行するにはこのハードウェアでモデルを確認するか、この手順をスキップして現在使用中のモデルをそのまま使ってください。",
+    "blocked_location": "続行するには餌台の緯度と経度を入力するか、両方を空のままにしてください。",
+    "blocked_provider": "このホストには選択したデバイスがありません。続行するには別のデバイスか自動を選んでください。",
+    "download_needed": "ダウンロードが必要"
   },
   "quality": {
     "title": "利用可能な最良のスナップショット",
@@ -106,7 +127,7 @@
     "note_bw": "コミュニティのステーションに報告します。ステーション・トークンは設定で追加してください。",
     "note_ebird": "周辺の観察記録、地図、任意の分布域フィルター。API キーは設定で追加してください。",
     "note_inat": "所有者が確認してから投稿します。アカウントは設定で接続してください。",
-    "notifications_note": "通知チャンネルは設定 → 通知で構成します。Home Assistant は外部でインストール・設定します。連携ガイドを参照してください。"
+    "notifications_note": "通知チャンネルは設定 → アラートで構成します。Home Assistant は外部でインストール・設定します。連携ガイドを参照してください。"
   },
   "history": {
     "title": "既存の検出をインポート",
@@ -115,7 +136,6 @@
     "enable_help": "分類品質が向上した場合のみ更新し、保存済みの音声と天気情報は保持します。",
     "range": "履歴の範囲",
     "import_continue": "インポートして続行",
-    "continue_without": "インポートせず続行",
     "job_title": "検出履歴のインポート",
     "job_starting": "Frigate のイベント履歴を確認中",
     "audio_note": "Frigate の履歴から視覚検出とスナップショットは復元できますが、保存されていない BirdNET-Go 音声は再作成できません。"
@@ -139,12 +159,19 @@
       "model_wrong_kind": "クロップ検出器が分類器として選択されています",
       "model_retired": "保存済みの分類モデルは廃止されました",
       "model_fallback": "同梱フォールバック",
+      "model_missing": "{model} はこのインストールにないため、まだ鳥を識別できるものがありません。",
+      "model_missing_bundled": "同梱モデルがこのインストールにないため、まだ鳥を識別できるものがありません。",
+      "model_failed": "{model} はインストールされていますが読み込めなかったため、鳥を識別できるものがありません。",
+      "model_failed_bundled": "同梱モデルはインストールされていますが読み込めなかったため、鳥を識別できるものがありません。",
+      "model_bundled": "同梱モデル",
       "quality_best": "利用可能な最良のスナップショット",
       "quality_standard": "標準スナップショット",
       "integrations_needs": "設定が必要: {integrations}",
       "integrations_configured": "設定済み: {integrations}",
       "integrations_birdnet_listening": "BirdNET-Go は MQTT で受信中ですが、確認用の URL がありません",
-      "integrations_none": "有効な連携なし"
+      "integrations_none": "有効な連携なし",
+      "frigate": "Frigate",
+      "connection_unreachable": "到達できません: {items}。アドレスと、両方が動作していることを確認してください。"
     },
     "description": "各セクションの状況です。いずれかを開いて変更できます。他のセクションには影響しません。",
     "done": "完了",
@@ -155,7 +182,7 @@
   "skip": "セットアップをスキップ",
   "skip_failed": "スキップできませんでした。サーバーに接続できません。",
   "skip_confirm_title": "セットアップをスキップしてアプリを開きますか?",
-  "skip_confirm_body_no_account": "設定 → セキュリティでパスワードを設定するまで、アプリはパスワードなしで動作します。このウィザードの内容は後から設定でき、設定 → セットアップウィザードからいつでも再実行できます。",
+  "skip_confirm_body_no_account": "設定 → 共有と統合でパスワードを設定するまで、アプリはパスワードなしで動作します。このウィザードの内容は後から設定でき、設定 → セットアップウィザードからいつでも再実行できます。",
   "skip_confirm_body": "このウィザードの内容は後から設定でき、設定 → セットアップウィザードからいつでも再実行できます。",
   "skip_confirm_action": "スキップしてアプリを開く",
   "back": "戻る",
@@ -170,14 +197,16 @@
     "cover_cameras": "カメラを選択",
     "cover_connect": "Frigate と MQTT を接続",
     "cover_integrations": "連携を有効化",
-    "cover_model": "お使いのハードウェアでモデルを検証",
-    "description": "給餌台の監視を始めましょう。数分で完了し、任意の項目はスキップできます。設定のナビゲーションからいつでも再実行できます。",
+    "cover_model": "このマシンでモデルが動くか確認する",
+    "description": "数分で終わります。任意の項目はスキップでき、設定からいつでもセットアップをやり直せます。",
     "start": "はじめる",
-    "title": "YA-WAMFへようこそ"
+    "title": "YA-WAMF のセットアップ",
+    "covers": "セットアップで行うこと:"
   },
   "working": "処理中…",
   "skip_step": "このステップをスキップ",
   "step_list": "セットアップの手順",
+  "progress": "セットアップの進行状況",
   "step_names": {
     "welcome": "ようこそ",
     "account": "アカウント",
@@ -186,8 +215,15 @@
     "model": "モデル",
     "quality": "スナップショット",
     "integrations": "連携",
-    "history": "履歴",
-    "telemetry": "利用統計",
+    "history": "追加設定",
     "review": "確認"
+  },
+  "blocked": {
+    "loading": "現在の設定の読み込みが終わると続行できます。",
+    "load_failed": "現在の設定を読み込めなかったため、ここでは何も保存できません。上の「設定の読み込みを再試行」を使ってください。"
+  },
+  "extras": {
+    "title": "任意の追加設定",
+    "description": "完了前の2つの選択です。どちらもオンにしない限りオフのままで、あとから設定で変更できます。"
   }
 }

@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import cameraStatusSource from './CameraStatus.svelte?raw';
 
 describe('Camera status health and viewer behavior', () => {
-    it('polls lightweight health independently from selected-camera frames', () => {
+    it('follows camera health from the pushed status, independently from selected-camera frames', () => {
         expect(cameraStatusSource).toContain('await loadCameras();');
-        expect(cameraStatusSource).toContain('fetchCameraStatuses');
-        expect(cameraStatusSource).toContain('startHealthRefresh(false);');
+        expect(cameraStatusSource).toContain('readCameraStatuses');
+        expect(cameraStatusSource).toContain('followStatus();');
+        expect(cameraStatusSource).toContain('systemStatusStore.subscribe(applyStatus)');
+        // An owner waits for the pushed status rather than asking Frigate's stats on every cold load.
+        expect(cameraStatusSource).toContain('else if (!systemStatusStore.following) await refreshHealth();');
         expect(cameraStatusSource).toContain('if (!popoverOpen) return;');
         expect(cameraStatusSource).toContain('refreshSelectedFrame');
         expect(cameraStatusSource).not.toContain('refreshAll');
@@ -24,9 +27,24 @@ describe('Camera status health and viewer behavior', () => {
         expect(cameraStatusSource).not.toContain('onmouseleave');
     });
 
+    it('polls no health and holds no timer while idle; only the open viewer refreshes its frame', () => {
+        // startVisiblePoll cancels its timer when the tab is hidden and reads again when it is shown
+        // (see app/visible-poll.test.ts); a hand-rolled interval keeps firing in a hidden tab.
+        expect(cameraStatusSource).toContain("import { startVisiblePoll } from '../app/visible-poll';");
+        expect(cameraStatusSource).not.toMatch(/startVisiblePoll\(\{\s*read: refreshHealth,/);
+        expect(cameraStatusSource).toMatch(/startVisiblePoll\(\{ read: refreshSelectedFrame,/);
+        expect(cameraStatusSource).not.toContain('setInterval');
+    });
+
+    it('starts no poll once destroyed, even when the mount bootstrap ends afterwards', () => {
+        expect(cameraStatusSource).toMatch(/onDestroy\(\(\) => \{\s*destroyed = true;/);
+        expect(cameraStatusSource).toMatch(/function followStatus\(\): void \{\s*if \(destroyed\) return;/);
+        expect(cameraStatusSource).toMatch(/function startFrameRefresh\(\): void \{\s*if \(destroyed\) return;/);
+    });
+
     it('uses the shared API client instead of an inline fetch', () => {
         expect(cameraStatusSource).toContain('fetchLatestCameraSnapshot');
-        expect(cameraStatusSource).toContain('fetchCameraStatuses');
+        expect(cameraStatusSource).toContain('readCameraStatuses');
         expect(cameraStatusSource).not.toContain('fetch(`${appApiPath(');
     });
 });

@@ -19,6 +19,8 @@ export interface Detection {
     has_clip?: boolean;
     has_snapshot?: boolean;
     has_frigate_event?: boolean;
+    /** What Frigate answered when asked about the event; only `not_found` means it is gone. */
+    frigate_event_check?: 'found' | 'not_found' | 'unreachable' | 'timed_out' | 'unauthorized' | 'failed' | 'not_checked';
     frigate_status?: 'present' | 'missing' | string;
     frigate_missing_since?: string | null;
     frigate_last_checked_at?: string | null;
@@ -42,6 +44,8 @@ export interface Detection {
     weather_precipitation?: number;
     weather_rain?: number;
     weather_snowfall?: number;
+    /** Light level in lx measured at the detection; absent when none was measured. */
+    illuminance_lux?: number;
     scientific_name?: string | null;
     common_name?: string | null;
     taxa_id?: number | null;

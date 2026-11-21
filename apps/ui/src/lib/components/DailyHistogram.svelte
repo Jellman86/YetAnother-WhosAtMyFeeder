@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import { formatHour } from '../utils/datetime';
 
     /**
      * Visits per hour over the desk's rolling 24 hours. `data` is indexed by local clock hour, so
@@ -25,24 +26,21 @@
     const total = $derived(bars.reduce((sum, bar) => sum + bar.value, 0));
     const peak = $derived(bars.reduce((best, bar) => (bar.value > best.value ? bar : best), bars[0]));
 
-    function hourLabel(hour: number): string {
-        return `${String(hour).padStart(2, '0')}:00`;
-    }
 </script>
 
 <section data-dashboard-activity class="panel space-y-4" aria-labelledby="dashboard-activity-title">
     <div>
-        <h2 id="dashboard-activity-title" class="flex items-center gap-2 font-display text-xl font-bold text-slate-950 dark:text-white">
-            <svg class="h-5 w-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 18V9m4 9V5m4 13v-7m4 7V7m4 11V3" /></svg>
+        <h2 id="dashboard-activity-title" class="flex items-center gap-2 font-display text-xl font-bold text-strong">
+            <svg class="h-5 w-5 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 18V9m4 9V5m4 13v-7m4 7V7m4 11V3" /></svg>
             {title ?? $_('dashboard.histogram.title')}
         </h2>
-        <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.histogram.visits_per_hour', { default: 'Visits per hour, last 24 hours' })}</p>
+        <p class="mt-0.5 text-sm text-muted">{$_('dashboard.histogram.visits_per_hour', { default: 'Visits per hour, last 24 hours' })}</p>
     </div>
 
     {#if total > 0}
-        <p class="text-sm text-slate-700 dark:text-slate-200" data-dashboard-activity-peak>
+        <p class="text-sm text-ink" data-dashboard-activity-peak>
             {$_('dashboard.histogram.peak', {
-                values: { time: hourLabel(peak.hour), count: peak.value },
+                values: { time: formatHour(peak.hour), count: peak.value },
                 default: 'Busiest at {time}, {count, plural, one {# visit} other {# visits}}'
             })}
         </p>
@@ -50,32 +48,33 @@
             class="relative flex h-24 items-end gap-0.5"
             role="img"
             aria-label={$_('dashboard.histogram.aria', {
-                values: { count: total, time: hourLabel(peak.hour) },
+                values: { count: total, time: formatHour(peak.hour) },
                 default: 'Visits per hour over the last 24 hours: {count, plural, one {# visit} other {# visits}} in all, busiest at {time}'
             })}
         >
             {#each bars as bar (bar.hour)}
                 <div
-                    class="min-h-px flex-1 rounded-t-sm {bar.isNow
-                        ? 'bg-brand-600 dark:bg-brand-400'
+                    data-chart-bar
+                    class="min-h-px flex-1 rounded-t-xs {bar.isNow
+                        ? 'bg-accent-ink'
                         : bar.value > 0
-                          ? 'bg-brand-500/60 dark:bg-brand-400/50'
-                          : 'bg-slate-200 dark:bg-slate-800'}"
+                          ? 'bg-accent-line'
+                          : 'bg-line-strong'}"
                     style:height="{Math.max((bar.value / maxVal) * 100, bar.value > 0 ? 6 : 2)}%"
                     title={$_('dashboard.histogram.tooltip_visits', {
-                        values: { count: bar.value, time: hourLabel(bar.hour) },
+                        values: { count: bar.value, time: formatHour(bar.hour) },
                         default: '{count, plural, one {# visit} other {# visits}} at {time}'
                     })}
                     aria-hidden="true"
                 ></div>
             {/each}
         </div>
-        <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400" aria-hidden="true">
-            <span>{hourLabel(bars[0].hour)}</span>
-            <span>{hourLabel(bars[12].hour)}</span>
-            <span class="font-semibold text-slate-700 dark:text-slate-200">{$_('dashboard.histogram.now', { default: 'now' })}</span>
+        <div class="flex justify-between text-xs text-muted" aria-hidden="true">
+            <span>{formatHour(bars[0].hour)}</span>
+            <span>{formatHour(bars[12].hour)}</span>
+            <span class="font-semibold text-ink">{$_('dashboard.histogram.now', { default: 'now' })}</span>
         </div>
     {:else}
-        <p class="text-xs text-slate-500 dark:text-slate-400" role="status">{$_('dashboard.no_detections')}</p>
+        <p class="text-xs text-muted" role="status">{$_('dashboard.no_detections')}</p>
     {/if}
 </section>

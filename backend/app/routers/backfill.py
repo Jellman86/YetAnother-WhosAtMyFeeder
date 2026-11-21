@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Request, Depends
+from typing import Literal, Optional, List
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 import structlog
 import asyncio
@@ -13,6 +13,7 @@ from app.services.media_cache import media_cache
 from app.services.weather_service import weather_service
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.maintenance_job_repository import MaintenanceJobRepository
+from app.services.maintenance_run_history import BACKFILL_JOB_KINDS
 from app.database import get_db
 from app.utils.language import get_user_language
 from app.auth import require_owner, AuthContext
@@ -58,11 +59,30 @@ class BackfillResetCacheStats(BaseModel):
     bytes_freed: int
 
 
+class BackfillResetPreviewResponse(BaseModel):
+    """What a reset would delete right now, counted over the reset's own scope."""
+
+    detection_count: int = Field(description="Every detection row a reset removes, hidden ones included.")
+
+
 class BackfillResetResponse(BaseModel):
     status: str
     message: str
     deleted_count: int
     cache_stats: BackfillResetCacheStats
+
+
+class BackfillResetCountChanged(BaseModel):
+    """The count the owner confirmed no longer holds. Nothing was deleted."""
+
+    code: Literal["reset_count_changed"] = "reset_count_changed"
+    detection_count: int = Field(description="What a reset would delete now, to ask the owner again with.")
+
+
+class BackfillResetRefusal(BaseModel):
+    """A reset that did not run: the confirmed count changed, or another reset is under way."""
+
+    detail: BackfillResetCountChanged | str
 
 
 _JOB_STORE: dict[str, BackfillJobStatus] = {}
@@ -188,7 +208,7 @@ async def recover_job_history() -> None:
     async with get_db() as db:
         repo = MaintenanceJobRepository(db)
         await repo.recover_interrupted()
-        history = await repo.recent()
+        history = await repo.recent(kinds=BACKFILL_JOB_KINDS)
     for payload in history:
         job = BackfillJobStatus.model_validate(payload)
         _JOB_STORE[job.id] = job
@@ -439,10 +459,41 @@ def _resolve_date_range(
     raise HTTPException(status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang))
 
 
-@router.delete("/backfill/reset", response_model=BackfillResetResponse)
-async def reset_database(request: Request, _auth: AuthContext = Depends(require_owner)) -> BackfillResetResponse:
+@router.get("/backfill/reset/preview", response_model=BackfillResetPreviewResponse)
+async def preview_reset(_auth: AuthContext = Depends(require_owner)) -> BackfillResetPreviewResponse:
+    """How many detections a reset would delete: the number its confirmation states. Owner only."""
+    async with get_db() as db:
+        return BackfillResetPreviewResponse(detection_count=await DetectionRepository(db).count_all())
+
+
+@router.delete(
+    "/backfill/reset",
+    response_model=BackfillResetResponse,
+    responses={
+        409: {
+            "model": BackfillResetRefusal,
+            "description": (
+                "Nothing was deleted. Either `expected_count` is no longer the number of detections "
+                "(`detail.code` is `reset_count_changed` and `detail.detection_count` is the current "
+                "number), or a reset is already in progress (`detail` is a sentence)."
+            ),
+        }
+    },
+)
+async def reset_database(
+    request: Request,
+    expected_count: int | None = Query(
+        None,
+        ge=0,
+        description="The detection count the owner was shown. The reset is refused if it no longer holds.",
+    ),
+    _auth: AuthContext = Depends(require_owner),
+) -> BackfillResetResponse:
     """
     Reset the database: Delete ALL detections and clear media cache. Owner only.
+
+    With `expected_count`, nothing is deleted unless that is still the number of detections once
+    ingest has stopped: a 409 carries the current count so the owner can be asked again.
     """
     global _RESET_IN_PROGRESS
     async with _JOB_LOCK:
@@ -460,10 +511,16 @@ async def reset_database(request: Request, _auth: AuthContext = Depends(require_
             await asyncio.gather(*tasks, return_exceptions=True)
         await auto_video_classifier.reset_state()
 
-        # Clear detections
+        # Pausing ingest does not drain a handler that is already running, so the repository
+        # compares and deletes inside one write-locked transaction: the number confirmed is the
+        # number deleted, or nothing is.
         async with get_db() as db:
-            repo = DetectionRepository(db)
-            deleted_count = await repo.delete_all()
+            deleted_count, current_count = await DetectionRepository(db).delete_all_if_count_is(expected_count)
+        if deleted_count is None:
+            raise HTTPException(
+                status_code=409,
+                detail=BackfillResetCountChanged(detection_count=current_count).model_dump(),
+            )
 
         # Clear media cache, and the favourite archive: a reset is the one action meant to leave nothing.
         cache_stats = await media_cache.clear_all()
@@ -487,6 +544,8 @@ async def reset_database(request: Request, _auth: AuthContext = Depends(require_
             "deleted_count": deleted_count,
             "cache_stats": cache_stats,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         log.error("Database reset failed", error=safe_error_message(e))
         raise HTTPException(status_code=500, detail=safe_error_message(e))
@@ -1144,7 +1203,7 @@ async def get_backfill_status(
         return BackfillJobStatus.model_validate(payload) if payload else None
     if not _LATEST_JOB_BY_KIND:
         async with get_db() as db:
-            payload = await MaintenanceJobRepository(db).latest()
+            payload = await MaintenanceJobRepository(db).latest(kinds=BACKFILL_JOB_KINDS)
         return BackfillJobStatus.model_validate(payload) if payload else None
     latest = max(_JOB_STORE.values(), key=lambda j: j.started_at or "")
     return latest

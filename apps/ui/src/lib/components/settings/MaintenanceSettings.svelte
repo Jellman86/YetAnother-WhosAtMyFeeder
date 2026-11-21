@@ -1,0 +1,568 @@
+<script lang="ts">
+    import { _ } from 'svelte-i18n';
+    import { onMount } from 'svelte';
+    import { fetchMaintenanceLastRuns, type BackfillResult, type WeatherBackfillResult, type TaxonomySyncStatus, type AnalysisStatus, type TimezoneRepairPreview, type MaintenanceLastRun } from '../../api';
+    import { formatDateTime, formatTime } from '../../utils/datetime';
+    import { lastRunSentence, timezoneRepairBlockedReason } from '../../utils/maintenance-runs';
+    import SettingsCard from './_primitives/SettingsCard.svelte';
+    import SettingsRow from './_primitives/SettingsRow.svelte';
+    import SettingsToggle from './_primitives/SettingsToggle.svelte';
+    import SettingsSelect from './_primitives/SettingsSelect.svelte';
+    import SettingsInput from './_primitives/SettingsInput.svelte';
+    import AdvancedSection from './_primitives/AdvancedSection.svelte';
+
+    // Jobs that repair or fill in the history, and the actions that delete it. Every button here
+    // acts at once; only the two settings (the daily analysis and jobs at once) wait for Save.
+    let {
+        maintenanceMaxConcurrent = $bindable(1),
+        autoAnalyzeUnknowns = $bindable(false),
+        taxonomyStatus,
+        syncingTaxonomy,
+        timezoneRepairPreview,
+        previewingTimezoneRepair,
+        applyingTimezoneRepair,
+        backfillDateRange = $bindable<'day' | 'week' | 'month' | 'custom'>('week'),
+        backfillStartDate = $bindable(''),
+        backfillEndDate = $bindable(''),
+        backfillCustomError = null,
+        backfillCustomValid = true,
+        backfilling,
+        backfillResult,
+        backfillTotal = $bindable(0),
+        weatherBackfilling,
+        weatherBackfillResult,
+        weatherBackfillTotal = $bindable(0),
+        analyzingUnknowns,
+        analysisStatus,
+        analysisTotal,
+        handleStartTaxonomySync,
+        handlePreviewTimezoneRepair,
+        handleApplyTimezoneRepair,
+        handleBackfill,
+        handleWeatherBackfill,
+        handleAnalyzeUnknowns,
+    }: {
+        maintenanceMaxConcurrent: number;
+        autoAnalyzeUnknowns: boolean;
+        taxonomyStatus: TaxonomySyncStatus | null;
+        syncingTaxonomy: boolean;
+        timezoneRepairPreview: TimezoneRepairPreview | null;
+        previewingTimezoneRepair: boolean;
+        applyingTimezoneRepair: boolean;
+        backfillDateRange: 'day' | 'week' | 'month' | 'custom';
+        backfillStartDate: string;
+        backfillEndDate: string;
+        backfillCustomError: string | null;
+        backfillCustomValid: boolean;
+        backfilling: boolean;
+        backfillResult: BackfillResult | null;
+        backfillTotal: number;
+        weatherBackfilling: boolean;
+        weatherBackfillResult: WeatherBackfillResult | null;
+        weatherBackfillTotal: number;
+        analyzingUnknowns: boolean;
+        analysisStatus: AnalysisStatus | null;
+        analysisTotal: number;
+        handleStartTaxonomySync: () => Promise<void>;
+        handlePreviewTimezoneRepair: () => Promise<void>;
+        handleApplyTimezoneRepair: () => Promise<void>;
+        handleBackfill: () => Promise<void>;
+        handleWeatherBackfill: () => Promise<void>;
+        handleAnalyzeUnknowns: () => Promise<void>;
+    } = $props();
+
+    const safeCount = (value: unknown): number => {
+        const parsed = Number(value ?? 0);
+        return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+    };
+    const fmtCount = (value: unknown): string => safeCount(value).toLocaleString();
+    // Times follow the app's own date and 12/24-hour settings, never the browser's.
+    const formatSafeTime = (value: unknown): string => (value ? formatTime(String(value)) : '');
+    // Stored detection times are UTC without a zone; read them as UTC before showing local time.
+    const formatPreviewTimestamp = (value: unknown): string => {
+        if (!value) return '';
+        const text = String(value);
+        return formatDateTime(/(Z|[+-]\d{2}:?\d{2})$/.test(text) ? text : `${text}Z`);
+    };
+
+    // When each job last ran, from the server's durable record; re-read whenever a job finishes.
+    let lastRuns = $state.raw<MaintenanceLastRun[] | null>(null);
+    let lastRunsFailed = $state(false);
+    async function loadLastRuns(): Promise<void> {
+        try {
+            lastRuns = await fetchMaintenanceLastRuns();
+            lastRunsFailed = false;
+        } catch {
+            lastRunsFailed = true;
+        }
+    }
+    onMount(() => {
+        void loadLastRuns();
+    });
+    const anyJobBusy = $derived(
+        syncingTaxonomy || Boolean(taxonomyStatus?.is_running) || previewingTimezoneRepair || applyingTimezoneRepair
+            || backfilling || weatherBackfilling || analyzingUnknowns
+    );
+    let wasBusy = false;
+    $effect(() => {
+        const busy = anyJobBusy;
+        if (wasBusy && !busy) void loadLastRuns();
+        wasBusy = busy;
+    });
+    const translate = (key: string, options?: { default?: string; values?: Record<string, string | number> }): string => $_(key, options);
+    function lastRunLine(kind: MaintenanceLastRun['kind']): string {
+        if (lastRunsFailed) return $_('settings.maintenance.last_run_unread', { default: 'The last run could not be read.' });
+        if (lastRuns === null) return $_('settings.maintenance.last_run_loading', { default: 'Reading the last run…' });
+        return lastRunSentence(lastRuns.find((run) => run.kind === kind), kind, { translate, formatWhen: formatDateTime });
+    }
+
+    const formatDateOnly = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const parseDateOnly = (value: string): Date | null => {
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (!match) return null;
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        const date = new Date(year, month - 1, day);
+        if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+        date.setHours(0, 0, 0, 0);
+        return date;
+    };
+
+    const todayDateOnly = (): string => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return formatDateOnly(today);
+    };
+
+    const setCustomRangeDays = (days: number) => {
+        const end = new Date();
+        end.setHours(0, 0, 0, 0);
+        const start = new Date(end);
+        start.setDate(end.getDate() - (days - 1));
+        backfillStartDate = formatDateOnly(start);
+        backfillEndDate = formatDateOnly(end);
+    };
+
+    const clearCustomRange = () => {
+        backfillStartDate = '';
+        backfillEndDate = todayDateOnly();
+    };
+
+    $effect(() => {
+        if (backfillDateRange !== 'custom') return;
+        if (!parseDateOnly(backfillEndDate)) backfillEndDate = todayDateOnly();
+    });
+
+    const timezoneRepairBlocked = $derived(timezoneRepairBlockedReason(timezoneRepairPreview, lastRuns?.find((run) => run.kind === 'timezone_scan')));
+    function candidateStatusLabel(status: string): string {
+        switch (status) {
+            case 'repair_candidate': return $_('settings.maintenance.candidate_repair', { default: 'Needs repair' });
+            case 'ok': return $_('settings.maintenance.candidate_ok', { default: 'Correct' });
+            case 'missing_frigate_event': return $_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' });
+            case 'unsupported_delta': return $_('settings.maintenance.candidate_unsupported', { default: 'Offset not safe to repair' });
+            default: return $_('settings.maintenance.candidate_lookup_error', { default: 'Could not be checked' });
+        }
+    }
+
+    const buttonNeutralClass = 'btn btn-secondary min-h-11 px-4 py-3';
+</script>
+
+{#snippet spinner()}
+    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+{/snippet}
+
+<div class="space-y-6">
+    <SettingsCard id="settings-group-data-taxonomy" nested title={$_('settings.data.taxonomy_title')}>
+        <SettingsRow
+            labelId="setting-maintenance-taxonomy"
+            label={$_('settings.maintenance.taxonomy_row', { default: 'Repair species names' })}
+            description={`${$_('settings.data.taxonomy_desc')} ${lastRunLine('taxonomy')}`}
+            descriptionId="maintenance-taxonomy-desc"
+        >
+            <button
+                type="button"
+                onclick={handleStartTaxonomySync}
+                disabled={taxonomyStatus?.is_running || syncingTaxonomy}
+                aria-describedby="maintenance-taxonomy-desc"
+                class={buttonNeutralClass}
+            >
+                {#if syncingTaxonomy || taxonomyStatus?.is_running}{@render spinner()}{/if}
+                {$_('settings.data.taxonomy_run_button')}
+            </button>
+        </SettingsRow>
+        {#if taxonomyStatus?.is_running}
+            <div class="flex items-center justify-between gap-3 text-brand-700 dark:text-brand-300" role="status">
+                <span class="text-sm font-semibold">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
+                <span class="text-xs tabular-nums">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
+            </div>
+        {:else if taxonomyStatus?.error}
+            <p class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">{taxonomyStatus.error}</p>
+        {/if}
+    </SettingsCard>
+
+    <SettingsCard
+        id="settings-group-data-timezone-repair"
+        nested
+        title={$_('settings.data.timezone_repair_title', { default: 'Timezone repair' })}
+        description={$_('settings.data.timezone_repair_desc', { default: 'Validate older detection timestamps against Frigate and repair only safe whole-hour timezone offsets.' })}
+    >
+
+        {#if timezoneRepairPreview}
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div>
+                    <p class="text-lg font-semibold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
+                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
+                </div>
+                <div class="text-attention-800 dark:text-attention-200">
+                    <p class="text-lg font-semibold text-attention-600 dark:text-attention-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
+                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}</p>
+                </div>
+                <div>
+                    <p class="text-lg font-semibold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.missing_frigate_event_count)}</p>
+                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' })}</p>
+                </div>
+                <div>
+                    <p class="text-lg font-semibold text-red-700 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
+                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_lookup_errors', { default: 'Lookup errors' })}</p>
+                </div>
+                <div>
+                    <p class="text-lg font-semibold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.unsupported_delta_count)}</p>
+                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_unsupported', { default: 'Unsupported delta' })}</p>
+                </div>
+            </div>
+
+            {#if timezoneRepairPreview.candidates.length > 0}
+                <div>
+                    <div class="border-t border-line-soft pt-4 px-5 border-b">
+                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_preview_list', { default: 'Preview' })}</p>
+                    </div>
+                    <div class="divide-y divide-slate-200 dark:divide-slate-700">
+                        {#each timezoneRepairPreview.candidates.slice(0, 5) as candidate}
+                            <div class="px-5 py-4 space-y-1">
+                                <div class="flex items-center justify-between gap-3">
+                                    <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
+                                    <span class="text-xs {candidate.status === 'repair_candidate' ? 'text-attention-700 dark:text-attention-300' : 'text-slate-600 dark:text-slate-400'}">{candidateStatusLabel(candidate.status)}</span>
+                                </div>
+                                <p class="text-xs text-slate-600 dark:text-slate-400 truncate">{candidate.frigate_event}</p>
+                                <div class="text-xs text-slate-600 dark:text-slate-300">
+                                    <span>{formatPreviewTimestamp(candidate.stored_detection_time)}</span>
+                                    {#if candidate.repaired_detection_time}<span> → {formatPreviewTimestamp(candidate.repaired_detection_time)}</span>{/if}
+                                    {#if candidate.delta_hours != null}<span class="ml-2">({candidate.delta_hours > 0 ? '+' : ''}{candidate.delta_hours}h)</span>{/if}
+                                </div>
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+        {/if}
+
+        <p class="text-sm text-slate-600 dark:text-slate-300" data-maintenance-last-run="timezone_scan">{lastRunLine('timezone_scan')}</p>
+        <!-- The scan line already says when nothing has run; a repair is mentioned once one has. -->
+        {#if lastRuns?.some((run) => run.kind === 'timezone_repair')}
+            <p class="text-sm text-slate-600 dark:text-slate-300" data-maintenance-last-run="timezone_repair">{lastRunLine('timezone_repair')}</p>
+        {/if}
+        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <button
+                type="button"
+                onclick={handlePreviewTimezoneRepair}
+                disabled={previewingTimezoneRepair || applyingTimezoneRepair}
+                class={buttonNeutralClass}
+            >
+                {previewingTimezoneRepair
+                    ? $_('settings.data.timezone_repair_preview_loading', { default: 'Scanning…' })
+                    : $_('settings.data.timezone_repair_preview_button', { default: 'Scan for timezone issues' })}
+            </button>
+            <button
+                type="button"
+                onclick={handleApplyTimezoneRepair}
+                disabled={previewingTimezoneRepair || applyingTimezoneRepair || timezoneRepairBlocked !== null}
+                aria-describedby={timezoneRepairBlocked ? 'timezone-repair-blocked' : undefined}
+                class={buttonNeutralClass}
+            >
+                {applyingTimezoneRepair
+                    ? $_('settings.data.timezone_repair_apply_loading', { default: 'Repairing…' })
+                    : $_('settings.data.timezone_repair_apply_button', { default: 'Apply timezone repair' })}
+            </button>
+        </div>
+        {#if timezoneRepairBlocked}
+            <p id="timezone-repair-blocked" class="text-sm text-slate-600 dark:text-slate-300" data-timezone-repair-blocked={timezoneRepairBlocked}>
+                {#if timezoneRepairBlocked === 'scan_first'}
+                    {$_('settings.maintenance.timezone_scan_first', { default: 'Scan first. The repair is offered once a scan finds detections that need it.' })}
+                {:else if timezoneRepairBlocked === 'last_scan_incomplete'}
+                    {$_('settings.maintenance.timezone_last_scan_incomplete', { values: { count: lastRuns?.find((run) => run.kind === 'timezone_scan')?.unchecked ?? 0 }, default: '{count, plural, one {The last scan could not check # detection (Frigate did not answer). Scan again.} other {The last scan could not check # detections (Frigate did not answer). Scan again.}}' })}
+                {:else if timezoneRepairBlocked === 'scan_incomplete'}
+                    {$_('settings.maintenance.timezone_scan_incomplete', { values: { count: timezoneRepairPreview?.summary.lookup_error_count ?? 0 }, default: '{count, plural, one {This scan could not check # detection (Frigate did not answer). Scan again.} other {This scan could not check # detections (Frigate did not answer). Scan again.}}' })}
+                {:else if timezoneRepairBlocked === 'nothing_last_scan'}
+                    {$_('settings.maintenance.timezone_nothing_last_scan', { default: 'Nothing to repair: the last scan found no detections that need it.' })}
+                {:else}
+                    {$_('settings.maintenance.timezone_nothing_to_repair', { default: 'The scan found nothing to repair.' })}
+                {/if}
+            </p>
+        {/if}
+    </SettingsCard>
+
+    <SettingsCard
+        id="settings-group-data-backfill"
+        nested
+        title={$_('settings.data.backfill_title')}
+        description={$_('settings.data.backfill_desc')}
+    >
+        <SettingsRow
+            labelId="setting-backfill-window"
+            label={$_('settings.data.backfill_window')}
+            layout="stacked"
+        >
+            <SettingsSelect
+                id="backfill-range"
+                value={backfillDateRange}
+                ariaLabel={$_('settings.data.backfill_window')}
+                options={[
+                    { value: 'day', label: $_('settings.data.backfill_24h') },
+                    { value: 'week', label: $_('settings.data.backfill_week') },
+                    { value: 'month', label: $_('settings.data.backfill_month') },
+                    { value: 'custom', label: $_('settings.data.backfill_custom') }
+                ]}
+                onchange={(v) => (backfillDateRange = v as 'day' | 'week' | 'month' | 'custom')}
+            />
+        </SettingsRow>
+
+        {#if backfillDateRange === 'custom'}
+            <div class="space-y-3 animate-in fade-in slide-in-from-top-2">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="backfill-from-date" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">
+                            {$_('settings.data.backfill_from', { default: 'From' })}
+                        </label>
+                        <input
+                            id="backfill-from-date"
+                            type="date"
+                            bind:value={backfillStartDate}
+                            max={backfillEndDate || todayDateOnly()}
+                            aria-label={$_('settings.data.backfill_from', { default: 'From date' })}
+                            class="input-base"
+                        />
+                    </div>
+                    <div>
+                        <label for="backfill-to-date" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">
+                            {$_('settings.data.backfill_to', { default: 'To' })}
+                        </label>
+                        <input
+                            id="backfill-to-date"
+                            type="date"
+                            bind:value={backfillEndDate}
+                            min={backfillStartDate || undefined}
+                            max={todayDateOnly()}
+                            aria-label={$_('settings.data.backfill_to', { default: 'To date' })}
+                            class="input-base"
+                        />
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={() => setCustomRangeDays(7)}>7D</button>
+                    <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={() => setCustomRangeDays(30)}>30D</button>
+                    <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={clearCustomRange}>{$_('common.clear', { default: 'Clear' })}</button>
+                </div>
+                {#if backfillCustomError}
+                    <p class="text-xs text-red-700 dark:text-red-300">{backfillCustomError}</p>
+                {/if}
+            </div>
+        {/if}
+
+        {#if backfillResult}
+            {#if backfillResult.message}
+                <p class="flex items-start gap-2 {backfilling ? 'text-brand-800 dark:text-brand-200' : safeCount(backfillResult.errors) > 0 ? 'text-attention-800 dark:text-attention-200' : 'text-slate-700 dark:text-slate-300'} text-sm" aria-live="polite">
+                    {#if backfilling}{@render spinner()}{/if}
+                    <span>{backfillResult.message}</span>
+                </p>
+            {/if}
+            <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-5 sm:divide-y-0">
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_new')}</dt><dd class="order-1 text-base tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.new_detections)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_updated')}</dt><dd class="order-1 text-base tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.updated)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base tabular-nums text-slate-600 dark:text-slate-300">{safeCount(backfillResult.skipped)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base tabular-nums {safeCount(backfillResult.errors) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(backfillResult.errors)}</dd></div>
+            </dl>
+            {#if backfillResult.skipped_reasons && Object.keys(backfillResult.skipped_reasons).length > 0}
+                <div>
+                    <p class="text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.data.backfill_skipped_breakdown')}</p>
+                    <div class="grid grid-cols-1 gap-2">
+                        {#each Object.entries(backfillResult.skipped_reasons) as [reason, count]}
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-slate-600 dark:text-slate-400">
+                                    {$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}
+                                </span>
+                                <span class="text-slate-700 dark:text-slate-300">{count}</span>
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+            {#if backfillResult.error_reasons && Object.keys(backfillResult.error_reasons).length > 0}
+                <div>
+                    <p class="mb-2 text-xs font-semibold text-rose-700 dark:text-rose-300">{$_('settings.data.backfill_error_breakdown', { default: 'Errors that need attention' })}</p>
+                    <div class="space-y-1.5">
+                        {#each Object.entries(backfillResult.error_reasons) as [reason, count]}
+                            <div class="flex items-center justify-between gap-3 text-xs">
+                                <span class="wrap-break-word text-slate-600 dark:text-slate-300">{$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}</span>
+                                <span class="tabular-nums text-rose-700 dark:text-rose-300">{count}</span>
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+        {/if}
+
+        <p class="text-sm text-slate-600 dark:text-slate-300" data-maintenance-last-run="detections">{lastRunLine('detections')}</p>
+        <div>
+            <button
+                type="button"
+                onclick={handleBackfill}
+                disabled={backfilling || weatherBackfilling || !backfillCustomValid}
+                aria-label={$_('settings.data.backfill_scan_button')}
+                class={buttonNeutralClass}
+            >
+                {#if backfilling}{@render spinner()}{/if}
+                {backfilling ? $_('settings.data.backfill_scanning') : $_('settings.data.backfill_scan_button')}
+            </button>
+        </div>
+
+        <AdvancedSection
+            id="data-backfill-weather"
+            title={$_('settings.data.weather_backfill_title')}
+        >
+            {#if weatherBackfillResult}
+                {#if weatherBackfillResult.message}<p class="text-sm text-slate-600 dark:text-slate-300" aria-live="polite">{weatherBackfillResult.message}</p>{/if}
+                <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-4 sm:divide-y-0">
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base tabular-nums text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_updated', { default: 'Updated' })}</dt><dd class="order-1 text-base tabular-nums text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.updated)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base tabular-nums text-slate-600 dark:text-slate-300">{safeCount(weatherBackfillResult.skipped)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base tabular-nums {safeCount(weatherBackfillResult.errors) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(weatherBackfillResult.errors)}</dd></div>
+                </dl>
+                {#if weatherBackfillResult.error_reasons && Object.keys(weatherBackfillResult.error_reasons).length > 0}
+                    <div>
+                        <p class="mb-2 text-xs font-semibold text-rose-700 dark:text-rose-300">{$_('settings.data.backfill_error_breakdown', { default: 'Errors that need attention' })}</p>
+                        {#each Object.entries(weatherBackfillResult.error_reasons) as [reason, count]}
+                            <div class="flex items-center justify-between gap-3 text-xs">
+                                <span class="wrap-break-word text-slate-600 dark:text-slate-300">{$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}</span>
+                                <span class="tabular-nums text-rose-700 dark:text-rose-300">{count}</span>
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
+            {/if}
+            <p class="text-sm text-slate-600 dark:text-slate-300" data-maintenance-last-run="weather">{lastRunLine('weather')}</p>
+            <button
+                type="button"
+                onclick={handleWeatherBackfill}
+                disabled={weatherBackfilling || backfilling || !backfillCustomValid}
+                aria-label={$_('settings.data.weather_backfill_button')}
+                class={buttonNeutralClass}
+            >
+                {#if weatherBackfilling}{@render spinner()}{/if}
+                {weatherBackfilling ? $_('settings.data.weather_backfill_filling') : $_('settings.data.weather_backfill_button')}
+            </button>
+        </AdvancedSection>
+    </SettingsCard>
+
+    <SettingsCard id="settings-group-data-batch-analysis" nested title={$_('settings.data.batch_analysis_title')}>
+        <SettingsRow
+            labelId="setting-maintenance-analyse"
+            label={$_('settings.maintenance.analyse_row', { default: 'Analyse Unknown bird visits again' })}
+            description={`${$_('settings.data.batch_analysis_long_desc')} ${lastRunLine('analyze_unknowns')}`}
+            descriptionId="maintenance-analyse-desc"
+        >
+            <button
+                type="button"
+                onclick={handleAnalyzeUnknowns}
+                disabled={analyzingUnknowns}
+                aria-describedby="maintenance-analyse-desc"
+                class={buttonNeutralClass}
+            >
+                {#if analyzingUnknowns}{@render spinner()}{/if}
+                {analyzingUnknowns ? $_('settings.data.batch_analysis_queueing') : $_('settings.data.batch_analysis_button')}
+            </button>
+        </SettingsRow>
+
+        <SettingsRow
+            labelId="setting-auto-analyze"
+            label={$_('settings.data.auto_analyze_unknowns', { default: 'Run automatically (daily)' })}
+        >
+            <SettingsToggle
+                checked={autoAnalyzeUnknowns}
+                labelledBy="setting-auto-analyze"
+                srLabel={$_('settings.data.auto_analyze_unknowns', { default: 'Run automatically (daily)' })}
+                onchange={(v) => (autoAnalyzeUnknowns = v)}
+            />
+        </SettingsRow>
+
+        {#if analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)}
+            {@const remaining = analysisStatus.pending + analysisStatus.active}
+            {@const processed = analysisTotal > 0 ? Math.max(0, analysisTotal - remaining) : 0}
+
+            <div class="border-t border-line-soft pt-4 space-y-3 animate-in fade-in slide-in-from-top-2">
+                <div class="flex justify-between text-sm font-semibold">
+                    <span class="text-slate-700 dark:text-slate-200">{$_('settings.data.batch_analysis_processing')}</span>
+                    <span class="text-slate-600 dark:text-slate-400">{processed} / {analysisTotal}</span>
+                </div>
+                <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400">
+                    <span>{$_('settings.data.batch_analysis_pending')}: {analysisStatus.pending}</span>
+                    <span>{$_('settings.data.batch_analysis_active')}: {analysisStatus.active}</span>
+                </div>
+                {#if analysisStatus.maintenance_status_message}
+                    <div class="text-xs text-slate-700 dark:text-slate-200">
+                        {analysisStatus.maintenance_status_message}
+                    </div>
+                {/if}
+                {#if analysisStatus.circuit_open}
+                    <div class="text-xs flex items-center gap-1 text-attention-800 dark:text-attention-200">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        {$_('settings.data.batch_analysis_circuit_open')}
+                        {#if analysisStatus.open_until}
+                            <span class="ml-auto text-xs text-attention-600 dark:text-attention-300">{formatSafeTime(analysisStatus.open_until)}</span>
+                        {/if}
+                    </div>
+                    {#if analysisStatus.failure_count !== undefined}
+                        <div class="text-xs text-attention-700 dark:text-attention-300">
+                            {$_('settings.data.batch_analysis_recent_failures', { default: 'Recent failures' })}: {analysisStatus.failure_count}
+                        </div>
+                    {/if}
+                {/if}
+            </div>
+        {/if}
+    </SettingsCard>
+
+    <SettingsCard
+        nested
+        id="maintenance-concurrency"
+        title={$_('settings.data.maintenance_jobs_title', { default: 'Jobs at once' })}
+        description={$_('settings.data.maintenance_jobs_desc', { default: 'The jobs above run one at a time, so they never compete with bird identification.' })}
+    >
+            <SettingsRow
+                labelId="setting-maint-concurrency"
+                label={$_('settings.data.maintenance_max_concurrent', { default: 'Maintenance concurrency' })}
+                description={$_('settings.data.maintenance_max_concurrent_help', { default: 'Best practice is 1. Increase this only if you intentionally want backfill, taxonomy repair, timezone repair, or analyze-unknowns to overlap.' })}
+                layout="stacked"
+            >
+                <SettingsInput
+                    id="maintenance-max-concurrent"
+                    field="maintenance_max_concurrent"
+                    type="number"
+                    min={1}
+                    max={8}
+                    value={maintenanceMaxConcurrent}
+                    ariaLabel={$_('settings.data.maintenance_max_concurrent', { default: 'Maintenance concurrency' })}
+                    oninput={(v) => (maintenanceMaxConcurrent = Number(v) || 1)}
+                />
+            </SettingsRow>
+    </SettingsCard>
+</div>

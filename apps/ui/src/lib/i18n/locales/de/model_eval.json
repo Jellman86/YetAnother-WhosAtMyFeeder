@@ -1,8 +1,196 @@
 {
-  "col_best_provider": "Bester validierter Anbieter",
-  "col_median_inference": "Median-Inferenzzeit",
+  "checks": {
+    "body": "Jeder Anbieter wird auf denselben Vogelfotos mit der CPU verglichen.",
+    "cell": {
+      "did_not_load": "Nicht geladen",
+      "differs": "{photos, plural, one {Weicht ab: gleich bei {same} von # Foto} other {Weicht ab: gleich bei {same} von # Fotos}}",
+      "differs_boxes": "{photos, plural, one {Weicht ab: gleicher Rahmen bei {same} von # Foto} other {Weicht ab: gleiche Rahmen bei {same} von # Fotos}}",
+      "not_tested": "Nicht getestet",
+      "ran": "Lief",
+      "reference": "Referenz, {photos, plural, one {# Foto} other {# Fotos}}",
+      "reference_plain": "Referenz",
+      "same": "{photos, plural, one {Gleich bei # Foto} other {Gleich bei allen # Fotos}}",
+      "same_boxes": "{photos, plural, one {Gleicher Rahmen bei # Foto} other {Gleiche Rahmen bei allen # Fotos}}",
+      "unusable_output": "Unbrauchbare Ausgabe"
+    },
+    "finder": "Vogelfinder",
+    "row": {
+      "activation_failed": "Es konnte nicht geladen werden, daher wurde kein Anbieter geprüft. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Vögel bestimmen.",
+      "provider_sweep_failed": "Die Prüfung ist fehlgeschlagen, bevor ein Anbieter ein Ergebnis geliefert hat. Starten Sie sie erneut; wenn sie wieder fehlschlägt, steht die Ursache in den Container-Protokollen.",
+      "unknown": "Es wurde nicht geprüft, aus einem Grund, den diese Seite nicht benennen kann. Die Ursache steht in den Container-Protokollen."
+    },
+    "title": "Anbieterprüfungen"
+  },
+  "col_best_provider": "Schnellster Anbieter, der bestanden hat",
+  "col_median_inference": "Übliche Zeit pro Foto",
   "col_model": "Modell",
-  "col_validated_providers": "Validierte Anbieter",
-  "compat_only_body": "Dieser Lauf hat geprüft, ob jeder Anbieter lädt, endliche Ausgaben liefert und mit der CPU-Referenz übereinstimmt. Die Genauigkeit wurde nicht gemessen, daher werden keine Genauigkeitswerte angezeigt. Starten Sie eine Evaluierung, um die Genauigkeit zu messen.",
-  "compat_only_title": "Nur Kompatibilitätsprüfung"
+  "col_validated_providers": "Anbieter, die bestanden haben",
+  "compat_only_body": "Diese Prüfung hat bestätigt, welche Anbieter jedes Modell laden und dieselben Antworten liefern wie die CPU. Die Genauigkeit wurde nicht gemessen, daher werden keine Genauigkeitswerte angezeigt. Starten Sie eine Bewertung, um die Genauigkeit zu messen.",
+  "compat_only_title": "Nur Anbieterprüfung",
+  "confirm_delete": {
+    "confirm": "Bewertung löschen",
+    "message": "Die Ergebnisse und Dateien der Bewertung vom {when} werden vom Server entfernt. Das lässt sich nicht rückgängig machen.",
+    "title": "Diese Bewertung löschen?"
+  },
+  "confirm_download": {
+    "cancel": "Zurück",
+    "confirm": "Herunterladen und starten",
+    "title": "{count, plural, one {# Modell herunterladen?} other {# Modelle herunterladen?}}",
+    "title_unknown": "Fehlende Modelle herunterladen?"
+  },
+  "confirm_stop": {
+    "cancel": "Weiterlaufen lassen",
+    "confirm": "Bewertung beenden",
+    "message": "Bereits getestete Modelle behalten ihre Ergebnisse, und das Modell, das Sie jetzt verwenden, wird wieder eingesetzt.",
+    "title": "Bewertung beenden?"
+  },
+  "how": {
+    "checks": "Bei Anbieterprüfungen läuft jedes Modell auf jedem Anbieter, den diese Installation nutzen kann, jeweils in einem eigenen Prozess, damit ein Absturz YA-WAMF nicht anhält. Ein Vogelfinder wird daran gemessen, wohin er seinen Rahmen setzt.",
+    "col": {
+      "average_time": "Die mittlere Zeit, um ein Foto zu benennen.",
+      "can_name": "Für wie viele der Testarten das Modell eine Antwort hat.",
+      "common": "Der Anteil der ersten Vermutung bei weit verbreiteten Futterplatzvögeln.",
+      "first_guess": "Der Anteil der Fotos, bei denen die erste Vermutung die richtige Art war.",
+      "local": "Der Anteil der ersten Vermutung bei Vögeln, die in der Nähe Ihres Standorts gemeldet wurden.",
+      "provider": "Der Anbieter, auf dem das Modell lief.",
+      "slow_time": "Die Zeit, unter der 19 von 20 Fotos blieben.",
+      "top_three": "Der Anteil, bei dem die richtige Art unter den ersten drei Vermutungen war."
+    },
+    "columns_title": "Was die Spalten bedeuten",
+    "cost": "Während der Bewertung lädt YA-WAMF die Modelle nacheinander, daher kann die Benennung neuer Besuche langsamer sein. Am Ende wird das Modell, das Sie jetzt verwenden, wieder eingesetzt. Zum Abrufen der Fotos ist Internetzugang nötig.",
+    "limit": "Die Fotos stammen nicht von Ihrer Futterstelle. Nutzen Sie die Werte, um Modelle miteinander zu vergleichen, nicht um vorherzusagen, wie genau eines an Ihrer Futterstelle sein wird.",
+    "photos": "Die Fotos stammen von iNaturalist und Wikimedia Commons: häufige Futterplatzvögel und Vögel, die in der Nähe Ihres gespeicherten Standorts gemeldet wurden.",
+    "title": "So funktioniert es"
+  },
+  "page_title": "Modellbewertung",
+  "problem": {
+    "cause": {
+      "already_running": "Es läuft bereits eine andere Bewertung. Warten Sie, bis sie fertig ist, oder beenden Sie sie zuerst.",
+      "gone": "Sie ist nicht mehr auf dem Server. Aktualisieren Sie die Seite, um den aktuellen Stand zu sehen.",
+      "refused": "YA-WAMF hat die Anfrage abgelehnt. Aktualisieren Sie die Seite und versuchen Sie es erneut; wenn sie wieder abgelehnt wird, steht die Ursache in den Container-Protokollen.",
+      "server_fault": "YA-WAMF ist bei der Anfrage auf einen Fehler gestoßen. Versuchen Sie es erneut; wenn es weiter fehlschlägt, sehen Sie in die Container-Protokolle.",
+      "signed_out": "Ihre Anmeldung ist abgelaufen oder gehört nicht dem Besitzer. Melden Sie sich erneut an und versuchen Sie es noch einmal.",
+      "unreachable": "YA-WAMF hat nicht geantwortet. Prüfen Sie, ob es läuft und von diesem Gerät erreichbar ist, und versuchen Sie es dann erneut."
+    },
+    "stale": "Die Angaben unten sind möglicherweise veraltet.",
+    "what": {
+      "delete": "Die Bewertung wurde nicht gelöscht.",
+      "download": "Die Datei wurde nicht heruntergeladen.",
+      "history": "Die bisherigen Bewertungen konnten nicht gelesen werden.",
+      "results": "Die Ergebnisse dieser Bewertung konnten nicht gelesen werden.",
+      "start": "Die Bewertung wurde nicht gestartet.",
+      "stop": "Die Bewertung wurde nicht beendet."
+    }
+  },
+  "progress": {
+    "count": "{done} von {total}",
+    "label": "Fortschritt der Bewertung",
+    "phase": {
+      "building_panel": "Testvögel werden ausgewählt",
+      "device_sweep": "Anbieter werden geprüft",
+      "downloading_models": "Modelle werden heruntergeladen",
+      "evaluating": "Modelle werden getestet",
+      "fetching_images": "Fotos werden abgerufen",
+      "starting": "Wird gestartet",
+      "working": "In Arbeit"
+    }
+  },
+  "results": {
+    "can_name": "{known} von {total}",
+    "capped": "Es werden nur die 20 neuesten Bewertungen aufgeführt.",
+    "choose": "Bewertung",
+    "col_average_time": "Durchschnittliche Zeit",
+    "col_can_name": "Benennbare Arten",
+    "col_common": "Häufige Futterplatzvögel",
+    "col_first_guess": "Erste Vermutung richtig",
+    "col_local": "Vögel in Ihrer Nähe",
+    "col_provider": "Lief auf",
+    "col_slow_time": "Langsame Fotos",
+    "col_top_three": "Unter den ersten drei",
+    "columns_hint": "Jede Spalte wird unter „So funktioniert es“ erklärt.",
+    "delete": "Diese Bewertung löschen",
+    "delete_blocked": "Beenden Sie sie, bevor Sie sie löschen.",
+    "duration": "{minutes, plural, one {# Minute} other {# Minuten}}",
+    "empty": "Es wurde noch keine Bewertung durchgeführt. Starten Sie oben eine, dann erscheinen ihre Ergebnisse hier.",
+    "file": {
+      "each_photo": "Ergebnis jedes Fotos",
+      "mix_ups": "Verwechslungen",
+      "provider_checks": "Anbieterprüfungen",
+      "speed": "Geschwindigkeit im Detail",
+      "summary": "Zusammenfassung"
+    },
+    "file_download": "{label} herunterladen ({file})",
+    "files": "Ergebnisse herunterladen",
+    "folder": "Ordner auf dem Server:",
+    "loading": "Ergebnisse werden gelesen",
+    "loading_list": "Bisherige Bewertungen werden gelesen",
+    "no_models": "In dieser Bewertung wurde kein Modell getestet.",
+    "not_measured": "Nicht gemessen",
+    "option_running": "{when}, läuft gerade",
+    "option_stopped": "{when}, vorzeitig beendet",
+    "photos": "{count, plural, one {# Foto} other {# Fotos}}",
+    "region": "Region {region}",
+    "species": "{count, plural, one {# Art} other {# Arten}}",
+    "still_running": "Diese Bewertung läuft noch. Die Ergebnisse erscheinen hier, sobald ein Modell fertig ist.",
+    "stopped_early": "Diese Bewertung wurde vorzeitig beendet, daher können Modelle fehlen.",
+    "title": "Ergebnisse",
+    "under_a_minute": "Unter einer Minute",
+    "vocabulary_note": "Die Anteile zählen nur die Arten, die ein Modell benennen kann."
+  },
+  "skipped": {
+    "activation_failed": "Seine Dateien fehlen oder sind unvollständig. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Vögel bestimmen.",
+    "other": "Es wurde aus einem Grund übersprungen, den diese Seite nicht benennen kann. Die Ursache steht in den Container-Protokollen.",
+    "reload_failed": "Es konnte nicht geladen werden. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Vögel bestimmen; wenn das nicht hilft, steht die Ursache in den Container-Protokollen.",
+    "title": "Nicht getestete Modelle"
+  },
+  "start": {
+    "action": "Bewertung starten",
+    "all_models_desc": "Prüft zusätzlich, ob jedes Modell auf Ihrem Grafikchip oder Ihrer NPU dieselben Antworten liefert wie auf der CPU. Nicht installierte Modelle werden zuerst heruntergeladen und bleiben installiert. Das dauert deutlich länger.",
+    "all_models_label": "Jedes Modell auf jedem Anbieter prüfen",
+    "download_none": "Alle Modelle sind bereits installiert, es wird nichts heruntergeladen.",
+    "download_note": "Der Download kann je nach Verbindung eine Weile dauern. Heruntergeladene Modelle bleiben auf der Festplatte, bis Sie ihre Dateien unter Einstellungen → Vögel bestimmen löschen.",
+    "download_reading": "Der Umfang des Downloads wird ermittelt…",
+    "download_size": "{count, plural, one {# Modell ist noch nicht installiert: ein Download von etwa {size}.} other {# Modelle sind noch nicht installiert: ein Download von etwa {size}.}}",
+    "download_size_partial": "{count, plural, one {# Modell ist noch nicht installiert.} other {# Modelle sind noch nicht installiert.}} {unknown, plural, one {Bei # davon ist die Größe nicht bekannt;} other {Bei # davon ist die Größe nicht bekannt;}} die übrigen sind ein Download von etwa {size}.",
+    "download_size_unknown": "{count, plural, one {# Modell ist noch nicht installiert. Seine Größe ist nicht bekannt.} other {# Modelle sind noch nicht installiert. Ihre Größe ist nicht bekannt.}}",
+    "download_unknown": "Die Größe des Downloads konnte nicht ermittelt werden. Nicht installierte Modelle werden trotzdem heruntergeladen.",
+    "each_photo_desc": "Fügt eine Datei mit den fünf besten Vermutungen zu jedem Foto hinzu, damit Sie einzelnen Fehlern nachgehen können. Sie lässt sich mit den anderen Ergebnissen herunterladen.",
+    "each_photo_label": "Ergebnis jedes Fotos behalten",
+    "options_hide": "Optionen für die Bewertung ausblenden",
+    "options_show": "Optionen für die Bewertung anzeigen",
+    "running": "Bewertung läuft",
+    "running_reason": "Es läuft immer nur eine Bewertung. Beenden Sie diese, um eine neue zu starten.",
+    "stop": "Bewertung beenden",
+    "title": "Bewertung starten",
+    "what": "Jedes installierte Modell benennt Referenzfotos bekannter Arten. So können Sie vergleichen, wie oft jedes richtig liegt und wie schnell es ist."
+  },
+  "stopped": {
+    "finder_needs_provider_check": "Ein Vogelfinder kann nur auf Anbieter geprüft werden. Starten Sie die Prüfung unter Einstellungen → Vögel bestimmen.",
+    "models_not_ready": "Ein für diese Prüfung gewähltes Modell ist nicht installiert und bereit. Sehen Sie unter Einstellungen → Vögel bestimmen nach und starten Sie dann erneut.",
+    "network": "Eine Anfrage an iNaturalist oder Wikimedia Commons ist fehlgeschlagen. Prüfen Sie die Internetverbindung und starten Sie dann erneut.",
+    "no_models": "Es ist kein Vogelmodell installiert und bereit. Installieren Sie eines unter Einstellungen → Vögel bestimmen und starten Sie dann erneut.",
+    "no_test_birds": "Die Liste der Testvögel konnte nicht erstellt werden, weil iNaturalist nicht geantwortet hat. Prüfen Sie die Internetverbindung und starten Sie dann erneut.",
+    "no_test_photos": "Von iNaturalist oder Wikimedia Commons konnte kein Testfoto abgerufen werden. Prüfen Sie die Internetverbindung und starten Sie dann erneut.",
+    "unexpected": "Sie wurde durch einen Fehler beendet, den diese Seite nicht benennen kann. Starten Sie sie erneut; wenn sie wieder abbricht, steht die Ursache in den Container-Protokollen."
+  },
+  "warning": {
+    "high_abstention": "Hat bei {share} % der Fotos keine Art genannt. Möglicherweise deckt es diese Vögel nicht ab, oder die Installation ist unvollständig. Prüfen Sie das Modell unter Einstellungen → Vögel bestimmen.",
+    "incomplete_install": "Seine Dateien sind unvollständig. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Vögel bestimmen.",
+    "inference_health_unhealthy": "Während des Laufs traten Fehler oder Zeitüberschreitungen auf. Die Ursache steht in den Container-Protokollen.",
+    "latency_drift_high": "Viel langsamer als beim Laden: {measured, number} ms pro Foto gegenüber {loaded, number} ms. Der Anbieter, auf dem es lief, arbeitet möglicherweise fehlerhaft. Stellen Sie den Inferenzanbieter unter Einstellungen → Vögel bestimmen auf CPU und bewerten Sie erneut.",
+    "latency_drift_high_plain": "Viel langsamer als beim Laden. Der Anbieter, auf dem es lief, arbeitet möglicherweise fehlerhaft. Stellen Sie den Inferenzanbieter unter Einstellungen → Vögel bestimmen auf CPU und bewerten Sie erneut.",
+    "low_shared_core": "Hat weniger als die Hälfte der häufigen Futterplatzvögel richtig benannt, was meist auf eine beschädigte Installation hinweist. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Vögel bestimmen.",
+    "partial_vocabulary": "Kann {outside} der {total} Testarten nicht benennen, meist weil sie außerhalb seiner Region leben. Seine Anteile beziehen sich auf die Arten, die es benennen kann.",
+    "partial_vocabulary_plain": "Kann einige der Testarten nicht benennen, meist weil sie außerhalb seiner Region leben. Seine Anteile beziehen sich auf die Arten, die es benennen kann.",
+    "provider_fallback_active": "Lief auf der CPU, obwohl ein schnellerer Anbieter angefordert war. Den Grund nennt die Laufzeit-Diagnose unter Einstellungen → Vögel bestimmen.",
+    "provider_validation_failed": "Kein Anbieter hat brauchbare Antworten geliefert, die mit der CPU übereinstimmen. Die Anbieterprüfungen unten zeigen jedes Ergebnis.",
+    "provider_validation_partial": "Einige Anbieter sind fehlgeschlagen oder hier nicht verfügbar. Die Anbieterprüfungen unten zeigen jedes Ergebnis.",
+    "region_mismatch": "Für eine andere Region gebaut als die Vögel in Ihrer Nähe, daher sind seine Anteile hier niedriger als dort.",
+    "severity": {
+      "critical": "Bitte ansehen",
+      "info": "Hinweis",
+      "warning": "Prüfen lohnt sich"
+    },
+    "unknown": "Aus einem Grund markiert, den diese Version der Seite nicht erklären kann. Die Einzelheiten stehen im Download „Zusammenfassung“."
+  }
 }

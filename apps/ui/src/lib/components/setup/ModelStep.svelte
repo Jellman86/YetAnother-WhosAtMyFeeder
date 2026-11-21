@@ -11,7 +11,7 @@
         fetchResolvedModelFamilies,
         getVisibleTieredModelLineup,
         selectSetupModelId,
-        summarizeModelMetadata,
+        setupModelOptions,
         type ClassifierStatus,
         type DownloadProgress,
         type InstalledModel,
@@ -27,6 +27,7 @@
         type DeviceMatrix,
         type ModelEvalModelSummary
     } from '../../api/model_eval';
+    import { stopCause } from '../../utils/model-eval-view';
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
     import {
         buildInferenceProviderChoices,
@@ -35,10 +36,13 @@
         type InferenceProvider,
     } from '../../settings/inference-providers';
     import WizardStepLayout from './WizardStepLayout.svelte';
+    import { loadBlockedReason } from './continue-blocked';
     import WizardLoadState, { type WizardLoadStatus } from './WizardLoadState.svelte';
     import { usesSavedFeederLocation } from '../../pages/models/model_location_input';
     import { feederCoordinates, regionMessage, validationRecommendation } from './model-choices';
     import { BIRD_MODEL_REGION_OVERRIDE_VALUES, normalizeBirdModelRegionOverride, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
+    import { identificationModelLabel, identificationModelName, modelFactsLine } from '../../settings/identification-models';
+    import IdentificationStatusLine from '../IdentificationStatusLine.svelte';
 
     let status = $state<ClassifierStatus | null>(null);
     let loadState = $state<WizardLoadStatus>('loading');
@@ -83,9 +87,10 @@
     let verified = $derived(status?.host_device_eligibility?.verified_providers ?? []);
     let progressPct = $derived(progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0);
     let installedIds = $derived(new Set(installedModels.map((model) => model.id)));
+    let modelOptions = $derived(setupModelOptions(availableModels, installedModels));
     let selectedInstalledModel = $derived(installedModels.find((model) => model.id === selectedModelId) ?? null);
     let selectedModel = $derived(availableModels.find((model) => model.id === selectedModelId) ?? installedModels.find((model) => model.id === selectedModelId)?.metadata ?? null);
-    let selectedModelSummary = $derived(summarizeModelMetadata(selectedModel));
+    let selectedInstall = $derived({ installed: installedIds.has(selectedModelId), bundled: selectedInstalledModel?.bundled === true });
     let selectedValidation = $derived(results?.find((result) => result.model_id === selectedModelId) ?? null);
     let recommendation = $derived(validationRecommendation(selectedModelId, selectedValidation ?? undefined, matrix));
     let usesLocation = $derived(selectedModel !== null && usesSavedFeederLocation(selectedModel));
@@ -148,6 +153,21 @@
         && providerChoices.some((choice) => choice.value === selectedProvider && choice.unavailable)
     );
     let canSave = $derived(loadState === 'ready' && selectedModelReady && locationValid && !configuredProviderUnavailable && !validating && !downloading && !savingRegion);
+    // The first thing standing between this step and Continue, in the order a person would meet it.
+    let blockedReason = $derived.by(() => {
+        const loading = loadBlockedReason(loadState, $_);
+        if (loading) return loading;
+        if (downloading) return $_('setup.model.blocked_downloading', { default: 'Continue is available when the download finishes.' });
+        // The running check says this itself, beside its progress.
+        if (validating) return '';
+        if (savingRegion) return $_('setup.blocked.loading', { default: 'Continue is available once the current settings have loaded.' });
+        if (!selectedModelId) return $_('setup.model.blocked_no_model', { default: 'Choose a model to continue, or skip this step to keep the model in use now.' });
+        if (needsDownload) return $_('setup.model.blocked_download', { default: 'Download this model to continue, or skip this step to keep the model in use now.' });
+        if (!selectedModelReady) return $_('setup.model.blocked_check', { default: 'Check that this model runs on this machine to continue, or skip this step to keep the model in use now.' });
+        if (!locationValid) return $_('setup.model.blocked_location', { default: 'Enter the feeder’s latitude and longitude to continue, or leave both empty.' });
+        if (configuredProviderUnavailable) return $_('setup.model.blocked_provider', { default: 'This host does not have the chosen device. Choose another, or Auto, to continue.' });
+        return '';
+    });
 
     async function load(): Promise<void> {
         loadState = 'loading';
@@ -207,7 +227,7 @@
         validating = false;
         progress = null;
         errorMsg = $_('setup.model.validation_timeout', {
-            default: 'Hardware validation exceeded 30 minutes. It may still be finishing in Diagnostics; check its status before starting another run.'
+            default: 'The check has run for more than 30 minutes. It may still be finishing: look under Model evaluation before starting another.'
         });
     }
 
@@ -229,10 +249,11 @@
             }
             const summary = await getModelEvalRun(runId);
             if (destroyed || selectedModelId !== runModelId) return;
-            if (!summary.finished_at && !summary.error) return;
-            if (summary.error) {
+            const stopped = stopCause(summary.error_code);
+            if (!summary.finished_at && !stopped) return;
+            if (stopped) {
                 stopPolling();
-                errorMsg = summary.error;
+                errorMsg = $_(`model_eval.stopped.${stopped}`);
                 validationFailed = true;
                 validating = false;
                 progress = null;
@@ -309,7 +330,7 @@
             validationFailed = true;
             validating = false;
             progress = null;
-            errorMsg = err instanceof Error ? err.message : $_('setup.model.sweep_error', { default: 'Could not start validation.' });
+            errorMsg = err instanceof Error ? err.message : $_('setup.model.sweep_error', { default: 'The check could not be started. Check that YA-WAMF is running, then try again.' });
         }
     }
 
@@ -375,10 +396,12 @@
         return validationRecommendation(m.model_id, m, matrix).providers.length > 0;
     }
 
-    function modelHardwareNote(model: ModelMetadata | null): string {
-        if (!model) return '';
-        if (!model.estimated_ram_mb) return model.recommended_for;
-        return `${model.recommended_for} ${$_('setup.model.ram_note', { values: { ram: model.estimated_ram_mb }, default: 'Around {ram} MB RAM recommended.' })}`;
+    const translate = (key: string, options?: { default?: string; values?: Record<string, string | number> }): string => $_(key, options);
+
+    // Purpose first, with the catalogue's code name after it so it still matches Model evaluation.
+    function optionLabel(model: ModelMetadata): string {
+        const name = identificationModelLabel(model, translate);
+        return installedIds.has(model.id) ? name : `${name} · ${$_('setup.model.download_needed', { default: 'download needed' })}`;
     }
 
     function phaseLabel(phase: string): string {
@@ -389,8 +412,8 @@
     }
 
     function validationSummary(models: ModelEvalModelSummary[]): string {
-        if (!models.length) return $_('setup.model.no_results', { default: 'No installed models were evaluated.' });
-        return $_('setup.model.validation_success', { default: 'Hardware validation completed successfully.' });
+        if (!models.length) return $_('setup.model.no_results', { default: 'No installed model was checked.' });
+        return $_('setup.model.validation_success', { default: 'The check finished: this model runs on this machine.' });
     }
 
     function resetValidationResult(modelId: string): void {
@@ -429,7 +452,7 @@
             resetValidationResult(selectedModelId);
         } catch (err) {
             regionOverride = previous;
-            errorMsg = err instanceof Error ? err.message : $_('setup.model.save_error', { default: 'Could not save model choices.' });
+            errorMsg = err instanceof Error ? err.message : $_('setup.model.save_error', { default: 'The model choice could not be saved. Check that YA-WAMF is running, then try again.' });
         } finally {
             savingRegion = false;
         }
@@ -472,7 +495,7 @@
             if (destroyed) return;
             setupWizardStore.completeStep();
         } catch (err) {
-            errorMsg = err instanceof Error ? err.message : $_('setup.model.save_error', { default: 'Could not save model choices.' });
+            errorMsg = err instanceof Error ? err.message : $_('setup.model.save_error', { default: 'The model choice could not be saved. Check that YA-WAMF is running, then try again.' });
         } finally {
             saving = false;
         }
@@ -480,41 +503,40 @@
 </script>
 
 <WizardStepLayout
-    title={$_('setup.model.title', { default: 'Classifier model & hardware' })}
+    title={$_('setup.model.title', { default: 'Model and hardware' })}
     description={$_('setup.model.description', {
-        default: 'YA-WAMF includes a lightweight CPU fallback. Choose a model, download it here if needed, then validate the exact image and hardware path before continuing.'
+        default: 'Choose the model that names the birds. Download it here if this install does not have it, then check that it runs on this machine before continuing.'
     })}
     showSkip
     canContinue={canSave}
+    {blockedReason}
     busy={saving}
     onContinue={save}
 >
     <WizardLoadState state={loadState} onRetry={load}>
+        <IdentificationStatusLine classifierStatus={status} context="wizard" />
         <div>
-            <label for="setup-model-id" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.choose_model', { default: 'Model' })}</label>
+            <label for="setup-model-id" class="text-sm font-medium text-ink">{$_('setup.model.choose_model', { default: 'Model' })}</label>
             <select id="setup-model-id" bind:value={selectedModelId} onchange={(event) => resetValidationResult(event.currentTarget.value)} disabled={validating || downloading || saving} class="select-base mt-1">
-                {#each availableModels as model (model.id)}
-                    <option value={model.id}>{model.name}{installedIds.has(model.id) ? '' : ` · ${$_('common.download_required', { default: 'Download required' })}`}</option>
+                {#each modelOptions as model (model.id)}
+                    <option value={model.id}>{optionLabel(model)}</option>
                 {/each}
             </select>
             {#if selectedModel}
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{modelHardwareNote(selectedModel)}</p>
-                {#if selectedModelSummary}
-                    <p class="mt-1 text-2xs font-semibold text-slate-500 dark:text-slate-400">{selectedModelSummary.labels.join(' · ')}</p>
-                {/if}
+                <p class="mt-1 text-sm text-muted" data-setup-model-facts>{modelFactsLine(selectedModel, selectedInstall, translate)}</p>
                 {#if selectedInstalledModel?.ready === false}
-                    <p role="status" class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.incomplete_install', { default: 'This model install is incomplete. Download and verify it again before continuing.' })}</p>
+                    <p role="status" class="mt-1 text-xs font-semibold text-status-attention">{$_('setup.model.incomplete_install', { default: 'This model install is incomplete. Download and verify it again before continuing.' })}</p>
                 {:else if needsDownload}
-                    <p class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.download_required', { default: 'Download and verify this model here before validating it on this hardware.' })}</p>
+                    <p class="mt-1 text-xs font-semibold text-status-attention">{$_('setup.model.download_required', { default: 'Download this model first. Then check that it runs on this machine.' })}</p>
                 {:else if !selectedModelReady}
-                    <p class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.validation_required', { default: 'Validate this model on the current image and hardware before continuing.' })}</p>
+                    <p class="mt-1 text-xs font-semibold text-status-attention">{$_('setup.model.validation_required', { default: 'Check that this model runs on this machine before continuing.' })}</p>
                 {/if}
             {/if}
         </div>
 
         {#if isRegional}
             <div data-setup-model-region>
-                <label for="setup-model-region" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.region_override_title', { default: 'Bird model region' })}</label>
+                <label for="setup-model-region" class="text-sm font-medium text-ink">{$_('settings.detection.region_override_title', { default: 'Bird model region' })}</label>
                 <select
                     id="setup-model-region"
                     value={regionOverride}
@@ -532,7 +554,7 @@
                 <p
                     id="setup-model-region-status"
                     role="status"
-                    class="mt-1 text-xs leading-relaxed {regionNotice.kind === 'no_country' ? 'font-semibold text-amber-700 dark:text-amber-300' : 'text-slate-500 dark:text-slate-400'}"
+                    class="mt-1 text-xs leading-relaxed {regionNotice.kind === 'no_country' ? 'font-semibold text-status-attention' : 'text-muted'}"
                 >
                     {#if regionNotice.kind === 'no_country'}
                         {$_('setup.model.region_no_country', { default: 'No country is saved, so Auto uses the North American species list. Choose Europe if your feeder is in Europe.' })}
@@ -548,7 +570,7 @@
         {/if}
 
         <div>
-            <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Inference Provider' })}</label>
+            <label for="setup-provider" class="text-sm font-medium text-ink">{$_('settings.detection.inference_provider', { default: 'Identification model runs on' })}</label>
             <select id="setup-provider" bind:value={selectedProvider} onchange={() => { providerTouched = true; providerMessage = ''; }} disabled={validating || downloading || saving} class="select-base mt-1">
                 {#each providerChoices as choice (choice.value)}
                     <option value={choice.value} disabled={choice.unavailable}>
@@ -556,9 +578,9 @@
                     </option>
                 {/each}
             </select>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.provider_hint', { default: 'Only providers available in this image, on this host, and for the selected model are shown.' })}</p>
+            <p class="mt-1 text-xs text-muted">{$_('setup.model.provider_hint', { default: 'Only the devices this install can use for the chosen model are listed.' })}</p>
             {#if providerPreferenceLabel}
-                <p aria-live="polite" class="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <p aria-live="polite" class="mt-1 text-xs font-semibold text-muted">
                     {$_('settings.detection.provider_runtime_order', {
                         values: { order: providerPreferenceLabel },
                         default: `Current runtime order: ${providerPreferenceLabel}`
@@ -566,30 +588,30 @@
                 </p>
             {/if}
             {#if configuredProviderUnavailable}
-                <p role="status" class="mt-1 border-l-2 border-amber-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-amber-800 dark:border-amber-500 dark:text-amber-200">
+                <p role="status" class="mt-1 border-l-2 border-status-attention-line py-1 pl-3 text-xs font-semibold leading-relaxed text-status-attention">
                     {$_('settings.detection.provider_saved_unavailable', {
                         values: { provider: providerLabel(selectedProvider as InferenceProvider) },
-                        default: `${providerLabel(selectedProvider as InferenceProvider)} is saved but unavailable. Choose an available provider or Auto.`
+                        default: `Saved: ${providerLabel(selectedProvider as InferenceProvider)}. It is not among the devices this model can use here now, so another device is used. Check devices on this host, or choose Auto.`
                     })}
                 </p>
             {/if}
         </div>
 
         {#if usesLocation}
-            <fieldset disabled={validating || downloading || saving} class="space-y-2 border-l-2 border-brand-100 pl-4 dark:border-brand-900/60">
-                <legend class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.location_title', { default: 'Feeder location' })}</legend>
-                <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{$_('setup.model.location_hint', { default: 'Validating or continuing saves these coordinates first, using the same feeder location as Settings → Integrations → Location. This model does not use the date or a location accuracy radius.' })}</p>
+            <fieldset disabled={validating || downloading || saving} class="space-y-2 border-l-2 border-line-soft pl-4">
+                <legend class="text-sm font-medium text-ink">{$_('setup.model.location_title', { default: 'Feeder location' })}</legend>
+                <p class="text-xs leading-relaxed text-muted">{$_('setup.model.location_hint', { default: 'Checking or continuing saves these coordinates first. They are the same feeder location as Settings → Sharing & integrations → Location. This model does not use the date or an accuracy radius.' })}</p>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <label for="setup-model-latitude" class="text-sm text-slate-700 dark:text-slate-300">
+                    <label for="setup-model-latitude" class="text-sm text-ink">
                         {$_('manual_observation.location.latitude', { default: 'Latitude' })}
                         <input id="setup-model-latitude" type="number" min="-90" max="90" step="any" value={latitudeText} oninput={(event) => (latitudeText = event.currentTarget.value)} class="input-base mt-1" aria-invalid={coordinates.error !== null} aria-describedby="setup-model-location-status" />
                     </label>
-                    <label for="setup-model-longitude" class="text-sm text-slate-700 dark:text-slate-300">
+                    <label for="setup-model-longitude" class="text-sm text-ink">
                         {$_('manual_observation.location.longitude', { default: 'Longitude' })}
                         <input id="setup-model-longitude" type="number" min="-180" max="180" step="any" value={longitudeText} oninput={(event) => (longitudeText = event.currentTarget.value)} class="input-base mt-1" aria-invalid={coordinates.error !== null} aria-describedby="setup-model-location-status" />
                     </label>
                 </div>
-                <p id="setup-model-location-status" role={coordinates.error ? 'alert' : 'status'} class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                <p id="setup-model-location-status" role={coordinates.error ? 'alert' : 'status'} class="text-xs leading-relaxed text-muted">
                     {#if coordinates.error === 'incomplete'}
                         {$_('setup.model.location_incomplete', { default: 'Enter both latitude and longitude, or leave both empty.' })}
                     {:else if coordinates.error === 'range'}
@@ -605,18 +627,18 @@
 
         {#if accelerators.length || verified.length}
             <div>
-                <p class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.detected', { default: 'Detected accelerators' })}</p>
+                <p class="text-sm font-medium text-ink">{$_('setup.model.detected', { default: 'Devices found on this machine' })}</p>
                 {#if accelerators.length}
                     <div class="mt-1.5 flex flex-wrap gap-2">
                         {#each accelerators as acc (acc.id)}
-                            <span class="inline-flex items-center gap-1 rounded-full bg-accent-100 px-2.5 py-1 text-xs font-semibold text-accent-800 dark:bg-accent-900/30 dark:text-accent-200">
+                            <span class="inline-flex items-center gap-1 rounded-full bg-status-ok-soft px-2.5 py-1 text-xs font-semibold text-status-ok">
                                 <span aria-hidden="true">✓</span> {acc.label}
                             </span>
                         {/each}
                     </div>
                 {/if}
                 {#if verified.length}
-                    <p class="mt-2 text-xs text-success-700 dark:text-success-300">{$_('setup.model.verified', { values: { list: verified.join(', ') }, default: `Validated providers: ${verified.join(', ')}` })}</p>
+                    <p class="mt-2 text-xs text-status-ok">{$_('setup.model.verified', { values: { list: verified.join(', ') }, default: `Validated providers: ${verified.join(', ')}` })}</p>
                 {/if}
             </div>
         {/if}
@@ -628,14 +650,14 @@
                 aria-valuemin="0"
                 aria-valuemax="100"
                 aria-valuenow={downloadPct}
-                class="space-y-2 rounded-lg bg-brand-50 p-3 dark:bg-brand-950/20"
+                class="space-y-2 rounded-lg bg-accent-soft p-3"
             >
                 <div class="flex items-center justify-between text-sm">
-                    <span class="font-medium text-brand-800 dark:text-brand-200">{$_('settings.detection.model_manager_installing_pct', { values: { pct: downloadPct }, default: `Downloading… ${downloadPct}%` })}</span>
-                    <span class="text-xs tabular-nums text-brand-600 dark:text-brand-400">{downloadPct}%</span>
+                    <span class="font-medium text-accent-ink">{$_('settings.detection.model_manager_installing_pct', { values: { pct: downloadPct }, default: `Downloading… ${downloadPct}%` })}</span>
+                    <span class="text-xs tabular-nums text-accent-ink">{downloadPct}%</span>
                 </div>
-                <div class="h-2 w-full overflow-hidden rounded-full bg-brand-100 dark:bg-brand-900/40">
-                    <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {downloadPct}%"></div>
+                <div class="h-2 w-full overflow-hidden rounded-full bg-track">
+                    <div class="h-full rounded-full bg-accent-line transition-all duration-500 motion-reduce:transition-none" style="width: {downloadPct}%"></div>
                 </div>
             </div>
         {:else if needsDownload}
@@ -645,51 +667,51 @@
         {:else if validating && progress}
             <div
                 role="progressbar"
-                aria-label={$_('setup.model.validate', { default: 'Validate on my hardware' })}
+                aria-label={$_('setup.model.validate', { default: 'Check it runs on this machine' })}
                 aria-valuemin="0"
                 aria-valuemax={progress.total > 0 ? progress.total : undefined}
                 aria-valuenow={progress.total > 0 ? progress.done : undefined}
                 aria-valuetext={phaseLabel(progress.phase)}
-                class="space-y-2 rounded-lg bg-brand-50 p-3 dark:bg-brand-950/20"
+                class="space-y-2 rounded-lg bg-accent-soft p-3"
             >
                 <div class="flex items-center justify-between text-sm">
-                    <span class="font-medium text-brand-800 dark:text-brand-200">{phaseLabel(progress.phase)}</span>
-                    {#if progress.total > 0}<span class="text-xs text-brand-600 dark:text-brand-400">{progress.done}/{progress.total}</span>{/if}
+                    <span class="font-medium text-accent-ink">{phaseLabel(progress.phase)}</span>
+                    {#if progress.total > 0}<span class="text-xs text-accent-ink">{progress.done}/{progress.total}</span>{/if}
                 </div>
-                <div class="h-2 w-full overflow-hidden rounded-full bg-brand-100 dark:bg-brand-900/40">
-                    <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {progress.total > 0 ? progressPct : 15}%"></div>
+                <div class="h-2 w-full overflow-hidden rounded-full bg-track">
+                    <div class="h-full rounded-full bg-accent-line transition-all duration-500 motion-reduce:transition-none" style="width: {progress.total > 0 ? progressPct : 15}%"></div>
                 </div>
             </div>
         {:else}
             <button type="button" class="btn btn-secondary px-5 py-2.5" onclick={runValidation} disabled={!selectedModelId || !locationValid || saving || savingRegion}>
-                {results ? $_('setup.model.revalidate', { default: 'Re-run validation' }) : $_('setup.model.validate', { default: 'Validate on my hardware' })}
+                {results ? $_('setup.model.revalidate', { default: 'Check again' }) : $_('setup.model.validate', { default: 'Check it runs on this machine' })}
             </button>
         {/if}
 
         {#if validating}
-            <p role="status" class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{$_('setup.model.check_running', { default: 'Continue is available when the check finishes. Leaving this step does not stop the check. Return later to read the saved results.' })}</p>
+            <p role="status" class="text-xs leading-relaxed text-muted">{$_('setup.model.check_running', { default: 'Continue is available when the check finishes. Leaving this step does not stop the check. Return later to read the saved results.' })}</p>
         {/if}
         {#if providerMessage}
-            <p role="status" class="text-xs font-semibold text-amber-700 dark:text-amber-300">{providerMessage}</p>
+            <p role="status" class="text-xs font-semibold text-status-attention">{providerMessage}</p>
         {/if}
         {#if errorMsg}
-            <div role="alert" class="rounded-md bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">{errorMsg}</div>
+            <div role="alert" class="rounded-md bg-status-attention-soft p-2 text-sm text-status-attention">{errorMsg}</div>
         {/if}
         {#if validationMsg}
-            <div role="status" class="rounded-md bg-success-50 p-2 text-sm text-success-800 dark:bg-success-900/20 dark:text-success-200">{validationMsg}</div>
+            <div role="status" class="rounded-md bg-status-ok-soft p-2 text-sm text-status-ok">{validationMsg}</div>
         {/if}
 
         {#if results}
             {#if results.length === 0}
-                <p class="text-sm text-slate-500 dark:text-slate-400">{$_('setup.model.no_results', { default: 'No installed models were evaluated.' })}</p>
+                <p class="text-sm text-muted">{$_('setup.model.no_results', { default: 'No installed model was checked.' })}</p>
             {:else}
-                <ul class="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+                <ul class="divide-y divide-line overflow-hidden rounded-lg border border-line">
                     {#each results as m (m.model_id)}
                         {@const outcome = validationRecommendation(m.model_id, m, matrix)}
                         <li class="flex items-center justify-between gap-3 p-2.5">
                             <div class="min-w-0">
-                                <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{availableModels.find((model) => model.id === m.model_id)?.name ?? m.model_id}</p>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                <p class="text-sm font-medium text-strong">{identificationModelName({ id: m.model_id, name: availableModels.find((model) => model.id === m.model_id)?.name }, translate).name}</p>
+                                <p class="text-xs text-muted">
                                     {#if outcome.provider && outcome.medianMs !== null}
                                         {$_('setup.model.best_provider', { values: { provider: providerLabel(outcome.provider), ms: outcome.medianMs.toFixed(0) }, default: `Best validated provider: ${providerLabel(outcome.provider)}, ${outcome.medianMs.toFixed(0)} ms per image` })}
                                     {:else if outcome.provider}
@@ -698,19 +720,19 @@
                                 </p>
                                 {#if !rowOk(m)}
                                     {@const reason = m.warnings?.find((warning) => warning.severity === 'critical')?.message}
-                                    {#if reason}<p class="text-xs text-amber-700 dark:text-amber-300" data-setup-model-warning>{reason}</p>{/if}
+                                    {#if reason}<p class="text-xs text-status-attention" data-setup-model-warning>{reason}</p>{/if}
                                 {/if}
                                 {#if m.failed_providers?.length}
-                                    <p class="text-xs text-amber-700 dark:text-amber-300">{$_('setup.model.failed_providers', { values: { providers: m.failed_providers.map((value) => providerLabel(parseInferenceProvider(value) ?? 'auto')).join(', ') }, default: `Failed: ${m.failed_providers.join(', ')}` })}</p>
+                                    <p class="text-xs text-status-attention">{$_('setup.model.failed_providers', { values: { providers: m.failed_providers.map((value) => providerLabel(parseInferenceProvider(value) ?? 'auto')).join(', ') }, default: `Failed: ${m.failed_providers.join(', ')}` })}</p>
                                 {/if}
                             </div>
-                            <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {rowOk(m) ? 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'}">
+                            <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {rowOk(m) ? 'bg-status-ok-soft text-status-ok' : 'bg-status-attention-soft text-status-attention'}">
                                 {rowOk(m) ? $_('setup.model.row_ok', { default: 'Runs' }) : $_('setup.model.row_warn', { default: 'Check' })}
                             </span>
                         </li>
                     {/each}
                 </ul>
-                <p class="text-xs text-slate-500 dark:text-slate-400">{$_('model_eval.compat_only_body', { default: 'This run checked that each provider loads, gives finite output and agrees with the CPU baseline. It did not measure accuracy, so no accuracy figures are shown. Run Evaluation to measure accuracy.' })}</p>
+                <p class="text-xs text-muted">{$_('model_eval.compat_only_body', { default: 'This run checked that each provider loads, gives finite output and agrees with the CPU baseline. It did not measure accuracy, so no accuracy figures are shown. Run Evaluation to measure accuracy.' })}</p>
             {/if}
         {/if}
     </WizardLoadState>

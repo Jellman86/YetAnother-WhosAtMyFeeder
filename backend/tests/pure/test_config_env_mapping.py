@@ -573,6 +573,7 @@ def test_home_assistant_weather_survives_a_restart(monkeypatch, tmp_path):
                     "access_token": "stored-token",
                     "weather_entity": "weather.forecast_home",
                     "temperature_entity": "sensor.feeder_temp",
+                    "illuminance_entity": "sensor.feeder_illuminance",
                 }
             }
         ),
@@ -589,6 +590,7 @@ def test_home_assistant_weather_survives_a_restart(monkeypatch, tmp_path):
     assert loaded.ha_weather.access_token == "stored-token"
     assert loaded.ha_weather.weather_entity == "weather.forecast_home"
     assert loaded.ha_weather.temperature_entity == "sensor.feeder_temp"
+    assert loaded.ha_weather.illuminance_entity == "sensor.feeder_illuminance"
 
 
 def test_home_assistant_weather_env_overrides_the_file(monkeypatch, tmp_path):
@@ -753,3 +755,30 @@ def test_garden_alert_photo_defaults_on_and_follows_file_then_environment(monkey
     config_path.write_text(json.dumps({}))
     monkeypatch.delenv("FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO")
     assert Settings.load().frigate.garden_notifications_include_photo is True
+
+
+def test_visit_gap_persists_and_environment_can_override(monkeypatch, tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"visits": {"gap_seconds": 20}}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+    monkeypatch.delenv("VISITS__GAP_SECONDS", raising=False)
+    assert Settings.load().visits.gap_seconds == 20
+    monkeypatch.setenv("VISITS__GAP_SECONDS", "12")
+    assert Settings.load().visits.gap_seconds == 12
+
+
+def test_visit_gap_defaults_to_one_minute_without_config(monkeypatch, tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text("{}")
+    monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+    monkeypatch.delenv("VISITS__GAP_SECONDS", raising=False)
+    assert Settings.load().visits.gap_seconds == 60
+
+
+@pytest.mark.parametrize("value", ["3", "900", "soon"])
+def test_an_unusable_visit_gap_falls_back_to_one_minute_instead_of_stopping_startup(monkeypatch, tmp_path, value):
+    path = tmp_path / "config.json"
+    path.write_text("{}")
+    monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+    monkeypatch.setenv("VISITS__GAP_SECONDS", value)
+    assert Settings.load().visits.gap_seconds == 60

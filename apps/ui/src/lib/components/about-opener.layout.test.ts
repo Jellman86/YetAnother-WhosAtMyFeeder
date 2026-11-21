@@ -15,12 +15,13 @@ describe('the leaderboard opens on a wall of this feeder\'s own visits', () => {
         const wall = speciesSource.indexOf('<CaptureWall');
         expect(wall).toBeGreaterThan(-1);
         expect(wall).toBeLessThan(speciesSource.indexOf('<SpeciesChecks'));
-        expect(speciesSource).toContain("{#if sourceMode !== 'heard' && sourceLeader && sourceLeader.count > 0}");
+        expect(speciesSource).toContain("const showsWall = $derived(sourceMode !== 'heard' && sourceLeader !== null && sourceLeader.count > 0);");
+        expect(speciesSource).toContain('{#if showsWall}');
         expect(wallSource).toContain('{#if loading || usable.length >= WALL_MINIMUM}');
         expect(speciesSource).toContain('onopen={(key) => (selectedSpecies = key)}');
         // A tile is the stored photograph (the crop) at card size, never the whole-scene
         // thumbnail and never the multi-megabyte original.
-        expect(wallSource).toContain('src={getReelImageUrl(tile.frigateEvent)}');
+        expect(wallSource).toContain("src={getReelImageUrl(tile.frigateEvent, large(tile) ? 'card' : 'tile')}");
         expect(wallSource).not.toContain('getSnapshotUrl');
         expect(wallSource).toContain('<button');
         expect(wallSource).toContain('aria-label={tileName(tile)}');
@@ -49,9 +50,11 @@ describe('the leaderboard opens on a wall of this feeder\'s own visits', () => {
         expect(wallSource).toContain('onpointerenter={holdOpen}');
     });
 
-    it('never leaves a hole: a photograph that fails to load leaves the wall', () => {
+    it('never leaves a hole or moves a tile: a photograph that fails keeps its cell and names the bird', () => {
         expect(wallSource).toContain('use:photo={() => markFailed(tile.frigateEvent)}');
-        expect(wallSource).toContain('.filter((tile) => !failed.has(tile.frigateEvent))');
+        expect(wallSource).not.toContain('.filter((tile) => !failed.has(tile.frigateEvent))');
+        expect(wallSource).toContain('{#if failed.has(tile.frigateEvent)}');
+        expect(wallSource).toContain('data-capture-wall-missing');
     });
 
     it('stands still under reduced motion', () => {
@@ -97,8 +100,8 @@ describe('the About page opens on a portrait of this feeder', () => {
 
     it('tells a guest the facts cover the shared window, so a short window never reads as a young feeder', () => {
         expect(portraitSource).toContain("if (portrait.scope === 'shared')");
-        expect(en.about.portrait.shared_days).toBe('The last {days} days at this feeder.');
-        expect(en.about.portrait.since).toBe('Watching since {date}.');
+        expect(en.about.portrait.shared_days).toBe('The last {days} days at this feeder');
+        expect(en.about.portrait.since).toBe('Watching since {date}');
     });
 
     it('reads the busiest day as a calendar date, so no time zone moves it', () => {
@@ -114,11 +117,10 @@ describe('the About page opens on a portrait of this feeder', () => {
     });
 
     it('lists the install-count read among what leaves the network', () => {
-        expect(privacySource).toContain("key: 'community'");
         // Guests cannot read settings, so the row states what the community read itself reported.
-        expect(privacySource).toContain('communityReadEnabled ?? Boolean(settingsStore.settings?.update_check_enabled)');
+        expect(privacySource).toContain('updateChecks: communityReadEnabled ?? (settings ? Boolean(settings.update_check_enabled) : null)');
         expect(aboutSource).toContain('<PrivacySummary {communityReadEnabled} />');
-        expect(en.about.outbound.community_desc).toContain('update checks');
+        expect(en.about.outbound.updates_desc).toContain('update checks');
         for (const value of JSON.stringify(en.about.portrait).match(/"[^"]*"/g) ?? []) {
             expect(value).not.toContain('—');
         }

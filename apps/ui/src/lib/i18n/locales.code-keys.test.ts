@@ -15,7 +15,9 @@ const sources = import.meta.glob(['../../**/*.svelte', '../../**/*.ts', '!../../
  * agree with each other. 120 such keys, most of the first-run setup wizard and
  * the connection test dialogs, went untranslated this way.
  */
-const LITERAL_KEY = /\$_\(\s*['"]([a-z]\w*(?:\.\w+)+)['"]/g;
+// `$_('a.b')` in a component, and the helpers plain modules use for the same thing:
+// `t('a.b', values, fallback)`, `this.deps.t('a.b')` and `translate('a.b')`.
+const LITERAL_KEY = /(?:\$_|(?<![\w$])t|\.t|(?<![\w$])translate)\(\s*['"]([a-z]\w*(?:\.\w+)+)['"]/g;
 
 function defined(root: unknown, key: string): boolean {
     let node = root;
@@ -36,5 +38,15 @@ describe('locale keys used in code', () => {
             }
         }
         expect([...missing].sort()).toEqual([]);
+    });
+
+    it('finds a key named through a helper, not only through $_()', () => {
+        const found = (source: string) => [...source.matchAll(LITERAL_KEY)].map((match) => match[1]);
+        expect(found("t('jobs.state_paused', undefined, 'Paused')")).toEqual(['jobs.state_paused']);
+        expect(found("this.deps.t('notifications.event_backfill')")).toEqual(['notifications.event_backfill']);
+        expect(found("translate('jobs.backfill_checked', { processed: 1, total: 2 })")).toEqual(['jobs.backfill_checked']);
+        expect(found("$_('nav.health', { default: 'Health' })")).toEqual(['nav.health']);
+        // A call that is not a translation, and a helper whose name only ends in "t".
+        expect(found("split('a.b'); format('jobs.title'); element.getAttribute('data.key')")).toEqual([]);
     });
 });

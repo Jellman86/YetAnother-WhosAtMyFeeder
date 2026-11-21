@@ -1,22 +1,27 @@
 {
   "chart": {
     "heard": "検出数",
-    "daily_title": "時間ごとのアクティビティ",
-    "daily_sub": "1日ごとの BirdNET-Go 音声検出数",
-    "hourly_title": "時間帯",
+    "daily_title": "聞こえた鳴き声の推移",
+    "heatmap_title": "時間帯と曜日別の聞こえた鳴き声",
     "species_title": "種の構成",
-    "empty": "この期間にアクティビティはありません。"
+    "empty": "この期間に聞こえた鳴き声はありません。",
+    "other_species": "その他の種",
+    "unavailable": "履歴を読み込めない間は表示できません。",
+    "col_day": "日",
+    "col_calls": "鳴き声",
+    "col_species": "種"
   },
   "stat": {
-    "heard": "検出数",
-    "heard_sub": "表示中の BirdNET 検出",
+    "heard": "聞こえた鳴き声",
+    "heard_sub": "この期間の BirdNET-Go 検出",
     "species": "種",
-    "species_sub": "音声から特定された種",
-    "peak_hour": "ピーク時間",
-    "peak_hour_sub": "{count, plural, other {# 件の検出}}",
+    "species_sub": "この期間に聞こえた種",
+    "busiest_hour": "最も活発な時間帯",
     "no_activity": "まだアクティビティはありません",
     "sources": "音源",
-    "sources_sub": "マイクまたはストリーム"
+    "sources_sub": "マイクまたはストリーム",
+    "not_available": "取得できません",
+    "no_calls": "この期間の鳴き声はありません"
   },
   "filter": {
     "window": "期間",
@@ -28,7 +33,9 @@
     "species": "種",
     "source": "音源",
     "min_confidence": "最低信頼度",
-    "changed": "フィルターが変更されました。一覧を更新するには適用してください。"
+    "changed": "フィルターが変更されました。一覧を更新するには適用してください。",
+    "species_placeholder": "すべての種",
+    "source_placeholder": "すべての音源"
   },
   "top_species": "最も多く聞かれた種",
   "card": {
@@ -38,13 +45,16 @@
   },
   "history": {
     "title": "検出履歴",
-    "sub": "映像による訪問とは別に保存された BirdNET-Go の検出です。",
+    "sub": "BirdNET-Go が報告したすべての鳴き声。カメラの訪問とは別に記録されます。",
     "empty": "このフィルターに一致する BirdNET 検出はありません。",
     "showing": "{total} 件中 {from}～{to} 件を表示",
-    "hide": "ローカルで非表示",
+    "hide": "YA-WAMF で非表示",
     "undo": "元に戻す",
     "hidden_message": "音声検出を非表示にしました。",
-    "local_only": "非表示にするとYA-WAMFの履歴と今後の音声照合から除外されます。BirdNET-Goは変更されません。上流の削除は自動同期されません。"
+    "local_only": "非表示にするとYA-WAMFの履歴と今後の音声照合から除外されます。BirdNET-Goは変更されません。上流の削除は自動同期されません。",
+    "read_failed": "YA-WAMF から音声履歴を読み込めなかったため、このページに測定値はありません。",
+    "read_failed_next": "もう一度お試しください。失敗が続く場合は、稼働状況を開いてバックエンドが障害を報告していないか確認してください。",
+    "stale": "最新の更新に失敗したため、{at} 時点の読み取りを表示しています。"
   },
   "table": {
     "sound": "音声",
@@ -62,5 +72,13 @@
     "empty": "音源はまだありません。"
   },
   "not_shared_title": "音声は公開されていません",
-  "not_shared_body": "このインスタンスの所有者は訪問者向けの音声をオフにしています。"
+  "not_shared_body": "このインスタンスの所有者はゲスト向けの音声をオフにしています。",
+  "summary_title": "この期間",
+  "calls_heard": "{count, plural, other {聞こえた鳴き声 # 件}}",
+  "heatmap": {
+    "grid_label": "時間帯と曜日別の聞こえた鳴き声。矢印キーで枠を読み上げます。",
+    "per_hour": "1時間枠あたりの聞こえた鳴き声",
+    "read_failed": "時間帯と曜日別の聞こえた鳴き声を読み込めなかったため、このグリッドと最も活発な時間帯は表示されません。ページのほかの内容は読み込まれています。"
+  },
+  "side_label": "よく聞こえた種と音源"
 }

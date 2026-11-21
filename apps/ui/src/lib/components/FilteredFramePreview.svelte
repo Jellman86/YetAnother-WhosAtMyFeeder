@@ -131,7 +131,7 @@
         };
     });
 
-    const name = $derived(label ?? $_('common.unknown_species', { default: 'Unknown species' }));
+    const name = $derived(label ?? $_('common.unknown_species', { default: 'Species not named' }));
 </script>
 
 <div
@@ -165,7 +165,7 @@
             <!-- Frigate rotates short events away quickly, so a missing frame degrades to a
                  placeholder of identical size rather than a hole that shifts the row. -->
             <span
-                class="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-white bg-slate-100 text-slate-300 dark:border-slate-900 dark:bg-slate-800 dark:text-slate-600"
+                class="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-surface bg-surface-raised text-subtle"
                 aria-hidden="true"
             >
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -177,7 +177,7 @@
                 src={getThumbnailUrl(eventId)}
                 alt=""
                 loading="lazy"
-                class="h-9 w-9 rounded-lg border-2 border-white object-cover opacity-80 dark:border-slate-900"
+                class="h-9 w-9 rounded-lg border-2 border-surface object-cover opacity-80"
                 onerror={() => (failed = true)}
             />
         {/if}
@@ -187,7 +187,7 @@
         <div
             use:portal
             style="left: {anchor.x}px; top: {anchor.y}px;"
-            class="fixed z-[70] w-56 max-w-[calc(100vw-16px)] rounded-2xl border border-slate-200 bg-surface p-2 shadow-2xl shadow-slate-950/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none dark:border-slate-700 {anchor.above
+            class="fixed z-70 w-56 max-w-[calc(100vw-16px)] rounded-2xl border border-line bg-surface p-2 shadow-2xl shadow-media/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none {anchor.above
                 ? '-translate-x-1/2 -translate-y-full'
                 : '-translate-x-1/2'}"
             role="tooltip"
@@ -196,7 +196,7 @@
             onmouseleave={() => hide()}
         >
             {#if failed}
-                <div class="grid aspect-video place-items-center rounded-xl bg-slate-100 px-3 text-center text-2xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                <div class="grid aspect-video place-items-center rounded-xl bg-surface-raised px-3 text-center text-2xs font-medium text-muted">
                     {$_('jobs.errors_filtered_frame_gone', { default: 'Frigate no longer has this frame' })}
                 </div>
             {:else}
@@ -208,8 +208,8 @@
                     onerror={() => (failed = true)}
                 />
             {/if}
-            <p class="mt-1.5 px-0.5 text-2xs font-semibold italic text-slate-600 dark:text-slate-300">{name}</p>
-            <p class="break-all px-0.5 font-mono text-3xs text-slate-400 dark:text-slate-500">{eventId}</p>
+            <p class="mt-1.5 px-0.5 text-2xs font-semibold italic text-muted">{name}</p>
+            <p class="break-all px-0.5 font-mono text-3xs text-muted">{eventId}</p>
         </div>
     {/if}
 </div>

@@ -24,7 +24,7 @@ for (const outcome of ['success', 'failure'] as const) {
             return route.fulfill({ json: {} });
         });
         await page.goto('/browser-tests/settings-backfill.html');
-        await page.getByRole('link', { name: 'Data', exact: true }).click();
+        await page.getByRole('link', { name: 'Storage & upkeep', exact: true }).click();
         await expect(page.locator('[data-cache-size-unavailable]')).toBeVisible();
         await page.locator('[data-cache-size-retry]').click();
         await expect.poll(() => reads).toBe(2);

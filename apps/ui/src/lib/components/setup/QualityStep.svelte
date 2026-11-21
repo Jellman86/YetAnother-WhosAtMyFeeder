@@ -4,6 +4,7 @@
     import { fetchSettings, updateSettings } from '../../api/settings';
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
     import WizardStepLayout from './WizardStepLayout.svelte';
+    import { loadBlockedReason } from './continue-blocked';
     import WizardLoadState, { type WizardLoadStatus } from './WizardLoadState.svelte';
 
     let hqSnapshots = $state(true);
@@ -44,21 +45,22 @@
 <WizardStepLayout
     title={$_('setup.quality.title', { default: 'Best available snapshots' })}
     description={$_('setup.quality.description', {
-        default: 'YA-WAMF can automatically choose the clearest recorded frame and strongest reliable bird crop after each event.'
+        default: 'After each visit, YA-WAMF can choose the clearest frame from the recording and the best close-up of the bird.'
     })}
     showSkip
     canContinue={loadState === 'ready'}
+    blockedReason={loadBlockedReason(loadState, $_)}
     {busy}
     onContinue={save}
 >
     <WizardLoadState state={loadState} onRetry={load}>
-        <label class="flex min-h-12 items-start gap-3 rounded-xl border border-slate-200/80 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-300">
-            <input type="checkbox" bind:checked={hqSnapshots} class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+        <label class="flex min-h-12 items-start gap-3 rounded-xl border border-line px-4 py-3 text-sm text-ink">
+            <input type="checkbox" bind:checked={hqSnapshots} class="mt-0.5 rounded-sm border-line-strong text-accent focus:ring-focus" />
             <span>
-                <span class="block font-semibold text-slate-900 dark:text-white">
+                <span class="block font-semibold text-strong">
                     {$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
                 </span>
-                <span class="mt-1 block leading-relaxed text-slate-500 dark:text-slate-400">
+                <span class="mt-1 block leading-relaxed text-muted">
                     {$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'After an event ends, choose the clearest main-stream frame and best crop available. The full frame is kept when a reliable crop cannot be made.' })}
                 </span>
             </span>

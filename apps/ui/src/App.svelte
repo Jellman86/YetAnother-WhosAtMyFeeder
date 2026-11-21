@@ -6,24 +6,32 @@
   import MobileTopBar from './lib/components/MobileTopBar.svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import Footer from './lib/components/Footer.svelte';
-  import PageHeader from './lib/components/PageHeader.svelte';
+  import AppPageHeader from './lib/components/AppPageHeader.svelte';
   import UpdateBanner from './lib/components/UpdateBanner.svelte';
   import UpdateIndicator from './lib/components/UpdateIndicator.svelte';
   import Toast from './lib/components/Toast.svelte';
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import KeyboardShortcuts from './lib/components/KeyboardShortcuts.svelte';
   import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
+  import { liveFeedState } from './lib/utils/live-feed-state';
+  import type { SummaryRequest } from './lib/utils/system-status';
+  import { serviceConnectionsStore } from './lib/stores/service_connections.svelte';
   import BackendStatusScreen from './lib/components/BackendStatusScreen.svelte';
   import LazyRoute from './lib/components/LazyRoute.svelte';
   import LazyModal from './lib/components/LazyModal.svelte';
   import Login from './lib/components/Login.svelte';
   import { setupWizardStore } from './lib/stores/setup_wizard.svelte';
-  import { checkHealth, fetchAnalysisStatus, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
+  import { checkHealth, fetchEventClassificationStatus, invalidateClassifierStatus, setAuthErrorCallback } from './lib/api';
+  import { isSystemStatus } from './lib/api/status';
+  import { mapGuarded } from './lib/api/core';
+  import { systemStatusStore } from './lib/stores/system_status.svelte';
+  import { serverJobsStore } from './lib/stores/server_jobs.svelte';
   import { createStreamTicket } from './lib/api/auth';
   import { resolveStreamUrl } from './lib/app/stream-url';
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
-import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte';
+import { accessibilityApplied } from './lib/stores/accessibility_applied.svelte';
+import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { settingsStore } from './lib/stores/settings.svelte';
   import { publicSettingsStore } from './lib/stores/public_settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
@@ -36,27 +44,35 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   import { toastStore } from './lib/stores/toast.svelte';
   import { notificationPolicy } from './lib/notifications/policy';
   import { announcer } from './lib/components/Announcer.svelte';
+  import { installAnalysisAnnouncements } from './lib/app/install-analysis-announcements';
   import Announcer from './lib/components/Announcer.svelte';
   import GlobalProgress from './lib/components/GlobalProgress.svelte';
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
   import { logger } from './lib/utils/logger';
   import { LiveUpdateCoordinator } from './lib/app/live-updates';
+  import { newBirdAnnouncement } from './lib/app/live-announcement';
   import { gardenHistory } from './lib/stores/garden_history.svelte';
+  import { audioActivity } from './lib/stores/audio_activity.svelte';
   import { guestHistoryRefreshDelayMs } from './lib/app/public-refresh-budget';
   import { createPublicHistoryRefresh } from './lib/app/public-history-refresh';
   import { createDeployRecovery } from './lib/app/deploy-recovery';
   import { lazyComponent } from './lib/app/lazy-component';
+  import { settingsSectionFromRoute } from './lib/settings/settings-route';
   import {
       canonicalizeNotificationRouteForAccess,
       getCanonicalNotificationRoute,
       isNotificationRoute
   } from './lib/app/notifications_route';
   import { createReclassifyRecovery } from './lib/app/reclassify_recovery';
-  import { createCooldownSingleFlightRunner, createSingleFlightRunner } from './lib/app/single-flight';
+  import { createSingleFlightRunner } from './lib/app/single-flight';
   import { refreshCoordinator } from './lib/stores/refresh_coordinator.svelte';
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
   import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
   import { documentTitle, routeIdFor, routeOffersRefresh, type RouteId } from './lib/app/route-title';
+  import { createRoutePrefetch } from './lib/app/route-prefetch';
+
+  // Card analyses are spoken once for the page, aggregated, through the shared announcer below.
+  installAnalysisAnnouncements();
 
   const loadDashboardPage = lazyComponent(() => import('./lib/pages/Dashboard.svelte'));
   const loadEventsPage = lazyComponent(() => import('./lib/pages/Events.svelte'));
@@ -65,17 +81,33 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   const loadSettingsPage = lazyComponent(() => import('./lib/pages/Settings.svelte'));
   const loadAboutPage = lazyComponent(() => import('./lib/pages/About.svelte'));
   const loadNotificationsPage = lazyComponent(() => import('./lib/pages/Notifications.svelte'));
+  const loadHealthPage = lazyComponent(() => import('./lib/pages/Errors.svelte'));
   const loadModelEvaluationPage = lazyComponent(() => import('./lib/pages/ModelEvaluation.svelte'));
   const loadManualObservationPage = lazyComponent(() => import('./lib/pages/ManualObservation.svelte'));
   // The setup wizard runs once per install, so every later visit skips downloading it.
   const loadFirstRunWizard = lazyComponent(() => import('./lib/pages/FirstRunWizard.svelte'));
   const loadWizardShell = lazyComponent(() => import('./lib/components/setup/WizardShell.svelte'));
+  // Pointing at a page's link starts loading its code, so the click shows it without a wait.
+  const prefetchRoute = createRoutePrefetch({
+      dashboard: loadDashboardPage,
+      explorer: loadEventsPage,
+      add_observation: loadManualObservationPage,
+      leaderboard: loadSpeciesPage,
+      audio_history: loadAudioHistoryPage,
+      settings: loadSettingsPage,
+      notifications: loadNotificationsPage,
+      health: loadHealthPage,
+      model_evaluation: loadModelEvaluationPage,
+      about: loadAboutPage
+  });
 
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
   let isMobile = $state(false);
 
-  // Router state
+  // Router state. The fragment is kept beside the route, not in it, so every route comparison stays
+  // on the path; a page that has places inside it (Settings' parts) follows it.
   let currentRoute = $state('/');
+  let currentHash = $state('');
   let dashboardRefreshKey = $state(0);
   let globalProgressHasScrolled = $state(false);
 
@@ -87,25 +119,28 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
           case 'explorer': return $_('nav.explorer', { default: 'Explorer' });
           case 'add_observation': return $_('nav.add_observation', { default: 'Add observation' });
           case 'leaderboard': return $_('nav.leaderboard', { default: 'Leaderboard' });
-          case 'audio_history': return $_('nav.audio_history', { default: 'Audio History' });
+          case 'audio_history': return $_('nav.audio_history', { default: 'Audio history' });
           case 'notifications': return $_('nav.notifications', { default: 'Notifications' });
+          case 'health': return $_('nav.health', { default: 'Health' });
           case 'settings': return $_('settings.title', { default: 'Settings' });
-          case 'model_evaluation': return 'Model Evaluation';
+          case 'model_evaluation': return $_('model_eval.page_title', { default: 'Model evaluation' });
           case 'about': return $_('nav.about', { default: 'About' });
           default: return '';
       }
   });
   let pageSubtitle = $derived.by(() => {
       switch (routeId) {
-          case 'dashboard': return $_('page_subtitle.dashboard', { default: 'Live detections, recent activity, and feeder health at a glance.' });
+          case 'dashboard': return $_('page_subtitle.dashboard', { default: 'The last 24 hours at your feeder, and anything waiting on you.' });
           case 'explorer': return $_('page_subtitle.events', { default: 'Browse, filter, and manage every classified visit.' });
           case 'add_observation': return $_('page_subtitle.add_observation', { default: 'Classify your own photo or video, review the evidence, and add it to your history.' });
-          case 'leaderboard': return $_('page_subtitle.species', { default: 'Leaderboard, totals, and taxonomy details for the birds you have seen.' });
-          case 'audio_history': return $_('page_subtitle.audio_history', { default: 'Browse persisted BirdNET-Go detections and audio-only activity.' });
-          case 'notifications': return $_('page_subtitle.notifications', { default: 'Alerts, reminders, and active background jobs.' });
-          case 'settings': return $_('page_subtitle.settings', { default: 'Connections, classification, integrations, and personalization.' });
-          case 'model_evaluation': return 'Benchmark every installed classifier against verified bird images.';
-          case 'about': return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
+          case 'leaderboard': return $_('page_subtitle.species', { default: 'Which birds visit most, how often, and when.' });
+          case 'audio_history': return $_('page_subtitle.audio_history', { default: 'Calls BirdNET-Go has heard, by species and source.' });
+          case 'notifications': return $_('page_subtitle.notifications', { default: 'Visits, alerts and background work, newest first.' });
+          case 'health': return $_('page_subtitle.health', { default: 'Whether YA-WAMF is working, what the host is doing, and what happened.' });
+          // One line about the open tab, not a list of every tab.
+          case 'settings': return $_(`page_subtitle.settings_section.${settingsSectionFromRoute(currentRoute)}`);
+          case 'model_evaluation': return $_('page_subtitle.model_evaluation', { default: 'How often each installed model names a bird correctly, and how fast.' });
+          case 'about': return $_('page_subtitle.about', { default: 'What this feeder has recorded, how YA-WAMF works, and what it stores and sends.' });
           default: return '';
       }
   });
@@ -146,8 +181,9 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   }
 
   function normalizeSettingsRoute(path: string): string {
-      if (path === '/settings/errors' || path.startsWith('/settings/errors/')) {
-          return '/settings/health';
+      // Health was a Settings tab, and before that an errors page; both addresses open the page.
+      if (path === '/settings/health' || path.startsWith('/settings/health/') || path === '/settings/errors' || path.startsWith('/settings/errors/')) {
+          return '/system-health';
       }
       // Garden review moved into the Explorer; old links open the same work there.
       if (path === '/garden' || path.startsWith('/garden/')) {
@@ -156,29 +192,16 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       return path;
   }
 
-  // Accessibility Logic. An owner reads these from settings; a guest is refused
-  // that endpoint, so the public status payload carries the same three choices.
-  // Applied here rather than on the Settings page, so they hold on every route
-  // and survive a reload. AccessibilitySettings toggles the same classes from
-  // its unsaved state, which is the live preview while you are editing.
-  const highContrast = $derived(
-      accessibilityPreview.highContrast ??
-          settingsStore.settings?.accessibility_high_contrast ??
-          authStore.highContrast
-  );
-  const dyslexiaFont = $derived(
-      accessibilityPreview.dyslexiaFont ??
-          settingsStore.settings?.accessibility_dyslexia_font ??
-          authStore.dyslexiaFont
-  );
-  const reducedMotion = $derived(
-      accessibilityPreview.reducedMotion ??
-          settingsStore.settings?.accessibility_reduced_motion ??
-          authStore.reducedMotion
-  );
+  // Accessibility Logic. Applied here rather than on the Settings page, so it holds on every
+  // route and survives a reload; accessibilityApplied writes the order once (this device, then the
+  // defaults being edited, then the saved defaults, then the public payload a guest reads).
+  const highContrast = $derived(accessibilityApplied.highContrast);
+  const dyslexiaFont = $derived(accessibilityApplied.dyslexiaFont);
+  const reducedMotion = $derived(accessibilityApplied.reducedMotion);
 
   $effect(() => {
       document.documentElement.classList.toggle('high-contrast', highContrast);
+      themeStore.setHighContrast(highContrast);
   });
   $effect(() => {
       document.documentElement.classList.toggle('font-dyslexic', dyslexiaFont);
@@ -188,13 +211,29 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   });
 
   function navigate(path: string, opts: { replace?: boolean } = {}) {
-      const targetPath = normalizeRouteForCurrentAccess(path);
+      const hashAt = path.indexOf('#');
+      const fragment = hashAt < 0 ? '' : path.slice(hashAt);
+      const targetPath = normalizeRouteForCurrentAccess(hashAt < 0 ? path : path.slice(0, hashAt)) + fragment;
+      // A page holding unsaved work is asked before an in-app navigation; nothing has moved yet.
+      // Back and Forward are never held: the page keeps its draft for the return instead.
+      if (unsavedChanges.warningFor(targetPath)) {
+          void unsavedChanges.allowLeaving(targetPath).then((leave) => {
+              if (leave) goTo(targetPath, opts);
+          });
+          return;
+      }
+      goTo(targetPath, opts);
+  }
+
+  function goTo(targetPath: string, opts: { replace?: boolean }) {
       const isDashboardRefresh = targetPath === '/' && currentRoute === '/' && !opts.replace;
       if (isDashboardRefresh) {
           dashboardRefreshKey += 1;
       }
-      currentRoute = targetPath;
-      const browserPath = toAppPath(targetPath);
+      const hashAt = targetPath.indexOf('#');
+      currentRoute = hashAt < 0 ? targetPath : targetPath.slice(0, hashAt);
+      currentHash = hashAt < 0 ? '' : targetPath.slice(hashAt);
+      const browserPath = toAppPath(currentRoute) + currentHash;
       if (opts.replace) window.history.replaceState(null, '', browserPath);
       else window.history.pushState(null, '', browserPath);
       refreshCoordinator.onNavigate();
@@ -213,7 +252,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       if (!authStore.statusLoaded || !authStore.statusHealthy) return;
       if (authStore.needsInitialSetup) return;
       const isOwnerOnly = isNotificationRoute(currentRoute)
-          || currentRoute.startsWith('/settings') || currentRoute.startsWith('/diagnostics/model-eval') || currentRoute.startsWith('/observations/new');
+          || currentRoute.startsWith('/settings') || currentRoute === '/system-health' || currentRoute.startsWith('/system-health/') || currentRoute.startsWith('/diagnostics/model-eval') || currentRoute.startsWith('/observations/new');
       if (!isOwnerOnly) return;
 
       if (!authStore.showSettings) {
@@ -245,17 +284,19 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   let mobileSidebarOpen = $state(false);
   const BACKEND_STATUS_RETRY_MS = 5_000;
   const STALE_RECLASSIFY_STATUS_POLL_MS = 20_000;
-  const ANALYSIS_QUEUE_POLL_MS = 5_000;
-  const ANALYSIS_QUEUE_IDLE_POLL_MS = 30_000;
-  const ANALYSIS_QUEUE_POLL_COOLDOWN_MS = 4_000;
-  const OWNER_SYSTEM_CHECK_COOLDOWN_MS = 30_000;
 
   // Keyboard shortcuts
   let showKeyboardShortcuts = $state(false);
 
   let appInitialized = $state(false);
   let activeAccessIdentity: string | null = null;
+  let liveStreamConnectedBefore = false;
   let canAccess = $derived(!authStore.authRequired || authStore.publicAccessEnabled || authStore.isAuthenticated);
+  // The first-run wizard replaces the whole app until it is finished.
+  let showsFirstRunWizard = $derived(
+      authStore.statusLoaded
+      && (authStore.needsInitialSetup || (setupWizardStore.active && setupWizardStore.mode === 'first_run'))
+  );
   let requiresLogin = $derived(
       authStore.statusHealthy && (
           (authStore.authRequired && !authStore.publicAccessEnabled && !authStore.isAuthenticated && !authStore.needsInitialSetup) ||
@@ -295,11 +336,18 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       appVersion,
       storage: typeof window !== 'undefined' ? window.sessionStorage : null,
       reload: () => window.location.reload(),
+      // A failed import reloads only once the server names a different build (deploy-recovery.ts).
+      readDeployment: () => checkHealth(),
       warn: (message: string) => {
           toastStore.warning(message, 10_000);
       },
       report: (event) => logger.warn('deploy_recovery', { ...event }),
-      warningMessage: t('error.deploy_refresh_required')
+      warningMessage: get(_)('error.deploy_refresh_required', {
+          default: 'YA-WAMF was updated while this tab was open. Refresh the page to load the latest build.'
+      }),
+      unreachableMessage: get(_)('error.update_check_unreachable', {
+          default: 'This page could not be opened, and YA-WAMF could not be reached to check for an update. Check your connection, then refresh the page.'
+      })
   });
 
   function handleRouteLoadError(error: unknown): void {
@@ -311,10 +359,11 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       if (!authStore.isGuest) return;
       const previousIds = new Set(detectionsStore.detections.map((item) => item.frigate_event));
       try {
-          await detectionsStore.refreshPublicHistory();
-          if (settingsStore.liveAnnouncements) {
+          // A live announcement needs the list to tell what is new; otherwise only views showing it read it.
+          await detectionsStore.refreshPublicHistory({ includeList: accessibilityApplied.liveAnnouncements });
+          if (accessibilityApplied.liveAnnouncements) {
               const added = detectionsStore.detections.find((item) => !previousIds.has(item.frigate_event));
-              if (added) announcer.announce(`New bird detected: ${added.display_name} at ${added.camera_name}`);
+              if (added) announcer.announce(newBirdAnnouncement(added.display_name, added.camera_name));
           }
       } catch (error) {
           logger.error('Public history refresh failed', error);
@@ -330,23 +379,32 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       notificationCenter,
       jobProgress: jobProgressStore,
       detectionsStore,
-      settingsStore,
+      accessibility: accessibilityApplied,
       announcer,
       logger,
-      checkHealth: async () => {
-          const health = await checkHealth();
-          deployRecovery.observeHealth(health);
-          return health;
-      },
-      fetchCacheStats,
-      fetchAnalysisStatus,
       diagnostics: jobDiagnosticsStore,
-      syncDiagnosticsWorkspace: () => incidentWorkspaceStore.refresh(),
+      // Read when the server records a new fault, not on a timer; its health reading also goes
+      // into the browser's own diagnostics, as the two-minute health check used to.
+      syncDiagnosticsWorkspace: (signal) => mapGuarded(incidentWorkspaceStore.refresh(200, signal), (applied) => {
+          const health = incidentWorkspaceStore.workspacePayload?.health;
+          if (applied && health) jobDiagnosticsStore.ingestHealth(health);
+          return applied;
+      }),
+      onStatus: (snapshot) => {
+          if (isSystemStatus(snapshot)) systemStatusStore.ingest(snapshot);
+      },
       onConnected: () => {
           reconnectAttempts = 0;
-          if (authStore.hasOwnerAccess) gardenHistory.invalidate();
+          // The first connect follows the pages' own first reads; only a reconnect can have
+          // missed a Garden change, so only a reconnect reads Garden again.
+          if (authStore.hasOwnerAccess && liveStreamConnectedBefore) gardenHistory.invalidate();
+          liveStreamConnectedBefore = true;
+          // The stream pushes the status snapshot right after this, and every change after it.
+          systemStatusStore.setStreamLive(authStore.showSettings);
       },
       onGardenHistoryChanged: () => gardenHistory.invalidate(),
+      onAudioChanged: () => audioActivity.announce(),
+      onSettingsChanged: () => invalidateClassifierStatus(),
       onPublicHistoryChanged: () => publicHistoryRefresh.notify(),
       // Refresh every public view and its caches when the owner changes sharing.
       // Only the generic signal arrives; no owner settings are sent to visitors.
@@ -364,17 +422,16 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   });
 
   const reconcileReclassificationsOnce = createSingleFlightRunner(() => reclassifyRecovery.reconcile());
-  const syncAnalysisQueueStatusOnce = createCooldownSingleFlightRunner(
-      async () => {
-          const status = await liveUpdates.syncAnalysisQueueStatus();
-          if (status) analysisQueueStatusStore.ingest(status);
-      },
-      ANALYSIS_QUEUE_POLL_COOLDOWN_MS
-  );
-  const runOwnerSystemChecksOnce = createCooldownSingleFlightRunner(
-      () => liveUpdates.runOwnerSystemChecks(),
-      OWNER_SYSTEM_CHECK_COOLDOWN_MS
-  );
+
+  // One pushed snapshot feeds every store that used to poll its own endpoint, so the banner,
+  // the status tiles, Health and Settings read the same moment.
+  systemStatusStore.subscribe((snapshot, previous) => {
+      serverJobsStore.ingest(snapshot.jobs);
+      analysisQueueStatusStore.ingest(snapshot.analysis);
+      serviceConnectionsStore.ingest(snapshot.connections);
+      deployRecovery.observeHealth({ version: snapshot.version });
+      liveUpdates.applySystemStatus(snapshot, previous);
+  });
 
   $effect(() => {
       if (!authStore.statusLoaded || authStore.statusHealthy) return;
@@ -386,29 +443,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
 
   function startOperationalPolling(): () => void {
       void reconcileReclassificationsOnce();
-      void runOwnerSystemChecksOnce();
 
-      let stopped = false;
-      let analysisPollTimeout: number | null = null;
-      const scheduleAnalysisPoll = (): void => {
-          if (stopped) return;
-          const status = analysisQueueStatusStore.analysisStatus;
-          const hasActiveAnalysis = Number(status?.pending ?? 0) > 0 || Number(status?.active ?? 0) > 0;
-          const delay = document.hidden ? ANALYSIS_QUEUE_IDLE_POLL_MS
-              : hasActiveAnalysis ? ANALYSIS_QUEUE_POLL_MS
-              : ANALYSIS_QUEUE_IDLE_POLL_MS;
-          analysisPollTimeout = window.setTimeout(async () => {
-              if (stopped) return;
-              if (!document.hidden) await syncAnalysisQueueStatusOnce();
-              scheduleAnalysisPoll();
-          }, delay);
-      };
-      void syncAnalysisQueueStatusOnce().finally(scheduleAnalysisPoll);
-
-      const ownerInterval = window.setInterval(() => {
-          if (document.hidden) return;
-          void runOwnerSystemChecksOnce();
-      }, 60_000);
       const staleInterval = window.setInterval(() => {
           liveUpdates.pruneStaleProcessNotifications();
           detectionsStore.pruneReclassifications();
@@ -419,9 +454,6 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       }, STALE_RECLASSIFY_STATUS_POLL_MS);
 
       return (): void => {
-          stopped = true;
-          if (analysisPollTimeout !== null) window.clearTimeout(analysisPollTimeout);
-          window.clearInterval(ownerInterval);
           window.clearInterval(staleInterval);
           window.clearInterval(reclassifyInterval);
       };
@@ -459,9 +491,15 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
 
           const handlePopState = () => {
               currentRoute = normalizeRouteForCurrentAccess(fromAppPath(window.location.pathname));
+              currentHash = window.location.hash;
               refreshCoordinator.onNavigate();
           };
           window.addEventListener('popstate', handlePopState);
+          // A fragment typed or followed on the same page moves within it without a popstate.
+          const handleHashChange = () => {
+              currentHash = window.location.hash;
+          };
+          window.addEventListener('hashchange', handleHashChange);
 
           // Surface actionable diagnostics for production-minified runtime exceptions.
           const handleWindowError = (event: ErrorEvent) => {
@@ -510,8 +548,9 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
           const resolvedPath = path === '' ? '/' : path;
           const canonicalPath = normalizeSettingsRoute(getCanonicalNotificationRoute(resolvedPath) ?? resolvedPath);
           currentRoute = canonicalPath;
+          currentHash = window.location.hash;
           if (canonicalPath !== resolvedPath) {
-              window.history.replaceState(null, '', toAppPath(canonicalPath));
+              window.history.replaceState(null, '', toAppPath(canonicalPath) + currentHash);
           }
 
           await authStore.loadStatus();
@@ -535,7 +574,6 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               }
               if (!document.hidden && authStore.statusHealthy) {
                   void reconcileReclassificationsOnce();
-                  void syncAnalysisQueueStatusOnce();
                   refreshCoordinator.onVisibilityChange();
               }
           };
@@ -565,6 +603,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
           // Store cleanup function to return
           cleanupFn = () => {
               window.removeEventListener('popstate', handlePopState);
+              window.removeEventListener('hashchange', handleHashChange);
               window.removeEventListener('error', handleWindowError);
               window.removeEventListener('unhandledrejection', handleUnhandledRejection);
               document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -599,7 +638,13 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       if (canAccess) {
           if (!appInitialized || activeAccessIdentity !== accessIdentity) {
               closeLiveConnection();
+              liveStreamConnectedBefore = false;
               untrack(() => detectionsStore.resetForAccessChange());
+              untrack(() => serviceConnectionsStore.clear());
+              untrack(() => systemStatusStore.clear());
+              untrack(() => serverJobsStore.clear());
+              untrack(() => incidentWorkspaceStore.clear());
+              liveUpdates.resetForAccessChange();
               if (authStore.isAuthenticated || !authStore.authRequired) {
                   settingsStore.load();
               } else {
@@ -608,12 +653,10 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               // Everyone reads the public projection, so a guest sees the interface the
               // owner configured rather than the built-in defaults.
               void publicSettingsStore.load();
-              detectionsStore.loadInitial();
+              // Recent history is read by the views that show it (the Dashboard), not on every route.
               void connectSSE();
-              if (authStore.showSettings) {
-                  void syncAnalysisQueueStatusOnce();
-                  void runOwnerSystemChecksOnce();
-              }
+              // The first paint's status; the stream keeps it current from then on.
+              if (authStore.showSettings) untrack(() => systemStatusStore.start());
               activeAccessIdentity = accessIdentity;
               appInitialized = true;
           }
@@ -623,6 +666,11 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       if (!canAccess && appInitialized) {
           closeLiveConnection();
           untrack(() => detectionsStore.resetForAccessChange());
+          untrack(() => serviceConnectionsStore.clear());
+          untrack(() => systemStatusStore.clear());
+          untrack(() => serverJobsStore.clear());
+          untrack(() => incidentWorkspaceStore.clear());
+          liveUpdates.resetForAccessChange();
           settingsStore.clear();
           activeAccessIdentity = null;
           appInitialized = false;
@@ -641,6 +689,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       isReconnecting = false;
       reconnectAttempts = 0;
       detectionsStore.setConnected(false);
+      systemStatusStore.setStreamLive(false);
   }
 
   function scheduleReconnect() {
@@ -745,6 +794,8 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                   attempt: reconnectAttempts + 1
               });
               liveUpdates.handleDisconnect(err, document.hidden);
+              // Until the stream is back, the status is read once a minute instead.
+              systemStatusStore.setStreamLive(false);
 
               source.close();
               evtSource = null;
@@ -762,15 +813,17 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
 
 <ErrorBoundary>
   {#snippet children()}
-  <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
-  <!-- Skip to content for accessibility -->
-  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-brand-700 focus:text-white focus:px-4 focus:py-2 focus:rounded-b-lg focus:left-4 focus:top-0 focus:font-bold">
+  <div class="min-h-screen flex flex-col bg-surface-sunken text-strong font-sans transition-colors duration-300">
+  <!-- Skip to content. The first-run wizard is a modal with nothing behind it to skip to, so it has no skip link. -->
+  {#if !showsFirstRunWizard}
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-100 focus:bg-accent focus:text-accent-fg focus:px-4 focus:py-2 focus:rounded-b-lg focus:left-4 focus:top-0 focus:font-bold">
     {$_('common.skip_to_content', { default: 'Skip to content' })}
   </a>
+  {/if}
 
   {#if !authStore.statusLoaded}
       <BackendStatusScreen mode="loading" />
-  {:else if authStore.needsInitialSetup || (setupWizardStore.active && setupWizardStore.mode === 'first_run')}
+  {:else if showsFirstRunWizard}
       <LazyRoute
           loader={loadFirstRunWizard}
           props={{}}
@@ -794,7 +847,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               onToggleTheme={() => themeStore.toggle()}
               theme={themeStore.theme}
               appTitle={$_('app.title')}
-              toggleMenuLabel={$_('nav.toggle_menu', { default: 'Toggle menu' }) || 'Toggle menu'}
+              toggleMenuLabel={$_('nav.toggle_menu', { default: 'Menu' })}
               switchThemeLabel={themeStore.theme === 'dark'
                   ? ($_('theme.switch_light', { default: 'Switch to light mode' }) || 'Switch to light mode')
                   : ($_('theme.switch_dark', { default: 'Switch to dark mode' }) || 'Switch to dark mode')}
@@ -802,16 +855,19 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
 
       {/if}
 
-      <Sidebar {currentRoute} onNavigate={navigate} {isMobile} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
-          {#snippet status()}
+      <Sidebar {currentRoute} onNavigate={navigate} onPrefetch={(path) => void prefetchRoute(path)} {isMobile} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
+          {#snippet status(collapsed: boolean, summary: SummaryRequest | null)}
               <ConnectionStatus
                   birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
                   {notificationsActive}
-                  connected={detectionsStore.connected}
+                  feed={liveFeedState(detectionsStore.connected, serviceConnectionsStore.connections)}
+                  {collapsed}
+                  staleSince={systemStatusStore.stale ? systemStatusStore.receivedAt : null}
+                  {summary}
               />
-              <div class="mt-1 flex justify-end">
-                  <UpdateIndicator />
-              </div>
+              {#if !summary}
+                  <UpdateIndicator {collapsed} />
+              {/if}
           {/snippet}
       </Sidebar>
 
@@ -833,15 +889,17 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
           <UpdateBanner />
 
           {#if !isNotificationRoute(currentRoute) && !authStore.isGuest}
-              <div class={globalProgressHasScrolled
-                  ? 'sticky top-[var(--app-chrome-height)] z-30 shrink-0'
+              <div data-jobs-strip class={globalProgressHasScrolled
+                  ? 'sticky top-(--app-chrome-height) z-30 shrink-0'
                   : 'relative z-30 shrink-0 mb-2'}>
                   <GlobalProgress onNavigate={navigate} />
               </div>
           {/if}
-          <main id="main-content" class="flex-1 w-full px-4 sm:px-6 lg:px-8 2xl:px-12 pt-4 pb-8">
+          <!-- A screen tall at least: a page still reading its data is short, and the footer would
+               otherwise show beneath it and jump away when the data lands. -->
+          <main id="main-content" class="mx-auto min-h-svh w-full max-w-shell flex-1 px-4 pt-4 pb-8 sm:px-6 lg:px-8 2xl:px-12">
               {#if showPageHeader}
-                  <PageHeader
+                  <AppPageHeader
                       title={pageHeaderTitle}
                       subtitle={pageSubtitle}
                       onNavigate={navigate}
@@ -896,7 +954,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                    {#if authStore.showSettings}
                        <LazyRoute
                            loader={loadSettingsPage}
-                           props={{ onNavigate: navigate, currentRoute }}
+                           props={{ onNavigate: navigate, currentRoute, currentHash }}
                            label={pageTitle}
                            onLoadError={handleRouteLoadError}
                        />
@@ -911,6 +969,17 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />
+              {:else if routeId === 'health'}
+                   {#if authStore.showSettings}
+                       <LazyRoute
+                           loader={loadHealthPage}
+                           props={{ onNavigate: navigate }}
+                           label={pageTitle}
+                           onLoadError={handleRouteLoadError}
+                       />
+                   {:else}
+                       <div class="h-24"></div>
+                   {/if}
               {:else if routeId === 'model_evaluation'}
                    {#if authStore.showSettings}
                        <LazyRoute
@@ -932,10 +1001,10 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               {:else}
                   <!-- An address no page answers, often an old bookmark: say so rather than show an empty page. -->
                   <section class="card-base mx-auto mt-8 max-w-xl space-y-4 p-8 text-center" aria-labelledby="not-found-heading" data-not-found>
-                      <h1 id="not-found-heading" class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white">
+                      <h1 id="not-found-heading" class="font-display text-3xl font-bold leading-tight text-strong">
                           {notFoundTitle}
                       </h1>
-                      <p class="text-base text-slate-600 dark:text-slate-400">
+                      <p class="text-base text-muted">
                           {$_('not_found.body', { default: 'The address may be from an older version.' })}
                       </p>
                       <button type="button" class="btn btn-primary min-h-11 px-4 py-2" onclick={() => navigate('/')}>

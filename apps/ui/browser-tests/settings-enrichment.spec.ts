@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
-import { openSettings } from './settings-page-mock';
+import { openMoreOptions, openSettings } from './settings-page-mock';
 
-// Settings → Enrichment shows which provider fills each part of a species page. It loads only
-// when opened, never counts as an edit, and every save sends the stored providers back.
+// Integrations ends with which provider fills each part of a species page. It loads with that tab,
+// never counts as an edit, and every save sends the stored providers back.
 
 const SAVED_PROVIDERS = {
     enrichment_mode: 'per_enrichment',
@@ -14,19 +14,20 @@ const SAVED_PROVIDERS = {
     enrichment_links_sources: ['ebird', 'wikipedia']
 };
 
-test('Enrichment loads on first open, shows the stored providers and saves them back unchanged', async ({ page }) => {
+test('the species information sources load with Integrations, show the stored providers and save them back unchanged', async ({ page }) => {
     const harness = await openSettings(page, SAVED_PROVIDERS);
     expect(harness.moduleRequests('EnrichmentSettings.svelte')).toBe(0);
 
-    await page.getByRole('link', { name: 'Enrichment' }).click();
-    const sightings = page.getByText('Nearby Sightings', { exact: true }).locator('..');
+    await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await openMoreOptions(page);
+    const sightings = page.locator('[data-enrichment-summary] div').filter({ hasText: 'Nearby sightings' });
     await expect(sightings).toContainText('eBird');
     expect(harness.moduleRequests('EnrichmentSettings.svelte')).toBe(1);
-    await expect(page.getByText('Unsaved Changes', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Unsaved changes' })).toHaveCount(0);
 
-    await page.getByRole('link', { name: 'Connection' }).click();
+    await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await page.locator('#mqtt-server').fill('mqtt-broker');
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => harness.writes.length).toBe(1);
     expect(harness.writes[0]).toMatchObject({ ...SAVED_PROVIDERS, enrichment_single_provider: 'wikipedia' });
 });

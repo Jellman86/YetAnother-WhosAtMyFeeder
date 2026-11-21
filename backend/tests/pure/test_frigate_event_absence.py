@@ -138,3 +138,45 @@ async def test_a_restored_event_is_reported_present_immediately(monkeypatch):
     lookup.return_value = ({"has_clip": True, "has_snapshot": True}, None)
     restored = await events_router.batch_check_clips(["evt-back"])
     assert restored["evt-back"]["has_frigate_event"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("answer", "expected"),
+    [
+        ((None, "event_not_found"), "not_found"),
+        # The mocked client records no cause, so nothing more is claimed than "not checked".
+        ((None, "frigate_not_ready"), "not_checked"),
+        ((None, "event_timeout"), "timed_out"),
+        ((None, "event_http_500"), "failed"),
+        (({"has_clip": False, "has_snapshot": True}, None), "found"),
+    ],
+)
+async def test_the_availability_check_says_what_frigate_answered(monkeypatch, answer, expected):
+    from unittest.mock import AsyncMock
+
+    from app.routers import events as events_router
+    from app.services.frigate_event_absence import FrigateEventAbsence
+
+    monkeypatch.setattr(events_router, "frigate_event_absence", FrigateEventAbsence(ttl_seconds=300.0))
+    monkeypatch.setattr(events_router.frigate_client, "get_event_with_error", AsyncMock(return_value=answer))
+
+    result = await events_router.batch_check_clips(["evt"])
+
+    assert result["evt"]["frigate_event_check"] == expected
+    assert result["evt"]["has_frigate_event"] is (expected == "found")
+
+
+@pytest.mark.asyncio
+async def test_a_check_that_raised_is_failed_not_an_absence(monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from app.routers import events as events_router
+
+    monkeypatch.setattr(
+        events_router.frigate_client, "get_event_with_error", AsyncMock(side_effect=RuntimeError("boom"))
+    )
+
+    result = await events_router.batch_check_clips(["evt"])
+
+    assert result["evt"]["frigate_event_check"] == "failed"

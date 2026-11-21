@@ -13,9 +13,9 @@ turn on a separate read-only public view to share your detections.
 
 By default, authentication is **disabled** to allow easy first-time setup. To enable it:
 
-1.  Navigate to **Settings → Security**.
+1.  Navigate to **Settings → Sharing & integrations**.
 2.  Set a strong password.
-3.  Enable **Authentication**.
+3.  Turn on **Sign-in** (the switch in the card's header).
 4.  (Optional) Enable **Public Access** if you want to share your dashboard.
 
 On a fresh installation, YA-WAMF opens the guided setup automatically because
@@ -83,9 +83,9 @@ has already completed setup does not reopen the wizard.
 Public Access lets anyone with the link browse your detections while the settings and every
 management action stay behind your login.
 
-![Settings → Security: an Authentication card with the enable switch, admin username and a saved password shown as ***REDACTED***, beside a Public Access card with separate switches for enabling public access, showing camera names, sharing audio, and sharing photographs](../images/settings-security.png)
+![Settings → Sharing & integrations: the Sign-in card switched on, with the profile picture, the owner user name and the new password fields, then Public access switched off](../images/settings-security.png)
 
-- **Enable:** in **Settings → Security**, turn on **Enable public access**.
+- **Enable:** in **Settings → Sharing & integrations**, turn on **Enable public access**.
 - Guests cannot change settings, delete, hide, or reclassify detections, or start new AI
   Naturalist analysis. They can read analysis you have already run.
 - Guests are rate-limited (default **30 requests per minute**) to prevent abuse.
@@ -159,7 +159,7 @@ a glance which view you are looking at.
 
 ## Reverse Proxy & Trusted Hosts
 
-If you run YA-WAMF behind a reverse proxy (e.g., Nginx or Cloudflare Tunnel), you should **explicitly set Trusted Proxy Hosts** in **Settings → Security**.
+If you run YA-WAMF behind a reverse proxy (e.g., Nginx or Cloudflare Tunnel), you should **explicitly set Trusted Proxy Hosts** in **Settings → Sharing & integrations**.
 
 - This tells YA-WAMF which proxy IPs, CIDR ranges, or hostnames/container names are allowed to set `X-Forwarded-*` headers.
 - The default is permissive (trusts all proxies) for compatibility with existing installs.

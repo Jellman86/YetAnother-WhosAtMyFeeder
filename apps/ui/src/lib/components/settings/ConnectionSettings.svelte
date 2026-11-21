@@ -1,7 +1,8 @@
 <script lang="ts">
-    import { onDestroy } from 'svelte';
+    import Separator from '../Separator.svelte';
+    import { onDestroy, onMount } from 'svelte';
+    import { sessionTests } from '../../settings/session-tests.svelte';
     import { _ } from 'svelte-i18n';
-    import type { VersionInfo } from '../../api';
     import { testFrigateConnection, type RecordingClipCapability } from '../../api/system';
     import { testMQTTPublish } from '../../api/maintenance';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
@@ -53,18 +54,13 @@
         betaGardenAnimals = false,
         cameraRoles = $bindable<Record<string, CameraRole>>({}),
         nestDedupeMinutes = $bindable(30),
-        telemetryEnabled = $bindable(false),
-        telemetryHealthEnabled = $bindable(false),
         frigateCameras = null,
         frigateCamerasFailed = false,
         recordingClipCapability = null,
         recordingClipCapabilityLoading = false,
         camerasLoading,
-        telemetryInstallationId,
-        telemetryPlatform,
-        telemetryPayloadPreview,
-        versionInfo,
-        loadCameras
+        loadCameras,
+        region
     }: {
         frigateUrl: string;
         frigateIngestLabels: string;
@@ -87,20 +83,19 @@
         betaGardenAnimals?: boolean;
         cameraRoles: Record<string, CameraRole>;
         nestDedupeMinutes: number;
-        telemetryEnabled: boolean;
-        telemetryHealthEnabled: boolean;
         /** Cameras read from Frigate, or null until the list has been read. */
         frigateCameras: string[] | null;
         frigateCamerasFailed: boolean;
         recordingClipCapability: RecordingClipCapability | null;
         recordingClipCapabilityLoading: boolean;
         camerasLoading: boolean;
-        telemetryInstallationId: string | undefined;
-        telemetryPlatform: string | undefined;
-        telemetryPayloadPreview: Record<string, unknown> | undefined;
-        versionInfo: VersionInfo;
         loadCameras: () => Promise<void>;
+        /** Which cards to show: the ones most owners need (`main`), or the rest under More options (`more`). */
+        region: 'main' | 'more';
     } = $props();
+
+    const showMain = $derived(region === 'main');
+    const showMore = $derived(region === 'more');
 
     const watchSettings = $derived<CameraWatchSettings>({
         cameras: selectedCameras,
@@ -142,6 +137,7 @@
                 {
                     id: 'frigate',
                     label: $_('settings.frigate.stage_frigate', { default: 'Frigate API' }),
+                    nextStep: $_('settings.frigate.stage_frigate_next', { default: 'Check the Frigate server URL on this tab, and that Frigate is running.' }),
                     run: async () => {
                         const r = await testFrigateConnection(frigateUrl.trim());
                         return {
@@ -155,6 +151,7 @@
                 {
                     id: 'mqtt',
                     label: $_('settings.frigate.stage_mqtt', { default: 'MQTT broker publish' }),
+                    nextStep: $_('settings.frigate.stage_mqtt_next', { default: 'Check the broker address, port and sign-in on this tab.' }),
                     run: () => testMQTTPublish({
                         server: mqttServer.trim(),
                         port: mqttPort,
@@ -164,10 +161,21 @@
                     })
                 }
             ],
-            (stages) => (fcStages = stages)
+            (stages) => (fcStages = stages),
+            { independent: true }
         );
         fcRunning = false;
+        // The status column states a test's result only when it ran during this visit.
+        for (const key of ['frigate', 'mqtt'] as const) {
+            const stage = fcStages.find((candidate) => candidate.id === key);
+            if (stage && (stage.state === 'passed' || stage.state === 'warning' || stage.state === 'failed')) {
+                sessionTests.record(key, stage.state !== 'failed');
+            }
+        }
     }
+
+    // The test sits on the section's first screen, so the status column can run it from there.
+    onMount(() => (region === 'more' ? undefined : sessionTests.provide(['frigate', 'mqtt'], runConnectionDiagnostic)));
 
     let previewCamera = $state<string | null>(null);
     let previewVisible = $state(false);
@@ -222,39 +230,6 @@
                 return $_('settings.frigate.full_visit_issue_unknown', { default: 'configuration needs attention' });
         }
     }
-
-    function nestedValue(source: Record<string, unknown> | undefined, path: string): unknown {
-        return path.split('.').reduce<unknown>((current, key) => {
-            if (!current || typeof current !== 'object') return undefined;
-            return (current as Record<string, unknown>)[key];
-        }, source);
-    }
-
-    function formatTelemetryValue(value: unknown): string {
-        if (typeof value === 'boolean') return value ? $_('common.yes', { default: 'Yes' }) : $_('common.no', { default: 'No' });
-        if (value === null || value === undefined || value === '') return '...';
-        return String(value);
-    }
-
-    const telemetryRuntimeRows = $derived([
-        ['settings.telemetry.payload_model_runtime', 'runtime.model_runtime'],
-        ['settings.telemetry.payload_provider_configured', 'runtime.inference_provider_configured'],
-        ['settings.telemetry.payload_provider_active', 'runtime.inference_provider_active'],
-        ['settings.telemetry.payload_backend_active', 'runtime.inference_backend_active'],
-        ['settings.telemetry.payload_execution_mode', 'runtime.image_execution_mode'],
-        ['settings.telemetry.payload_crop_tier', 'runtime.bird_crop_detector_tier'],
-        ['settings.telemetry.payload_cuda_available', 'hardware.cuda_available'],
-        ['settings.telemetry.payload_nvidia_gpu_detected', 'hardware.nvidia_gpu_detected'],
-        ['settings.telemetry.payload_openvino_available', 'hardware.openvino_available'],
-        ['settings.telemetry.payload_intel_gpu_available', 'hardware.intel_gpu_available'],
-        ['settings.telemetry.payload_intel_npu_available', 'hardware.intel_npu_available'],
-        ['settings.telemetry.payload_openvino_compile', 'hardware.openvino_gpu_compile_ok'],
-        ['settings.telemetry.payload_openvino_device', 'hardware.openvino_gpu_compile_device'],
-        ['settings.telemetry.payload_gpu_fallback', 'hardware.openvino_gpu_fallback_active'],
-        ['settings.telemetry.payload_deployment_mode', 'deployment.mode'],
-        ['settings.telemetry.payload_image_flavor', 'deployment.image_flavor'],
-        ['settings.telemetry.payload_image_arch', 'deployment.image_arch']
-    ]);
 
     let canToggleRecordingClips = $derived(
         recordingClipEnabled || (clipsEnabled && !!recordingClipCapability?.supported)
@@ -349,23 +324,17 @@
     });
 </script>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-    {#snippet frigateIcon()}
-        <img src={FRIGATE_LOGO_URL} alt="Frigate Logo" class="w-6 h-6 object-contain" />
-    {/snippet}
-    {#snippet camerasIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" /><circle cx="12" cy="13" r="3" /></svg>
-    {/snippet}
+<div class="space-y-8">
 
     {#snippet cameraPreview(camera: string)}
         <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-lg shadow-slate-900/10 dark:border-slate-700/60 dark:bg-slate-900/95 dark:shadow-black/30">
             <div class="flex items-center justify-between gap-2 px-4 py-2">
-                <span class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })}</span>
+                <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })}</span>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs font-semibold text-accent-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
+                    <span class="text-xs font-semibold text-brand-700 dark:text-brand-300">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
                     <button
                         type="button"
-                        class="flex h-11 w-11 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                        class="focus-ring flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                         aria-label={$_('settings.cameras.preview_close')}
                         onclick={() => stopPreview(camera)}
                     >
@@ -381,12 +350,12 @@
                         <img class="absolute inset-0 h-full w-full object-contain" alt={$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })} src={previewBlobUrl} />
                     {/if}
                     {#if previewLoading}
-                        <div role="status" class="absolute inset-0 flex items-center justify-center bg-white/70 text-xs font-semibold text-slate-500 dark:bg-slate-900/70">
+                        <div role="status" class="absolute inset-0 flex items-center justify-center bg-white/70 text-xs font-semibold text-slate-600 dark:text-slate-400 dark:bg-slate-900/70">
                             {$_('settings.cameras.preview_loading', { default: 'Loading preview…' })}
                         </div>
                     {/if}
                     {#if previewError}
-                        <div role="alert" class="absolute inset-0 flex items-center justify-center bg-white/80 px-3 text-center text-xs font-semibold text-rose-500 dark:bg-slate-900/80">
+                        <div role="alert" class="absolute inset-0 flex items-center justify-center bg-white/80 px-3 text-center text-xs font-semibold text-rose-700 dark:text-rose-300 dark:bg-slate-900/80">
                             {previewError}
                         </div>
                     {/if}
@@ -395,7 +364,8 @@
         </div>
     {/snippet}
 
-    <SettingsCard title={$_('settings.frigate.title')} iconSnippet={frigateIcon}>
+    {#if showMain}
+    <SettingsCard id="settings-group-frigate" title={$_('settings.frigate.title')}>
         <SettingsRow
             labelId="setting-frigate-url"
             label={$_('settings.frigate.url')}
@@ -403,6 +373,7 @@
         >
             <SettingsInput
                 id="frigate-url"
+                field="frigate_url"
                 type="url"
                 value={frigateUrl}
                 placeholder={$_('settings.frigate.url_placeholder')}
@@ -410,6 +381,13 @@
                 oninput={(v) => (frigateUrl = v)}
             />
         </SettingsRow>
+    </SettingsCard>
+    {/if}
+
+    {#if showMore}
+    <!-- The rest of Frigate, under the section's More options: what it sends, where its pages are,
+         which frame is identified and the clips kept. -->
+    <SettingsCard id="settings-group-frigate-more" title={$_('settings.frigate.more_title', { default: 'Frigate details' })} nested>
 
         <SettingsRow
             labelId="setting-frigate-ingest-labels"
@@ -419,6 +397,7 @@
         >
             <SettingsInput
                 id="frigate-ingest-labels"
+                field="frigate_ingest_labels"
                 type="text"
                 value={frigateIngestLabels}
                 placeholder="bird"
@@ -435,6 +414,7 @@
         >
             <SettingsInput
                 id="frigate-external-url"
+                field="frigate_external_url"
                 type="url"
                 value={frigateExternalUrl}
                 placeholder={$_('settings.frigate.external_url_placeholder')}
@@ -443,102 +423,9 @@
             />
         </SettingsRow>
 
-        <div class="grid grid-cols-2 gap-3">
-            <button
-                type="button"
-                onclick={runConnectionDiagnostic}
-                disabled={fcRunning}
-                aria-label={$_('settings.frigate.test_connection')}
-                class="btn btn-primary min-h-11 px-4 py-3"
-            >
-                {fcRunning ? $_('common.testing') : $_('settings.frigate.test_connection')}
-            </button>
-            <button
-                type="button"
-                onclick={loadCameras}
-                disabled={camerasLoading}
-                aria-label={$_('settings.frigate.sync_cameras')}
-                class="btn btn-secondary min-h-11 px-4 py-3"
-            >
-                {camerasLoading ? $_('settings.cameras.syncing') : $_('settings.frigate.sync_cameras')}
-            </button>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
-            <SettingsRow
-                labelId="setting-mqtt-broker"
-                label={$_('settings.frigate.mqtt_broker')}
-                description={$_('settings.connection.mqtt_title')}
-                layout="stacked"
-            >
-                <SettingsInput
-                    id="mqtt-server"
-                    type="text"
-                    value={mqttServer}
-                    placeholder={$_('settings.frigate.mqtt_broker_placeholder')}
-                    ariaLabel={$_('settings.frigate.mqtt_broker')}
-                    oninput={(v) => (mqttServer = v)}
-                />
-            </SettingsRow>
-            <SettingsRow
-                labelId="setting-mqtt-port"
-                label={$_('settings.frigate.mqtt_port')}
-                layout="stacked"
-            >
-                <SettingsInput
-                    id="mqtt-port"
-                    type="number"
-                    value={mqttPort}
-                    ariaLabel={$_('settings.frigate.mqtt_port')}
-                    oninput={(v) => (mqttPort = Number(v) || 0)}
-                />
-            </SettingsRow>
-        </div>
-
-        <SettingsRow
-            labelId="setting-mqtt-auth"
-            label={$_('settings.frigate.mqtt_auth')}
-        >
-            <SettingsToggle
-                checked={mqttAuth}
-                labelledBy="setting-mqtt-auth"
-                srLabel={$_('settings.frigate.mqtt_auth')}
-                onchange={(v) => (mqttAuth = v)}
-            />
-        </SettingsRow>
-
-        {#if mqttAuth}
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in zoom-in-95">
-                <SettingsRow
-                    labelId="setting-mqtt-username"
-                    label={$_('settings.frigate.mqtt_user')}
-                    layout="stacked"
-                >
-                    <SettingsInput
-                        id="mqtt-username"
-                        type="text"
-                        value={mqttUsername}
-                        ariaLabel={$_('settings.frigate.mqtt_user')}
-                        oninput={(v) => (mqttUsername = v)}
-                    />
-                </SettingsRow>
-                <SettingsRow
-                    labelId="setting-mqtt-password"
-                    label={$_('settings.frigate.mqtt_pass')}
-                    layout="stacked"
-                >
-                    <SecretInput
-                        id="mqtt-password"
-                        value={mqttPassword}
-                        saved={mqttPasswordSaved}
-                        ariaLabel={$_('settings.frigate.mqtt_pass')}
-                        oninput={(v) => (mqttPassword = v)}
-                    />
-                </SettingsRow>
-            </div>
-        {/if}
 
         <ClassificationImageSourceSetting bind:value={classificationImageSource} bind:delay={recordingFrameDelaySeconds} />
+
 
         <SettingsRow
             labelId="setting-clips-enabled"
@@ -555,12 +442,12 @@
 
         <AdvancedSection
             id="connection-full-visit"
-            title={$_('settings.connection.full_visit_advanced_title', { default: 'Full-visit clips (from recordings)' })}
+            title={$_('settings.connection.full_visit_advanced_title', { default: 'Full-visit clips' })}
         >
         <SettingsRow
             labelId="setting-recording-clips"
             label={$_('settings.frigate.full_visit_clips', { default: 'Full-visit clips' })}
-            description={$_('settings.frigate.full_visit_clips_desc', { default: 'Serve a longer clip window from Frigate recordings around each detection.' })}
+            description={$_('settings.frigate.full_visit_clips_desc', { default: 'Serve a longer clip from Frigate’s recordings around each visit.' })}
         >
             <SettingsToggle
                 checked={recordingClipEnabled}
@@ -580,10 +467,10 @@
             <span
                 class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full
                        {recordingClipCapability?.supported
-                           ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                           ? 'bg-success-500/10 text-success-700 dark:text-success-300'
                            : recordingClipCapabilityLoading || !recordingClipCapability
-                             ? 'bg-slate-500/10 text-slate-500 dark:text-slate-400'
-                             : 'bg-amber-500/10 text-amber-700 dark:text-amber-300'}"
+                             ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
+                             : 'bg-attention-500/10 text-attention-700 dark:text-attention-300'}"
                 aria-hidden="true"
             >
                 {#if recordingClipCapability?.supported}
@@ -607,7 +494,7 @@
                             })}
                         </p>
                     {:else}
-                        <p class="font-semibold leading-relaxed text-amber-800 dark:text-amber-200">
+                        <p class="font-semibold leading-relaxed text-attention-800 dark:text-attention-200">
                             {getRecordingCapabilityReason(recordingClipCapability.reason)}
                         </p>
                     {/if}
@@ -617,7 +504,7 @@
                             {#each Object.entries(recordingClipCapability.ineligible_cameras) as [camera, reason]}
                                 <li>
                                     <span class="font-semibold text-slate-700 dark:text-slate-300">{camera}</span>
-                                    <span aria-hidden="true"> · </span>
+                                    <Separator />
                                     <span>{getRecordingCameraIssue(reason)}</span>
                                 </li>
                             {/each}
@@ -647,6 +534,7 @@
                     >
                         <SettingsInput
                             id="recording-clip-before"
+                            field="recording_clip_before_seconds"
                             type="number"
                             min={0}
                             max={3600}
@@ -662,6 +550,7 @@
                     >
                         <SettingsInput
                             id="recording-clip-after"
+                            field="recording_clip_after_seconds"
                             type="number"
                             min={0}
                             max={3600}
@@ -674,10 +563,110 @@
         {/if}
         </AdvancedSection>
     </SettingsCard>
+    {/if}
+
+    {#if showMain}
+    <SettingsCard
+        id="settings-group-connection-mqtt-section"
+        title={$_('settings.connection.mqtt_section', { default: 'MQTT broker' })}
+    >
+        <!-- Address and port are one setting: its name and help left, both fields right, side by side
+             with matching labels, on the section's one control edge. -->
+        <div class="settings-row space-y-3 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row data-mqtt-address>
+            <div id="setting-mqtt-broker" class="min-w-0">
+                <span class="block text-base font-semibold text-slate-900 dark:text-white">{$_('settings.connection.mqtt_where', { default: 'Address and port' })}</span>
+                <span id="setting-mqtt-broker-desc" class="mt-1 block max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.connection.mqtt_title')}</span>
+            </div>
+            <!-- The port wraps under the address when enlarged text leaves no room beside it. -->
+            <div class="flex min-w-0 flex-wrap gap-3">
+                <label class="block min-w-0 flex-1 basis-40 space-y-1.5">
+                    <span class="block text-sm text-slate-600 dark:text-slate-400">{$_('settings.connection.mqtt_host', { default: 'Address' })}</span>
+                    <SettingsInput
+                        id="mqtt-server"
+                        field="mqtt_server"
+                        type="text"
+                        value={mqttServer}
+                        placeholder={$_('settings.frigate.mqtt_broker_placeholder')}
+                        ariaLabel={`${$_('settings.frigate.mqtt_broker')}: ${$_('settings.connection.mqtt_host', { default: 'Address' })}`}
+                        describedBy="setting-mqtt-broker-desc"
+                        oninput={(v) => (mqttServer = v)}
+                    />
+                </label>
+                <label class="block w-24 shrink-0 space-y-1.5">
+                    <span class="block text-sm text-slate-600 dark:text-slate-400">{$_('settings.frigate.mqtt_port')}</span>
+                    <SettingsInput
+                        id="mqtt-port"
+                        field="mqtt_port"
+                        type="number"
+                        value={mqttPort}
+                        ariaLabel={$_('settings.frigate.mqtt_port')}
+                        oninput={(v) => (mqttPort = Number(v) || 0)}
+                    />
+                </label>
+            </div>
+        </div>
+
+        <SettingsRow
+            labelId="setting-mqtt-auth"
+            label={$_('settings.frigate.mqtt_auth')}
+        >
+            <SettingsToggle
+                checked={mqttAuth}
+                labelledBy="setting-mqtt-auth"
+                srLabel={$_('settings.frigate.mqtt_auth')}
+                onchange={(v) => (mqttAuth = v)}
+            />
+        </SettingsRow>
+
+        {#if mqttAuth}
+            <div class="settings-stack">
+                <SettingsRow
+                    labelId="setting-mqtt-username"
+                    label={$_('settings.frigate.mqtt_user')}
+                    layout="stacked"
+                >
+                    <SettingsInput
+                        id="mqtt-username"
+                        field="mqtt_username"
+                        type="text"
+                        value={mqttUsername}
+                        ariaLabel={$_('settings.frigate.mqtt_user')}
+                        oninput={(v) => (mqttUsername = v)}
+                    />
+                </SettingsRow>
+                <SettingsRow
+                    labelId="setting-mqtt-password"
+                    label={$_('settings.frigate.mqtt_pass')}
+                    layout="stacked"
+                >
+                    <SecretInput
+                        id="mqtt-password"
+                        value={mqttPassword}
+                        saved={mqttPasswordSaved}
+                        ariaLabel={$_('settings.frigate.mqtt_pass')}
+                        oninput={(v) => (mqttPassword = v)}
+                    />
+                </SettingsRow>
+            </div>
+        {/if}
+
+        <!-- After both connections, since it tests both: the Frigate API and an MQTT publish. The one
+             primary action on the tab. -->
+        <div>
+            <button
+                type="button"
+                onclick={runConnectionDiagnostic}
+                disabled={fcRunning}
+                data-settings-test="connection"
+                class="btn btn-primary min-h-11 px-4 whitespace-normal"
+            >
+                {fcRunning ? $_('common.testing') : $_('settings.frigate.test_connection_both', { default: 'Test Frigate and MQTT' })}
+            </button>
+        </div>
+    </SettingsCard>
 
     <SettingsCard
-        accent
-        iconSnippet={camerasIcon}
+        id="settings-group-cameras"
         title={$_('settings.cameras.title', { default: 'Cameras to watch' })}
         description={betaGardenAnimals
             ? $_('settings.cameras.watch_desc_garden', { default: 'Choose what each Frigate camera is watched for: birds, Garden animals or both.' })
@@ -687,35 +676,55 @@
              card header and cut off the nest window below the list. -->
         <div
             id="settings-camera-list"
-            class="space-y-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            class="focus-ring settings-stack focus:outline-hidden"
             role="group"
             aria-label={$_('settings.cameras.title', { default: 'Cameras to watch' })}
             tabindex="-1"
             data-camera-list
         >
-            <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft p-3" data-bird-scope>
-                {#if watchesEveryCameraForBirds(watchSettings)}
-                    <p class="min-w-0 flex-1 basis-56 text-xs text-slate-700 dark:text-slate-300">{$_('settings.cameras.every_camera_on', { default: 'Every Frigate camera is watched for birds, including cameras added to Frigate later.' })}</p>
-                {:else}
-                    <p id="camera-bird-scope-chosen" class="min-w-0 flex-1 basis-56 text-xs text-slate-700 dark:text-slate-300">{$_('settings.cameras.every_camera_off', { default: 'Only the cameras chosen here are watched for birds. A camera added to Frigate later is not watched until you choose it.' })}</p>
+            <!-- One header row: what the list is and whom it watches on the left, its two actions on the right. -->
+            <div class="flex flex-wrap items-start justify-between gap-3" data-camera-list-header>
+                <p class="min-w-0 flex-1 basis-56 text-sm text-slate-600 dark:text-slate-400" data-bird-scope>
+                    {$_('settings.cameras.sync_help', { default: 'The list comes from Frigate. Sync again after adding a camera there.' })}
+                    {#if watchesEveryCameraForBirds(watchSettings)}
+                        {$_('settings.cameras.every_camera_on', { default: 'Every Frigate camera is watched for birds, including cameras added to Frigate later.' })}
+                    {:else}
+                        <span id="camera-bird-scope-chosen">{$_('settings.cameras.every_camera_off', { default: 'Only the cameras chosen here are watched for birds. A camera added to Frigate later is not watched until you choose it.' })}</span>
+                    {/if}
+                </p>
+                <div class="flex max-w-full flex-wrap gap-2">
                     <button
                         type="button"
-                        class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal"
-                        aria-describedby="camera-bird-scope-chosen"
-                        onclick={() => commitWatch(watchEveryCameraForBirds(watchSettings))}
+                        onclick={loadCameras}
+                        disabled={camerasLoading}
+                        class="btn btn-secondary min-h-11 max-w-full px-4 whitespace-normal"
                     >
-                        {$_('settings.cameras.watch_every_camera', { default: 'Watch every camera for birds' })}
+                        {camerasLoading ? $_('settings.cameras.syncing') : $_('settings.frigate.sync_cameras')}
                     </button>
-                {/if}
+                    {#if !watchesEveryCameraForBirds(watchSettings)}
+                        <button
+                            type="button"
+                            class="btn btn-secondary min-h-11 max-w-full px-4 whitespace-normal"
+                            aria-describedby="camera-bird-scope-chosen"
+                            onclick={() => commitWatch(watchEveryCameraForBirds(watchSettings))}
+                        >
+                            {$_('settings.cameras.watch_every_camera', { default: 'Watch every camera for birds' })}
+                        </button>
+                    {/if}
+                </div>
             </div>
             {#if !betaGardenAnimals}
-                <p class="text-xs text-slate-600 dark:text-slate-400" data-camera-garden-hint>{$_('settings.cameras.garden_beta_hint', { default: 'To watch for Garden animals as well, turn on Garden animals in Settings → Beta features.' })}</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400" data-camera-garden-hint>{$_('settings.cameras.garden_beta_hint', { default: 'To watch for Garden animals as well, turn on Garden animals in Settings → Identifying birds.' })}</p>
             {/if}
             {#if frigateCameras === null}
-                <p class="text-xs text-slate-600 dark:text-slate-400" role="status" data-camera-list-state>
-                    {frigateCamerasFailed
-                        ? $_('settings.cameras.list_unread', { default: 'The camera list could not be read from Frigate. Saved cameras are shown; choose Sync Cameras to try again.' })
-                        : $_('settings.cameras.list_loading', { default: 'Reading the camera list from Frigate…' })}
+                <!-- One neutral notice: the list is being read, or could not be, and saved cameras are shown. -->
+                <p class="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300" role="status" data-camera-list-state>
+                    <svg class="mt-0.5 h-4 w-4 shrink-0 text-slate-600 dark:text-slate-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="7.5" /><path d="M10 9v4.5M10 6.5h.01" /></svg>
+                    <span class="min-w-0">
+                        {frigateCamerasFailed
+                            ? $_('settings.cameras.list_unread', { default: 'The camera list could not be read from Frigate. Saved cameras are shown; choose Sync cameras to try again.' })
+                            : $_('settings.cameras.list_loading', { default: 'Reading the camera list from Frigate…' })}
+                    </span>
                 </p>
             {/if}
             {#if watchRows.length > 0 && !frigateUrl}
@@ -723,13 +732,13 @@
             {/if}
             {#if watchRows.length === 0}
                 {#if frigateCameras !== null}
-                    <div class="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center dark:border-slate-700 dark:bg-slate-900/30">
+                    <div>
                         <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.cameras.none_found')}</p>
-                        <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.cameras.none_found_help', { default: 'Frigate reported no cameras. Check the Frigate URL above, then choose Sync Cameras.' })}</p>
+                        <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.cameras.none_found_help', { default: 'Frigate reported no cameras. Check the Frigate URL above, then choose Sync cameras.' })}</p>
                     </div>
                 {/if}
             {:else}
-                <ul class="grid grid-cols-1 gap-2">
+                <ul class="divide-y divide-line-soft" aria-label={$_('settings.cameras.title', { default: 'Cameras to watch' })}>
                     {#each watchRows as row (row.camera)}
                         <CameraWatchRow
                             {row}
@@ -749,101 +758,29 @@
                 </ul>
             {/if}
         {#if Object.values(cameraRoles).includes('nest')}
-                <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft bg-surface-raised/60 p-3" data-nest-dedupe>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
-                        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_help', { default: 'Collapses repeat detections of the same species on a nest cam to one per N minutes.' })}</p>
+                <!-- A settings row like the rest; the field may narrow so enlarged text never pushes it out. -->
+                <div class="settings-row space-y-3 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row data-nest-dedupe>
+                    <div class="min-w-0">
+                        <p class="text-base font-semibold text-slate-900 dark:text-white">{$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
+                        <p class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_help', { default: 'Counts repeat visits by the same species to a nest camera as one per N minutes.' })}</p>
                     </div>
-                    <div class="flex items-center gap-1 shrink-0">
+                    <div class="flex min-w-0 items-center gap-2">
                         <input
                             type="number"
                             min={1}
                             max={720}
                             bind:value={nestDedupeMinutes}
-                            class="w-20 h-11 px-2 rounded-lg border border-line bg-surface text-sm font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 outline-none text-right"
+                            class="input-base w-24 min-w-0 text-right tabular-nums"
                             aria-label={$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}
                         />
-                        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_unit', { default: 'min' })}</span>
+                        <span class="shrink-0 text-sm text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_unit', { default: 'min' })}</span>
                     </div>
                 </div>
             {/if}
         </div>
     </SettingsCard>
+    {/if}
 
-    <div class="md:col-span-2">
-        <AdvancedSection
-            id="connection-telemetry"
-            title={$_('settings.telemetry.title')}
-            description={$_('settings.telemetry.desc')}
-        >
-            <SettingsRow
-                labelId="setting-telemetry"
-                label={$_('settings.telemetry.title')}
-                description={$_('settings.telemetry.appreciation_tooltip')}
-            >
-                <SettingsToggle
-                    checked={telemetryEnabled}
-                    labelledBy="setting-telemetry"
-                    srLabel={$_('settings.telemetry.title')}
-                    onchange={(v) => (telemetryEnabled = v)}
-                />
-            </SettingsRow>
-
-            <SettingsRow
-                labelId="setting-telemetry-health"
-                label={$_('settings.telemetry.health_title')}
-                description={$_('settings.telemetry.health_desc')}
-            >
-                <SettingsToggle
-                    checked={telemetryHealthEnabled}
-                    labelledBy="setting-telemetry-health"
-                    srLabel={$_('settings.telemetry.health_title')}
-                    onchange={(v) => (telemetryHealthEnabled = v)}
-                />
-            </SettingsRow>
-
-            {#if telemetryEnabled || telemetryHealthEnabled}
-                <div class="p-4 rounded-xl bg-surface-raised/70 animate-in fade-in slide-in-from-top-2">
-                    <p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">{$_('settings.telemetry.transparency')}</p>
-                    <div class="space-y-2 text-xs font-mono text-slate-600 dark:text-slate-400">
-                        <div class="flex justify-between"><span>{$_('settings.telemetry.install_id')}:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
-                        <div class="flex justify-between"><span>{$_('settings.telemetry.version')}:</span><span>{versionInfo.version}</span></div>
-                        <div class="flex justify-between"><span>{$_('settings.telemetry.platform')}:</span><span>{telemetryPlatform || '...'}</span></div>
-                        {#if telemetryEnabled}
-                            <div class="flex justify-between"><span>{$_('settings.telemetry.includes')}:</span><span>{$_('settings.telemetry.includes_value')}</span></div>
-                        {/if}
-                        {#if telemetryHealthEnabled}
-                            <div class="flex justify-between"><span>{$_('settings.telemetry.health_includes')}:</span><span>{$_('settings.telemetry.health_includes_value')}</span></div>
-                        {/if}
-                        <div class="flex justify-between"><span>{$_('settings.telemetry.geography')}:</span><span>{$_('settings.telemetry.geography_value')}</span></div>
-                        <div class="flex justify-between"><span>{$_('settings.telemetry.frequency')}:</span><span>{$_('settings.telemetry.frequency_value')}</span></div>
-                    </div>
-                    {#if telemetryEnabled}
-                        <div class="mt-4 pt-4 border-t border-slate-200/70 dark:border-slate-700/70">
-                            <p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">{$_('settings.telemetry.runtime_snapshot')}</p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs font-mono text-slate-600 dark:text-slate-400">
-                                {#each telemetryRuntimeRows as [labelKey, valuePath]}
-                                    <div class="flex justify-between gap-3 min-w-0">
-                                        <span class="truncate">{$_(labelKey)}:</span>
-                                        <span class="text-right text-slate-900 dark:text-white break-all">{formatTelemetryValue(nestedValue(telemetryPayloadPreview, valuePath))}</span>
-                                    </div>
-                                {/each}
-                            </div>
-                        </div>
-                    {/if}
-                    <p class="text-xs text-slate-400 mt-3 italic">{$_('settings.telemetry.privacy_notice')}</p>
-                    <a
-                        href="https://yawamf-telemetry.ya-wamf.workers.dev/dashboard"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="inline-flex items-center gap-1 mt-3 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline"
-                    >
-                        {$_('settings.telemetry.dashboard_link', { default: 'View the public telemetry dashboard' })} →
-                    </a>
-                </div>
-            {/if}
-        </AdvancedSection>
-    </div>
 </div>
 
 {#if fcTestOpen}
@@ -854,7 +791,7 @@
         busy={fcRunning}
         result={fcResult}
         runId={fcRunId}
-        retryLabel={$_('settings.frigate.test_connection')}
+        retryLabel={$_('settings.frigate.test_again', { default: 'Test again' })}
         onClose={() => (fcTestOpen = false)}
         onRetry={runConnectionDiagnostic}
     />

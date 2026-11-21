@@ -1,9 +1,10 @@
 <script lang="ts">
+    import { provideSubheadingLevel } from './_primitives/heading-level';
     /**
-     * One beta feature on Settings → Beta features: its name, what it does, its switch and a status
+     * One beta feature on Settings → Identifying birds: its name, what it does, its switch and a status
      * line in words. Its settings appear only while it is on; while it is off the card says what
      * off means. The switch stages a change in the page's draft like every other setting, so
-     * nothing takes effect until Apply Settings.
+     * nothing takes effect until Save changes.
      */
     import type { Snippet } from 'svelte';
     import { _ } from 'svelte-i18n';
@@ -30,34 +31,38 @@
     let { id, name, description, enabled, ontoggle, status, attention = false, learnMoreHref, off, children }: Props = $props();
 
     const nameId = $derived(`beta-${id}-name`);
+    // Beta features sit under More options, so the feature is an h4 and its parts h5.
+    provideSubheadingLevel(() => 5);
 </script>
 
-<article class="card-base min-w-0" aria-labelledby={nameId} data-beta-feature={id}>
-    <header class="flex items-start justify-between gap-4 p-5 sm:p-6">
+<!-- Shaped like every Settings section: the heading, its description, status and switch above one
+     card of the feature's settings. -->
+<article class="min-w-0 space-y-3" aria-labelledby={nameId} data-beta-feature={id}>
+    <header class="flex items-start justify-between gap-4 pr-4 md:pr-6">
         <div class="min-w-0 space-y-1">
-            <h4 id={nameId} class="font-display text-lg font-bold text-slate-900 dark:text-white">{name}</h4>
-            <p class="text-sm text-slate-600 dark:text-slate-400">
+            <h4 id={nameId} class="font-display text-lg font-semibold text-strong">{name}</h4>
+            <p class="max-w-prose text-sm text-muted">
                 {description}
                 {#if learnMoreHref}
-                    <a href={learnMoreHref} target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-200">
+                    <a href={learnMoreHref} target="_blank" rel="noopener noreferrer" class="focus-ring text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
                         {$_('settings.beta.learn_more', { default: 'Learn more' })}
                     </a>
                 {/if}
             </p>
-            <p class="flex items-center gap-2 pt-1 text-sm font-semibold text-slate-800 dark:text-slate-100" aria-live="polite" data-beta-status={attention ? 'attention' : 'calm'}>
+            <p class="flex items-center gap-2 pt-1 text-sm text-ink" aria-live="polite" data-beta-status={attention ? 'attention' : 'calm'}>
                 {#if attention}<span class="attention-dot" aria-hidden="true"></span>{/if}
-                <span class="min-w-0 break-words">{status}</span>
+                <span class="min-w-0 wrap-break-word">{status}</span>
             </p>
         </div>
         <div class="flex min-h-11 shrink-0 items-center">
             <SettingsToggle checked={enabled} labelledBy={nameId} srLabel={name} onchange={ontoggle} />
         </div>
     </header>
-    <div class="space-y-4 border-t border-line-soft px-5 pb-5 pt-4 sm:px-6 sm:pb-6" data-beta-feature-body={enabled ? 'on' : 'off'}>
+    <div class="card-base settings-section-body" data-beta-feature-body={enabled ? 'on' : 'off'}>
         {#if enabled}
             {@render children()}
         {:else}
-            {@render off()}
+            <div>{@render off()}</div>
         {/if}
     </div>
 </article>

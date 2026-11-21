@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import DialogCloseButton from './DialogCloseButton.svelte';
 
     let { visible = $bindable(false) }: { visible: boolean } = $props();
     let modalElement = $state<HTMLDivElement | undefined>(undefined);
@@ -49,18 +50,28 @@
             title: $_('shortcuts.navigation', { default: 'Navigation' }),
             items: [
                 { key: 'g d', description: $_('shortcuts.go_dashboard', { default: 'Go to Dashboard' }) },
-                { key: 'g e', description: $_('shortcuts.go_events', { default: 'Go to Events' }) },
+                { key: 'g e', description: $_('shortcuts.go_events', { default: 'Go to Explorer' }) },
                 { key: 'g l', description: $_('shortcuts.go_species', { default: 'Go to Leaderboard' }) },
                 { key: 'g j', description: $_('shortcuts.go_notifications', { default: 'Go to Notifications' }) },
                 { key: 'g t', description: $_('shortcuts.go_settings', { default: 'Go to Settings' }) }
             ]
         },
         {
+            // The Explorer's day strip; said here rather than on the page, where it was permanent clutter.
+            title: $_('nav.explorer', { default: 'Explorer' }),
+            items: [
+                { key: '[', description: $_('shortcuts.previous_day', { default: 'Previous day' }) },
+                { key: ']', description: $_('shortcuts.next_day', { default: 'Next day' }) },
+                { key: '0', description: $_('shortcuts.all_days', { default: 'Show every day' }) }
+            ]
+        },
+        {
             title: $_('shortcuts.actions', { default: 'Actions' }),
             items: [
                 { key: 'r', description: $_('shortcuts.refresh', { default: 'Refresh page' }) },
+                { key: '/', description: $_('shortcuts.search', { default: 'Search this page (Explorer and Settings)' }) },
                 { key: '?', description: $_('shortcuts.open_panel', { default: 'Open shortcuts panel' }) },
-                { key: 'Escape', description: $_('shortcuts.close_modal', { default: 'Close modal' }) }
+                { key: 'Escape', description: $_('shortcuts.close_modal', { default: 'Close the dialog' }) }
             ]
         }
     ];
@@ -68,7 +79,7 @@
 
 {#if visible}
     <div
-        class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+        class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
         onclick={() => visible = false}
         onkeydown={handleKeydown}
         role="presentation"
@@ -79,40 +90,36 @@
             aria-modal="true"
             aria-labelledby="shortcuts-title"
             tabindex="-1"
-            class="bg-surface rounded-2xl border border-slate-200/80 dark:border-slate-700/50 p-8 max-w-2xl w-full shadow-2xl"
+            class="bg-surface rounded-2xl border border-line p-6 sm:p-8 max-w-2xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-2xl"
             onclick={(e) => e.stopPropagation()}
             onkeydown={(e) => e.key === 'Escape' && (visible = false)}
         >
-            <h2 id="shortcuts-title" class="text-2xl font-bold text-slate-900 dark:text-white mb-6">
-                {$_('shortcuts.title', { default: 'Keyboard Shortcuts' })}
-            </h2>
+            <div class="mb-6 flex items-start justify-between gap-4">
+                <h2 id="shortcuts-title" class="text-2xl font-bold text-slate-900 dark:text-white">
+                    {$_('shortcuts.title', { default: 'Keyboard shortcuts' })}
+                </h2>
+                <DialogCloseButton onclick={() => visible = false} />
+            </div>
 
-            <div class="grid grid-cols-1 gap-4 mb-6">
+            <div class="grid grid-cols-1 gap-6">
                 {#each shortcutGroups as group}
-                    <section class="rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/45 p-4">
-                        <h3 class="text-2xs font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-300 mb-3">
+                    <section>
+                        <h3 class="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                             {group.title}
                         </h3>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <ul class="divide-y divide-line-soft border-y border-line-soft">
                             {#each group.items as shortcut}
-                                <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-white/90 dark:bg-slate-800/70 px-3 py-2">
+                                <li class="flex items-center justify-between gap-3 py-2">
                                     <span class="text-sm text-slate-700 dark:text-slate-300">{shortcut.description}</span>
-                                    <kbd class="inline-flex items-center justify-center px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-md font-mono text-xs font-bold text-slate-700 dark:text-slate-200 min-w-[64px] text-center shadow-sm border border-slate-200 dark:border-slate-600">
+                                    <kbd class="inline-flex min-w-16 items-center justify-center rounded-md border border-line bg-surface-raised px-2 py-1 text-center font-mono text-xs font-bold text-slate-700 dark:text-slate-200">
                                         {shortcut.key}
                                     </kbd>
-                                </div>
+                                </li>
                             {/each}
-                        </div>
+                        </ul>
                     </section>
                 {/each}
             </div>
-
-            <button
-                onclick={() => visible = false}
-                class="w-full px-4 py-3 bg-brand-700 hover:bg-brand-800 text-white font-bold text-xs uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-brand-500/20"
-            >
-                {$_('common.close', { default: 'Close' })}
-            </button>
         </div>
     </div>
 {/if}

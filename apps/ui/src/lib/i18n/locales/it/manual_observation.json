@@ -36,8 +36,8 @@
   "errors": {
     "load": "Impossibile caricare lo stato dell’analisi.",
     "type": "Scegli un file JPEG, PNG, WebP, MP4, MOV o WebM.",
-    "image_size": "Scegli un’immagine di dimensioni non superiori a 25 MB.",
-    "video_size": "Scegli un video di dimensioni non superiori a 250 MB.",
+    "image_size": "Scegli un’immagine di dimensioni non superiori a 25 MB.",
+    "video_size": "Scegli un video di dimensioni non superiori a 250 MB.",
     "upload": "Impossibile caricare il file.",
     "retry": "Impossibile riavviare l’analisi.",
     "save": "Impossibile salvare l’osservazione."
@@ -47,7 +47,7 @@
     "help": "Usa il file originale quando possibile. YA-WAMF lo conserverà e sceglierà l’input migliore per la classificazione.",
     "change": "Scegli un altro file",
     "drop": "Trascina qui il file o scegline uno",
-    "formats": "JPEG, PNG, WebP fino a 25 MB · MP4, MOV, WebM fino a 250 MB / 3 minuti",
+    "formats": "JPEG, PNG, WebP fino a 25 MB · MP4, MOV, WebM fino a 250 MB / 3 minuti",
     "uploading": "Salvataggio dell’originale…",
     "analyse": "Carica e analizza"
   },
@@ -56,7 +56,7 @@
     "video": "Filmato",
     "image": "Foto",
     "title": "Ricerca della prova migliore",
-    "body": "Il classificatore di produzione confronta fotogrammi e ritagli. Puoi lasciare questa pagina; la bozza verrà ripristinata al tuo ritorno.",
+    "body": "YA-WAMF sta confrontando i fotogrammi e i ritagli di uccelli trovati. Puoi lasciare la pagina; la bozza tornerà quando rientri.",
     "progress": "Avanzamento dell’analisi",
     "failed_title": "Analisi interrotta in sicurezza",
     "failed_body": "Il file originale è ancora conservato. Riprova quando il modello sarà disponibile.",

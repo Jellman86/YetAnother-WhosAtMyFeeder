@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import appSource from '../../App.svelte?raw';
-import pageHeaderSource from './PageHeader.svelte?raw';
+import pageHeaderSource from './AppPageHeader.svelte?raw';
+import sharedPageHeaderSource from './ui/PageHeader.svelte?raw';
 import notificationCenterSource from './NotificationCenter.svelte?raw';
 import notificationsSource from '../pages/Notifications.svelte?raw';
 import mobileTopBarSource from './MobileTopBar.svelte?raw';
 import loginSource from './Login.svelte?raw';
 import toastSource from './Toast.svelte?raw';
 import pipelineSource from './InstancePipeline.svelte?raw';
+import backendStatusSource from './BackendStatusScreen.svelte?raw';
 import enAuth from '../i18n/locales/en/auth.json';
 import enNotFound from '../i18n/locales/en/not_found.json';
 import enNotifications from '../i18n/locales/en/notifications.json';
@@ -55,7 +57,7 @@ describe('notification state for assistive tech', () => {
 
     it('draws the badge at AA contrast on the spacing scale', () => {
         expect(notificationCenterSource).toContain('min-w-5 h-5');
-        expect(notificationCenterSource).toContain('bg-rose-700');
+        expect(notificationCenterSource).toContain('bg-danger text-danger-fg');
         expect(notificationCenterSource).not.toContain('min-w-[18px]');
         expect(notificationCenterSource).not.toContain('bg-rose-500');
     });
@@ -89,11 +91,24 @@ describe('the sign-in screen', () => {
 
     it('announces a failure and ties it to the fields', () => {
         expect(loginSource).toContain('id="login-error" role="alert"');
-        expect(loginSource).toContain("aria-invalid={error ? 'true' : undefined}");
-        expect(loginSource).toContain("aria-describedby={error ? 'login-error' : undefined}");
+        expect(loginSource).toContain("aria-invalid={passwordMissing || credentialsRefused ? 'true' : undefined}");
+        expect(loginSource).toContain("return credentialsRefused ? 'login-error' : undefined;");
         expect(loginSource).toContain('passwordInput?.focus();');
-        expect(loginSource).toContain("$_('auth.login_failed'");
+        // The message is worded here from why the sign-in failed, never passed through from the server.
+        expect(loginSource).toContain('failure = signInFailure(err);');
+        expect(loginSource).not.toContain('err.message');
         expect(loginSource).not.toContain("'Login failed'");
+    });
+
+    it('checks its own fields and says what is missing beside each, without the browser bubble', () => {
+        expect(loginSource).toContain('novalidate>');
+        expect(loginSource).not.toMatch(/\n\s+required\n/);
+        expect(loginSource.match(/aria-required="true"/g) ?? []).toHaveLength(2);
+        // Messages are rendered before focus moves, and one live region speaks when it cannot.
+        expect(loginSource.indexOf('await tick();')).toBeLessThan(loginSource.indexOf('field.focus();'));
+        expect(loginSource.match(/role="status"/g) ?? []).toHaveLength(1);
+        expect(loginSource).toContain("$_('auth.username_required'");
+        expect(loginSource).toContain("$_('auth.password_required'");
     });
 
     it('is built from the shared kit, flat, with no retired glass styling', () => {
@@ -119,9 +134,45 @@ describe('the sign-in screen', () => {
 });
 
 describe('the About pipeline', () => {
-    it('reads the classifier through the helper that never guesses not loaded', () => {
-        expect(pipelineSource).toContain('pipelineClassifierState(classifier)');
+    it('reads the classifier through the shared readiness rule, with no derivation of its own', () => {
+        expect(pipelineSource).toContain('pipelineClassifierStep(classifier, modelActivityStore.phase(reportedModelId(classifier)))');
+        // Inference health is its own line, beside the state and never instead of it.
+        expect(pipelineSource).toContain('data-pipeline-health');
+        expect(pipelineSource).not.toContain('inference_health');
         expect(pipelineSource).not.toContain('classifier.loaded');
         expect(pipelineSource).not.toContain("about.pipeline.not_loaded");
+    });
+});
+
+describe('unmeasured reassurance', () => {
+    const authLocales = import.meta.glob('../i18n/locales/*/auth.json', { eager: true, import: 'default' }) as Record<string, Record<string, string>>;
+
+    it('does not say the feeder data is safe while the service cannot be reached to ask', () => {
+        // Nobody read the database when the backend is down or stopped during startup.
+        expect(backendStatusSource).not.toMatch(/data is safe/i);
+        expect(en.auth.status_unavailable_desc).toBe('The service may still be starting after an update or model change.');
+        expect(en.auth.startup_failed_desc).toBe('Startup stopped during a required check. Check the container logs for the cause.');
+        // Each translation is one or two sentences long, as the English is: the safety sentence is gone.
+        expect(Object.keys(authLocales)).toHaveLength(9);
+        for (const [path, locale] of Object.entries(authLocales)) {
+            expect(locale.status_unavailable_desc.split(/[.。]/).filter((part) => part.trim()), path).toHaveLength(1);
+            expect(locale.startup_failed_desc.split(/[.。;；]/).filter((part) => part.trim()), path).toHaveLength(2);
+        }
+    });
+
+    it('keeps "Live" for camera events: the browser step of About says only that it is connected', () => {
+        const browserStep = pipelineSource.slice(pipelineSource.indexOf("key: 'browser'"), pipelineSource.indexOf('function toneClass'));
+        expect(browserStep).toContain("$_('status.state_connected'");
+        expect(browserStep).not.toContain('state_live');
+    });
+});
+
+describe('the page header', () => {
+    it('never squeezes the title to nothing: the actions wrap below it when they do not fit beside it', () => {
+        expect(pageHeaderSource).toContain('<PageHeader {title} {subtitle} actions={controls} />');
+        expect(sharedPageHeaderSource).toContain('flex flex-wrap items-start justify-between');
+        expect(sharedPageHeaderSource).toContain('page-title-block min-w-0 flex-1 basis-32');
+        expect(sharedPageHeaderSource).toContain('basis-full order-last');
+        expect(sharedPageHeaderSource).not.toContain('page-header-grid');
     });
 });

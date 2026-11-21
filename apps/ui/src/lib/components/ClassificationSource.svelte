@@ -2,11 +2,31 @@
     import { _ } from 'svelte-i18n';
     import type { Detection } from '../api';
 
-    let { evidence }: { evidence: Detection['classification_input'] } = $props();
+    let {
+        evidence,
+        onDark = false
+    }: {
+        evidence: Detection['classification_input'];
+        /** Set where the line sits on a ground that stays dark in the light theme, such as the review queue. */
+        onDark?: boolean;
+    } = $props();
     const wholeView = $derived(evidence?.is_cropped === false && evidence.source !== 'frigate_sublabel');
+    // With no recorded source there is nothing to tell the owner, so the line is left out rather
+    // than saying that something was not recorded.
+    const recorded = $derived(
+        evidence?.source === 'owner_species_choice' ||
+            evidence?.source === 'frigate_sublabel' ||
+            wholeView ||
+            (evidence?.supporting_frames ?? 0) > 1 ||
+            evidence?.source === 'recording_snapshot_frigate_hint_crop' ||
+            evidence?.source === 'snapshot_frigate_hint_crop' ||
+            evidence?.source === 'frigate_snapshot_cropped' ||
+            Boolean(evidence?.is_cropped)
+    );
 </script>
 
-<p class="mt-1 text-xs text-slate-500 dark:text-slate-400" data-classification-source>
+{#if recorded}
+<p class="mt-1 text-xs {onDark ? 'text-on-media/80' : 'text-muted'}" data-classification-source>
     {#if evidence?.source === 'owner_species_choice'}
         {$_('detection.named_from.owner', { default: 'Named by you' })}
     {:else if evidence?.source === 'frigate_sublabel'}
@@ -19,9 +39,8 @@
         {$_('detection.named_from.recording', { default: 'Named from Frigate’s tracked bird in the recording frame' })}
     {:else if evidence?.source === 'snapshot_frigate_hint_crop' || evidence?.source === 'frigate_snapshot_cropped'}
         {$_('detection.named_from.snapshot', { default: 'Named from Frigate’s tracked bird in the snapshot' })}
-    {:else if evidence?.is_cropped}
-        {$_('detection.named_from.crop', { default: 'Named from a bird crop' })}
     {:else}
-        {$_('detection.named_from.unknown', { default: 'The identification source was not recorded' })}
+        {$_('detection.named_from.crop', { default: 'Named from a bird crop' })}
     {/if}
 </p>
+{/if}

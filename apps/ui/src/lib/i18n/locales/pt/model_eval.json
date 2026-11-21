@@ -1,8 +1,196 @@
 {
-  "col_best_provider": "Melhor provedor validado",
-  "col_median_inference": "Inferência mediana",
+  "checks": {
+    "body": "Cada provedor é comparado com a CPU nas mesmas fotos de aves.",
+    "cell": {
+      "did_not_load": "Não carregou",
+      "differs": "{photos, plural, one {Difere: igual em {same} de # foto} other {Difere: igual em {same} de # fotos}}",
+      "differs_boxes": "{photos, plural, one {Difere: mesma caixa em {same} de # foto} other {Difere: mesmas caixas em {same} de # fotos}}",
+      "not_tested": "Não testado",
+      "ran": "Rodou",
+      "reference": "Referência, {photos, plural, one {# foto} other {# fotos}}",
+      "reference_plain": "Referência",
+      "same": "{photos, plural, one {Igual em # foto} other {Igual em todas as # fotos}}",
+      "same_boxes": "{photos, plural, one {Mesma caixa em # foto} other {Mesmas caixas em todas as # fotos}}",
+      "unusable_output": "Saída inutilizável"
+    },
+    "finder": "Localizador de aves",
+    "row": {
+      "activation_failed": "Não foi possível carregá-lo, então nenhum provedor foi verificado. Use “Reparar download” para este modelo em Configurações → Identificar aves.",
+      "provider_sweep_failed": "A verificação falhou antes que algum provedor desse um resultado. Execute de novo; se falhar outra vez, a causa está nos logs do contêiner.",
+      "unknown": "Ele não foi verificado, por um motivo que esta página não sabe indicar. A causa está nos logs do contêiner."
+    },
+    "title": "Verificações de provedores"
+  },
+  "col_best_provider": "Provedor mais rápido que passou",
+  "col_median_inference": "Tempo típico por foto",
   "col_model": "Modelo",
-  "col_validated_providers": "Provedores validados",
-  "compat_only_body": "Esta execução verificou se cada provedor carrega, produz saída finita e concorda com a referência de CPU. Não mediu a precisão, por isso nenhum valor de precisão é mostrado. Execute uma avaliação para medir a precisão.",
-  "compat_only_title": "Apenas verificação de compatibilidade"
+  "col_validated_providers": "Provedores que passaram",
+  "compat_only_body": "Esta verificação confirmou quais provedores carregam cada modelo e dão as mesmas respostas que a CPU. Ela não mediu a precisão, por isso nenhum valor de precisão é mostrado. Inicie uma avaliação para medi-la.",
+  "compat_only_title": "Apenas verificação de provedores",
+  "confirm_delete": {
+    "confirm": "Excluir avaliação",
+    "message": "Os resultados e os arquivos da avaliação de {when} são removidos do servidor. Isso não pode ser desfeito.",
+    "title": "Excluir esta avaliação?"
+  },
+  "confirm_download": {
+    "cancel": "Voltar",
+    "confirm": "Baixar e iniciar",
+    "title": "{count, plural, one {Baixar # modelo?} other {Baixar # modelos?}}",
+    "title_unknown": "Baixar os modelos que faltam?"
+  },
+  "confirm_stop": {
+    "cancel": "Continuar rodando",
+    "confirm": "Interromper avaliação",
+    "message": "Os modelos já testados mantêm seus resultados, e o modelo que você usa agora é restaurado.",
+    "title": "Interromper a avaliação?"
+  },
+  "how": {
+    "checks": "Nas verificações de provedores, cada modelo roda em todos os provedores que esta instalação pode usar, cada um em um processo próprio para que uma falha não pare o YA-WAMF. Um localizador de aves é comparado pelo lugar onde coloca a caixa.",
+    "col": {
+      "average_time": "O tempo médio para nomear uma foto.",
+      "can_name": "Para quantas das espécies de teste o modelo tem resposta.",
+      "common": "A parcela de primeiros palpites certos em aves de comedouro muito difundidas.",
+      "first_guess": "A parcela de fotos em que o primeiro palpite foi a espécie correta.",
+      "local": "A parcela de primeiros palpites certos em aves registradas perto da sua localização.",
+      "provider": "O provedor em que o modelo rodou.",
+      "slow_time": "O tempo que 19 de cada 20 fotos não ultrapassaram.",
+      "top_three": "A parcela em que a espécie correta estava entre os três primeiros palpites."
+    },
+    "columns_title": "O que as colunas significam",
+    "cost": "Enquanto ela roda, o YA-WAMF carrega um modelo de cada vez, então as detecções ao vivo podem ficar mais lentas. No fim, o modelo que você usa agora é restaurado. Buscar as fotos exige acesso à internet.",
+    "limit": "As fotos não são do seu comedouro. Use os valores para comparar os modelos entre si, não para prever a precisão de um deles no seu comedouro.",
+    "photos": "As fotos vêm do iNaturalist e do Wikimedia Commons: aves comuns de comedouro e aves registradas perto da sua localização salva.",
+    "title": "Como funciona"
+  },
+  "page_title": "Avaliação de modelos",
+  "problem": {
+    "cause": {
+      "already_running": "Outra avaliação já está em andamento. Espere ela terminar ou interrompa-a primeiro.",
+      "gone": "Ela não está mais no servidor. Atualize a página para ver o que existe.",
+      "refused": "O YA-WAMF recusou a solicitação. Atualize a página e tente novamente; se for recusada outra vez, a causa está nos logs do contêiner.",
+      "server_fault": "O YA-WAMF encontrou um erro ao tratar a solicitação. Tente novamente; se continuar falhando, veja os logs do contêiner.",
+      "signed_out": "Sua sessão expirou ou não é a do proprietário. Entre novamente e tente de novo.",
+      "unreachable": "O YA-WAMF não respondeu. Verifique se ele está rodando e se este dispositivo consegue alcançá-lo, depois tente novamente."
+    },
+    "stale": "O que aparece abaixo pode estar desatualizado.",
+    "what": {
+      "delete": "A avaliação não foi excluída.",
+      "download": "O arquivo não foi baixado.",
+      "history": "Não foi possível ler as avaliações anteriores.",
+      "results": "Não foi possível ler os resultados desta avaliação.",
+      "start": "A avaliação não foi iniciada.",
+      "stop": "A avaliação não foi interrompida."
+    }
+  },
+  "progress": {
+    "count": "{done} de {total}",
+    "label": "Progresso da avaliação",
+    "phase": {
+      "building_panel": "Escolhendo as aves de teste",
+      "device_sweep": "Verificando provedores",
+      "downloading_models": "Baixando modelos",
+      "evaluating": "Testando modelos",
+      "fetching_images": "Buscando fotos",
+      "starting": "Iniciando",
+      "working": "Trabalhando"
+    }
+  },
+  "results": {
+    "can_name": "{known} de {total}",
+    "capped": "Somente as 20 avaliações mais recentes são listadas.",
+    "choose": "Avaliação",
+    "col_average_time": "Tempo médio",
+    "col_can_name": "Espécies que sabe nomear",
+    "col_common": "Aves comuns de comedouro",
+    "col_first_guess": "Primeiro palpite certo",
+    "col_local": "Aves perto de você",
+    "col_provider": "Rodou em",
+    "col_slow_time": "Fotos lentas",
+    "col_top_three": "Entre os três primeiros",
+    "columns_hint": "Cada coluna é explicada em “Como funciona”.",
+    "delete": "Excluir esta avaliação",
+    "delete_blocked": "Interrompa-a antes de excluir.",
+    "duration": "{minutes, plural, one {# minuto} other {# minutos}}",
+    "empty": "Nenhuma avaliação foi executada ainda. Inicie uma acima e os resultados aparecerão aqui.",
+    "file": {
+      "each_photo": "Resultado de cada foto",
+      "mix_ups": "Confusões",
+      "provider_checks": "Verificações de provedores",
+      "speed": "Detalhes de tempo",
+      "summary": "Resumo"
+    },
+    "file_download": "Baixar {label} ({file})",
+    "files": "Baixar os resultados",
+    "folder": "Pasta no servidor:",
+    "loading": "Lendo os resultados",
+    "loading_list": "Lendo as avaliações anteriores",
+    "no_models": "Nenhum modelo foi testado nesta avaliação.",
+    "not_measured": "Não medido",
+    "option_running": "{when}, em andamento",
+    "option_stopped": "{when}, interrompida antes do fim",
+    "photos": "{count, plural, one {# foto} other {# fotos}}",
+    "region": "Região {region}",
+    "species": "{count, plural, one {# espécie} other {# espécies}}",
+    "still_running": "Esta avaliação ainda está em andamento. Os resultados aparecem aqui conforme cada modelo termina.",
+    "stopped_early": "Esta avaliação parou antes de terminar, então podem faltar modelos.",
+    "title": "Resultados",
+    "under_a_minute": "Menos de um minuto",
+    "vocabulary_note": "As parcelas contam apenas as espécies que um modelo sabe nomear."
+  },
+  "skipped": {
+    "activation_failed": "Os arquivos dele estão ausentes ou incompletos. Use “Reparar download” para este modelo em Configurações → Identificar aves.",
+    "other": "Ele foi ignorado por um motivo que esta página não sabe indicar. A causa está nos logs do contêiner.",
+    "reload_failed": "Não foi possível carregá-lo. Use “Reparar download” para este modelo em Configurações → Identificar aves; se não resolver, a causa está nos logs do contêiner.",
+    "title": "Modelos que não foram testados"
+  },
+  "start": {
+    "action": "Iniciar avaliação",
+    "all_models_desc": "Também verifica se cada modelo dá as mesmas respostas no seu chip gráfico ou NPU e na CPU. Os modelos que você não instalou são baixados antes e ficam instalados. Leva muito mais tempo.",
+    "all_models_label": "Verificar cada modelo em cada provedor",
+    "download_none": "Todos os modelos já estão instalados, então nada é baixado.",
+    "download_note": "O download pode demorar um pouco, dependendo da sua conexão. Os modelos baixados ficam no disco até você excluir os arquivos deles em Configurações → Identificar aves.",
+    "download_reading": "Calculando o tamanho do download…",
+    "download_size": "{count, plural, one {# modelo ainda não está instalado: um download de cerca de {size}.} other {# modelos ainda não estão instalados: um download de cerca de {size}.}}",
+    "download_size_partial": "{count, plural, one {# modelo ainda não está instalado.} other {# modelos ainda não estão instalados.}} {unknown, plural, one {O tamanho de # deles não é conhecido;} other {O tamanho de # deles não é conhecido;}} os demais são um download de cerca de {size}.",
+    "download_size_unknown": "{count, plural, one {# modelo ainda não está instalado. O tamanho dele não é conhecido.} other {# modelos ainda não estão instalados. O tamanho deles não é conhecido.}}",
+    "download_unknown": "Não foi possível calcular o tamanho do download. Os modelos que você não instalou são baixados mesmo assim.",
+    "each_photo_desc": "Adiciona um arquivo com os cinco melhores palpites para cada foto, para você examinar erros específicos. Ele é baixado junto com os outros resultados.",
+    "each_photo_label": "Guardar o resultado de cada foto",
+    "options_hide": "Ocultar as opções da avaliação",
+    "options_show": "Mostrar as opções da avaliação",
+    "running": "Avaliação em andamento",
+    "running_reason": "Só uma avaliação roda por vez. Interrompa esta para iniciar outra.",
+    "stop": "Interromper avaliação",
+    "title": "Iniciar uma avaliação",
+    "what": "Cada modelo instalado nomeia fotos de referência de espécies conhecidas, para você comparar com que frequência cada um acerta e com que rapidez."
+  },
+  "stopped": {
+    "finder_needs_provider_check": "Um localizador de aves só pode ser verificado por provedor. Inicie a verificação em Configurações → Identificar aves.",
+    "models_not_ready": "Um modelo escolhido para esta verificação não está instalado e pronto. Confira em Configurações → Identificar aves e comece de novo.",
+    "network": "Uma solicitação ao iNaturalist ou ao Wikimedia Commons falhou. Verifique a conexão com a internet e comece de novo.",
+    "no_models": "Nenhum modelo de aves está instalado e pronto. Instale um em Configurações → Identificar aves e comece de novo.",
+    "no_test_birds": "Não foi possível montar a lista de aves de teste porque o iNaturalist não respondeu. Verifique a conexão com a internet e comece de novo.",
+    "no_test_photos": "Não foi possível buscar nenhuma foto de teste no iNaturalist nem no Wikimedia Commons. Verifique a conexão com a internet e comece de novo.",
+    "unexpected": "Ela parou por um erro que esta página não sabe indicar. Inicie de novo; se parar outra vez, a causa está nos logs do contêiner."
+  },
+  "warning": {
+    "high_abstention": "Não indicou espécie em {share}% das fotos. Talvez não cubra essas aves, ou a instalação esteja incompleta. Verifique o modelo em Configurações → Identificar aves.",
+    "incomplete_install": "Os arquivos dele estão incompletos. Use “Reparar download” para este modelo em Configurações → Identificar aves.",
+    "inference_health_unhealthy": "Ocorreram erros ou tempos esgotados enquanto ele rodava. Procure a causa nos logs do contêiner.",
+    "latency_drift_high": "Muito mais lento do que ao ser carregado: {measured, number} ms por foto contra {loaded, number} ms. O provedor em que rodou pode estar falhando. Defina o provedor de inferência como CPU em Configurações → Identificar aves e avalie de novo.",
+    "latency_drift_high_plain": "Muito mais lento do que ao ser carregado. O provedor em que rodou pode estar falhando. Defina o provedor de inferência como CPU em Configurações → Identificar aves e avalie de novo.",
+    "low_shared_core": "Nomeou corretamente menos da metade das aves comuns de comedouro, o que costuma indicar uma instalação danificada. Use “Reparar download” para este modelo em Configurações → Identificar aves.",
+    "partial_vocabulary": "Não sabe nomear {outside} das {total} espécies de teste, geralmente porque vivem fora da sua região. Suas parcelas cobrem as espécies que ele sabe nomear.",
+    "partial_vocabulary_plain": "Não sabe nomear algumas das espécies de teste, geralmente porque vivem fora da sua região. Suas parcelas cobrem as espécies que ele sabe nomear.",
+    "provider_fallback_active": "Rodou na CPU embora um provedor mais rápido tenha sido pedido. O motivo está em Diagnóstico em tempo de execução, em Configurações → Identificar aves.",
+    "provider_validation_failed": "Nenhum provedor deu respostas utilizáveis iguais às da CPU. As verificações de provedores abaixo mostram cada resultado.",
+    "provider_validation_partial": "Alguns provedores falharam ou não estão disponíveis aqui. As verificações de provedores abaixo mostram cada resultado.",
+    "region_mismatch": "Foi feito para uma região diferente da das aves perto de você, então suas parcelas aqui são menores do que lá.",
+    "severity": {
+      "critical": "Vale olhar",
+      "info": "Nota",
+      "warning": "Vale conferir"
+    },
+    "unknown": "Sinalizado por um motivo que esta versão da página não sabe explicar. O detalhe está no download “Resumo”."
+  }
 }

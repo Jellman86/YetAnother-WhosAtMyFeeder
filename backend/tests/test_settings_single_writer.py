@@ -24,6 +24,7 @@ from app.main import app
 from app.routers import settings as settings_router
 from app.services import settings_update
 from app.services.notification_service import notification_service
+from app.services.notifications.message import DeliveryResult
 from app.services.settings_update import commit_settings_change
 
 OWNER = AuthContext(auth_level=AuthLevel.OWNER, username="test")
@@ -151,14 +152,14 @@ async def test_model_activation_save_failure_keeps_the_previous_selection(monkey
 @pytest.mark.parametrize(
     "platform, sender, request_fields, live_fields",
     [
-        ("discord", "_send_discord", {"webhook_url": "https://typed.example/hook"}, {"webhook_url"}),
+        ("discord", "deliver_discord", {"webhook_url": "https://typed.example/hook"}, {"webhook_url"}),
         (
             "pushover",
-            "_send_pushover",
+            "deliver_pushover",
             {"user_key": "typed-user", "api_token": "typed-token"},
             {"user_key", "api_token"},
         ),
-        ("telegram", "_send_telegram", {"bot_token": "typed-bot", "chat_id": "typed-chat"}, {"bot_token", "chat_id"}),
+        ("telegram", "deliver_telegram", {"bot_token": "typed-bot", "chat_id": "typed-chat"}, {"bot_token", "chat_id"}),
     ],
 )
 async def test_notification_test_credentials_never_reach_live_settings(
@@ -174,7 +175,7 @@ async def test_notification_test_credentials_never_reach_live_settings(
     async def send(*_args, **kwargs):
         seen["live"] = getattr(settings.notifications, platform).model_dump()
         seen["config"] = kwargs.get("config")
-        return True
+        return DeliveryResult(sent=True)
 
     monkeypatch.setattr(notification_service, sender, send)
     app.dependency_overrides[require_owner] = lambda: OWNER
@@ -201,9 +202,9 @@ async def test_notification_test_without_overrides_uses_the_saved_channel(monkey
 
     async def send(*_args, **kwargs):
         seen["config"] = kwargs.get("config")
-        return True
+        return DeliveryResult(sent=True)
 
-    monkeypatch.setattr(notification_service, "_send_discord", send)
+    monkeypatch.setattr(notification_service, "deliver_discord", send)
     app.dependency_overrides[require_owner] = lambda: OWNER
     try:
         transport = httpx.ASGITransport(app=app)

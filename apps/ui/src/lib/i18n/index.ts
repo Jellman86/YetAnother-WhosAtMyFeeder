@@ -64,6 +64,16 @@ registerLocaleWithRetry('it', () => import('./locales/it'));
 
 const initialLocale = determineLocale();
 
+// The page declares the language that is on screen, so a screen reader pronounces it with the right
+// voice and long words hyphenate by the right rules. index.html can only ever say "en".
+const DOCUMENT_LANGUAGE: Partial<Record<SupportedLocale, string>> = { zh: 'zh-Hans' };
+if (typeof document !== 'undefined') {
+    locale.subscribe((active) => {
+        const language = normalizeLocale(active);
+        if (language) document.documentElement.lang = DOCUMENT_LANGUAGE[language] ?? language;
+    });
+}
+
 async function initializeI18n(): Promise<void> {
     try {
         await init({

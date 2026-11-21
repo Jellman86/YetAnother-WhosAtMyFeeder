@@ -47,11 +47,12 @@
         {/each}
     </div>
     <div data-surface="chosen">
+        <span id="score-tone-view-label" class="sr-only">View</span>
         <SettingsSegmented
             value={chosen}
             options={[{ value: 'cards', label: 'Cards' }, { value: 'list', label: 'List' }]}
             onchange={(next) => (chosen = next)}
-            ariaLabelTemplate={(label) => label}
+            labelledBy="score-tone-view-label"
         />
         <button type="button" class="btn btn-primary min-h-11 px-4" data-primary-button>Apply</button>
     </div>

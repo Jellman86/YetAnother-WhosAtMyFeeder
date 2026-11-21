@@ -10,7 +10,7 @@ The system is connected to the [iNaturalist API](https://www.inaturalist.org/). 
 3. Caches the result in a local SQLite table (`taxonomy_cache`) to avoid redundant API calls.
 
 ## Display Modes
-**Settings → Appearance → Bird Naming Style** decides how every bird is labelled across the UI:
+**Settings → Display → Bird Naming Style** decides how every bird is labelled across the UI:
 
 - **Standard:** common name primary, scientific name as the subtitle.
 - **Hobbyist:** scientific name primary, common name as the subtitle.
@@ -47,7 +47,7 @@ seen last. The rankings then say what stands behind each species besides the cla
 
 The **Total** window has no confirmation counts, so its evidence column only reports calls.
 
-When eBird is set up under **Settings → Integrations**, the rankings also check each species against
+When eBird is set up under **Settings → Sharing & integrations**, the rankings also check each species against
 what birders have reported within 50 km of the feeder in the last 30 days. A species that only the
 camera backs and that nobody has reported nearby is marked **Not reported within 50 km** in the
 rankings and **Check** on its photograph. This distance, like the others in these checks, is shown in
@@ -88,7 +88,7 @@ That is a timeline view rather than a combined ranking; see [Explore and review 
 
 ## Taxonomy Repair
 If your history contains old detections with inconsistent naming, run **Taxonomy repair** from
-**Settings → Data**. It scans your whole history and normalises every label against iNaturalist.
+**Settings → Storage & upkeep**. It scans your whole history and normalises every label against iNaturalist.
 It rewrites names only; it never deletes a detection.
 
 
@@ -140,7 +140,7 @@ alongside the model artifact and output index that produced them.
 
 ### What diagnostics tell you
 
-The **Naming Sources** card under **Settings → Health** reports:
+The **Naming Sources** card on the **Health** page reports:
 
 - **Catalogue species** — how many identities the active release holds.
 - **Model output classes with no catalogue identity** — outputs that keep their original label text

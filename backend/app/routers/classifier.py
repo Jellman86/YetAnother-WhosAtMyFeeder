@@ -143,7 +143,7 @@ async def classifier_status(
     request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)
 ) -> ClassifierStatusResponse:
     """Return the status of the bird classifier model."""
-    status = classifier_service.get_status()
+    status = await classifier_service.collect_status()
     status["personalized_rerank_enabled"] = bool(getattr(settings.classification, "personalized_rerank_enabled", False))
     status["personalization_min_feedback_tags"] = personalization_service.min_feedback_tags
     status["personalization_feedback_rows"] = 0
@@ -193,7 +193,7 @@ async def bird_classifier_debug(_auth: AuthContext = Depends(require_owner)) -> 
         return {
             "mode": "subprocess",
             "message": "Direct bird runtime inspection is unavailable in subprocess mode",
-            "status": classifier_service.get_status(),
+            "status": await classifier_service.collect_status(),
         }
 
     import numpy as np
@@ -317,7 +317,7 @@ async def classify_image(
     except Exception as e:
         return {"status": "error", "error": f"Failed to decode image: {e}"}
 
-    status = classifier_service.get_status()
+    status = await classifier_service.collect_status()
     active_model_id = status.get("effective_model_id") or status.get("active_model_id")
     inference_backend = status.get("inference_backend")
     active_provider = status.get("active_provider")

@@ -17,10 +17,15 @@ nothing" apart from "the correlation window missed it":
 
 ![Audio History: counts for detections heard, audio-derived species, peak hour and number of sources, above filters for window, species, source and minimum confidence, and a detection history table pairing each spectrogram with its species, time, source and confidence](../images/audio-history.png)
 
+Below the log, **Analytics** shows calls heard over time, calls heard by weekday and hour in your
+own time zone (the Leaderboard's activity grid, counting calls rather than captures), and the
+species composition. Every figure follows the window chosen at the top of the page and the applied
+filters, so the grid's total always matches **Calls heard**.
+
 ## Setup
 
 ### 1. MQTT Topic
-In **Settings → Integrations → BirdNET-Go**, make sure **MQTT Topic** matches your BirdNET-Go configuration.
+In **Settings → Cameras & connection → More options → BirdNET-Go**, make sure **MQTT Topic** matches your BirdNET-Go configuration.
 - **Modern BirdNET-Go:** Use the base topic (e.g., `birdnet`).
 - **Legacy / Custom:** Use the specific text topic (e.g., `birdnet/text`).
 
@@ -30,7 +35,7 @@ In **Settings → Integrations → BirdNET-Go**, make sure **MQTT Topic** matche
 
 ### 2. The two URLs
 
-**Settings → Integrations → BirdNET-Go** asks for two addresses, and they do different jobs:
+**Settings → Cameras & connection → More options → BirdNET-Go** asks for two addresses, and they do different jobs:
 
 | Field | Who uses it | Example |
 |---|---|---|
@@ -42,10 +47,10 @@ the container. **If the links go nowhere** but spectrograms are fine, the browse
 
 ### 3. Sensor Mapping
 For correlation to work, YA-WAMF needs to know which audio sensor belongs to which camera.
-1. Go to **Settings → Integrations → BirdNET-Go → Audio buffer & sensor mapping**.
+1. Go to **Settings → Cameras & connection → More options → BirdNET-Go → Audio buffer & sensor mapping**.
 2. Check **Recently Detected BirdNET Sources** after audio messages have arrived.
 3. Under **BirdNET Source Mapping (Optional)**, use **Add detected source…** for the corresponding camera, or type the stable source name.
-4. Multiple source names can be mapped to a camera; comma-separated entries are accepted. Apply Settings to save the mapping.
+4. Multiple source names can be mapped to a camera; comma-separated entries are accepted. Choose Save changes to keep the mapping.
 
 A named camera without a mapping does not receive audio from another source. Use `*` only when you
 deliberately want any source to correlate with that camera; a blank or missing mapping is not a
@@ -70,7 +75,7 @@ Keep host clocks synchronized and ensure timestamp payloads include the correct 
 ### 5. Test the complete path
 
 Use **Test BirdNET-Go path** in the setup wizard, or **Test Audio detection** under
-**Settings → Integrations → BirdNET-Go**. The staged diagnostic checks, in order:
+**Settings → Cameras & connection → More options → BirdNET-Go**. The staged diagnostic checks, in order:
 
 1. the BirdNET-Go URL currently shown in the form, when one is set;
 2. an isolated publish through the configured MQTT broker; and
@@ -97,7 +102,7 @@ By default YA-WAMF stores every BirdNET-Go detection it receives. To drop noisy 
 ## Audio history and visual matches
 
 The dashboard's **Heard** card summarizes persisted calls for the selected day and opens
-Audio History. The [Explorer](../features/explorer.md) can also show heard-only call bouts:
+Audio history, which is also in the sidebar under **Observe** while BirdNET-Go is connected. The [Explorer](../features/explorer.md) can also show heard-only call bouts:
 turn **Heard calls** on in Explorer for that device. Repeated calls are grouped, and matched calls
 can appear with the corresponding seen visit rather than as duplicate cards. Audio-only
 calls do not become visual captures or inflate camera counts.

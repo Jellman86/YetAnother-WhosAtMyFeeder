@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Detection } from '../api';
 import type { ShowcaseRow } from './showcase';
+import { contrastRatio, type Rgb } from '../utils/contrast';
 import { packTiles, readableInk, wallTiles, WALL_MINIMUM } from './wall';
 
 const MINUTE = 60_000;
@@ -24,6 +25,7 @@ const row = (displayName: string, rank: number, extra: Partial<ShowcaseRow> = {}
     subName: null,
     count: 10,
     photo: null,
+    photoEvent: null,
     scientificName: null,
     taxaId: null,
     reference: null,
@@ -63,6 +65,12 @@ describe('the leaderboard wall', () => {
     it('keeps visits more than a minute apart separate, newest first', () => {
         const tiles = wallTiles([capture('b2', 'Dunnock', 0), capture('b1', 'Dunnock', 30)], [row('Dunnock', 1)], options);
         expect(tiles.map((tile) => tile.frigateEvent)).toEqual(['b2', 'b1']);
+    });
+
+    it("follows the owner's visit gap, so a busy feeder's quick returns are separate visits (#1044)", () => {
+        const returns = [capture('t3', 'Great Tit', 0, {}, 0), capture('t2', 'Great Tit', 0, {}, 8), capture('t1', 'Great Tit', 0, {}, 30)];
+        expect(wallTiles(returns, [row('Great Tit', 1)], options).map((tile) => tile.captures)).toEqual([3]);
+        expect(wallTiles(returns, [row('Great Tit', 1)], { ...options, gapMs: 10 * SECOND }).map((tile) => tile.captures)).toEqual([2, 1]);
     });
 
     it('leaves out hidden captures, ones with no stored photograph and unresolved birds', () => {
@@ -218,10 +226,24 @@ describe('the leaderboard wall', () => {
     });
 
     it('reads the best ink on a species colour: dark on light colours, white on dark ones', () => {
-        expect(readableInk('#eda100')).toBe('#020617');
+        expect(readableInk('#eda100')).toBe('#000000');
         expect(readableInk('#4a3aa7')).toBe('#ffffff');
-        expect(readableInk('#1baf7a')).toBe('#020617');
-        expect(readableInk('#fff')).toBe('#020617');
+        expect(readableInk('#1baf7a')).toBe('#000000');
+        expect(readableInk('#fff')).toBe('#000000');
+    });
+
+    it('reaches 4.5:1 on every colour a segment can take, the mid-tones included', () => {
+        // On a mid blue neither ink is far ahead; picking the wrong one left the label at 4.4:1.
+        expect(readableInk('#2a78d6')).toBe('#000000');
+        for (let red = 0; red <= 255; red += 15) {
+            for (let green = 0; green <= 255; green += 15) {
+                for (let blue = 0; blue <= 255; blue += 15) {
+                    const ground: Rgb = [red, green, blue];
+                    const ink: Rgb = readableInk(`#${ground.map((part) => part.toString(16).padStart(2, '0')).join('')}`) === '#ffffff' ? [255, 255, 255] : [0, 0, 0];
+                    expect(contrastRatio(ink, ground), ground.join(',')).toBeGreaterThanOrEqual(4.5);
+                }
+            }
+        }
     });
 
     it('needs at least a handful of visits to be a wall', () => {

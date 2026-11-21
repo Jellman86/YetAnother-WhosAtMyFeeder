@@ -1,4 +1,7 @@
 <script lang="ts">
+    import { weatherConditionMessage } from '../utils/weather-condition';
+    import Separator from './Separator.svelte';
+    import DialogCloseButton from './DialogCloseButton.svelte';
     import ClassificationSource from './ClassificationSource.svelte';
     import { onDestroy, untrack } from 'svelte';
     import { dismissSnapshotCandidate, applySnapshotCandidate, fetchFeederSpecies, fetchSnapshotCandidates, getSnapshotUrl, getThumbnailUrl, searchSpecies } from '../api';
@@ -6,13 +9,15 @@
     import FrameStrip from './FrameStrip.svelte';
     import CountedBirds from './CountedBirds.svelte';
     import MediaImage from './MediaImage.svelte';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import {
         currentMoment,
         groupCandidatesIntoMoments,
+        outlineLabelClass,
+        outlineLabelPlace,
         preferredCandidate,
         type FrameMoment
     } from '../utils/frame-moments';
@@ -21,7 +26,8 @@
     import { getManualTagSearchOptions } from '../search/manual-tag-search';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
-    import { advance, createReviewSession, type ReviewSession } from '../utils/review-session';
+    import { advance, createReviewSession, refreshCurrent, type ReviewSession } from '../utils/review-session';
+    import { IdentificationChangedError } from '../api/classifier';
     import { formatDate, formatTime } from '../utils/datetime';
     import { trapFocus } from '../utils/focus-trap';
     import { lockDocumentScroll } from '../utils/document-scroll-lock';
@@ -29,7 +35,7 @@
     import { SCORE_TEXT_ON_MEDIA, scoreBand } from '../utils/score-tone';
     import { findMatchingFullFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
-    import type { ReviewReason } from '../utils/review-queue';
+    import { reviewReasonFor, reviewReasonNote, reviewSuggestion, type ReviewReason } from '../utils/review-queue';
     import { _ } from 'svelte-i18n';
 
     interface Props {
@@ -389,6 +395,10 @@
         try {
             await onidentify(current, species);
             session = advance(session, 'resolved');
+        } catch (error) {
+            // Someone else decided first: stay on the visit and show what it says now.
+            if (error instanceof IdentificationChangedError) session = refreshCurrent(session, error.current);
+            else throw error;
         } finally {
             busy = false;
         }
@@ -425,7 +435,7 @@
         // and names hiding as the alternative sitting next to it.
         if (!(await confirmAction({
             title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
-            message: $_('actions.confirm_delete', { values: { species: current.display_name } }),
+            message: $_('actions.confirm_delete', { values: { species: $birdNames(current, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary } }),
             confirmLabel: $_('dashboard.review_session.delete', { default: 'Delete permanently' })
         }))) return;
         busy = true;
@@ -460,11 +470,18 @@
             skip();
         }
     }
+
+    // The stored condition is the backend's English word; the reader gets it in their language.
+    function conditionText(stored: string | null | undefined): string {
+        const message = weatherConditionMessage(stored);
+        if (!message) return '';
+        return message.key ? $_(message.key, { default: message.default }) : message.default;
+    }
 </script>
 
 <div
     use:portal
-    class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-0 backdrop-blur-sm sm:p-4"
+    class="fixed inset-0 z-70 flex items-center justify-center bg-slate-950/70 p-0 backdrop-blur-xs sm:p-4"
     data-review-queue-modal
 >
     <div
@@ -474,14 +491,14 @@
         aria-labelledby="review-session-title"
         tabindex="-1"
         onkeydown={handleKeydown}
-        class="flex h-[100dvh] max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-surface shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-2xl"
+        class="flex h-dvh max-h-dvh w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-surface shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-2xl"
     >
-        <header class="relative flex items-center gap-3 border-b border-slate-200 py-1.5 pl-5 pr-2 dark:border-slate-700">
+        <div class="relative flex items-center gap-3 border-b border-slate-200 py-1.5 pl-5 pr-2 dark:border-slate-700">
             <div class="flex min-w-0 items-baseline gap-x-2.5">
-                <h2 id="review-session-title" class="break-words font-display text-base font-bold text-slate-900 dark:text-white">
+                <h2 id="review-session-title" class="wrap-break-word font-display text-base font-bold text-slate-900 dark:text-white">
                     {$_('dashboard.review_queue.title', { default: 'Needs your call' })}
                 </h2>
-                <p class="shrink-0 text-xs tabular-nums text-slate-500 dark:text-slate-400" data-review-position>
+                <p class="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-400" data-review-position>
                     {session.done
                         ? $_('dashboard.review_session.summary', {
                               values: { resolved: session.resolved, skipped: session.skipped },
@@ -494,14 +511,7 @@
                 </p>
             </div>
 
-            <button
-                type="button"
-                class="ml-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/60 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
-                aria-label={$_('common.close', { default: 'Close' })}
-                onclick={onclose}
-            >
-                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" /></svg>
-            </button>
+            <DialogCloseButton class="ml-auto" onclick={onclose} />
 
             <!-- Progress rides the header's own rule, on every screen size; the words above say it too. -->
             <div class="absolute inset-x-0 -bottom-px h-0.5" aria-hidden="true">
@@ -510,7 +520,7 @@
                     style="width: {session.total === 0 ? 100 : (session.index / session.total) * 100}%"
                 ></div>
             </div>
-        </header>
+        </div>
 
         {#if session.done}
             <div class="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
@@ -547,20 +557,23 @@
             </div>
         {:else if session.current}
             {@const current = session.current}
-            {@const naming = getBirdNames(current, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary)}
-            {@const isNewSpecies = reasons?.get(current.frigate_event) === 'new_species'}
+            {@const naming = $birdNames(current, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary)}
+            {@const reason = reviewReasonFor(current, reasons)}
+            {@const reasonNote = reviewReasonNote(reason, naming.primary)}
+            {@const isNewSpecies = reason === 'new_species'}
+            {@const suggestion = reviewSuggestion(current, reason)}
             <!-- A column on phones: the media block keeps its own height and never overlaps the
                  rail beneath it. The two-column grid only applies where there is room. -->
             <div class="flex min-h-0 flex-1 flex-col overflow-y-auto md:grid md:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] md:overflow-hidden">
                 <div class="flex shrink-0 flex-col bg-slate-950 md:min-h-0 md:justify-center">
                     <!-- One box for the photograph whatever it is doing: loading, drawn, peeking at the
                          whole scene or missing. Nothing beneath it moves when an image arrives or fails. -->
-                    <div class="relative aspect-[4/3] max-h-[52vh] w-full overflow-hidden" data-review-photograph>
+                    <div class="relative aspect-4/3 max-h-[52vh] w-full overflow-hidden" data-review-photograph>
                         <MediaImage
                             sources={photographSources}
                             alt={$_('dashboard.review_session.image_alt', {
                                 values: { camera: current.camera_name },
-                                default: 'Unidentified detection on {camera}'
+                                default: 'Unknown bird on {camera}'
                             })}
                             class="absolute inset-0 h-full w-full object-contain"
                             placeholderClass="text-slate-700"
@@ -586,7 +599,7 @@
                                  the app's plumbing, not the reviewer's concern. -->
                             <button
                                 type="button"
-                                class="absolute inset-0 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
+                                class="absolute inset-0 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
                                 data-review-whole-scene-peek
                                 aria-pressed={wholeScene.pinned}
                                 aria-label={wholeScene.pinned
@@ -600,14 +613,14 @@
                             ></button>
                             {#if sceneReady && wholeScene.outline}
                                 <div
-                                    class="pointer-events-none absolute z-20 rounded-sm border-2 border-solid border-sky-300 {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
+                                    class="pointer-events-none absolute z-20 rounded-xs border-2 border-solid border-evidence {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
                                     style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
                                     data-review-whole-scene-outline
                                     aria-hidden="true"
-                                ><span class="absolute left-0 top-0 rounded bg-sky-300 px-1.5 py-0.5 text-3xs font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
+                                ><span class="absolute whitespace-nowrap rounded-sm bg-evidence px-1.5 py-0.5 text-3xs font-bold text-slate-950 {outlineLabelClass(outlineLabelPlace(wholeScene.outline, { width: sceneEl?.clientWidth ?? 0, height: sceneEl?.clientHeight ?? 0 }))}" data-review-whole-scene-label>{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
                                 {#each wholeScene.otherOutlines as outline}
                                     <div
-                                        class="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-white/90"
+                                        class="pointer-events-none absolute z-10 rounded-xs border-2 border-dashed border-white/90"
                                         style="left: {outline.left}px; top: {outline.top}px; width: {outline.width}px; height: {outline.height}px;"
                                         data-review-other-bird-outline
                                         aria-hidden="true"
@@ -615,7 +628,7 @@
                                 {/each}
                             {/if}
                             {#if sceneReady}
-                                <span class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-2xs font-semibold text-white backdrop-blur-sm">
+                                <span class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-2xs font-semibold text-white backdrop-blur-xs">
                                     {wholeScene.otherOutlines.length > 0
                                         ? $_('detection.whole_scene_multiple_outlined', { values: { count: wholeScene.otherOutlines.length + 1 }, default: 'Whole scene, {count, plural, one {# crop region outlined} other {# crop regions outlined}}' })
                                         : wholeScene.pinned
@@ -629,30 +642,30 @@
                          The way into the full record sits with the capture it opens, not among the decisions. -->
                     <div class="flex items-start gap-3 px-4 pt-3 {authStore.hasOwnerAccess ? '' : 'pb-4'}" data-review-species-heading>
                         <div class="min-w-0 flex-1">
-                            <h3 class="break-words font-display text-xl font-bold leading-tight text-white">{naming.primary}</h3>
-                            {#if authStore.hasOwnerAccess}<ClassificationSource evidence={current.classification_input} />{/if}
+                            <h3 class="wrap-break-word font-display text-xl font-bold leading-tight text-white">{naming.primary}</h3>
+                            {#if authStore.hasOwnerAccess}<ClassificationSource evidence={current.classification_input} onDark />{/if}
                             {#if naming.secondary}
-                                <p class="mt-0.5 break-words text-sm italic text-slate-300">{naming.secondary}</p>
+                                <p class="mt-0.5 wrap-break-word text-sm italic text-slate-300">{naming.secondary}</p>
                             {/if}
                             <p class="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-2xs text-slate-400">
                                 <span>{formatDate(current.detection_time)} {formatTime(current.detection_time)}</span>
-                                <span aria-hidden="true">&middot;</span>
+                                <Separator />
                                 <span>{current.camera_name}</span>
-                                <span aria-hidden="true">&middot;</span>
+                                <Separator />
                                 <span class="font-semibold tabular-nums {SCORE_TEXT_ON_MEDIA[scoreBand(current.score)]}">
                                     <span class="sr-only">{$_('detection.confidence', { default: 'Confidence' })}</span>
                                     {Math.round((current.score ?? 0) * 100)}%
                                 </span>
-                                {#if current.weather_condition}
-                                    <span aria-hidden="true">&middot;</span>
-                                    <span>{current.weather_condition}</span>
+                                {#if conditionText(current.weather_condition)}
+                                    <Separator />
+                                    <span>{conditionText(current.weather_condition)}</span>
                                 {/if}
                             </p>
                         </div>
                         {#if onopen}
                             <button
                                 type="button"
-                                class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/5 text-xs font-semibold text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:px-3.5"
+                                class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/5 text-xs font-semibold text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white sm:px-3.5"
                                 onclick={() => onopen?.(current)}
                             >
                                 <!-- A phone keeps the width for the name; the arrow alone still names itself. -->
@@ -667,7 +680,7 @@
                             <FrameStrip
                                 {moments}
                                 current={activeMoment}
-                                primaryName={current.display_name}
+                                primaryName={naming.primary}
                                 loading={cropLoading}
                                 {applyingKey}
                                 busy={applyPending || busy}
@@ -675,7 +688,7 @@
                                 emptyText={candidates.some((candidate) => candidate.crop_box)
                                     ? null
                                     : $_('dashboard.review_session.no_crop', {
-                                          default: 'No crop stored for this detection. Open the full record to scan for one.'
+                                          default: 'No crop stored for this capture. Open the full record to scan for one.'
                                       })}
                                 eventId={current.frigate_event}
                                 onremove={removePhotoChoice}
@@ -691,32 +704,25 @@
                     <p class="-mx-4 -mt-4 flex items-start gap-2 bg-attention-50 px-4 py-3 text-sm text-slate-700 dark:bg-attention-500/10 dark:text-slate-200" data-review-reason>
                         <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-attention-500" aria-hidden="true"></span>
                         <span>
-                            {#if isNewSpecies}
-                                {$_('dashboard.review_session.new_species_note', {
-                                    values: { species: current.display_name },
-                                    default: 'First {species} recorded here. Confirm it, correct it, or block the species.'
-                                })}
-                            {:else}
-                                {$_('dashboard.review_session.threshold_note', {
-                                    default: 'The model scored this below the naming threshold.'
-                                })}
-                            {/if}
+                            {$_(reasonNote.key, { values: reasonNote.values, default: reasonNote.default })}
                         </span>
                     </p>
 
-                    {#if isNewSpecies}
-                        <div class="flex flex-wrap gap-2" data-review-new-species-actions>
+                    <!-- The model's own name is the likeliest answer, so it is one step away; the list below
+                         is for a different species. A visit with no species has nothing to confirm. -->
+                    {#if suggestion}
+                        <div class="flex flex-wrap gap-2" data-review-suggestion-actions>
                             <button
                                 class="btn btn-primary min-h-11 flex-1 px-3 py-2 text-xs"
                                 disabled={busy}
-                                onclick={() => identify(current.display_name)}
+                                onclick={() => identify(suggestion)}
                             >
                                 {$_('dashboard.review_session.confirm_species', {
-                                    values: { species: current.display_name },
+                                    values: { species: naming.primary || suggestion },
                                     default: 'Confirm {species}'
                                 })}
                             </button>
-                            {#if onblock}
+                            {#if isNewSpecies && onblock}
                                 <button
                                     class="btn btn-secondary min-h-11 px-3 py-2 text-xs"
                                     disabled={busy}
@@ -740,7 +746,7 @@
                         />
                     </label>
 
-                    <p id="review-species-choices" class="-mb-1 text-2xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                    <p id="review-species-choices" class="-mb-1 text-2xs font-semibold text-slate-600 dark:text-slate-400">
                         {searching
                             ? $_('dashboard.review_session.all_species', { default: 'All species' })
                             : $_('dashboard.review_session.seen_here', { default: 'Seen at this feeder' })}
@@ -759,21 +765,21 @@
                                     onclick={() => identify(choice.id)}
                                 >
                                     <span class="min-w-0">
-                                        <span class="block break-words font-medium">{choice.primary}</span>
+                                        <span class="block wrap-break-word font-medium">{choice.primary}</span>
                                         {#if choice.secondary}
-                                            <span class="block break-words text-xs italic text-slate-500 dark:text-slate-400">
+                                            <span class="block wrap-break-word text-xs italic text-slate-600 dark:text-slate-400">
                                                 {choice.secondary}
                                             </span>
                                         {/if}
                                     </span>
                                     <!-- Said on every row for the button's name, but only the row in hand calls attention to it. -->
-                                    <span class="shrink-0 text-xs font-semibold text-slate-500 transition-colors group-hover:text-brand-700 group-focus-visible:text-brand-700 dark:text-slate-400 dark:group-hover:text-brand-300 dark:group-focus-visible:text-brand-300">
+                                    <span class="shrink-0 text-xs font-semibold text-slate-600 transition-colors group-hover:text-brand-700 group-focus-visible:text-brand-700 dark:text-slate-400 dark:group-hover:text-brand-300 dark:group-focus-visible:text-brand-300">
                                         {$_('dashboard.field_log.identify', { default: 'Identify' })}
                                     </span>
                                 </button>
                             </li>
                         {:else}
-                            <li class="px-2 py-3 text-xs text-slate-500 dark:text-slate-400">
+                            <li class="px-2 py-3 text-xs text-slate-600 dark:text-slate-400">
                                 {#if searching && !currentAnswer}
                                     {$_('common.loading')}
                                 {:else if currentAnswer?.failed}
@@ -810,7 +816,7 @@
                         </button>
                         {#if ondelete}
                             <button
-                                class="btn btn-ghost min-h-11 px-3 py-2 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                class="btn btn-ghost min-h-11 px-3 py-2 text-xs text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                                 disabled={busy}
                                 onclick={remove}
                             >

@@ -22,7 +22,7 @@
 </script>
 
 {#if total > 0}
-    <details class="group w-full basis-full text-xs text-slate-600 dark:text-slate-300" ontoggle={(event) => { open = event.currentTarget.open; }} data-bird-scan-regions>
+    <details class="group w-full basis-full text-xs text-muted" ontoggle={(event) => { open = event.currentTarget.open; }} data-bird-scan-regions>
         <summary class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg focus-ring">
             <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-90 motion-reduce:transition-none" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="m7 4 6 6-6 6V4Z" /></svg>
             {$_('detection.bird_scan.regions_summary', { values: { count: total }, default: '{count, plural, one {Show the area that was not counted} other {Show the # areas that were not counted}}' })}
@@ -31,12 +31,12 @@
             {#each groups as group (group.key)}
                 {#if group.regions.length > 0}
                     <p class="py-2 font-semibold">{group.title}</p>
-                    <ol class="divide-y divide-slate-200 dark:divide-slate-700">
+                    <ol class="divide-y divide-line">
                         {#each group.regions.slice(0, shown) as region, index (`${group.key}-${region.candidate_id}-${index}`)}
                             {@const label = $_('detection.bird_scan.region_label', { values: { number: index + 1 }, default: 'Area {number}, not counted' })}
                             <li class="flex min-w-0 items-center gap-3 py-2" data-bird-scan-region={group.key}>
                                 {#if imageUrl}<BirdCountRegionPreview src={imageUrl} box={region.box} {label} reason={reason(region.reason)} />{/if}
-                                <div class="min-w-0"><p>{label}</p><p class="text-slate-500 dark:text-slate-400">{reason(region.reason)}</p></div>
+                                <div class="min-w-0"><p>{label}</p><p class="text-muted">{reason(region.reason)}</p></div>
                             </li>
                         {/each}
                     </ol>

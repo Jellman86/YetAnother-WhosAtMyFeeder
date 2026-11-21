@@ -137,13 +137,14 @@ Configuration exports contain real secrets and must be protected.
 
 Use [the API reference](docs/api.md), [configuration reference](docs/setup/configuration.md),
 [code quality standard](docs/standards/code-quality.md),
-[UI standard](docs/standards/ui-ux.md), and
+[UI standard](docs/standards/ui-ux.md),
+[glossary](docs/standards/glossary.md), and
 [layout patterns](docs/standards/layout-patterns.md) rather than copying old endpoint
 examples or building a separate control style.
 
 ## Validation and deployment
 
-Python 3.12 and Node.js 22 match CI. Backend regression/coverage, both migration
+Python 3.13 and Node.js 22 match CI. Backend regression/coverage, both migration
 streams, frontend checks/unit tests/build, Chromium component fixtures, telemetry
 local tests and documentation consistency have maintained gates. Wider WebKit/mobile
 matrices, hardware probes and sustained-load runs provide different evidence; they

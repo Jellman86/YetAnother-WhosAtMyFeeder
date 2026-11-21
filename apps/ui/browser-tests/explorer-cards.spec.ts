@@ -57,7 +57,7 @@ async function expectOneOutline(item: Locator) {
     expect(await item.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe('0px');
     expect(await item.evaluate(node => getComputedStyle(node).boxShadow)).toBe('none');
     for (const radius of await radii(frame)) expect(radius).toBeGreaterThan(8);
-    // Measure both edges together and wait for the card's entrance animation to settle.
+    // Measure both edges together, once the card has been laid out.
     await expect.poll(() => item.evaluate(node => {
         const frame = node.querySelector('[data-detection-card]');
         if (!frame) return Infinity;
@@ -133,23 +133,38 @@ test('keyboard focus is visible on the card and on its captures bar, each inside
     expect(errors).toEqual([]);
 });
 
-test('selection switches to individual captures and keeps one card outline', async ({ page }) => {
-    const errors = await openExplorer(page);
-    const raw = page.waitForResponse(response => new URL(response.url()).pathname === '/api/events');
-    await page.getByRole('button', { name: 'Multi-select' }).click();
-    await raw;
-    // While selecting, each card is a toggle named by the capture it picks.
-    const item = page.locator('[data-detection-card]').filter({ has: page.getByRole('button', { name: /^Select Dunnock, / }) }).first().locator('..').locator('..');
-    const frame = item.locator('[data-detection-card]');
-    const toggle = frame.getByRole('button', { name: /^Select Dunnock, / });
-    await toggle.click();
-    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    await expect.poll(() => frame.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe('2px');
-    await expectOneOutline(item);
-    await expect(frame.locator('[data-visit-captures-toggle]')).toHaveCount(0);
-    if (shots) await item.screenshot({ path: `${shots}/explorer-card-selected.png` });
-    expect(errors).toEqual([]);
-});
+for (const mode of ['normal', 'high contrast'] as const) {
+    test(`selection switches to individual captures and keeps one card outline (${mode})`, async ({ page }) => {
+        const errors = await openExplorer(page);
+        // The app turns the mode on with these two classes; the fixture page does it by hand.
+        if (mode === 'high contrast') await page.evaluate(() => document.documentElement.classList.add('high-contrast', 'dark'));
+        const raw = page.waitForResponse(response => new URL(response.url()).pathname === '/api/events');
+        await page.getByRole('button', { name: 'Multi-select' }).click();
+        await raw;
+        // While selecting, each card is a toggle named by the capture it picks.
+        const item = page.locator('[data-detection-card]').filter({ has: page.getByRole('button', { name: /^Select Dunnock, / }) }).first().locator('..').locator('..');
+        const frame = item.locator('[data-detection-card]');
+        const toggle = frame.getByRole('button', { name: /^Select Dunnock, / });
+        // The ring is the accent's edge colour, two pixels wide, as the mode resolves it.
+        const ring = await page.evaluate(() => `rgb(${getComputedStyle(document.documentElement).getPropertyValue('--accent-line').trim().split(/\s+/).join(', ')}) 0px 0px 0px 2px`);
+        const shadow = () => frame.evaluate(node => getComputedStyle(node).boxShadow);
+        const before = await frame.boundingBox();
+        expect(await shadow()).not.toContain(ring);
+        await expect(frame.locator('[data-detection-card-check="selected"]')).toHaveCount(0);
+
+        await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+        await expect.poll(shadow).toContain(ring);
+        await expect(frame.locator('[data-detection-card-check="selected"]')).toBeVisible();
+        // A one-pixel edge in every state, so choosing a card never changes its size.
+        expect(await frame.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe('1px');
+        expect((await frame.boundingBox())?.height).toBe(before?.height);
+        await expectOneOutline(item);
+        await expect(frame.locator('[data-visit-captures-toggle]')).toHaveCount(0);
+        if (shots) await item.screenshot({ path: `${shots}/explorer-card-selected-${mode === 'normal' ? 'normal' : 'high-contrast'}.png` });
+        expect(errors).toEqual([]);
+    });
+}
 
 for (const theme of ['light', 'dark']) {
     test(`phone width keeps one outline, collapsed and expanded (${theme})`, async ({ page }) => {
@@ -160,12 +175,14 @@ for (const theme of ['light', 'dark']) {
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         if (shots) await item.screenshot({ path: `${shots}/explorer-card-mobile-collapsed-${theme}.png` });
         const next = page.locator('[data-explorer-visit="single"]');
-        const before = await next.boundingBox();
+        // Where the next card sits on the page, not in the window: opening the captures may scroll
+        // the page a few pixels to bring them into view, which moves nothing on the page itself.
+        const pageY = async (): Promise<number> => ((await next.boundingBox())?.y ?? NaN) + await page.evaluate(() => scrollY);
+        const before = await pageY();
         await item.locator('[data-visit-captures-toggle]').click();
         await expect(item.locator('[data-visit-capture]')).toHaveCount(3);
         await expectOneOutline(item);
-        const after = await next.boundingBox();
-        expect(after?.y).toBe(before?.y);
+        expect(await pageY()).toBe(before);
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         if (shots) await page.screenshot({ path: `${shots}/explorer-card-mobile-expanded-${theme}.png` });
         expect(errors).toEqual([]);

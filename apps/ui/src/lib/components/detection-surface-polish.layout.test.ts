@@ -3,20 +3,29 @@ import { describe, expect, it } from 'vitest';
 import detectionCardSource from './DetectionCard.svelte?raw';
 import detectionModalSource from './DetectionModal.svelte?raw';
 import technicalSource from './RecordTechnicalDetails.svelte?raw';
+import audioSource from './record/RecordAudioEvidence.svelte?raw';
+import noticeSource from './record/RecordVideoStatusNotice.svelte?raw';
+import referenceSource from './record/RecordSpeciesReference.svelte?raw';
+import disclosureSource from './ui/Disclosure.svelte?raw';
+import dialogHeaderSource from './ui/DialogHeader.svelte?raw';
 
 describe('detection surface polish', () => {
     it('keeps the audio context and edit-name controls at the touch-target floor', () => {
-        expect(detectionModalSource).toMatch(/onclick=\{toggleAudioContext\}\s+aria-expanded=\{audioContextOpen\}\s+class="[^"]*min-h-11/);
+        // Every call heard sits behind the shared disclosure, whose row is a full touch target.
+        expect(audioSource).toContain("<Disclosure label={$_('detection.audio_context_all'");
+        expect(disclosureSource).toMatch(/<summary class="[^"]*min-h-11/);
+        // The note keeps its space from the label, and its dot never ends a line.
+        expect(disclosureSource).toContain("{#if note}{' '}<span class=\"font-semibold text-accent-ink\"><Separator />&nbsp;{note}</span>");
         expect(detectionModalSource).toMatch(/commonNameEditorOpen = !commonNameEditorOpen;\s+\}\}\s+aria-expanded=\{commonNameEditorOpen\}\s+class="[^"]*min-h-11/);
     });
 
     it('keeps event cards quiet and media-led', () => {
         expect(detectionCardSource).toContain('data-detection-card');
-        expect(detectionCardSource).toContain('hover:border-brand-500/40');
+        expect(detectionCardSource).toContain('hover:border-accent-line/60');
         expect(detectionCardSource).not.toContain('hover:-translate-y-1.5');
         expect(detectionCardSource).not.toContain('group-hover:rotate-1');
         expect(detectionCardSource).not.toContain('ring-1 ring-slate-200/40');
-        expect(detectionCardSource).toContain('inline-flex h-11 w-11 items-center justify-center');
+        expect(detectionCardSource).toContain('btn btn-secondary btn-icon rounded-full');
         expect(detectionCardSource).toContain("let isManualObservation = $derived(detection.observation_source === 'manual_upload')");
         expect(detectionCardSource).not.toContain("manual_observation.uploaded");
     });
@@ -27,11 +36,12 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('id="detection-modal-title"');
         expect(detectionModalSource).toContain('data-detection-media-ambient');
         expect(detectionModalSource).toContain('object-contain');
-        expect(detectionModalSource).toContain('max-h-[100dvh]');
+        expect(detectionModalSource).toContain('max-h-dvh');
         expect(detectionModalSource).toContain('data-detection-photograph');
         expect(detectionModalSource).not.toContain('from-black/80 via-black/25');
         expect(detectionModalSource).not.toContain('absolute inset-x-0 bottom-0 z-20 flex flex-col');
-        expect(detectionModalSource).toContain('class="absolute top-4 right-4 z-40 inline-flex h-11 w-11');
+        expect(detectionModalSource).toContain("closeData={{ 'data-detection-modal-close': true }}");
+        expect(dialogHeaderSource).toContain('<DialogCloseButton');
     });
 
     it('offers the originating Frigate event to the owner, honestly', () => {
@@ -54,13 +64,12 @@ describe('detection surface polish', () => {
     it('keeps implementation identity collapsed until it is requested', () => {
         expect(detectionModalSource).toContain('data-detection-technical-identity');
         expect(technicalSource).toContain('<details');
-        expect(technicalSource).toContain('group order-last');
         expect(detectionModalSource).toContain('{detection.frigate_event}');
     });
 
     it('uses section dividers for supporting context instead of stacked feature cards', () => {
-        expect(detectionModalSource).toContain('data-detection-audio-section');
-        expect(detectionModalSource).toMatch(/data-detection-audio-section[^>]+border-t/);
+        expect(detectionModalSource).toContain('<RecordAudioEvidence');
+        expect(audioSource).toMatch(/data-detection-audio-section[^>]+border-t/);
         // The weather no longer gets a section at all: it is one condensed
         // facts row (#268), pinned by weather-stated-once.layout.test.ts.
         expect(detectionModalSource).not.toContain('data-detection-weather-section');
@@ -106,7 +115,13 @@ describe('detection surface polish', () => {
     it('keeps media controls and snapshot choices in one ordered footer flow', () => {
         const footerStart = detectionModalSource.indexOf('data-detection-media-footer');
         const actionStart = detectionModalSource.indexOf('data-detection-media-actions', footerStart);
-        const pickerStart = detectionModalSource.indexOf('data-detection-inline-frame-picker', footerStart);
+        // The frames are one snippet, drawn in the footer after the media controls on a side-by-side
+        // layout, and after the identification when the record stacks.
+        const pickerStart = detectionModalSource.indexOf('{#if !recordStacked && showInlineFramePicker}<div class="pt-3" data-detection-footer-strip>{@render visitStrip()}</div>{/if}', footerStart);
+        const strip = detectionModalSource.slice(detectionModalSource.indexOf('{#snippet visitStrip()}'), detectionModalSource.indexOf('{/snippet}', detectionModalSource.indexOf('{#snippet visitStrip()}')));
+        expect(strip).toContain('data-detection-inline-frame-picker');
+        // The finder is a row of the decision panel, not a box on the media ground.
+        expect(strip).not.toContain('<BirdScanControl');
 
         expect(footerStart).toBeGreaterThan(-1);
         expect(actionStart).toBeGreaterThan(footerStart);
@@ -115,9 +130,17 @@ describe('detection surface polish', () => {
         // The Best crop / Full frame switch is gone (#256); the whole scene is a peek on the photograph.
         expect(detectionModalSource).not.toContain('data-detection-media-toggle');
         expect(detectionModalSource).toContain('data-detection-whole-scene-peek');
-        expect(detectionModalSource).toContain('data-detection-media-title');
+        // The rail names the bird; the photograph does not say it a second time.
+        expect(detectionModalSource).not.toContain('data-detection-media-title');
         expect(detectionModalSource).toContain('flex flex-wrap items-center gap-2');
-        expect(detectionModalSource).toContain('aspect-[4/3] min-h-72');
+        expect(detectionModalSource).toContain('aspect-4/3 min-h-72');
+        // Under a pinned whole scene there is one action, the kit's primary button; the way back is a
+        // kit button on the photograph, at the end of its row of controls.
+        const sceneActions = detectionModalSource.slice(detectionModalSource.indexOf('data-detection-whole-scene-actions'), detectionModalSource.indexOf('data-detection-media-actions'));
+        expect(sceneActions).toContain('class="btn btn-primary btn-focus-on-dark min-h-11 gap-2 px-4 text-sm max-sm:grow"');
+        expect(sceneActions).not.toContain('detection.whole_scene_back');
+        expect(sceneActions).not.toContain('rounded-full border border-on-media/25');
+        expect(detectionModalSource).toContain('class="btn btn-focus-on-dark photo-chip pointer-events-auto ml-auto min-h-11 border border-on-media/25 px-3 text-xs shadow-lg"');
         expect(detectionModalSource).not.toContain("absolute bottom-0 left-0 right-0 p-5 {showInlineFramePicker ? 'pb-28' : ''}");
         expect(detectionModalSource).not.toContain('absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1');
         // Peeking stays non-mutating. Only a named action changes the photograph.
@@ -138,46 +161,60 @@ describe('detection surface polish', () => {
     });
 
     it('lets the species reference sit in the record instead of behind a twisty', () => {
-        expect(detectionModalSource).toContain('data-detection-reference');
-        expect(detectionModalSource).not.toMatch(/<details[^>]*>\s*<summary[^>]*>\s*\{\$_\('detection\.reference_disclosure'/);
+        expect(detectionModalSource).toContain('<RecordSpeciesReference');
+        expect(referenceSource).toContain('data-detection-reference');
+        expect(referenceSource).not.toMatch(/<details[^>]*>\s*<summary[^>]*>\s*\{\$_\('detection\.reference_disclosure'/);
     });
 
     it('does not nest a card inside the video notice card', () => {
         // The notice is already tinted and bordered; the disclosure adding its own border and
         // background made a card within a card.
         expect(detectionModalSource).not.toContain("bg-white/75 dark:bg-slate-900/40'");
-        expect(detectionModalSource).toContain('border-t pt-2 {videoStatusNoticeTone.detailsContainer}');
+        // Now a plain row in the rail: no tint, no border, and the disclosure adds none either.
+        expect(detectionModalSource).toContain('<RecordVideoStatusNotice');
+        expect(noticeSource).not.toMatch(/data-video-status-notice=\{tone\}[^>]*\b(?:border|bg-)/);
+        expect(noticeSource).toMatch(/<div class="flex items-start gap-2" role="status" data-video-status-notice=\{tone\}>/);
     });
 
-    it('makes the detection id disclosure the terminal chrome itself', () => {
-        // The summary is the title bar: clicking the window opens it.
-        expect(technicalSource).toContain('@keyframes -global-terminal-blink');
-        expect(detectionModalSource).toContain('yawamf event show');
+    it('draws the detection id disclosure as a plain panel in the current theme', () => {
         expect(detectionModalSource).toContain('<RecordTechnicalDetails');
-        expect(technicalSource).toContain('terminal-caret');
-        expect(technicalSource).toContain('prefers-reduced-motion');
-        // overflow-hidden on a <details> collapses it to its own borders in Chrome, so the
-        // corners are rounded on the summary rather than clipped by the parent.
-        expect(technicalSource).not.toMatch(
-            /data-record-technical-details[\s\S]{0,240}?overflow-hidden/
-        );
-        expect(technicalSource).toContain('group-open:rounded-b-none');
-        expect(technicalSource).toContain('focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400');
-        expect(technicalSource).toContain('font-mono text-xs');
+        expect(technicalSource).toContain('class="group card-base"');
+        // No window furniture, fake prompt, platform sniffing or period colours.
+        expect(technicalSource).not.toMatch(/terminal|navigator|traffic|sigil|bg-\[#|text-\[#/i);
+        expect(detectionModalSource).not.toContain('yawamf event show');
+        // overflow-hidden on a <details> collapses it to its own borders in Chrome.
+        expect(technicalSource).not.toContain('overflow-hidden');
+        expect(technicalSource).toContain('focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus');
         expect(technicalSource).toContain('motion-safe:transition-transform group-open:rotate-180');
     });
 
-    it('borrows the window furniture of the viewer os', () => {
-        expect(technicalSource).toContain("): 'mac' | 'windows' | 'linux'");
-        expect(technicalSource).toContain("if (platform.includes('win')) return 'windows'");
-        // Android reports Linux in its user agent and is not a desktop window manager.
-        expect(technicalSource).toContain("!platform.includes('android')");
-        // Cosmetic only, so an unrecognised platform still gets a complete window.
-        expect(technicalSource).toContain("if (typeof navigator === 'undefined') return 'mac'");
-        // The insides follow the furniture: DOS black, Ubuntu aubergine, plain dark elsewhere.
-        expect(technicalSource).toContain("shell: 'bg-[#300a24]'");
-        expect(technicalSource).toContain("host: 'yawamf@feeder'");
-        expect(technicalSource).toContain("bg-[#000080]");
+    it('keeps the record in the order it is read: identity, decisions, context, reference, identifiers', () => {
+        // Keyboard order is DOM order, so nothing may be re-ordered in CSS.
+        expect(technicalSource).not.toContain('order-last');
+        const order = [
+            'data-detection-identity',
+            'data-detection-identification-actions',
+            'data-detection-more-actions-panel',
+            'data-detection-facts',
+            '<RecordSpeciesReference',
+            'data-detection-technical-identity'
+        ].map((marker) => detectionModalSource.indexOf(marker));
+        expect(order.every((index) => index > 0)).toBe(true);
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
+    });
+
+    it('shortens the species reference to a few lines with a link to the source', () => {
+        expect(referenceSource).toContain("summaryUrl ? 'line-clamp-3' : ''");
+        expect(referenceSource).toContain('data-detection-reference-link');
+    });
+
+    it('keeps the less common record actions behind one control', () => {
+        expect(detectionModalSource).toContain('data-detection-more-actions');
+        expect(detectionModalSource).toMatch(/aria-expanded=\{moreActionsOpen\}\s+aria-controls="detection-more-actions"/);
+        const panel = detectionModalSource.indexOf('data-detection-more-actions-panel');
+        for (const marker of ['data-detection-score-again', 'data-detection-hide', 'data-detection-delete', 'detection.common_name_override_edit']) {
+            expect(detectionModalSource.indexOf(marker)).toBeGreaterThan(panel);
+        }
     });
 
     it('keeps no strip machinery of its own now the strip is a component', () => {
@@ -185,11 +222,15 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).not.toContain('.snapshot-strip {');
     });
 
-    it('gives the species info button real padding', () => {
+    it('gives the species details button real padding, and leaves the primary action to the identification', () => {
         // It carried no padding class at all, so with its siblings hidden for a guest it
-        // collapsed to the height of its own text.
+        // collapsed to the height of its own text. As a second primary it competed with Confirm.
         expect(detectionModalSource).not.toContain('flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-xl');
-        expect(detectionModalSource).toContain('btn btn-primary flex-1 px-3 py-2.5 text-xs');
+        // Now a text link beside the name it is about, still a full touch target tall.
+        expect(detectionModalSource).toMatch(/onclick=\{handleSpeciesInfo\}\s+class="inline-flex min-h-11 items-center gap-1 rounded-sm text-xs font-semibold text-accent-ink underline/);
+        expect(detectionModalSource.indexOf('data-detection-species-details')).toBeLessThan(detectionModalSource.indexOf('data-detection-identification-actions'));
+        expect(detectionModalSource).not.toContain('btn btn-primary flex-1 px-3 py-2.5 text-xs');
+        expect(detectionModalSource.match(/\{\$_\('actions\.species_info'\)\}/g)).toHaveLength(1);
     });
 
     it('keeps location-level notable reports out of individual detections', () => {
@@ -212,4 +253,62 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('detection.observation_latitude');
         expect(detectionModalSource).toContain('data-manual-observation-location');
     });
+
+    it('keeps record status off the photograph and diagnostics out of the record', () => {
+        // The archive state is said in the panel; only the favourite star stays on the image.
+        const media = detectionModalSource.slice(detectionModalSource.indexOf('data-detection-media-actions'), detectionModalSource.indexOf('data-detection-details-column'));
+        expect(media).not.toContain('archiveLabel');
+        expect(detectionModalSource).toContain('data-detection-archive-state={archiveState}');
+        // Which device and model ran the video analysis is diagnostics, not record content.
+        expect(detectionModalSource).not.toMatch(/video_classification_model_name|completedVideoInferenceBadge/);
+    });
+
+    it('never lets the scrolling column squash the More actions list', () => {
+        // A box that clips its content has no minimum height as a flex item, so Delete was cut off and could not be clicked.
+        expect(detectionModalSource).toContain('class="card-base shrink-0 divide-y divide-line-soft overflow-hidden" data-detection-more-actions-panel');
+    });
+
+    it('lets the delete row be named by the words on it', () => {
+        // A label that differs from the visible text fails speech input (label in name).
+        const marker = detectionModalSource.indexOf('data-detection-delete');
+        const row = detectionModalSource.slice(detectionModalSource.lastIndexOf('<button', marker), detectionModalSource.indexOf('</button>', marker));
+        expect(row).not.toContain('aria-label');
+        expect(row).toContain("{$_('actions.delete_detection')}");
+    });
+
+    it('uses the width it is given: the decision under the photograph and the reference beside them from 1024px, one narrow column without a reference, side by side when held sideways', () => {
+        // The decision is one snippet, drawn under the photograph in its column; held sideways on a
+        // phone it heads the column beside the photograph instead. The reference is the other column.
+        const evidence = detectionModalSource.indexOf('data-detection-evidence-column');
+        const details = detectionModalSource.indexOf('data-detection-details-column');
+        const secondary = detectionModalSource.indexOf('data-detection-secondary-column');
+        expect(evidence).toBeGreaterThan(-1);
+        expect(details).toBeGreaterThan(evidence);
+        expect(secondary).toBeGreaterThan(details);
+        expect(detectionModalSource.slice(evidence, details)).toContain('{#if !recordShortLandscape.current}{@render decision()}{/if}');
+        expect(detectionModalSource.slice(details, secondary)).toContain('{#if recordShortLandscape.current}{@render decision()}{/if}');
+        const decision = detectionModalSource.slice(detectionModalSource.indexOf('{#snippet decision()}'), detectionModalSource.indexOf('{/snippet}', detectionModalSource.indexOf('{#snippet decision()}')));
+        expect(decision).toContain('data-detection-primary-column');
+        expect(decision).toContain('data-detection-identity');
+        expect(decision).toContain('data-detection-facts');
+        expect(decision).not.toContain('<TaxonomyLineage');
+        expect(detectionModalSource.indexOf('<TaxonomyLineage')).toBeGreaterThan(secondary);
+        // Two scrolling columns only where the species brings a reference to fill the second.
+        expect(detectionModalSource).toContain("{recordHasReference ? 'lg:grid lg:grid-cols-2 lg:grid-rows-1 lg:overflow-hidden' : 'lg:dialog-well'}");
+        expect(detectionModalSource).toContain("sm:rounded-2xl {recordHasReference ? 'lg:h-208 xl:max-w-6xl' : 'lg:max-w-xl'}");
+        // The photograph gives up height so the identification and its buttons stay on the first screen,
+        // by what the record says stands under it.
+        expect(detectionModalSource).toContain("{recordHasReference ? 'lg:record-photo-cap' : 'lg:record-photo-cap-narrow'}");
+        expect(detectionModalSource).toContain('style:--record-under-photo="{recordUnderPhotoRem}rem"');
+        // The star and play buttons sit on the photograph's lower edge at every width.
+        expect(detectionModalSource).toContain('absolute inset-x-4 bottom-full z-30 mb-3 flex flex-wrap items-center gap-2" data-detection-media-actions');
+        // Held sideways, photograph and identification stand side by side.
+        expect(detectionModalSource).toContain('sm:max-lg:short:grid sm:max-lg:short:grid-cols-2 sm:max-lg:short:grid-rows-1 sm:max-lg:short:overflow-hidden');
+        // Only below 1024px: from there the record has its own two columns at any height.
+        expect(detectionModalSource).not.toMatch(/(?<!max-lg:)\bsm:short:/);
+        // Stacked, the frames and the finder follow the identification; the button row lets taps through.
+        expect(detectionModalSource.indexOf('data-detection-stacked-strip')).toBeGreaterThan(detectionModalSource.indexOf('data-detection-identity'));
+        expect(detectionModalSource).toContain('pointer-events-none absolute inset-x-4');
+    });
 });
+

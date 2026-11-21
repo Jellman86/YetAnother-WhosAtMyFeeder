@@ -9,17 +9,24 @@ vi.mock('./core', () => ({
     API_BASE: '/api',
     apiFetch: apiFetchMock,
     handleResponse: handleResponseMock,
+    // The guarded JSON read, as the client composes it: the request, then the body read under it.
+    apiFetchJson: (url: string, options?: unknown) => Promise.resolve(apiFetchMock(url, options)).then((response) => handleResponseMock(response)),
+    mapGuarded: (read: Promise<unknown>, next: (value: unknown) => unknown, onError?: (error: unknown) => unknown) => read.then(next, onError),
     fetchWithAbort: vi.fn(),
+    requestScope: () => 'owner|en',
 }));
 
 import {
+    activateModel,
     fetchAvailableModels,
+    fetchClassifierStatus,
+    invalidateClassifierStatus,
+    readClassifierStatus,
     getVisibleTieredModelLineup,
     groupTieredModelLineup,
     categorizeModel,
-    MODEL_CATEGORY_INFO,
+    MODEL_CATEGORY_LABEL,
     selectSetupModelId,
-    summarizeModelMetadata,
     type ClassifierStatus,
     type InstalledModel,
     type ModelMetadata
@@ -64,6 +71,31 @@ describe('selectSetupModelId', () => {
         } satisfies ClassifierStatus;
 
         expect(selectSetupModelId(status, available, installed)).toBe('rope_vit_b14_inat21');
+    });
+
+    it('never returns an id the model list cannot show, so the select is never blank', () => {
+        // The bundled fallback runs under an id that is not in the catalogue; nothing is installed.
+        const status = {
+            loaded: true,
+            error: null,
+            labels_count: 965,
+            enabled: true,
+            active_model_id: 'model.tflite',
+            effective_model_id: 'model.tflite',
+            image_flavor: 'full',
+        } satisfies ClassifierStatus;
+
+        // The bundled CPU model is the recommended start: it needs no download.
+        expect(selectSetupModelId(status, [...available].reverse(), [])).toBe('mobilenet_v2_birds');
+        // Without it in the catalogue, the first model listed is selected rather than nothing.
+        expect(selectSetupModelId(status, [available[1]], [])).toBe('rope_vit_b14_inat21');
+        // An installed model the catalogue does not list is still a real choice when it has details to show.
+        const unlisted = [{ id: 'local_model', is_active: true, validated: true, metadata: { id: 'local_model', name: 'Local' } }] as InstalledModel[];
+        expect(selectSetupModelId({ ...status, effective_model_id: 'local_model' }, available, unlisted)).toBe('local_model');
+        // One with nothing to show is not.
+        const bare = [{ id: 'bare_model', is_active: true, validated: true }] as InstalledModel[];
+        expect(selectSetupModelId({ ...status, effective_model_id: 'bare_model' }, available, bare)).toBe('mobilenet_v2_birds');
+        expect(selectSetupModelId(status, [], [])).toBe('');
     });
 });
 
@@ -119,14 +151,6 @@ describe('fetchAvailableModels', () => {
         expect(installed.metadata?.status).toBe('stable');
         expect(installed.metadata?.notes).toBe('Elite accuracy model.');
 
-        const summary = summarizeModelMetadata(installed.metadata);
-        expect(summary).toEqual({
-            tierLabel: 'Advanced',
-            taxonomyScopeLabel: 'Wildlife Wide',
-            advancedStateLabel: 'Advanced only',
-            statusLabel: 'Stable',
-            labels: ['Advanced', 'Wildlife Wide', 'Advanced only', 'Stable'],
-        });
     });
 });
 
@@ -401,9 +425,11 @@ describe('categorizeModel', () => {
         expect(categorizeModel(base({ supported_inference_providers: ['cpu', 'intel_cpu', 'intel_gpu'] }))).toBe('igpu_recommended');
     });
 
-    it('returns bundled for tier=cpu_only or tflite runtime', () => {
-        expect(categorizeModel(base({ tier: 'cpu_only', supported_inference_providers: ['cpu'] }))).toBe('bundled');
-        expect(categorizeModel(base({ runtime: 'tflite', tier: 'small' }))).toBe('bundled');
+    it('groups the small CPU model as small and quick, never as built in', () => {
+        expect(categorizeModel(base({ tier: 'cpu_only', supported_inference_providers: ['cpu'] }))).toBe('compact');
+        expect(categorizeModel(base({ runtime: 'tflite', tier: 'small' }))).toBe('compact');
+        // Whether a model ships with the app is a fact about one install, not a group.
+        expect(Object.values(MODEL_CATEGORY_LABEL).map((label) => label.fallback)).not.toContain('Built-in fallback');
     });
 
     it('returns cpu_high_accuracy for Elite / Very High accuracy without iGPU', () => {
@@ -412,9 +438,10 @@ describe('categorizeModel', () => {
     });
 
     it('keeps model-fit labels independent from the currently active hardware', () => {
-        expect(MODEL_CATEGORY_INFO.cpu_high_accuracy.label).toBe('Highest accuracy');
-        expect(MODEL_CATEGORY_INFO.cpu_standard.label).toBe('Balanced');
-        expect(MODEL_CATEGORY_INFO.cpu_alternative.label).toBe('Architectural alternatives');
+        expect(MODEL_CATEGORY_LABEL.cpu_high_accuracy.fallback).toBe('Most accurate');
+        expect(MODEL_CATEGORY_LABEL.cpu_standard.fallback).toBe('Balanced');
+        expect(MODEL_CATEGORY_LABEL.cpu_alternative.fallback).toBe('Experimental');
+        expect(MODEL_CATEGORY_LABEL.cpu_alternative.key).toBe('settings.models.group.cpu_alternative');
     });
 
     it('returns cpu_alternative for advanced_only experimental models', () => {
@@ -456,9 +483,9 @@ describe('groupTieredModelLineup', () => {
             model('c', { accuracy_tier: 'Elite', supported_inference_providers: ['cpu'], sort_order: 30, tier: 'advanced' }),
         ];
         const groups = groupTieredModelLineup(ms, true);
-        expect(groups.map((g) => g.category)).toEqual(['igpu_recommended', 'cpu_high_accuracy', 'bundled']);
-        expect(groups[0].models).toHaveLength(1);
-        expect(groups[0].models[0].id).toBe('a');
+        expect(groups.map((g) => g.category)).toEqual(['compact', 'igpu_recommended', 'cpu_high_accuracy']);
+        expect(groups[1].models).toHaveLength(1);
+        expect(groups[1].models[0].id).toBe('a');
     });
 
     it('respects showAdvanced for advanced_only models', () => {
@@ -509,5 +536,44 @@ describe('ClassifierStatus', () => {
 
         expect(status.crop_detector?.model_id).toBe('bird_crop_detector');
         expect(status.crop_detector?.enabled_for_runtime).toBe(false);
+    });
+});
+
+describe('the shared reading of what names birds', () => {
+    beforeEach(() => {
+        apiFetchMock.mockReset();
+        handleResponseMock.mockReset();
+        apiFetchMock.mockResolvedValue({ ok: true });
+        invalidateClassifierStatus();
+    });
+
+    it('is the reading a view just took directly, so About opened next shows the change', async () => {
+        handleResponseMock.mockResolvedValueOnce({ loaded: true, active_model_id: 'after' });
+        await fetchClassifierStatus();
+        await expect(readClassifierStatus()).resolves.toMatchObject({ active_model_id: 'after' });
+        expect(apiFetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('is read again after a model change, never handed out from before it', async () => {
+        handleResponseMock
+            .mockResolvedValueOnce({ loaded: true, active_model_id: 'before' })
+            .mockResolvedValueOnce({ status: 'ok' })
+            .mockResolvedValueOnce({ loaded: true, active_model_id: 'after' });
+        await readClassifierStatus();
+        await activateModel('after');
+        await expect(readClassifierStatus()).resolves.toMatchObject({ active_model_id: 'after' });
+    });
+
+    it('drops a direct reading that began before a model change, so it cannot bring back the old model', async () => {
+        let answer: (status: unknown) => void = () => {};
+        handleResponseMock
+            .mockImplementationOnce(() => new Promise((done) => { answer = done; }))
+            .mockResolvedValueOnce({ status: 'ok' })
+            .mockResolvedValueOnce({ loaded: true, active_model_id: 'after' });
+        const direct = fetchClassifierStatus();
+        await activateModel('after');
+        answer({ loaded: true, active_model_id: 'before' });
+        await direct;
+        await expect(readClassifierStatus()).resolves.toMatchObject({ active_model_id: 'after' });
     });
 });

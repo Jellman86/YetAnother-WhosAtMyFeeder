@@ -7,9 +7,11 @@ async function targetSizes(controls: Locator): Promise<void> {
         return { label: node.getAttribute('aria-label') || node.textContent, width, height, x, y };
     }));
     expect(bounds.length).toBeGreaterThan(0);
+    // A 44px box at a fractional position can measure 43.99999px in single-precision layout
+    // units, so the floor allows a hundredth of a pixel.
     for (const target of bounds) {
-        expect(target.width, `${target.label} width`).toBeGreaterThanOrEqual(44);
-        expect(target.height, `${target.label} height`).toBeGreaterThanOrEqual(44);
+        expect(target.width, `${target.label} width`).toBeGreaterThanOrEqual(43.99);
+        expect(target.height, `${target.label} height`).toBeGreaterThanOrEqual(43.99);
     }
     for (let a = 0; a < bounds.length; a += 1) {
         for (let b = a + 1; b < bounds.length; b += 1) {
@@ -38,10 +40,10 @@ test(`navigation targets fit narrow phones and keep distinct hit regions (${text
     await targetSizes(page.getByRole('button', { name: /^(Open menu|Switch theme)$/ }));
     await page.getByRole('button', { name: 'Open menu' }).click();
     const sidebar = page.locator('aside');
-    await expect(sidebar.getByRole('button', { name: 'Log Out', exact: true })).toBeVisible();
+    await expect(sidebar.getByRole('button', { name: 'Log out', exact: true })).toBeVisible();
     await targetSizes(sidebar.locator('button:visible'));
     await sidebar.getByRole('button', { name: 'English', exact: true }).click();
-    await targetSizes(sidebar.getByRole('menuitem'));
+    await targetSizes(sidebar.getByRole('menuitemradio'));
     await sidebar.getByRole('menu').focus();
     await page.keyboard.press('Escape');
     await expect(sidebar.getByRole('menu')).toHaveCount(0);
@@ -86,7 +88,7 @@ test('page-size arrows and the wizard account controls clear the touch floor', a
 
     const account = page.locator('[data-kit-account]');
     await targetHeights(account.locator('label').filter({ has: page.getByRole('checkbox') }));
-    await expect(account.getByLabel('Admin username')).toHaveAttribute('autocomplete', 'username');
+    await expect(account.getByLabel('Owner user name')).toHaveAttribute('autocomplete', 'username');
     await expect(account.getByLabel('Password', { exact: true })).toHaveAttribute('autocomplete', 'new-password');
     await expect(account.getByLabel('Password', { exact: true })).toHaveAccessibleDescription(/At least 8 characters/);
 });
@@ -101,7 +103,7 @@ test('About quick links and credit links clear the touch floor', async ({ page }
         if (path === '/api/about/portrait') return route.fulfill({ status: 503, json: { detail: 'No portrait in this fixture' } });
         if (path === '/api/version') return route.fulfill({ json: { version: '2.9.15', base_version: '2.9.15', git_hash: 'fixture', branch: 'dev' } });
         if (path === '/api/about/community') return route.fulfill({ json: { enabled: false, active_installs: null } });
-        if (path === '/api/classifier/status') return route.fulfill({ json: { loaded: true, effective_model_id: 'dinov2_b14_inat21_metadata_336', active_provider: 'intel_gpu' } });
+        if (path === '/api/classifier/status') return route.fulfill({ json: { loaded: true, effective_model_id: 'dinov2_b14_inat21_metadata_336', effective_model_name: 'DINOv2 B/14 with location', inference_backend: 'onnxruntime', active_provider: 'intel_gpu' } });
         if (path === '/api/stats/uptime') return route.fulfill({ json: { buckets: [], longest_gap_minutes: 0, availability_percent: 100 } });
         if (path === '/api/update-status') return route.fulfill({ json: { enabled: false, update_available: false } });
         return route.fulfill({ status: 503, json: { detail: 'Not part of the About fixture' } });
@@ -110,9 +112,12 @@ test('About quick links and credit links clear the touch floor', async ({ page }
     const credits = page.locator('section[aria-labelledby="about-credits-heading"]');
     await expect(credits).toBeVisible({ timeout: 15000 });
     await targetHeights(credits.getByRole('link'));
-    // The model id is an identifier: it wraps inside its step rather than being cut or overflowing.
-    const modelStep = page.locator('[data-about-pipeline] li').filter({ hasText: 'dinov2_b14_inat21_metadata_336' });
-    await expect(modelStep).toBeVisible();
+    // The step names the model as the Models tab does, purpose first and its technical name after,
+    // with its runtime beneath; the file id is not shown here.
+    const modelStep = page.locator('[data-about-pipeline] li').filter({ hasText: 'DINOv2 B/14 with location' });
+    await expect(modelStep).toContainText('Birds and wildlife, uses your location (DINOv2 B/14 with location)');
+    await expect(modelStep.locator('[data-pipeline-note]')).toHaveText('ONNX Runtime');
+    await expect(page.locator('[data-about-pipeline]')).not.toContainText('dinov2_b14_inat21_metadata_336');
     expect(await modelStep.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
 });
 
@@ -157,11 +162,18 @@ test('the record’s audio context and edit-name controls clear the touch floor'
     await page.goto('/browser-tests/modal-text-layout.html?controls=true');
     const modal = page.locator('[data-detection-detail-modal]');
     await expect(modal).toBeVisible({ timeout: 15000 });
-    const audio = modal.getByRole('button', { name: /^Audio context/ });
-    await expect(audio).toHaveAttribute('aria-expanded', 'false');
-    const editName = modal.getByRole('button', { name: 'Edit name' });
+    // Every call heard sits behind the shared disclosure; its summary row is the target.
+    const calls = modal.locator('[data-detection-audio-calls]');
+    const audio = calls.locator('summary');
+    await expect(audio).toHaveText(/All calls heard around this visit/);
+    await expect(calls).not.toHaveAttribute('open', '');
+    // The rename control waits behind More actions, which must clear the floor as well.
+    const more = modal.locator('[data-detection-more-actions]');
+    await targetHeights(more);
+    await more.click();
+    const editName = modal.getByRole('button', { name: 'Change the common name' });
     await targetHeights(audio);
     await targetHeights(editName);
     await audio.click();
-    await expect(audio).toHaveAttribute('aria-expanded', 'true');
+    await expect(calls).toHaveAttribute('open', '');
 });

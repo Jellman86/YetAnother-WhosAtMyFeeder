@@ -2,7 +2,7 @@
   "title": "ダッシュボード",
   "live_feed": "ライブフィード",
   "showing_last_3_days": "過去3日間を表示",
-  "no_detections": "検出はまだありません",
+  "no_detections": "過去24時間に訪問はありません。",
   "waiting_first_visitor": "過去24時間に訪問はありません。新しい訪問は届きしだいここに表示されます。",
   "discovery_feed": "ディスカバリーフィード",
   "see_full_history": "すべての履歴を表示",
@@ -23,7 +23,7 @@
     "audio": "音声"
   },
   "histogram": {
-    "title": "活動パルス",
+    "title": "アクティビティ",
     "visits_per_hour": "1時間ごとの訪問数（過去24時間）",
     "peak": "{count, plural, other {最も多いのは {time}（# 回）}}",
     "now": "現在",
@@ -87,7 +87,7 @@
     "seen_and_heard": "見て聞いた"
   },
   "desk": {
-    "cameras_empty": "まだカメラが応答していません。設定 → 接続 で追加してください。",
+    "cameras_empty": "まだカメラが応答していません。設定 → カメラと接続 で追加してください。",
     "camera_no_visits": "訪問なし",
     "no_cross_confirmation": "{count, plural, other {# 件の鳴き声が聞こえましたが、カメラの訪問と一致するものはありませんでした。マイクとカメラの対象範囲が異なる可能性があります。}}",
     "temperature_span": "訪問時の気温は {low} 〜 {high}",
@@ -133,6 +133,7 @@
     "skipped_note": "{count, plural, other {# 件を後回しにしました。キューに残ります。}}",
     "back": "ダッシュボードに戻る",
     "threshold_note": "このモデルの判定は識別のしきい値を下回りました。",
+    "unknown_note": "モデルはこの鳥を識別できなかったため、確認できる種がありません。下から選んでください。",
     "search": "種を検索…",
     "no_matches": "一致する種がありません。文字数を減らしてください。",
     "search_failed": "種を検索できませんでした。検索語を変更してもう一度お試しください。",

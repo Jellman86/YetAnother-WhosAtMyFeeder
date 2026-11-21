@@ -9,14 +9,14 @@
   "settings": "Einstellungen",
   "setup_wizard": "Einrichtungsassistent",
   "about": "Über uns",
-  "toggle_menu": "Menü umschalten",
+  "toggle_menu": "Menü",
   "close_menu": "Menü schließen",
   "collapse_sidebar": "Seitenleiste einklappen",
   "expand_sidebar": "Seitenleiste ausklappen",
   "close_language_selector": "Sprachauswahl schließen",
   "jobs": "Aufträge",
-  "events": "Ereignisse",
   "notifications": "Benachrichtigungen",
   "species": "Arten",
-  "navigation": "Hauptnavigation"
+  "navigation": "Hauptnavigation",
+  "health": "Zustand"
 }

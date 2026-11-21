@@ -29,6 +29,9 @@ describe('mobile overlay clearance', () => {
         expect(toastSource).toContain('class="toast-container');
         expect(toastSource).toContain('env(safe-area-inset-top, 0px)');
         expect(toastSource).toContain('top: 1rem;');
+        // While a dialog is open the toasts leave its close button and its actions uncovered.
+        expect(toastSource).toContain(":global(body:has([aria-modal='true'])) .toast-container");
+        expect(toastSource).toContain('bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);');
         expect(toastSource).toContain('aria-live="polite"');
         expect(toastSource).toContain('aria-atomic="true"');
     });

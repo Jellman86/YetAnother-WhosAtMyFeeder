@@ -1,6 +1,7 @@
 {
   "no_wiki": "此物种暂无维基百科信息。",
   "no_info": "此物种暂无参考信息。",
+  "summary_language_note": "来自维基百科（{language}）的说明",
   "avg_confidence": "平均置信度",
   "first_seen": "首次发现",
   "last_seen": "最后发现",
@@ -13,7 +14,7 @@
   "seasonality_global": "全球季节性",
   "range_map": "分布地图",
   "range_unavailable": "分布地图不可用。",
-  "range_map_hint": "拖动平移 • 滚动缩放",
+  "range_map_hint": "拖动可平移地图，用 + 和 − 缩放。",
   "video_unavailable": "视频片段不可用",
   "no_recent_sightings": "没有最近的目击记录。",
   "count_label": "数量",
@@ -24,5 +25,15 @@
   "month": "月份",
   "copy_diagnostics_bundle": "复制诊断包",
   "no_local_visits_title": "您的喂食器尚无到访记录",
-  "no_local_visits_body": "您的摄像头尚未记录到这种鸟。以下内容均来自公开参考资料。"
+  "no_local_visits_body": "您的摄像头尚未记录到这种鸟。以下内容均来自公开参考资料。",
+  "reclassify_clip": "根据片段重新分类",
+  "detections_all_time": "检测次数（全部历史）",
+  "detections_shared": "检测次数（已共享的历史）",
+  "visits_day": "访问次数，最近 24 小时",
+  "visits_week": "访问次数，最近 7 天",
+  "visits_month": "访问次数，最近 30 天",
+  "detections_note": "每个已识别的拍摄计一次。一次到访可能包含多个拍摄，因此排行榜中的到访次数会更少。",
+  "recent_captures": "最近拍摄",
+  "unknown_bird_actions": "未识别到物种。请用其照片或片段重新运行模型，或在“探索”中打开以重新命名。",
+  "daily_totals_time_of_day": "时段只统计已保存的拍摄，因为每日合计没有具体时间。"
 }

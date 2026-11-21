@@ -48,38 +48,38 @@ async function openDataSettings(page: Page, savedRetention: number, automaticCle
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    await page.getByRole('link', { name: 'Data', exact: true }).click();
+    await page.getByRole('link', { name: 'Storage & upkeep', exact: true }).click();
     await expect(page.locator('#retention-days')).toHaveValue(String(savedRetention));
     return fixture;
 }
 
 test('shrinking retention shows the count, and cancelling the confirmation saves nothing', async ({ page }, testInfo) => {
     const fixture = await openDataSettings(page, 30);
-    const tiles = page.locator('.card-base.rounded-2xl.p-6.text-center');
-    await expect(tiles.filter({ hasText: 'Retention' })).toContainText('30');
-    await expect(tiles.filter({ hasText: 'Due for deletion' })).toContainText('0');
+    const summary = page.locator('[data-history-summary]');
+    await expect(summary).toBeVisible();
+    await expect(summary).not.toContainText('older than the saved window');
 
     await page.locator('#retention-days').selectOption('7');
     const note = page.locator('[data-retention-deletion-note]');
-    await expect(note).toContainText('Saving this permanently deletes 42 detections older than 7 days at the next cleanup (on restart, then every 24 hours).');
-    await expect(note).toContainText('Favourites and the newest 3 detections of each species are kept.');
+    await expect(note).toContainText('Saving this permanently deletes 42 captures older than 7 days at the next cleanup (on restart, then every 24 hours).');
+    await expect(note).toContainText('Favourites and the newest 3 captures of each species are kept.');
     await expect(page.locator('#retention-days')).toHaveAttribute('aria-describedby', 'retention-deletion-note');
-    // The tiles still describe the saved policy.
-    await expect(tiles.filter({ hasText: 'Retention' })).toContainText('30');
+    // The summary still describes the saved policy.
+    await expect(summary).not.toContainText('older than the saved window');
     await page.screenshot({ path: testInfo.outputPath('retention-shrink-note.png'), fullPage: true });
 
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog'));
     await expect(dialog).toContainText('Delete older history?');
-    await expect(dialog.getByRole('button', { name: 'Save and delete 42 detections' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Save and delete 42 captures' })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('retention-confirm.png') });
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).toHaveCount(0);
     await page.waitForTimeout(300);
     expect(fixture.saves).toEqual([]);
 
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
-    await dialog.getByRole('button', { name: 'Save and delete 42 detections' }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Save and delete 42 captures' }).click();
     await expect.poll(() => fixture.saves.length).toBe(1);
     expect(fixture.saves[0].retention_days).toBe(7);
     await expect(note).toHaveCount(0);
@@ -89,34 +89,40 @@ test('a longer window asks nothing and shows no deletion note', async ({ page })
     const fixture = await openDataSettings(page, 30);
     await page.locator('#retention-days').selectOption('90');
     await expect(page.locator('[data-retention-deletion-note]')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => fixture.saves.length).toBe(1);
     expect(fixture.previews).toEqual([]);
 });
 
 test('Purge Old Records says why it is unavailable while history is kept forever', async ({ page }) => {
     await openDataSettings(page, 0);
-    const purge = page.getByRole('button', { name: 'Purge Old Records' });
+    const purge = page.getByRole('button', { name: 'Purge old records' });
     await expect(purge).toBeDisabled();
     await expect(purge).toHaveAccessibleDescription('Nothing to purge: history is kept forever.');
 
     await page.locator('#retention-days').selectOption('365');
-    await expect(page.locator('[data-retention-deletion-note]')).toContainText('Saving this permanently deletes 1 detection older than 365 days');
+    await expect(page.locator('[data-retention-deletion-note]')).toContainText('Saving this permanently deletes 1 capture older than 365 days');
 });
 
 test('with automatic cleanup off, saving is not presented as a deletion', async ({ page }) => {
     const fixture = await openDataSettings(page, 30, false);
     await page.locator('#retention-days').selectOption('7');
     await expect(page.locator('[data-retention-deletion-note]')).toContainText('Automatic cleanup is off, so saving deletes nothing by itself.');
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => fixture.saves.length).toBe(1);
 });
 
-test('the Danger Zone puts each consequence beside its own button', async ({ page }, testInfo) => {
+test('the irreversible actions end Storage & upkeep, after More options and outside it, each consequence beside its own button', async ({ page }, testInfo) => {
     await openDataSettings(page, 30);
-    await page.getByRole('button', { name: /Danger Zone/ }).click();
-    await expect(page.getByRole('button', { name: 'Clear Personalization Data' })).toHaveAccessibleDescription(/does not delete detections or media/);
-    await expect(page.getByRole('button', { name: 'Delete All Favorites' })).toHaveAccessibleDescription(/Removes every favourite marker/);
-    await expect(page.getByRole('button', { name: 'Reset Database & Cache' })).toHaveAccessibleDescription(/permanently delete ALL detections/);
+    await page.getByRole('link', { name: 'Storage & upkeep', exact: true }).click();
+    // Neither Data nor the jobs under More options hold them; they are last, outside More options.
+    await expect(page.locator('[data-settings-part="data"] [data-danger-actions]')).toHaveCount(0);
+    await expect(page.locator('[data-settings-more] [data-danger-actions]')).toHaveCount(0);
+    await expect(page.locator('[data-settings-danger] [data-danger-actions]')).toHaveCount(1);
+    // The last section, a plain heading: each action asks first in its own confirmation.
+    await expect(page.getByRole('heading', { name: 'Delete data', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Delete corrections' })).toHaveAccessibleDescription(/Captures and photos stay/);
+    await expect(page.getByRole('button', { name: 'Delete all favourites' })).toHaveAccessibleDescription(/Removes every favourite marker/);
+    await expect(page.getByRole('button', { name: 'Delete all history' })).toHaveAccessibleDescription(/Deletes every capture/);
     await page.locator('[data-danger-actions]').screenshot({ path: testInfo.outputPath('danger-zone.png') });
 });

@@ -150,16 +150,28 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
   and finish counts. Counters reset with the process and update independently of health polling.
   A finish can include failure or cancellation. These are scheduler observations, not exact
   accelerator utilization or live-request latency; short bursts between checks can be missed.
+  `garden_motion_decode` reports how Garden motion recordings decode: `state` (`vaapi`,
+  `not_packaged`, `no_render_node`, `probe_failed`, `decode_failed`, or `not_checked` before the
+  first check), `decoder` (`vaapi` or `software`), the render `device`, a plain-language `message`,
+  `consecutive_fallbacks`, and `software_cameras`: cameras whose recordings decode on the CPU by
+  design (B-frames or edit lists) while the GPU works. CPU decode never sets `status=degraded`.
   Existing maintenance-specific fields remain available. See [video queue behaviour](features/video-analysis.md#settings).
-- `GET /ready`: startup readiness (returns `503` until ready). This exact public path is proxied
-  through both monolithic and split frontend deployments and is not cacheable.
+  `mqtt.connection_state` is the broker session as measured (`connecting`, `connected`,
+  `disconnected`, `not_configured` or `stopped`), and `frigate_api` carries `state`
+  (`reachable`, `unreachable` or `unchecked`) and `last_failure` from the latest request made to
+  Frigate. `status` is `degraded` while the broker is `disconnected` or `not_configured`, or while
+  Frigate's latest request went unanswered: no new detection can arrive or be saved then.
+- `GET /ready`: startup readiness (returns `503` until ready, and while a startup warning stands).
+  The `503` body is the same report, so `startup_started_at` is still readable from it. This exact
+  public path is proxied through both monolithic and split frontend deployments and is not cacheable.
 - `GET /api/version`: app version metadata.
 - `GET /api/update-status`: whether a newer YA-WAMF release exists. A notification only —
   YA-WAMF never updates itself, and the check honours the `system.update_check_enabled` opt-out.
 - `GET /api/system-telemetry`: one live host-utilization sample (the sidebar's rolling CPU/NPU
-  graph). Guest rate limits apply; the response is not cacheable. The UI samples every 2.5 s for
-  the owner and, for a visitor, at a fifth of the public rate limit (every 10 s at the default 30
-  a minute). It pauses while the tab is hidden and backs off after failed samples.
+  graph). Guest rate limits apply; the response is not cacheable. A visitor's UI samples it at a
+  fifth of the public rate limit and never faster than every 15 s (every 15 s at the default 30 a
+  minute), pausing while the tab is hidden and backing off after failed samples. An owner's UI
+  draws the same line from the `telemetry` part of the pushed status instead (`GET /api/status`).
 - `GET /api/system-telemetry/history` (owner): the last thirty minutes of host CPU and accelerator
   load, sampled every five seconds while the app runs, with what this container's own processes
   (the app, each classifier worker, any ffmpeg it spawned) took of it by CPU and memory. Anything
@@ -173,6 +185,52 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
 - `GET /api/sse`: Server-Sent Events stream. Opens with a Bearer header, with a single-use
   `?ticket=` from `POST /api/auth/stream-ticket`, or as a guest when public access is on. The
   session token is **not** accepted in the query string; see [Stream ticket](#stream-ticket).
+  An owner stream sends the status snapshot as `{"type": "status", "data": <snapshot>}` right
+  after `connected`, again within about a second of any change, and otherwise every 15 s with
+  fresh figures. The snapshot is the body of `GET /api/status`. Guests never receive it. A
+  stream that falls so far behind that the server stops queueing messages for it is closed, so
+  the page reconnects and starts again from a fresh snapshot instead of trusting heartbeats alone;
+  the UI also treats a status as out of date once 90 s pass without one (counted from the
+  last accepted snapshot, or from sign-in before the first), says so, and reads `GET /api/status`
+  until one arrives. Reconnecting does not restart that count.
+- `GET /api/status` (owner): the one status reading the shell, Health, the Dashboard and
+  Settings › Identifying birds all show, so none of them can disagree. Not cacheable. It holds:
+  - `overall`: `state` (`ok`, `degraded` or `unknown`, the same judgement as `/health`'s
+    `status`) and `cause`, the first thing to fix, with the `subsystem` it belongs to.
+  - `subsystems`: one verdict each for `mqtt`, `frigate`, `classifier`, `finder`, `audio`,
+    `storage` and `notifications`, with `state` (`ok`, `degraded`, `error`, `off` for a part
+    switched off, `unknown` for one not yet measured) and a `cause` code the page words, such as
+    `disconnected`, `unreachable`, `cameras_offline`, `cpu_fallback`, `not_writable`,
+    `nothing_heard` or `none_enabled`. A chosen identification model whose files are not on the
+    install is `classifier` `error` `model_missing` (the same rule as the Models status line,
+    `identification_readiness`), even before the runtime has reported; it makes `overall`
+    `degraded` with that cause. A chosen bird finder that is not downloaded is `finder`
+    `degraded` `not_downloaded`, judged on the chosen finder even when an installed one stands in
+    (`crop_detector.chosen_installed` in the classifier status). A finder is optional and never
+    bundled, so this cause alone leaves `overall` as it was.
+  - `jobs_summary`: the prominent work as one count (`running`, `queued`, from the lane totals,
+    which count every job) and `progress`, set only when every running job counts the same unit
+    towards a known total; the banner shows these counts. `jobs` is the
+    `GET /api/jobs` snapshot (100 newest items, lane totals over every item) and `analysis` the
+    `GET /api/maintenance/analysis/status` reading.
+  - `model`: the model in use, the chosen and the running inference provider, whether the chosen
+    one fell back, the accelerator check's state, and a `revision` that changes whenever any of
+    those or the runtime changes.
+  - `connections` (as `GET /api/diagnostics/connections`, addresses and errors redacted),
+    `cameras` (per-camera health from Frigate's stats, read at most once a minute; null while
+    Frigate does not answer), `telemetry` (the latest host sample), `version`,
+    `startup_instance_id`, a `revision` that rises with every material change,
+    `diagnostics_revision`, which moves when the server records a fault, `incident_revision`,
+    which moves whenever an incident can open or close (a verdict, a recorded fault, a video
+    breaker opening or closing, the finder or live classifier recovering; every owner page reads
+    the incident workspace again when it moves), and `health_revision`, which also follows the
+    pipeline's running totals (Health reads its workspace again when it changes; the totals alone
+    do not cause a push).
+  The snapshot carries no secret: every field is a declared state, count, model name or redacted
+  address, and free text (a job's phase and error, the queue's message, the provider's fallback
+  reason) is cleaned of configured secrets, credential URLs and `name=value` tokens. The same
+  cleaning applies to `GET /api/jobs`. The server reads it only while a stream is open, so an idle install with no page open
+  does no extra work.
 
 ## Endpoint Map
 
@@ -196,23 +254,90 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 ### Guided setup
 
 - `GET /api/setup/state` (owner; also reachable before auth is enabled) — returns
-  deterministic `ok`, `attention`, or `optional` states for account, connection,
-  cameras, classifier, snapshot quality, and integrations. This is saved
-  configuration/credential readiness, not a live external-service health check.
+  `ok`, `attention`, or `optional` states for account, connection,
+  cameras, classifier, snapshot quality, and integrations. These are saved
+  configuration/credential readiness, with three exceptions: running without a password is
+  `optional` (`account_auth_disabled`), never `ok`; the connection section reads the
+  measured broker and Frigate state from [`GET /api/diagnostics/connections`](#debug-owner);
+  and the classifier section reads the model's measured readiness (below).
+  Saved values that could not be reached are `attention` with `detail_code`
+  `connection_unreachable` and `detail_values.items` (`mqtt`, `frigate`); values measured working
+  are `ok` with `connection_connected`; values not measured yet keep `connection_ready`.
+
+  The classifier (`model`) section is derived from the classifier's runtime report, the one
+  [`GET /api/classifier/status`](#classifier-and-models) returns, not from the saved model name or from a
+  weights file being on disk. The report is read as one of seven readiness states, and a model is
+  called ready or running only on positive evidence:
+
+  | Readiness | Meaning | `status` | `detail_code` |
+  |---|---|---|---|
+  | `checking` | No report could be read yet | `ok` | `model_selected`, or `model_fallback` for the bundled model |
+  | `missing` | The model's files are not on this install | `attention` | `model_missing` |
+  | `failed` | Installed, and it could not be loaded | `attention` | `model_failed` |
+  | `loading` | Installed, and an in-app runtime is still loading it | `optional` | `model_loading` |
+  | `ready` | Installed; workers start with the first detection | `ok` | `model_ready` |
+  | `running` | Loaded in the app, or running in workers | `ok` | `model_running` |
+  | `unknown` | A report arrived and gave no evidence either way | `ok` | `model_selected`, or `model_fallback` |
+
+  `model_selected` and `model_fallback` therefore mean "chosen, not measured": a client should not
+  present them as a working model. `detail_values.model` carries the model's name where one is
+  known. Two findings come before readiness and are always `attention`: `model_retired` (the saved
+  classifier has been retired) and `model_wrong_kind` (a crop detector is saved as the classifier).
 
 ### Events
 
 Public event-history and media windows use UTC calendar days. Custom `0` starts at
 00:00 UTC and excludes the next midnight; custom `N` starts at midnight UTC `N` days
 ago. Public audio, AI access, filter counts, About photographs and leaderboard portraits
-use the corresponding shared history/media bounds. Owner date filters are unchanged.
+use the corresponding shared history/media bounds. A guest's window is intersected with any
+dates the request names, so a date or `today` can narrow it but never widen it.
 One UTC calendar day is captured per HTTP response, so nested queries, totals and audio
 projection cannot switch to another day's evidence midway through a request. The calendar
 is released when the response body completes; later requests and background work use a
 fresh day. This does not cache sharing preferences.
 
-- `GET /api/events`
-- `GET /api/events/count`
+#### Calendar days and `today`
+
+`start_date` and `end_date` on `GET /api/events`, `GET /api/events/count`, `GET /api/visits`
+and `GET /api/visits/{visit_id}/captures` take an ISO date (`2026-11-17`) or the keyword
+`today`. Both are calendar days in one zone, chosen in this order:
+
+1. the IANA zone the request's `X-Timezone` header names (`Europe/Madrid`); the web interface
+   sends the browser's zone, so its dates are the viewer's days, as backfill dates and hourly
+   charts already are;
+2. otherwise the container's `TZ` environment variable, so curl and Home Assistant, which send
+   no header, get the instance's day;
+3. otherwise UTC.
+
+A header or `TZ` that does not name a real zone is ignored (and logged once), never an error.
+`daily-summary?window=today` uses the same zone. A guest's shared window is applied after the zone
+is resolved, so no header can widen it. A day runs from local midnight
+to the last instant before the next local midnight, so a capture at 23:30 local time belongs to
+that day even when it is already the next day in UTC, and a day that changes the clock is 23 or
+25 hours long. Both bounds are inclusive. The range may span at most 365 days. Any other word
+is rejected with `422`.
+
+```bash
+# Everything from today, oldest first in pages of 500, then today's visits in one request.
+curl -fsS "http://localhost:9852/api/events?start_date=today&end_date=today&sort=oldest&limit=500"
+curl -fsS "http://localhost:9852/api/visits?start_date=today&end_date=today&limit=500"
+```
+
+- `GET /api/events` Returns one page of events (`limit` 1 to 500, 50 by default; `offset` skips
+  that many). While more events match, the response carries an `X-Next-Offset` header with the
+  `offset` for the next page; the last page has none. Guests get at most 50 per page. Captures
+  saved in the same instant keep one order (by id). To collect a day while birds are still
+  arriving, page with `sort=oldest`: new captures only add to the end, whereas newest-first pages
+  shift by one for each capture that arrives between requests.
+- `GET /api/events/count` Counts every event matching the same filters, for clients that want
+  the total before paging.
+
+Every detection carries `illuminance_lux`: the light level in lux that a configured
+[Home Assistant illuminance entity](integrations/home-assistant.md#illuminance-entity) measured
+when the detection was first saved, or `null` when nothing was measured. It is a stored
+measurement, never derived, and is not rewritten later. Live `detection` and
+`detection_updated` stream events carry the same field.
+
 - `GET /api/explorer/search?q=` searches species, genera, families and orders with
   visible history. It matches scientific names, common names in the reader's language
   and English, and owner name overrides. Matching ignores case, accents and name
@@ -229,14 +354,18 @@ fresh day. This does not cache sharing preferences.
   guests. Camera names are omitted when sharing them is off. The response is
   private and cannot be cached; switching public access off rejects guest searches.
   Search reads the local catalogue and history without external lookups or inference.
-- `GET /api/visits` Groups the accessible history before pagination. Accepts `limit`, `offset`,
-  `start_date`/`end_date` or UTC `start_time`/`end_time`, `species`, `camera`, `favorites`,
+- `GET /api/visits` Groups the accessible history before pagination. Accepts `limit` (1 to 500,
+  24 by default; guests at most 50), `offset`, `start_date`/`end_date` (calendar days, above) or
+  exact UTC `start_time`/`end_time`, which take precedence, `species`, `camera`, `favorites`,
   `audio_confirmed_only`, `only_hidden`, `multiple_species_only` and `sort` (`newest`, `oldest`,
-  `confidence`). Returns `visits`, `total` and `gap_seconds`. Each visit includes
+  `confidence`). Returns `visits`, `total` (every matching visit, so a client can tell how many
+  pages remain) and `gap_seconds`, the visit gap these visits were grouped with. Frigate is asked about each visit's `representative` capture
+  only, at most one call per visit on the page. `latest` and `peak_capture` report the photo and
+  clip this server holds, with `frigate_event_check: "not_checked"`. Each visit includes
   `visit_id` (its first accessible capture ID), start/end, full `capture_count`, best score, review/audio/owner-confirmation
   state, representative/latest records and owner-only busiest counted capture. Grouping uses
-  canonical species, actual camera and a 60-second inactivity gap after the running latest
-  verified event end; historical captures without bounds use capture time. Unknown and manual
+  canonical species, actual camera and an inactivity gap of `visit_gap_seconds` (the owner's
+  setting, 60 by default) after the running latest verified event end; historical captures without bounds use capture time. Unknown and manual
   records remain separate. It does not identify individual birds. `owner_confirmed`
   aggregates explicit owner species confirmations from accessible visit members,
   independently of model confidence and matching audio. Another favourite may represent
@@ -321,6 +450,16 @@ records the human confirmation but preserves the stored display, scientific and 
 does not create correction feedback. A different species returns `status: "updated"` after the
 canonical taxonomy and manual tag have been committed.
 
+A request may also carry `expected_category_name`: the stored identification (`category_name`) the
+owner was shown, as the review queue sends it. The change then applies only while the detection
+still carries that identification, checked in the same conditional `UPDATE`, so a correction made
+elsewhere in the meantime is never overwritten. Otherwise the answer is `409` with
+`detail: {"code": "identification_changed", "message": "This visit was changed elsewhere. It now
+reads …", "current": {"display_name", "category_name", "scientific_name", "common_name",
+"manual_tagged"}}` and nothing is written. The OpenAPI schema declares this body as
+`IdentificationChangedResponse`, so generated clients type it. Without the field, the last write wins as before; the
+record's own species picker and `PATCH /api/events/bulk/manual-tag` do not send it.
+
 Event rows and `GET /api/events/{event_id}/classification-status` expose
 `video_classification_input_source` when YA-WAMF knows which representation produced the retained
 analysis result. Current video values are `full_frame`, `frigate_hint_crop`, `model_crop`, or
@@ -404,7 +543,8 @@ capture's event as it does a bird detection's, and serves its kept clip first wh
 pending or dismissed Garden capture's clip is streamed from Frigate and never written to the clip
 cache. Capture responses include `photo_kept` and `clip_kept`: whether YA-WAMF holds its own
 checksummed copy of the full photograph or Frigate clip (false for a guest when that media is not
-shared). See [Kept photographs and clips](features/garden-animals.md#kept-photographs-and-clips). Presence and
+shared). A domestic bird's kept photograph may be YA-WAMF's own copy of the whole frame its bird
+model classified, kept when Frigate holds no snapshot for the event; a kept clip is always Frigate's. See [Kept photographs and clips](features/garden-animals.md#kept-photographs-and-clips). Presence and
 species identification have separate reviews; `frigate_label` remains an upstream suggestion.
 
 - `GET /api/garden` — `status=pending|confirmed|dismissed`, `limit=1..128` (default 20),
@@ -438,7 +578,8 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   has already acted on it. `awaiting_check` counts those held candidates in scope; it is 0 for
   guests. Each visit includes `id`, `kind` (`visit` or `position`), start/end,
   `capture_count` and its latest `representative`. Canonical identity, camera and
-  review state separate timed stays; gaps over 60 seconds start another stay.
+  review state separate timed stays; a gap longer than the bird visit gap (`visit_gap_seconds`)
+  starts another stay.
   Pending motion proposals retain fixed-anchor position stacks instead of joining by time.
   Optional `page_start`/`page_end` select whole groups by latest capture time after grouping,
   for mixed bird pages. Newest order uses [start,end); oldest order uses (start,end].
@@ -518,9 +659,11 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 - `GET /api/garden/motion` — enabled cameras, catalogue and detector availability,
   shared busy state, `animal_confidence`, collection state/message, last attempted scan/outcome and
   interval/photo limits. `interval_seconds` reports the selected minimum spacing between scan starts:
-  five seconds after a completed window with more footage queued, otherwise ten seconds.
+  five seconds after a completed window with more footage queued, for at most 30 scans in any
+  ten minutes, otherwise ten seconds.
   Processing is included, long scans leave at least one second of rest and failures back off
-  thirty seconds. This is not a promised capture rate. `catchup_seconds` bounds recording age; `queue_limit`
+  thirty seconds. This is not a promised capture rate. `catchup_seconds` (600) bounds recording age;
+  older footage is skipped, not scanned late; `queue_limit`
   caps each rebuilt camera queue. `queued_windows`, `queue_camera` and
   `queue_checked_at` describe the latest inspected camera, not a live total across
   all cameras. More footage may remain when the queue is full. Refresh to read
@@ -604,7 +747,8 @@ keyframe before the requested start, so it can begin up to one 10-second recordi
 early. Samples are taken inside the requested window after that pre-roll, `frame_offset` is
 measured from the requested start, person checks include five seconds of padding and displayed
 observation times are approximate. A recording that cannot be read (invalid metadata, pixel or
-duration limit, a sample that will not decode, an unbounded frame or a photo too large to keep)
+duration limit, over 48 MiB (`size_limit`), a sample that will not decode, an unbounded frame or a
+photo too large to keep)
 is skipped with its reason and counted per camera for the last hour in
 `unreadable_recordings`; it is never retried in a loop and keeps no photo. These
 are detector proposals, including possible birds and false positives. Confirmation
@@ -721,7 +865,9 @@ other identifications for `needs_review`, and are excluded from personalization 
 
 ### Media Proxy and Share Links
 
-- `GET /api/frigate/{event_id}/snapshot.jpg`
+- `GET /api/frigate/{event_id}/snapshot.jpg` — YA-WAMF's stored photo of the detection first, so a
+  detection Frigate did not retain (`frigate_status: not_retained`) or no longer has still shows
+  the photo YA-WAMF classified; Frigate is asked only when YA-WAMF holds none.
 - `GET /api/frigate/{event_id}/snapshot/status` (owner; reports the effective best-available policy)
 - `GET /api/frigate/{event_id}/snapshot/candidates` (owner)
   - `image_url` and `thumbnail_url` are nullable independently when the corresponding cached
@@ -824,7 +970,8 @@ other identifications for `needs_review`, and are excluded from personalization 
 - `GET /api/frigate/camera/{camera}/latest.jpg` (owner; current frame, never cached)
 - `GET /api/frigate/test` (owner) — accepts an optional `url` query override for testing
   the value currently being edited without saving it. Stored Frigate credentials are
-  forwarded only when the normalized override matches the saved Frigate base URL.
+  forwarded only when the normalized override matches the saved Frigate base URL. The
+  returned `frigate_url` is reduced to `scheme://host[:port]`.
 - `GET /api/frigate/config`
 - `GET /api/frigate/recording-clip-capability`
 - `POST /api/video-share`
@@ -832,6 +979,10 @@ other identifications for `needs_review`, and are excluded from personalization 
 - `GET /api/video-share/{event_id}/links`
 - `PATCH /api/video-share/{event_id}/links/{link_id}`
 - `POST /api/video-share/{event_id}/links/{link_id}/revoke`
+
+When Frigate cannot be reached, these media and Frigate routes answer `502`. A guest's message
+names no address. An owner's message names the Frigate address reduced to `scheme://host[:port]`,
+so credentials, tokens or path segments in the configured URL never appear in a response.
 
 The HQ snapshot worker also publishes `crop_policy`, queued final-refresh count, selected-source
 counts, outcomes, and recovered job totals under `GET /health` → `high_quality_snapshots`. Its retry state is persisted independently
@@ -863,17 +1014,41 @@ Notes:
 
 - `GET /api/species`
 - `GET /api/species/search`
-- `GET /api/species/{species_name}/stats`
+- `GET /api/species/{species_name}/stats` On days sealed by cleanup, `total_sightings`,
+  `daily_distribution` and `monthly_distribution` count the species' daily totals instead of
+  the few captures kept from those days, so nothing is counted twice; captures Frigate lost from
+  live days count there too. `hourly_distribution` counts every stored capture, kept ones on
+  sealed days included, and `cameras`, confidence and `recent_sightings` come from stored captures
+  only. Totals are matched by catalogue identity, so a renamed species keeps its sealed days. A
+  species seen only on sealed days returns its totals with `first_seen`, `last_seen` and
+  `recent_sightings` empty. `history_first_day` is the first day counted either way, and
+  `daily_totals` reports coverage as below, only when this species has sealed days. See
+  [Daily totals](features/favourites.md#daily-totals-keep-the-counts).
 - `GET /api/species/{species_name}/info` returns cached reference metadata. Known Wikimedia
   JPEG/PNG originals and oversized reference thumbnails use a supported 960-pixel rendition;
   smaller renditions and other providers retain their URLs. This also applies to older cache
   rows without a catalogue refresh or database write.
   An optional `scientific_name` (1–200 characters) binds a reference to that exact
   taxon. Garden uses this to avoid ambiguous common-name bird searches. These
-  lookups use Wikipedia and iNaturalist, require the scientific identity in the
-  article or exact active taxon name, and have a separate language/identity cache.
+  lookups use Wikipedia and iNaturalist and have a separate language/identity cache.
   They never reuse name-only cached articles. If neither source matches, text
   and photographs stay unavailable. `refresh=true` bypasses either cache.
+  Whenever the taxon is known (a `scientific_name` was given, or the taxonomy knows the bird's),
+  the Wikipedia description is the article that the exact active iNaturalist taxon links to
+  (`wikipedia_url`), asked for by its title; in another language it is the article Wikipedia's own
+  language link leads to, and when that language has no article, the linked one. The linked
+  article is read and verified first, and only a verified article's language link is followed.
+  `summary_language` is the language the description is actually in (a Wikipedia edition code such
+  as `en`, read from the summary's own address; null for other sources), which can differ from
+  the language asked for. The summary's
+  text is not consulted for these, because Wikipedia's REST summary leaves the scientific name
+  out. If Wikipedia answers the linked title with another title (a redirect), the article is
+  accepted only when that title is a name the species catalogue records for the taxon, or when the
+  article has the exact scientific name as its subject; otherwise it is unverified and not used.
+  Cached Wikipedia descriptions are served only when their taxon was checked this way when they
+  were saved; older rows are looked up again on first read. Only a taxon with no linked article is looked for by
+  title and search, and what is found is then accepted only when the taxon is the subject of its
+  title or opening sentence; a host, prey, parasite or subspecies mention is refused.
   `extract` and `description` are readable plain text: provider HTML, comments,
   scripts and styles are removed, entities are decoded and paragraph breaks are
   retained. This also applies when reading older cached summaries, without a
@@ -901,7 +1076,7 @@ Notes:
   is not set up) or `unavailable` (set up, but the lookup failed: `reported_nearby` is null, or comes
   from an expired report kept after a failed refresh and during its 15-minute back-off, which is not a
   current check); `window_visit_count` and
-  `window_prev_visit_count` fold captures of one canonical species on one camera with a 60-second inactivity gap, as the
+  `window_prev_visit_count` fold captures of one canonical species on one camera with the visit gap (`visit_gap_seconds`), as the
   dashboard does, while `window_count` stays frames)
 
 ### Taxonomy
@@ -930,7 +1105,7 @@ stores it (parentheses included when the source writes them), or null when unrec
 - `GET /api/taxonomy/facts?ids=` — what this install recorded of each taxon, for one open level of
   the family tree in one request. `ids` repeats, 1 to 100 catalogue ids (422 outside that); repeats
   are answered once and an id the catalogue does not hold is left out. Per taxon: `visits` (bird
-  visits by the shared 60-second visit rule plus confirmed Garden visits, 0 when none),
+  visits by the shared visit rule plus confirmed Garden visits, 0 when none),
   `species_seen` (species at or beneath it with a visit), `first_seen`, `last_seen` (the most recent
   visit), `heard` and `last_heard` (visible BirdNET-Go detections; `heard` is null when audio is not
   shared with the reader), `sources` (`camera`, `garden`) and `photo`. A group rolls these up over
@@ -951,16 +1126,29 @@ stores it (parentheses included when the source writes them), or null when unrec
 
 ### Statistics
 
-- `GET /api/stats/daily-summary` — includes `counted_birds` (visible child observations) and
+- `GET /api/stats/daily-summary` Covers the last 24 hours by default (`window=rolling`). With
+  `window=today` it covers today so far: from local midnight (in the zone chosen as in
+  [Calendar days](#calendar-days-and-today)) to now. The response names the window it used in
+  `window`, `window_start` and `window_end` (UTC). A guest's history window still applies, so
+  `window_start` can be later than midnight. Every count below covers that window. It
+  includes `counted_birds` (visible child observations) and
   `counted_captures` (captures with at least one stored bird observation) for the same daily
   window. These counts cover analyzed captures and may count the same bird in later captures.
-  Visits for the same last-24-hours window use the leaderboard's rule (a frame opens a visit unless the
-  same canonical species was on the same camera within 60 seconds of the running latest verified event end, or capture time when the end is unavailable): `visit_count`, `hourly_visits`
+  Visits for the same window use the leaderboard's rule (a frame opens a visit unless the
+  same canonical species was on the same camera within the visit gap, `visit_gap_seconds`, of the running latest verified event end, or capture time when the end is unavailable): `visit_count`, `hourly_visits`
   (24 local-hour buckets by when each visit began), `camera_visits` (visits and last sighting per
   camera; `null` for a guest who may not see camera names) and `visit_count` on each `top_species`
   entry, which is now ordered by visits. `total_count` and `hourly_distribution` still count frames.
 - `GET /api/stats/detections/daily`
-- `GET /api/stats/detections/timeline`
+- `GET /api/stats/detections/timeline` With day or month buckets, sealed days are counted from
+  their daily totals (and compare lines from each species' totals, matched by catalogue
+  identity), and `span=all` starts at the first sealed day (or the oldest capture Frigate lost) when that is older than every stored
+  capture. Stored captures inside a sealed day's exact range are left out; captures Frigate lost
+  from live days are counted. Hour buckets never use daily totals. `daily_totals` reports
+  `totals_through` (the last day counted from totals, or `null`), `partial` (some of those days
+  began before daily totals were kept, so they may be low) and `complete_from` (the first day
+  whose total is whole, when `partial`). Guests get no sealed day that began before their shared
+  window.
 - `GET /api/stats/detections/activity-heatmap` (optional `species` limits the grid to one species)
 - `GET /api/stats/uptime` (owner) Availability over a recent window, derived from heartbeat rows
   written every 5 minutes. Buckets with no heartbeat report `down`; buckets from before the first
@@ -1001,10 +1189,16 @@ refused with `413` before any classification work runs.
 - `POST /api/classifier/wildlife/download` (owner)
 - `POST /api/classifier/download` (owner)
 - `GET /api/models/available` (owner)
-- `GET /api/models/installed` (owner)
+- `GET /api/models/installed` (owner) — each installed model, with `bundled: true` when it ships
+  inside the image rather than being downloaded (a model that is not on disk is not listed).
 - `GET /api/models/families/resolved` (owner)
 - `POST /api/models/{model_id}/download` (owner)
 - `GET /api/models/download-status/{model_id}` (owner)
+- `GET /api/models/activity` (owner) — `activity`: each model with work in progress on the server
+  and its phase, `downloading` or `validating`; a model with none is absent. This is the server's
+  account, whichever page or browser tab started the work, and the SPA reconciles every surface
+  that states a model's readiness against it. Garden's automatic check model is reported as
+  `garden-speciesnet-4.0.3a`.
 - `POST /api/models/{model_id}/validate` (owner) — trial-activates a classifier, validates every globally safe or reviewed candidate provider in the running image/host/model intersection in isolated processes, compares accelerator output with a CPU baseline, records schema-4 artifact/runtime/hardware-bound eligibility and median inference latency, orders passing providers by measured latency, and restores the previously active model. Crop-detector artifacts are rejected with `409`.
 - `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the artifact is a crop detector or the classifier has not been validated for this artifact/runtime/install (unless it is bundled or already active); after activation succeeds, applies the first still-eligible provider and never carries an explicit provider from the previous model.
 - `DELETE /api/models/{model_id}` (owner) — removes an installed model's files and reports `bytes_freed`. Irreversible: the model must be downloaded again. Refused with `409` when the model is active or mid-download, and `404` when it is not installed. The id may contain a slash for a region variant, for example `medium_birds/eu`.
@@ -1030,6 +1224,8 @@ The status separates packaging, hardware availability, and the active model sess
 | `image_flavor_warning` | `selected_provider_not_packaged` when the saved explicit provider is outside this image; otherwise `null`. |
 | `active_model_id` | Model saved in persistent configuration. Its files may be unavailable after an image or storage change. |
 | `effective_model_id` | Model whose files and preprocessing contract the current runtime actually resolved, including the bundled MobileNet fallback. |
+| `effective_model_name` | That model's name as the model list shows it, or `null` when it has no registry entry. Settings names the model in use with it. |
+| `active_model_installed` | Whether that model's weights are on disk. `false` when the configured model and the bundled fallback are both missing, so nothing can identify birds until a model is downloaded; `null` when it could not be resolved. |
 | `runtime` | Active TFLite implementation (`litert`, `tflite-runtime`, `tensorflow`, or `unavailable`); ONNX session details remain in `inference_backend`. |
 | `host_available_providers` | Providers packaged in this image whose runtime/device probe passed, before applying a model-specific compatibility filter. Used when choosing a different model. |
 | `available_providers` | Providers packaged in this image whose runtime/device probe passed and which the active model supports, ordered with the active recovery path first and other valid manual choices afterwards. |
@@ -1061,7 +1257,7 @@ Each compatibility summary row has `requested_provider: "validation_sweep"`. Its
 are zero placeholders, not measurements, and its `mean_latency_ms`, `p50_latency_ms` and
 `p95_latency_ms` all hold the best provider's median inference latency. Clients should use the
 marker, not a zero score, to tell such a row from a measured one.
-Compatibility-only clients should label the run **Compatibility check only**, omit accuracy/mean/p95
+Compatibility-only clients should label the run **Provider check only**, omit accuracy/mean/p95
 claims, and read measured provider medians from `device_matrix.json`.
 Compatibility summaries also expose `validated_providers` and `failed_providers` per model; the
 measured passing order becomes the current-install activation and `Auto` recommendation.
@@ -1128,14 +1324,22 @@ A detection set aside is dropped with reason `filter_out_of_range`, and `POST
   new one is public or owner-only by decision rather than by whether anyone remembered.
   `bird_counting_enabled` says whether new captures are analysed to count birds (high-quality
   snapshots on, with clips available), so the Dashboard can hold its counted-birds figure while
-  the day loads.
+  the day loads. `visit_gap_seconds` is the visit gap, so a guest's page groups captures into the
+  same visits as the owner's.
 - `POST /api/settings` (owner)
 
 Settings writes are partial and use the flat API field names, rather than the nested
-`config.json` layout. Omitted fields stay unchanged. Empty or redacted secrets retain
+`config.json` layout. `visit_gap_seconds` (stored as `visits.gap_seconds`, 5 to 300, default 60)
+sets the visit gap: captures of one species on one camera no further apart than this are one visit,
+for birds and Garden animals. It applies to the next query, with no restart. Days already sealed
+into daily totals keep the visit counts they were sealed with. Omitted fields stay unchanged. Empty or redacted secrets retain
 the saved value; they do not clear it. A provider or execution-mode change reloads
 the classifier, as does a saved-coordinate change. Invalid requests are rejected
-before changing any settings, including public-access controls. For example:
+before changing any settings, including public-access controls. Every refusal a form save can
+meet is a `422` whose `detail` is a list of errors, each naming its field in `loc`
+(`["body", "<field>"]`), so the UI can mark that field: Pydantic's own checks, an instance address
+without `http://` or `https://`, and turning on sign-in without a password. A refusal never echoes
+the rejected value. For example:
 
 ```http
 POST /api/settings
@@ -1155,6 +1359,56 @@ keeps it. Location-aware DINOv2 receives either a complete valid coordinate pair
 neutral metadata, including in subprocess workers. It receives no date or uncertainty.
 Use `/api/classifier/status` after reload to distinguish saved preference from the
 worker-reported runtime.
+
+`GET /api/classifier/status` includes `crop_detector.device_check` with `state`,
+`reason`, `reason_code`, `checked_at`, `model_id` and checked accelerator `providers`.
+`reason_code` is a stable nullable enum: `mismatch`, `unfinished`, `no_photos`,
+`driver_changed`, `no_positive_baseline`, `superseded`, `interrupted`, `passed`,
+`gpu_recovery`, `no_accelerator` (no NPU or GPU could be opened; final for that
+runtime), `no_full_frames` (the saved photos are crops or too small to judge a
+wide-frame finder; the check waits for at least three full camera frames without
+spending an attempt) or `ledger_unreadable` (the record of earlier checks is damaged, so automatic
+checks pause until an owner-run **Check devices** starts a new record). Consumers should prefer it over parsing the human-readable
+`reason`; the existing mismatch and unfinished sentences remain compatible.
+Legacy saved reports acquire a code when their state or known sentence identifies
+one; an unknown old failure keeps a null code.
+`runtime_current: false` means this is the last result from a different runtime,
+not current passing device evidence. `last_result` retains the most recent completed
+check, with the same fields and its own `runtime_current` flag, while a new check
+is running or waiting for photos. Legacy ledger results without runtime identity
+are reported as historical. None of these status fields authorizes a device;
+selection still requires current provider eligibility. `attempt_count` and
+`next_retry_at` describe capped automatic retries: inconclusive checks retry after
+one hour then four hours, up to three attempts per context. A missing positive CPU
+baseline waits for a changed saved photo set and a wait that starts at four hours and
+doubles after each further empty baseline, up to once a day. A `checked_at` later
+than the current time, from a clock that ran ahead, counts as due. An owner-run
+device sweep is recorded too, so the automatic check does not repeat it: a pass or
+mismatch on the current runtime settles the context, and an unfinished owner sweep
+delays the automatic one by an hour.
+
+`crop_detector.active_provider` is the provider from its most recent completed
+execution, or null before an execution. `planned_provider` is the current selection
+for the next load; `last_execution` includes the provider, devices and timestamp of
+actual inference. RF-DETR's saved NPU preference can therefore report GPU in use.
+The Settings finder card states `planned_provider` for the running finder before
+any first frame, so it names the same device the backend will load.
+
+`crop_detector.cpu_fallback` reports `active`, `model_id`, `provider`, `reason_code`,
+`reason` and `action` for last-resort RF-DETR CPU use. `/health` and the diagnostics
+workspace expose the same condition as `ml.bird_finder`, so `ml.bird_finder.active` is true
+only while the finder is on that CPU fallback; `false` means it is not on the fallback, not
+that the finder is off; an active condition
+degrades health and records a `bird_finder` / `rfdetr_cpu_fallback` warning only
+when an Intel accelerator is packaged and present and the saved preference is
+neither `cpu` nor `intel_cpu`. A device check that passed after the last frame
+outranks that frame's provider, so the condition clears before the next bird is
+seen. Incident identity is the model, the provider and the fixed condition
+`rfdetr_cpu_fallback`, so one ongoing CPU condition is one incident while the
+check's own reason code moves through retries.
+The Health incident and System status attention count resolve when that condition
+clears. RF-DETR prefers a verified NPU, then GPU, before CPU; its saved NPU
+preference permits a verified GPU recovery route.
 
 `bird_crop_inference_provider` independently selects the accurate bird finder's
 device: `auto` (default), `cpu`, `intel_cpu`, `intel_gpu`, `intel_npu`, or `cuda`.
@@ -1184,15 +1438,37 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   entry are removed so the test cannot affect history or audio confirmation.
 - `GET /api/settings/birdnet/reachability` (owner) — checks that BirdNET-Go answers over
   HTTP; accepts an optional credential-free HTTP(S) `url` query override so an edited
-  value can be tested without saving it.
+  value can be tested without saving it. The message names the address as
+  `scheme://host[:port]` only.
 - `POST /api/settings/mqtt/test-publish` (owner) — JSON body accepts optional `server`,
   `port`, `auth`, `username`, and `password` overrides. Send `{}` to test saved values.
   Empty/redacted passwords retain the stored secret; the probe uses an isolated,
   time-bounded MQTT client and never replaces the live ingest connection.
-- `POST /api/settings/notifications/test` (owner)
+- A failed reachability or test-publish answer (502 or 504) carries, beside `status` and an
+  English `message`, a stable `cause` (`host_not_found`, `refused`, `timeout`,
+  `not_authorised` or `unreachable`), the `service` (`mqtt` or `birdnet`) and an `address`
+  reduced to `host[:port]`, or `scheme://host[:port]` when it was given as a URL, so a client can
+  word the cause in its own language. It never carries a user, password, path or query.
+- `POST /api/settings/notifications/test` (owner) — sends one test message through `platform`
+  (`discord`, `pushover` or `telegram`), with optional typed credentials that are used for this
+  send only. It answers `200` with `status: "ok"` only when the channel accepted the message. A
+  message that was not delivered answers `502` with `status: "error"`, the `channel`, a `cause`
+  (`no_answer`, `timeout`, `refused`, `unexpected_reply`, `rate_limited` or `provider_error`) and the same thing as an
+  English `message` with the next step; a channel with no credentials answers `400` with
+  `cause: "not_configured"`. No answer ever carries the webhook address, a token or the
+  provider's own text.
 - `POST /api/settings/birdweather/test` (owner)
 - `POST /api/settings/ha-weather/test` (owner) — fetches a live reading from the configured
   Home Assistant weather source so the settings page can prove the URL, token, and entities work.
+  The JSON body accepts optional `base_url`, `access_token`, `weather_entity` and
+  `illuminance_entity` overrides, so edited values can be tested before saving, and `scope`
+  (`all`, `weather` or `illuminance`) to read one part alone. The response carries `readings`
+  (weather only), `weather` (`ok`, `error` or `not_configured`) and `illuminance`: `null` when no
+  illuminance entity is set, otherwise `entity_id`, `status`, the measured `lux`, or a `reason`
+  when there is none (`invalid_entity_id`, `unreachable`, `not_illuminance`, `unavailable`,
+  `not_numeric` or `out_of_range`). `status` is `ok` only when every part that was read
+  answered. A request that reads an illuminance entity answers `200` with these fields even
+  when a part failed; a weather-only read that returns nothing still answers `502`.
 - `POST /api/settings/llm/test` (owner) — returns structured AI diagnostic metadata (`provider`,
   `model`, `frame_count`, `failure_stage`, `retryable`, and optional `retry_after_seconds`) for the
   Settings multi-stage test panel. Provider 429 and 503 statuses are preserved.
@@ -1208,6 +1484,15 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   mode or saved feeder coordinates change, and forgetting the telemetry installation when telemetry is turned off.
 - `GET /api/maintenance/taxonomy/status` (owner)
 - `POST /api/maintenance/taxonomy/sync` (owner)
+- `GET /api/maintenance/last-runs` (owner) — the newest recorded run of each Maintenance job, so
+  Settings › Storage & upkeep can say when each one last ran and what it found. `runs` holds one entry
+  per job that has run: `kind` (`taxonomy`, `timezone_scan`, `timezone_repair`, `analyze_unknowns`,
+  or the backfill kinds `detections` and `weather`), `status` (`completed`, `failed`, or for a
+  backfill also `running` or `cancelled`), `started_at` where recorded, `finished_at`, `checked`
+  (records looked at), `changed` (records repaired, found or queued) and `unchecked` (records it
+  looked at but could not check, such as timezone lookups Frigate did not answer, or backfill
+  errors). A scan with `unchecked` above zero is not an all-clear. A job with no entry has no
+  recorded run. Runs are kept in the maintenance job history, so they survive a restart.
 - `GET /api/maintenance/stats` (owner) — total detections, the oldest one, the saved
   `retention_days`, and `detections_to_cleanup`: how many the saved retention deletes at the next
   cleanup. `kept_newest_per_species` is the per-species floor and `automatic_cleanup` says whether
@@ -1222,7 +1507,8 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
 - `POST /api/maintenance/purge-missing-snapshots` (owner)
 - `POST /api/maintenance/purge-missing-media` (owner) — applies your configured missing-media
   policy to every detection whose Frigate event or media has gone. With the policy set to `delete`
-  this **permanently removes** those detections; `mark_missing` and `keep` do not.
+  this **permanently removes** those detections, except one whose photo YA-WAMF still holds, or a
+  favourite: those are marked missing instead. `mark_missing` and `keep` remove nothing.
   All three missing-media scan endpoints return an `errors` count for unsuccessful event checks.
   Timeouts, authentication/server errors and unusable responses leave the existing detection
   and its media state unchanged. Only confirmed absence applies the missing-media policy.
@@ -1256,8 +1542,10 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   not made yet is asked for in the background. Guests get films only when clips are shared.
 - `GET /api/about/showcase?limit=` (guest-rate-limited). One recent crop per species, newest first;
   guests see the public media window, and nothing when snapshots are not shared.
-- `GET /api/about/showcase/{event_id}.jpg` (guest-rate-limited). The stored photograph at card
-  size, under the same access rules as `snapshot.jpg`.
+- `GET /api/about/showcase/{event_id}.jpg?size=` (guest-rate-limited). The stored photograph at card
+  size (`size=card`, the default, 480 px on its longer edge) or at the size of one cell in a wall
+  of many (`size=tile`, 240 px), under the same access rules as `snapshot.jpg`. Any other `size`
+  is a 422.
 - `GET /api/about/showcase/{event_id}.webm` (guest-rate-limited). A visit film: four silent seconds
   of 640x360 VP8 WebM cut from Frigate's recording around the visit's best snapshot and framed on
   the bird, under the same access rules as the clip. Answers byte ranges and is never cached. A film
@@ -1276,7 +1564,7 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   invalidates it, including when that change happens during rendering. Legacy films without
   matching provenance are not served.
 - `GET /api/about/portrait?utc_offset_minutes=` (guest-rate-limited). This feeder in a few facts:
-  `started_at`, `visits` (the shared 60-second visit rule), `detections`, `species`,
+  `started_at`, `visits` (the shared visit rule), `detections`, `species`,
   `busiest_day` (the viewer's calendar day, from the offset), `newest_arrival` (seen at least three
   times or confirmed) and `latest_visit` (with `film_url` once made). `scope` is `shared` for a
   guest, whose facts cover only the shared window of `shared_days`.
@@ -1308,8 +1596,14 @@ archived videos return 404 so the player uses the retained MP4; no archive trans
 - `GET /api/backfill/status/{job_id}` (owner) — returns one retained job status, including persisted summaries after restart.
 - `POST /api/backfill/weather` (owner) — synchronously fills historical weather fields.
 - `POST /api/backfill/weather/async` (owner) — starts weather enrichment as a background job.
+- `GET /api/backfill/reset/preview` (owner) — `detection_count`: every detection a reset would
+  delete now, hidden ones included. This is the number the confirmation states.
 - `DELETE /api/backfill/reset` (owner) — irreversibly deletes all detections and cached media after
-  cancelling and awaiting in-process backfill work.
+  cancelling and awaiting in-process backfill work. With `?expected_count=N` it deletes only if `N`
+  is still the number of detections once ingest has stopped; otherwise it answers 409 with
+  `{"detail": {"code": "reset_count_changed", "detection_count": <current>}}` and deletes nothing.
+  The count and the delete run in one write-locked transaction. A reset requested while another is
+  under way also answers 409, with a sentence in `detail`.
 
 Backfill accepts `day`, `week`, `month`, or `custom`. Custom `start_date` and `end_date` values are
 calendar dates in the browser timezone, and the final day is inclusive. Detection import is
@@ -1330,14 +1624,17 @@ only-missing weather pass when the maintenance lane becomes available.
 
 ### Jobs
 
-- `GET /api/jobs` (owner) — returns the current server-owned background-work snapshot.
+- `GET /api/jobs` (owner) — returns the current server-owned background-work snapshot. The UI
+  reads it from the pushed status (`GET /api/status`) rather than calling this.
 
 The response keeps each workload in its own lane: `auto_video`, `video_analysis`,
 `high_quality_snapshot`, `full_visit`, `backfill`, and `weather_backfill`. Each item includes its
 event ID when applicable, status, current phase, progress counters and unit, timestamps, and an
 application route. Lane summaries report queued/running/terminal counts, queue capacity, configured
 and effective worker concurrency, and a machine-readable blocker such as
-`paused_after_failures`, `waiting_for_live_detections`, or `waiting_for_capacity`.
+`paused_after_failures`, `waiting_for_live_detections`, or `waiting_for_capacity`. A video
+analysis that is waiting for Frigate to answer before it reads its event (as restored work does
+after a restart) reports the phase `waiting_for_frigate` until Frigate answers.
 
 `include_routine=false` omits automatic per-detection media work while retaining prominent
 owner-triggered work. `limit` controls returned item detail (`1`–`500`); lane totals are calculated
@@ -1350,7 +1647,16 @@ snapshot, not a destructive queue-control API.
   - `GET /api/audio/recent`
   - `GET /api/audio/history` — persisted BirdNET detections; `matched_visual_event_id` identifies a
     completed automatic video classification that agrees by species, time window, and source mapping
-  - `GET /api/audio/summary`
+  - `GET /api/audio/summary`. Its `hourly_counts` is **deprecated**: it counts calls by UTC hour, the
+    UI no longer reads it, and `GET /api/audio/activity-heatmap` gives calls by the viewer's local
+    weekday and hour instead. It stays in the response so existing clients keep working
+  - `GET /api/audio/activity-heatmap` — calls heard by weekday and hour, in the zone the
+    `X-Timezone` header names (UTC without it). It takes the summary's window (`days`, or
+    `start_date`/`end_date`) and filters (`species`, `source`, `min_confidence`), so its
+    `total_count` always equals the summary's `total`. Cells have the camera grid's shape
+    (`day_of_week` 0 for Sunday, `hour`, `count`) with `max_cell_count`, and `window_start` and
+    `window_end` state the window counted. A guest gets the public window, and a `source` filter is
+    ignored when camera names are private
   - `GET /api/audio/heard-groups?start_date=&end_date=` — BirdNET-Go calls in a window of at most
     93 days. A call that supports a visit the pipeline confirmed (same species, a microphone mapped
     to that camera, within the visit widened by the correlation window) is counted on that visit in
@@ -1401,7 +1707,10 @@ history, hidden-event, and camera-privacy restrictions as the paginated event li
   - `GET /api/email/oauth/outlook/authorize`
   - `GET /api/email/oauth/outlook/callback`
   - `DELETE /api/email/oauth/{provider}/disconnect`
-  - `POST /api/email/test`
+  - `POST /api/email/test` — answers `200` only when the mail was accepted. A send that was not
+    accepted answers `502`, and one that got no answer in 30 seconds `504`, each with a `detail`
+    that says what to check; the mail server's own words stay in the log. A test email that could
+    not be built answers `500` and does not point at the mail settings.
 
 OAuth authorization, disconnection and submission require owner authentication. Only the three
 exact GET callback routes accept a provider redirect without a login header. They require a
@@ -1426,6 +1735,13 @@ The callback exception grants no owner role and does not expand cookie authentic
   (2,048 characters per string, 64 items per collection, depth eight and 512 nodes
   per payload field); truncation is marked. Source/correlation fields remain present.
   Failed redaction-context lookup drops details rather than interrupting ingestion.
+  Repeats of one fault are one entry: events with the same `source`, `component`,
+  `reason_code` and `severity`, whose messages differ only in tokens containing digits
+  (event ids, counts, durations), share an entry carrying `count`, `first_seen` and
+  `last_seen`. `timestamp` equals `last_seen`, `id` stays the first occurrence's, and the
+  other fields are the newest occurrence's. `total_events` counts entries;
+  `total_occurrences` counts every recorded occurrence held. The same shape is used for
+  `backend_diagnostics.events` in the workspace and bundle responses.
 
 - `GET /api/diagnostics/workspace` — focused video failure candidates include
   warning, error and critical events, excluding circuit summaries and successful
@@ -1437,7 +1753,7 @@ The callback exception grants no owner role and does not expand cookie authentic
   circuit cannot override a newer failure. CPU recovery events identify their
   worker pool at the top level.
 - `GET /api/diagnostics/bundle` — the whole owner diagnostics bundle as one exportable JSON
-  payload; this is what **Settings → Health → Diagnostics export** downloads. `limit` is `1`–`1000`
+  payload; this is what **Health → Diagnostics export** downloads. `limit` is `1`–`1000`
   (default `200`). Each request gathers fresh server health, classifier, queues and
   bounded recent diagnostics even when no local UI error exists. The response includes
   `generated_at`, `schema_version` and `server.startup_instance_id` to identify its capture.
@@ -1449,7 +1765,42 @@ The callback exception grants no owner role and does not expand cookie authentic
   include current/previous busy and total values, units and measurement-state codes;
   arbitrary driver/engine text, raw procfs, client IDs and exception messages are excluded.
   It reads the existing bounded history without sampling or inference; unmeasured accelerator values remain null.
-- `POST /api/diagnostics/clear`
+  The workspace also carries `connections`, in the shape of `GET /api/diagnostics/connections`,
+  measured before `health` so the two agree.
+- `GET /api/diagnostics/connections` — the broker session and Frigate's API as last measured, for
+  the Health page and the sidebar's live tile. `mqtt` has `state` (`connecting`, `connected`,
+  `disconnected`, `not_configured`, `stopped`), `server`, `port`, `connected_since`,
+  `last_attempt_at`, `last_failure_at`, `last_error` (the broker client's own words) and
+  `last_error_cause`, the cause read from that failure as a code the page words in its own language
+  (`host_not_found`, `refused`, `timeout`, `not_authorised`, `unreachable`; null while connected or
+  before any failure). `frigate`
+  has `state` (`reachable`, `unreachable`, `unchecked`), `url`, `checked_at`, `last_success_at`,
+  `last_failure_at`, `last_failure` (`timeout`, `connection`, `unauthorized`, `server_error`) and
+  `availability` (what Frigate last announced on its MQTT availability topic, `unknown` without the
+  broker). `server` and `url` are reduced to `scheme://host[:port]`: userinfo, path, query and
+  fragment are never returned, since any of them can carry a credential (a reverse-proxy token in
+  the path, for example). `last_error` keeps the client's wording with every address in it reduced
+  the same way and `name=value` credentials replaced by `***REDACTED***`. The same applies to the
+  workspace, the diagnostics bundle and the log lines for these connections.
+  Every Frigate request the app makes updates the reading; one older than a minute is
+  refreshed with a single `api/version` request (5 s timeout) before it is returned. A state change
+  is pushed to owners over `GET /api/sse` as `{"type": "service_connections_changed"}` with no
+  payload; guests never receive it.
+- `POST /api/diagnostics/clear` — removes every backend history entry, and every dismissal with it.
+- `POST /api/diagnostics/dismissals` — hides backend history entries on Health for everyone (owner
+  only). The body is `{"entries": [{"id": "<entry id>", "count": <the entry's count>}]}`, 1 to 200
+  entries, `count` an integer of at least 1. Each dismissal covers the entry up to the number of
+  occurrences the owner saw, never past the occurrences the entry has; any occurrence recorded
+  after those ends the dismissal. Occurrences are counted rather than timed, so a clock that steps
+  back cannot keep a repeat hidden. The answer is `{"dismissed": [{id, component, reason_code,
+  dismissed_count, dismissed_at}], "missing": [ids]}`, where `missing` names entries no longer in
+  the history. Dismissals are not persisted: they live in memory beside the history, which is in
+  memory too, so a clear or a restart removes both together.
+- `POST /api/diagnostics/dismissals/restore` — shows dismissed entries again (owner only). The body
+  is `{"ids": [...]}`, 1 to 200; the answer is `{"restored": [ids that had a dismissal]}`.
+  In `GET /api/diagnostics/errors`, the workspace and the bundle, every event carries `dismissed`
+  and, while it is true, `dismissal` (`dismissed_count`, `dismissed_at`); the snapshot counts
+  `dismissed_events`, and the bundle summary repeats that count.
 
 ### Model evaluation (owner)
 
@@ -1465,7 +1816,23 @@ See [Model evaluation](features/model-evaluation.md).
 
 - `POST /api/diagnostics/model-eval/runs` — start a run.
 - `GET /api/diagnostics/model-eval/runs` — list runs.
-- `GET /api/diagnostics/model-eval/runs/{run_id}` — one run's status and results.
+- `GET /api/diagnostics/model-eval/runs/{run_id}` — one run's status and results, in the declared
+  shape `ModelEvalRunResponse`; a field the run's summary file holds beyond that shape is not
+  answered. `available_artifacts` lists the result files this run wrote, in the order
+  `summary.json`, `confusions.csv`, `runtime.json`, `results.jsonl`, `device_matrix.json`; clients
+  offer those and no others. It is empty, and `in_progress` is true, while a run has not written
+  its first summary.
+  - `error_code` says why a run stopped early: `no_models`, `models_not_ready`,
+    `finder_needs_provider_check`, `no_test_birds`, `no_test_photos`, `network`, or `unexpected`
+    for anything else, including runs recorded before codes existed. It is `null` otherwise. The
+    text of what was raised is written to the server log only and is never part of an answer.
+    `GET …/runs` (`ModelEvalListResponse`) carries the same `error_code` per row.
+  - `skipped_models[].reason` is `activation_failed` or `reload_failed`, with no free text.
+  - In `device_matrix.json`, a model that could not be checked has `error` set to
+    `activation_failed` or `provider_sweep_failed`. Files written before codes were recorded may carry text after
+    the code; clients read the code before the first `:` and treat anything else as unknown.
+  - Clients translate these codes; a `warnings[].message` is diagnostic text for the summary file,
+    not copy to display.
 - `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` — download an existing run
   artifact with owner authorization. Compatibility-only runs normally write `summary.json`
   and `device_matrix.json`; accuracy/per-image files are not implied. An allowed filename
@@ -1513,6 +1880,12 @@ accelerator keeps its CPU fallback rather than retrying every frame.
 - `GET /api/stats/ai/usage`
 - `DELETE /api/stats/ai/usage`
 
+`estimated_cost_usd` is an estimate only for usage that has a rate in the pricing registry. A
+breakdown row for a model with no rate has `priced: false` and `estimated_cost_usd: null`, never
+`0`. The total covers the priced rows only, and `priced_calls`, `unpriced_calls`, `priced_tokens`,
+`unpriced_tokens` and `unpriced_models` say what it leaves out; the total is `null` when there was
+usage and none of it had a price. A rate of zero that the owner entered is a price.
+
 ## Rate Limiting
 
 - Login endpoint has strict per-IP limits.
@@ -1543,7 +1916,11 @@ length oracle.
    carry detailed messages. `garden_history_changed` is an owner-only invalidation
    emitted after an automatic Garden result is committed, including removal for person
    evidence. It contains no capture ID or metadata; reread the owner-only Garden history
-   with the current filters. Guest streams carry only `public_history_changed` and
+   with the current filters. `audio_detected` is an owner-only invalidation sent when a new
+   BirdNET-Go call is stored (not for a redelivered call or a diagnostic); it carries no
+   detection, so reread `GET /api/audio/recent` or `GET /api/audio/summary`. `status` carries the
+   whole owner status snapshot (see `GET /api/status`), so a page follows jobs, connections,
+   cameras, the model and host load without polling. Guest streams carry only `public_history_changed` and
    `public_access_changed` invalidations, in addition to connection/heartbeat frames;
    fetch allowed data through the public HTTP API and refresh sharing preferences.
 

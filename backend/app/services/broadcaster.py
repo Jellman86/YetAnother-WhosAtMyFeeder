@@ -1,6 +1,6 @@
 import asyncio
 import structlog
-from typing import Set, Dict
+from typing import Any, Callable, Dict, Set
 from collections import defaultdict
 from app.config import settings
 
@@ -12,6 +12,18 @@ class Broadcaster:
         self.queues: Set[asyncio.Queue] = set()
         self._queue_lock = asyncio.Lock()
         self._full_counts: Dict[asyncio.Queue, int] = defaultdict(int)
+        self._listeners: list[Callable[[dict[str, Any]], None]] = []
+
+    def add_listener(self, listener: Callable[[dict[str, Any]], None]) -> None:
+        """Be told of every message as it is broadcast; a listener must return at once."""
+        self._listeners.append(listener)
+
+    def has_subscribers(self) -> bool:
+        return bool(self.queues)
+
+    def is_subscribed(self, queue: asyncio.Queue) -> bool:
+        """False once the queue was dropped for backpressure; its stream must then close."""
+        return queue in self.queues
 
     async def subscribe(self) -> asyncio.Queue:
         queue = asyncio.Queue(maxsize=settings.system.broadcaster_max_queue_size)
@@ -26,6 +38,11 @@ class Broadcaster:
             self._full_counts.pop(queue, None)
 
     async def broadcast(self, message: dict):
+        for listener in list(self._listeners):
+            try:
+                listener(message)
+            except Exception as e:  # noqa: BLE001 - a listener must never stop a broadcast
+                log.warning("Broadcast listener failed", error=str(e))
         if not self.queues:
             return
 

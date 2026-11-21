@@ -33,7 +33,7 @@ test('owner cancels an uploading check and a late upload cannot display success'
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    await page.getByRole('link', { name: 'Detection', exact: true }).click();
+    await page.getByRole('link', { name: 'Identifying birds', exact: true }).click();
     const run = page.getByRole('button', { name: 'Check quarantined profile', exact: true });
     await expect(run).toBeDisabled();
     await page.getByLabel('Three different bird photos').setInputFiles([
@@ -68,7 +68,7 @@ for (const state of ['succeeded', 'failed', 'superseded'] as const) {
             return route.fulfill({ json: {} });
         });
         await page.goto('/browser-tests/settings-backfill.html');
-        await page.getByRole('link', { name: 'Detection', exact: true }).click();
+        await page.getByRole('link', { name: 'Identifying birds', exact: true }).click();
         await page.getByRole('button', { name: 'View check status', exact: true }).click();
         await expect(page.getByRole('dialog')).toContainText(message);
         await expect(page.getByRole('dialog').getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100');

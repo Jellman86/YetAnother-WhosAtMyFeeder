@@ -23,6 +23,20 @@ loop — no bare `open()`, `requests`, `time.sleep`, or synchronous DB drivers; 
 `httpx`, and async SQLAlchemy. Push CPU-heavy work to an executor. Small non-I/O helpers may
 still be `async` to avoid the threadpool overhead FastAPI incurs for sync dependencies.
 
+**Never iterate the event loop's state from a thread, and never write it from one.** The
+services keep their counters, windows, queues and maps on the event loop and change them
+without locks. A function sent to `asyncio.to_thread` may read files, SQLite and `/proc`. What
+it must not do is run Python code over a loop-owned container (a `for`, a comprehension, a
+generator fed to `max`/`sum`, `min(..., key=...)`, a `deepcopy`) or write loop-owned state: a
+loop write can land part-way through that iteration (`deque mutated during iteration`), and a
+thread's write can break the loop's own. A single attribute read and a one-step C copy
+(`dict(d)`, `list(dq)`, `d.copy()`) are fine, because no other thread can run part-way through
+them. State that both sides write needs a lock held only for the write and the copy, as
+`InferenceHealth` and the finder incident have. When a thread needs more than that, read the
+state on the loop, copy it there in full, and hand the thread the copy, as
+`collect_health_payload` and the classifier's `collect_health`/`collect_status` do. The health
+report's reads are tested this way in `backend/tests/test_health_loop_ownership.py`.
+
 **Layering & dependency direction.** `routers → services → repositories → SQLite`, one
 direction only (mirrors [`CLAUDE.md`](../../CLAUDE.md) §8):
 - **Routers** compose HTTP: parse/validate input, call a service, shape the response. No
@@ -81,8 +95,9 @@ shares one import and lets a failed chunk be retried. Dialogs open through `Lazy
 when they are still opening and offers a worded retry if their code does not arrive. Settings tab
 bodies load through `LazyRoute` the same way; their values stay in the page's one draft, built from
 per-section adapters in `apps/ui/src/lib/settings/` (`decode` saved settings, `encodePatch` for
-Apply, and `sectionIsDirty` comparing the two), so a tab's edits survive leaving it and one Apply
-still saves every tab. Do not import a
+the save, and `sectionChangedFields` comparing the two), so a tab's edits survive leaving it and one
+Save changes still saves every tab. Every changed field is named as the save sends it, and
+`settings-fields.ts` maps it to its tab, so the save bar, Discard and the leave warning agree. Do not import a
 dialog statically into a page. Large reads that only some viewers need, such as the classifier label
 list, are read on first need and shared through a store rather than added to a page's refresh.
 

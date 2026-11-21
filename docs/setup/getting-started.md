@@ -11,6 +11,8 @@ For Raspberry Pi 4/5, use [the ARM64 setup](raspberry-pi.md).
 
 - Docker and Docker Compose.
 - A reachable Frigate NVR, connected to an MQTT broker.
+- A current browser for the dashboard: Chrome or Edge 111, Firefox 128, or Safari 16.4 (iOS and
+  iPadOS 16.4), or newer. See [supported browsers](#supported-browsers).
 - For optional GPU/NPU inference, complete [hardware setup](hardware-acceleration.md)
   before the wizard's compatibility check.
 
@@ -76,7 +78,7 @@ Open `http://<your-ip>:9852`. A fresh installation opens the setup wizard:
 ![The Welcome to YA-WAMF wizard step lists connection, cameras, model validation and integrations, with a language selector and Get started button](../images/setup-wizard.png)
 
 Set an owner password in **Admin account & access** before exposing YA-WAMF
-outside your trusted network. Later account changes belong in **Settings → Security**;
+outside your trusted network. Later account changes belong in **Settings → Sharing & integrations**;
 first-run account setup cannot be reused.
 
 ![Admin account and access setup with username, password, confirmation and an explicit Skip authentication choice](../images/setup-wizard-account.png)
@@ -85,18 +87,23 @@ Follow the connection, cameras, model and optional integration steps. Connection
 tests use the values in the form. Optional history import runs in **Jobs** after
 setup and can recover only bird events Frigate still retains, not missing BirdNET-Go audio.
 
-In **Classifier model & hardware**, download missing models before validating them.
+In **Model and hardware**, download missing models before validating them.
 **Continue** waits for the check to finish. It measures provider compatibility and
 speed, not species accuracy; review any fallback explanation. After setup, check
-**Settings → Detection → Runtime diagnostics** for the actual active provider.
+**Settings → Identifying birds → More options → Hardware → Runtime report** for the actual active provider.
 
 ![DINOv2 model setup with optional feeder coordinates, an inference provider selector and a hardware compatibility check](../images/setup-wizard-dino.png)
 
 For **Feeder location**, enter both coordinates or leave both empty; zero is valid.
-These are the same saved coordinates used in [Location settings](configuration.md#integrations).
+These are the same saved coordinates used in [Location settings](configuration.md#your-feeders-location).
 Integrated models need no separate `labels.txt`.
 
-**Continue** saves each section; **Skip step** leaves its remaining choices unsaved.
+**Continue** saves each section; **Skip step** leaves its remaining choices unsaved. When
+**Continue** cannot be pressed, the line above it says why. If Frigate or the broker is not
+running yet, choose **Set up later** on the connection step: until both are connected under
+**Settings → Cameras & connection**, no visits arrive, no photos or clips can be fetched, and the cameras
+step cannot list your cameras. The last step before the review, **Optional extras**, asks the two
+optional questions together: importing what Frigate still holds, and sharing anonymous usage stats.
 Leaving a hardware check does not cancel it or undo coordinates already saved.
 Reopen **Settings → Setup wizard** later to review individual sections.
 
@@ -122,7 +129,7 @@ See [Explorer](../features/explorer.md) for grouping and review controls.
 
 ### 5. (Optional) Share a read-only public view
 
-Set an owner password, then enable **Settings → Security → Public Access** and
+Set an owner password, then enable **Settings → Sharing & integrations → Public Access** and
 review the separate media and history permissions. Follow
 [Authentication & Access](../features/authentication.md) before sharing the URL.
 
@@ -145,3 +152,14 @@ If you override `MEDIA_CACHE_DIR`, persist and back up that directory too.
 Photographs and generated visit media follow your [retention and size limits](configuration.md#data);
 Frigate event-clip copies are optional. Keep mounts unchanged and back up both
 before upgrades or destructive maintenance. See [the upgrade guide](../../MIGRATION.md).
+
+## Supported browsers
+
+The dashboard needs Chrome or Edge 111, Firefox 128, or Safari 16.4 or newer. On an iPhone or
+iPad every browser uses Safari's engine, so the device needs iOS or iPadOS 16.4.
+
+An older browser still loads the page, but colours, borders and focus rings are drawn wrongly or
+not at all, because the stylesheet relies on features those browsers lack. A wall tablet that can
+no longer be updated past these versions, such as an iPad on iPadOS 15, cannot show the dashboard
+correctly. Use a newer device, or a browser the device can still update.
+

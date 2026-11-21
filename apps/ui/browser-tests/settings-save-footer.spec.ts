@@ -2,7 +2,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 
 // The save footer and the saved-status message are shared by every Settings
 // section. With text enlarged to 200% on a narrow phone they must wrap rather
-// than push Apply Settings or the message past the edge of the screen.
+// than push Save changes, Discard changes or the notification past the edge of the screen.
 async function openConnectionSettings(page: Page) {
     const saves: Record<string, unknown>[] = [];
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ body: '' }));
@@ -48,13 +48,16 @@ for (const width of [320, 393]) {
     test.describe(`at ${width}px with 200% text`, () => {
         test.use({ viewport: { width, height: 740 } });
 
-        test('the save footer keeps Apply Settings fully on screen and reachable by keyboard', async ({ page }) => {
+        test('the save bar keeps both its buttons fully on screen and reachable by keyboard', async ({ page }) => {
             const saves = await openConnectionSettings(page);
             await page.locator('#mqtt-server').fill('mqtt-broker');
-            const apply = page.getByRole('button', { name: 'Apply Settings', exact: true });
+            const apply = page.getByRole('button', { name: 'Save changes', exact: true });
             await expect(apply).toBeInViewport({ ratio: 1 });
             await expectInsideViewport(page, apply);
-            await expect(page.getByText('Unsaved Changes', { exact: true })).toBeInViewport({ ratio: 1 });
+            await expect(page.getByRole('region', { name: 'Unsaved changes' }).locator('[data-save-summary]')).toBeInViewport({ ratio: 1 });
+            const discard = page.getByRole('button', { name: 'Discard changes', exact: true });
+            await expect(discard).toBeInViewport({ ratio: 1 });
+            await expectInsideViewport(page, discard);
             await expectNoHorizontalOverflow(page);
 
             await apply.focus();
@@ -64,13 +67,42 @@ for (const width of [320, 393]) {
             expect(saves[0].mqtt_server).toBe('mqtt-broker');
         });
 
-        test('the saved message and its notification wrap inside the screen', async ({ page }) => {
+        test('the save bar is a small strip of the phone, with what waits and the save rule one tap away', async ({ page }) => {
             await openConnectionSettings(page);
             await page.locator('#mqtt-server').fill('mqtt-broker');
-            await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
-            const saved = page.getByRole('status').filter({ hasText: 'Settings saved' });
-            await expect(saved).toBeVisible();
-            await expectInsideViewport(page, saved);
+            const bar = page.getByRole('region', { name: 'Unsaved changes' });
+            await expect(bar).toBeVisible();
+            const height = (await bar.boundingBox())?.height ?? Infinity;
+            // Two short lines at most with doubled text: the count and its details, then Discard and Save.
+            // It took two thirds of a 390px phone when the rule and the sections lived in it.
+            expect(height).toBeLessThan(740 * (width === 320 ? 0.3 : 0.25));
+            // The rule and the sections wait in the details, opened from the bar.
+            await expect(page.locator('[data-settings-save-rule]')).toHaveCount(0);
+            const details = bar.getByRole('button', { name: 'Details', exact: true });
+            await expect(details).toHaveAttribute('aria-expanded', 'false');
+            await details.click();
+            await expect(page.locator('#settings-save-rule')).toContainText('Changes to settings wait until you choose Save changes.');
+            await expect(page.locator('[data-settings-save-details]')).toBeFocused();
+            // Opening them leaves the bar as it was.
+            expect((await bar.boundingBox())?.height ?? Infinity).toBeLessThan(740 * (width === 320 ? 0.3 : 0.25));
+            await expectNoHorizontalOverflow(page);
+        });
+
+        test('the save bar keeps its height with a wider font', async ({ page }) => {
+            // Fonts differ between machines; a wider one must not add a row to the bar.
+            await openConnectionSettings(page);
+            await page.addStyleTag({ content: '[data-settings-save-bar], [data-settings-save-bar] * { letter-spacing: 0.2em !important; }' });
+            await page.locator('#mqtt-server').fill('mqtt-broker');
+            const bar = page.getByRole('region', { name: 'Unsaved changes' });
+            await expect(bar).toBeVisible();
+            expect((await bar.boundingBox())?.height ?? Infinity).toBeLessThan(740 * (width === 320 ? 0.3 : 0.25));
+            await expectNoHorizontalOverflow(page);
+        });
+
+        test('the saved notification wraps inside the screen', async ({ page }) => {
+            await openConnectionSettings(page);
+            await page.locator('#mqtt-server').fill('mqtt-broker');
+            await page.getByRole('button', { name: 'Save changes', exact: true }).click();
 
             const toast = page.locator('[data-toast-container] [data-toast]').filter({ hasText: 'Settings saved' });
             await expect(toast).toBeInViewport({ ratio: 1 });
@@ -80,3 +112,28 @@ for (const width of [320, 393]) {
         });
     });
 }
+
+test('a control reached with Tab is never hidden under the save bar', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openConnectionSettings(page);
+    await page.locator('#mqtt-server').fill('broker.lan');
+    const bar = page.locator('[data-settings-save-bar]');
+    await expect(bar).toBeVisible();
+    await page.locator('#frigate-url').focus();
+    const hidden: string[] = [];
+    for (let step = 0; step < 40; step += 1) {
+        await page.keyboard.press('Tab');
+        const overlap = await page.evaluate(() => {
+            const focused = document.activeElement as HTMLElement | null;
+            const barElement = document.querySelector('[data-settings-save-bar]');
+            // After the last stop focus leaves the page and falls back to <body>: nothing is hidden then.
+            if (!focused || focused === document.body || !barElement || barElement.contains(focused)) return null;
+            const box = focused.getBoundingClientRect();
+            if (box.height === 0) return null;
+            const name = focused.id || `${focused.tagName.toLowerCase()}.${focused.className.toString().split(' ').slice(0, 4).join('.')} "${(focused.textContent ?? '').trim().slice(0, 24)}"`;
+            return box.bottom > barElement.getBoundingClientRect().top + 1 ? name : null;
+        });
+        if (overlap) hidden.push(overlap);
+    }
+    expect(hidden).toEqual([]);
+});

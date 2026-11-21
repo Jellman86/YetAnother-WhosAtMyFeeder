@@ -584,6 +584,7 @@ test.describe('the frame strip marks the photograph honestly', () => {
         await expect.poll(() => plan.requests.some((request) => request.includes('/snapshot/candidates/tit__'))).toBe(true);
         await settle(page);
         await expect(page.locator('[data-review-queue-modal]').getByText('Chosen', { exact: true })).toHaveCount(0);
+        await expect(page.locator('[data-review-queue-modal] [data-frame-strip-chosen]')).toHaveCount(0);
     });
 
     test('the chosen moment keeps a picture when its own thumbnail is missing, and choosing another moves the mark', async ({ page }, testInfo) => {
@@ -600,8 +601,9 @@ test.describe('the frame strip marks the photograph honestly', () => {
             src: image.getAttribute('src') ?? '', loaded: image.complete && image.naturalWidth > 0
         })));
         expect(chosen.some((image) => image.loaded), 'the chosen moment lost its picture').toBe(true);
-        await expect(triggers.nth(1)).toContainText('Chosen');
-        await expect(triggers.nth(0)).not.toContainText('Chosen');
+        // The mark is a check on the thumbnail, never a word that has to fit inside it.
+        await expect(triggers.nth(1).locator('[data-frame-strip-chosen]')).toHaveCount(1);
+        await expect(triggers.nth(0).locator('[data-frame-strip-chosen]')).toHaveCount(0);
         await page.screenshot({ path: testInfo.outputPath('wren-strip.png') });
 
         const firstSnapshotReads = plan.requests.filter((request) => request.startsWith('GET /api/frigate/wren/snapshot.jpg')).length;
@@ -1267,4 +1269,34 @@ test.describe('Needs your call over a long, scrolled page', () => {
         expect((await fit(page)).scrollY).toBe(before.scrollY + 200);
         expect(plan.errors).toEqual([]);
     });
+});
+
+test.describe('the strip at enlarged text (F8)', () => {
+    for (const surface of ['record', 'queue'] as const) {
+        test(`${surface}: the strip's words wrap at 200% text, and the photo-choice hint waits for choices`, async ({ page }) => {
+            await page.setViewportSize({ width: 1440, height: 900 });
+            const plan = newPlan();
+            // An earlier photograph of the visit is a choice of photograph, so the hint belongs.
+            plan.retainedPhotos = ['a1b2c3d4e5f6'];
+            const list = gate();
+            plan.heldLists.set('wren', list.promise);
+            await serve(page, plan);
+            await page.addInitScript(() => document.documentElement.style.setProperty('font-size', '200%'));
+            await page.goto(`/browser-tests/review-media.html?surface=${surface}&queue=wren`, { waitUntil: 'domcontentloaded' });
+            const status = page.locator('[data-frame-strip-status]');
+            await expect(status).toBeVisible();
+            await expect(page.locator('[data-frame-strip-hint]'), 'no hint while there is nothing to choose').toHaveCount(0);
+            list.release();
+            await expect(page.locator('[data-frame-strip] button[aria-pressed]').first()).toBeVisible();
+            await expect(page.locator('[data-frame-strip-hint]')).toBeVisible();
+            const clipped = await status.evaluate((row) => {
+                const bounds = row.getBoundingClientRect();
+                return [...row.children].filter((child) => {
+                    const box = child.getBoundingClientRect();
+                    return child.scrollWidth > child.clientWidth + 1 || box.right > bounds.right + 1 || box.left < bounds.left - 1;
+                }).map((child) => child.textContent?.trim());
+            });
+            expect(clipped).toEqual([]);
+        });
+    }
 });

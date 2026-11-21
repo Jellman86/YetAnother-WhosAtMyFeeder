@@ -442,3 +442,113 @@ async def test_species_search_does_not_rank_history_for_guests(client: httpx.Asy
     assert response.status_code == 200, response.text
     assert [row["display_name"] for row in response.json()] == labels
     ranking.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_species_search_hydration_does_not_leave_two_rows_for_one_species(
+    client: httpx.AsyncClient,
+):
+    """A species must appear once even when only hydration reveals its identity.
+
+    Detection labels keep whatever the model wrote, which can be a local common
+    name the taxonomy cache cannot resolve. Hydration fills the scientific name
+    after the first dedupe, so a classifier label naming the same species
+    survived beside it and the picker showed two identical rows.
+    """
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    resolved = {
+        "Parus major": ("Parus major", "Большая синица", 145252),
+        "Большая синица": (None, None, None),
+    }
+
+    async def fake_lookup(_db, *, label: str, lang: str):
+        return resolved[label]
+
+    async def fake_get_names(_label: str):
+        return {"scientific_name": "Parus major", "common_name": "Great Tit", "taxa_id": 145252}
+
+    with (
+        patch("app.routers.species.get_classifier", return_value=_MockClassifier(["Parus major"])),
+        patch(
+            "app.repositories.species_repository.SpeciesRepository.most_detected_labels",
+            new=AsyncMock(return_value=["Большая синица"]),
+        ),
+        patch("app.routers.species._lookup_species_search_taxonomy", AsyncMock(side_effect=fake_lookup)),
+        patch(
+            "app.routers.species.taxonomy_service.get_names",
+            new=AsyncMock(side_effect=fake_get_names),
+        ),
+        patch(
+            "app.routers.species.taxonomy_service.get_localized_common_name",
+            new=AsyncMock(return_value="Большая синица"),
+        ),
+    ):
+        response = await client.get(
+            "/api/species/search?q=&limit=20&hydrate_missing=true",
+            headers={"Accept-Language": "ru"},
+        )
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert len(payload) == 1, f"one species was offered twice: {payload}"
+    # The row with the fullest taxonomy survives, under the reader's own name.
+    assert payload[0] == {
+        "id": "Parus major",
+        "display_name": "Parus major",
+        "scientific_name": "Parus major",
+        "common_name": "Большая синица",
+        "taxa_id": 145252,
+    }
+
+
+def test_dedupe_species_search_results_keeps_order_and_fills_the_survivors_gaps():
+    from app.routers.species import _dedupe_species_search_results
+
+    stored_label = {
+        "id": "Большая синица",
+        "display_name": "Большая синица",
+        "scientific_name": "Parus major",
+        "common_name": "Большая синица",
+        "taxa_id": None,
+    }
+    other_species = {
+        "id": "Cyanistes caeruleus",
+        "display_name": "Cyanistes caeruleus",
+        "scientific_name": "Cyanistes caeruleus",
+        "common_name": "Blue Tit",
+        "taxa_id": 144849,
+    }
+    classifier_label = {
+        "id": "Parus major",
+        "display_name": "Parus major",
+        "scientific_name": "Parus major",
+        "common_name": None,
+        "taxa_id": 145252,
+    }
+
+    results = _dedupe_species_search_results([stored_label, other_species, classifier_label])
+
+    assert results == [
+        {
+            "id": "Parus major",
+            "display_name": "Parus major",
+            "scientific_name": "Parus major",
+            "common_name": "Большая синица",
+            "taxa_id": 145252,
+        },
+        other_species,
+    ]
+    assert classifier_label["common_name"] is None, "the inputs are left as they were"
+
+
+def test_dedupe_species_search_results_leaves_distinct_species_alone():
+    from app.routers.species import _dedupe_species_search_results
+
+    rows = [
+        {"id": "a", "display_name": "a", "scientific_name": None, "common_name": None, "taxa_id": None},
+        {"id": "b", "display_name": "b", "scientific_name": None, "common_name": None, "taxa_id": None},
+    ]
+
+    assert _dedupe_species_search_results(rows) == rows

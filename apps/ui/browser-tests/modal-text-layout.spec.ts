@@ -33,14 +33,16 @@ for (const font of ['system', 'wide fallback'] as const) {
         // Actual modal; HTTP and media boundaries are fixtures, not backend/inference E2E.
         await page.goto('/browser-tests/modal-text-layout.html');
         const modal = page.locator('[data-detection-detail-modal]');
-        await expect(modal).toBeVisible();
+        // The record is a lazy chunk on a dev server; a loaded host can take longer than the default wait.
+        await expect(modal).toBeVisible({ timeout: 15_000 });
         // Keep the platform font case and also exercise wider fallback glyphs, which exposed the
         // anonymous flex text item's intrinsic width on Linux.
         await page.addStyleTag({ content: 'html{font-size:200%!important}'
             + (font === 'wide fallback' ? ' [data-detection-confirm]{font-family:monospace!important}' : '') });
         await expect(modal.locator('[data-counted-birds-state="not-counted"]')).toBeVisible();
+        await modal.locator('[data-detection-more-actions]').click();
         await expect(modal.getByRole('button', { name: 'Diesen Besuch dauerhaft löschen' })).toHaveCount(1);
-        await expect(modal.getByRole('button', { name: /^(Erkennung ausblenden|Ausblenden)$/ })).toHaveCount(1);
+        await expect(modal.getByRole('button', { name: /^(Eintrag ausblenden|Ausblenden)$/ })).toHaveCount(1);
         const technical = modal.locator('[data-detection-technical-identity]');
         await technical.locator('summary').click();
         await expect(technical).toHaveAttribute('open', '');
@@ -167,3 +169,130 @@ test('a tall crop photograph is shown whole in the record, over its ambient fill
     await expect(page.locator('[data-detection-media-ambient]')).toHaveCount(1);
     expect(errors).toEqual([]);
 });
+
+test('the record is walked by keyboard in the order it is read', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await withoutWebFonts(page);
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [], current_source: 'frigate_snapshot' } });
+        if (path.endsWith('/snapshot/status')) return route.fulfill({ json: { available: true, high_quality_bird_crop_enabled: true, source: 'frigate_snapshot' } });
+        if (path.endsWith('.jpg')) return route.fulfill({ contentType: 'image/svg+xml', body:
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="600"><rect width="1000" height="600" fill="#64748b"/></svg>' });
+        if (path.startsWith('/api/species/') && path.endsWith('/info')) return route.fulfill({ json: {
+            title: 'Dunnock', extract: 'The dunnock is a small passerine. '.repeat(40), summary_source: 'Wikipedia',
+            summary_source_url: 'https://en.wikipedia.org/wiki/Dunnock'
+        } });
+        if (path.startsWith('/api/audio/context/') || path === '/api/species/search' || path.includes('/conversation')) return route.fulfill({ json: [] });
+        if (path.endsWith('/classifier/status')) return route.fulfill({ json: { ready: true } });
+        return route.fulfill({ json: {} });
+    });
+    await page.goto('/browser-tests/modal-text-layout.html?controls=true');
+    const modal = page.locator('[data-detection-detail-modal]');
+    await expect(modal.locator('[data-detection-confirm]')).toBeVisible();
+    await expect(modal.locator('[data-detection-reference-link]')).toBeVisible();
+
+    // One close button, in a strip nothing scrolls under.
+    await expect(modal.locator('[data-dialog-close]')).toHaveCount(1);
+
+    // The long article is a few lines and a link, after every decision: at this width in the
+    // reference column beside them, read once the decision column is done.
+    const referenceText = modal.locator('[data-detection-reference-text]');
+    expect((await referenceText.boundingBox())!.height).toBeLessThan(90);
+    await expect(modal.locator('[data-detection-secondary-column] [data-detection-reference-text]')).toHaveCount(1);
+    const confirmBox = (await modal.locator('[data-detection-confirm]').boundingBox())!;
+    expect((await referenceText.boundingBox())!.x).toBeGreaterThanOrEqual(confirmBox.x + confirmBox.width - 1);
+
+    // More actions is a list drawn whole under its trigger at desktop width: every row is on screen
+    // inside the list's own box and can be clicked. The scrolling column once squashed the list.
+    await modal.locator('[data-detection-more-actions]').click();
+    const panel = modal.locator('[data-detection-more-actions-panel]');
+    const rows = panel.getByRole('button');
+    expect(await rows.count()).toBeGreaterThanOrEqual(3);
+    const panelBox = (await panel.boundingBox())!;
+    for (const row of await rows.all()) {
+        await expect(row).toBeVisible();
+        const rowBox = (await row.boundingBox())!;
+        expect(rowBox.y).toBeGreaterThanOrEqual(panelBox.y - 1);
+        expect(rowBox.y + rowBox.height).toBeLessThanOrEqual(panelBox.y + panelBox.height + 1);
+    }
+    await modal.locator('[data-detection-delete]').click({ trial: true });
+    await modal.locator('[data-detection-more-actions]').click();
+    await expect(panel).toHaveCount(0);
+
+    // Walk every stop in the details column and record where each one is drawn.
+    await modal.locator('[data-dialog-close]').focus();
+    const stops: { name: string; top: number; column: boolean; secondary: boolean }[] = [];
+    for (let step = 0; step < 60; step += 1) {
+        await page.keyboard.press('Tab');
+        const stop = await page.evaluate(() => {
+            const active = document.activeElement as HTMLElement | null;
+            if (!active || active === document.body) return null;
+            active.scrollIntoView({ block: 'nearest' });
+            // The decision stands under the photograph and the reference in the column beside it.
+            const column = active.closest('[data-detection-primary-column], [data-detection-details-column]');
+            const part = active.closest('[data-detection-primary-column], [data-detection-secondary-column]');
+            return {
+                name: (active.getAttribute('aria-label') ?? active.textContent ?? '').trim().slice(0, 60),
+                // Position inside its own column of the details, so scrolling does not disturb the order.
+                top: column && part ? active.getBoundingClientRect().top - part.getBoundingClientRect().top : -1,
+                column: column !== null,
+                secondary: part?.hasAttribute('data-detection-secondary-column') ?? false
+            };
+        });
+        if (!stop) break;
+        if (stops.some(seen => seen.name === stop.name && seen.top === stop.top)) break;
+        stops.push(stop);
+    }
+    const column = stops.filter(stop => stop.column);
+    expect(column.length).toBeGreaterThan(4);
+    // The identification column is walked first, then the side column, each from top to bottom.
+    const firstSecondary = column.findIndex(stop => stop.secondary);
+    expect(firstSecondary).toBeGreaterThan(0);
+    expect(column.slice(firstSecondary).every(stop => stop.secondary)).toBe(true);
+    for (let index = 1; index < column.length; index += 1) {
+        if (index === firstSecondary) continue;
+        expect(column[index].top, `"${column[index].name}" follows "${column[index - 1].name}"`).toBeGreaterThanOrEqual(column[index - 1].top - 1);
+    }
+    // The identifiers are the last thing read and the last thing reached.
+    expect(column.at(-1)!.name).toContain('Record ID');
+});
+
+for (const [language, noted] of [['de', true], ['en', false]] as const) {
+    test(`a description in ${language} ${noted ? 'is labelled and marked with its language' : 'needs no label in an English page'}`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.emulateMedia({ reducedMotion: 'reduce' });
+        await withoutWebFonts(page);
+        await page.route(url => url.pathname.startsWith('/api/'), async route => {
+            const path = new URL(route.request().url()).pathname;
+            if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [], current_source: 'frigate_snapshot' } });
+            if (path.endsWith('/snapshot/status')) return route.fulfill({ json: { available: true, high_quality_bird_crop_enabled: true, source: 'frigate_snapshot' } });
+            if (path.endsWith('.jpg')) return route.fulfill({ contentType: 'image/svg+xml', body:
+                '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="600"><rect width="1000" height="600" fill="#64748b"/></svg>' });
+            if (path.startsWith('/api/species/') && path.endsWith('/info')) return route.fulfill({ json: {
+                title: 'Heckenbraunelle', extract: 'Die Heckenbraunelle ist eine Vogelart.', summary_source: 'Wikipedia',
+                summary_source_url: `https://${language}.wikipedia.org/wiki/Heckenbraunelle`, summary_language: language
+            } });
+            if (path.startsWith('/api/audio/context/') || path === '/api/species/search' || path.includes('/conversation')) return route.fulfill({ json: [] });
+            if (path.endsWith('/classifier/status')) return route.fulfill({ json: { ready: true } });
+            return route.fulfill({ json: {} });
+        });
+        await page.goto('/browser-tests/modal-text-layout.html?controls=true');
+        const modal = page.locator('[data-detection-detail-modal]');
+        const text = modal.locator('[data-detection-reference-text]');
+        await expect(text).toBeVisible();
+        const note = modal.locator('[data-reference-summary-language]');
+        if (noted) {
+            // The page is read in English and the description is German: said in words, and marked
+            // so a screen reader reads it in a German voice.
+            await expect(text).toHaveAttribute('lang', 'de');
+            await expect(note).toHaveText('Description from German Wikipedia');
+            await note.scrollIntoViewIfNeeded();
+            await page.screenshot({ path: testInfo.outputPath('description-in-another-language.png') });
+        } else {
+            await expect(note).toHaveCount(0);
+            expect(await text.getAttribute('lang')).toBeNull();
+        }
+    });
+}

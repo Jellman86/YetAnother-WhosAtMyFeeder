@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from app.services.notifications.message import DeliveryResult, NotificationMessage
+from app.services.notifications.message import UNREADABLE_REPLY, DeliveryResult, NotificationMessage, channel_reply
 
 API_URL = "https://api.pushover.net/1/messages.json"
 
@@ -53,7 +53,10 @@ class PushoverTransport:
             else:
                 response = await self._client.post(API_URL, data=fields)
             response.raise_for_status()
-            return DeliveryResult(sent=response.json().get("status") == 1, status_code=response.status_code)
+            reply = channel_reply(response)
+            if reply is None:
+                return DeliveryResult(sent=False, error_type=UNREADABLE_REPLY, status_code=response.status_code)
+            return DeliveryResult(sent=reply.get("status") == 1, status_code=response.status_code)
         except httpx.HTTPStatusError as error:
             return DeliveryResult(sent=False, error_type=type(error).__name__, status_code=error.response.status_code)
         except Exception as error:

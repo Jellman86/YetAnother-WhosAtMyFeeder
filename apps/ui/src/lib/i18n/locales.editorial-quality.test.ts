@@ -159,3 +159,102 @@ describe('locale editorial quality', () => {
         });
     }
 });
+
+/**
+ * docs/standards/layout-patterns.md, writing rules: controls, headings and labels are in sentence
+ * case. A short label whose later words are capitalised ("Clear History", "Test AI Connection")
+ * fails unless the word is a name: a product, a place, a model, or a page or tab of the app.
+ * The queue's name is a name as a whole phrase ("Return to Needs your call"), not word by word.
+ * German capitalises its nouns and Japanese and Chinese have no case, so they are not checked.
+ */
+const NAMES = new Set(
+    `YA-WAMF Yet Another WhosAtMyFeeder Frigate MQTT BirdNET BirdNET-Go eBird iNaturalist BirdWeather Home Assistant
+    GitHub YouTube Freepik Flaticon Jellman86 Wikipedia Wikimedia Gmail Outlook Google Microsoft OAuth Discord Telegram
+    Pushover Apprise Gemini OpenAI OpenRouter Anthropic Claude OpenDyslexic MegaDetector Cedar SpeciesNet RF-DETR Nano YOLOX YOLOX-Tiny
+    MobileNet EfficientNet ConvNeXt ONNX Runtime TFLite OpenVINO CUDA Intel NVIDIA Hailo Coral Docker Leaflet OpenStreetMap
+    Open-Meteo Nominatim Fonts HACS MIT License Record Format Token Northern Cardinal United States Kingdom North America Europe
+    Unknown Bird Tit NaN Celsius Fahrenheit Israel European Arabian Peninsula
+    Dashboard Explorer Leaderboard Settings Notifications Events Species Garden Health Connection Detection Integrations
+    Enrichment Security Data Appearance Accessibility Advanced Beta Debug Explore Jobs About`
+        .split(/\s+/)
+        .filter(Boolean)
+);
+const SENTENCE_CASE_LOCALES = ['en', 'es', 'fr', 'it', 'pt', 'ru'];
+/**
+ * Never lowered to sentence case: German capitalises every noun ("YA-WAMF Bot", not "YA-WAMF bot"),
+ * and Japanese and Chinese have no letter case. A copy pass must leave their capitals alone.
+ */
+const CASE_EXEMPT_LOCALES = ['de', 'ja', 'zh'];
+/** Names a language spells its own way: places (including the regions models are made for), units and the Garden feature. */
+const LOCALE_NAMES: Record<string, string[]> = {
+    es: ['Unidos', 'Unido', 'Norte', 'Jardín', 'Israel', 'Europa'],
+    fr: ['Jardin', 'Wikipédia', 'Mo', 'Go', 'Nord', 'Uni', 'Unis', 'Arabique'],
+    it: ['Uniti', 'Unito', 'Nord', 'Giardino', 'Israele'],
+    pt: ['Unidos', 'Unido', 'Norte', 'Jardim', 'Israel', 'Europa', 'Península', 'Arábica'],
+    ru: ['Сад', 'Северная', 'Америка', 'Википедии', 'Европы', 'Израиля', 'Аравийского']
+};
+
+/** A page or Settings section is a name in every language, so its own label may be capitalised where it is cited. */
+function interfaceNames(locale: LocaleRoot): Set<string> {
+    const settings = (locale.settings ?? {}) as LocaleRoot;
+    const labels = [
+        ...stringLeaves((locale.nav ?? {}) as LocaleRoot),
+        ...stringLeaves((settings.tabs ?? {}) as LocaleRoot),
+        ...stringLeaves((settings.sections ?? {}) as LocaleRoot)
+    ].map(([, value]) => value);
+    return new Set(labels.flatMap((label) => label.match(/[\p{L}][\p{L}\p{N}'’.-]*/gu) ?? []));
+}
+
+/** docs/standards/glossary.md: the one name for work waiting on the owner. */
+const QUEUE_NAME = /Needs your call/g;
+
+function titleCasedWords(value: string, names: Set<string>): string[] {
+    const plain = value.replace(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g, ' ').replace(QUEUE_NAME, 'needs your call');
+    const words = plain.match(/[\p{L}][\p{L}\p{N}'’.-]*/gu) ?? [];
+    if (words.length < 2 || words.length > 6) return [];
+    const offenders: string[] = [];
+    let index = 0;
+    for (const match of plain.matchAll(/[\p{L}][\p{L}\p{N}'’.-]*/gu)) {
+        const word = match[0];
+        const before = plain.slice(0, match.index).trimEnd();
+        const startsClause = index === 0 || /[.:!?·•|/(“"«›→-]$/.test(before);
+        index += 1;
+        if (startsClause || !/^\p{Lu}\p{Ll}/u.test(word)) continue;
+        const bare = word.replace(/[’'](?:s)?$/u, '').replace(/[.]$/, '');
+        if (!NAMES.has(bare) && !names.has(bare)) offenders.push(word);
+    }
+    return offenders;
+}
+
+describe('sentence case', () => {
+    it('treats the queue\u2019s name as a name only as the whole phrase', () => {
+        const none = new Set<string>();
+        expect(titleCasedWords('Return to Needs your call', none)).toEqual([]);
+        expect(titleCasedWords('Animals and Needs your call', none)).toEqual([]);
+        expect(titleCasedWords('Photo Needs a check', none)).toEqual(['Needs']);
+        expect(titleCasedWords('Return To Needs your call', none)).toEqual(['To']);
+    });
+
+    it('checks every language or names why it is exempt', () => {
+        const covered = [...SENTENCE_CASE_LOCALES, ...CASE_EXEMPT_LOCALES].sort();
+        expect(covered).toEqual(LOCALES.map(([name]) => name).sort());
+    });
+
+    it('keeps German nouns capitalised where a copy pass touched them', () => {
+        const german = new Map(stringLeaves(de as LocaleRoot));
+        expect(german.get('settings.discord.bot_placeholder')).toBe('YA-WAMF Bot');
+    });
+
+    for (const name of SENTENCE_CASE_LOCALES) {
+        const locale = LOCALES.find(([localeName]) => localeName === name)?.[1] ?? {};
+        const names = new Set([...interfaceNames(locale), ...(LOCALE_NAMES[name] ?? [])]);
+        it(`${name} labels capitalise only their first word and names`, () => {
+            expect(
+                stringLeaves(locale)
+                    .map(([path, value]) => [path, value, titleCasedWords(value, names)] as const)
+                    .filter(([, , words]) => words.length > 0)
+                    .map(([path, value]) => `${path}: ${value}`)
+            ).toEqual([]);
+        });
+    }
+});

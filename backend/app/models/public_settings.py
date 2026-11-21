@@ -34,6 +34,13 @@ class PublicSettings(BaseModel):
     # Whether new captures are analysed to count birds. The dashboard holds the counted-birds
     # figure from this while the day loads, instead of inserting it when the counts arrive.
     bird_counting_enabled: bool = Field(description="Whether new captures are analysed to count birds")
+    # The visit gap. Explorer and Garden say the gap in words, and the Leaderboard wall groups captures
+    # in the browser with it, so a guest reading a default would be told a gap the server never used.
+    # The wall measures capture to capture; the server also bridges from the end of a Frigate event, so
+    # around long events the wall can still split what the server counts as one visit.
+    visit_gap_seconds: int = Field(
+        description="Seconds apart that captures of one species on one camera stay one visit"
+    )
 
 
 PUBLIC_SETTING_FIELDS: tuple[str, ...] = tuple(PublicSettings.model_fields)
@@ -51,4 +58,5 @@ def build_public_settings() -> PublicSettings:
             settings.media_cache.high_quality_event_snapshots
             and (settings.frigate.clips_enabled or settings.frigate.recording_clip_enabled)
         ),
+        visit_gap_seconds=settings.visits.gap_seconds,
     )

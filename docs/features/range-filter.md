@@ -5,8 +5,8 @@ sometimes told it saw a species that only lives in Europe. The range filter chec
 automatic identification against the species eBird has ever recorded in your region and sets
 aside the ones it has not.
 
-It is **off by default**. Turn it on in **Settings → Detection → Range filter**, then **Apply
-Settings**.
+It is **off by default**. Turn it on in **Settings → Identifying birds → More options → Range filter**, then **Save
+changes**.
 
 ## What it needs
 
@@ -17,9 +17,9 @@ Settings**.
 | BirdNET-Go only | Nothing on its own. Species BirdNET-Go hears count as present, but hearing can never show a species is absent, so it never rejects anything. |
 | An approximate location (coordinates to one decimal place) | Uses a state or province list, never a county. |
 | Only a country | Uses the country list. |
-| No location | Nothing. The switch is disabled and links to **Settings → Integrations → Location**. |
+| No location | Nothing. The switch is disabled and links to **Settings → Sharing & integrations → Location**. |
 
-The location and the eBird key are the ones already set under **Settings → Integrations**.
+The location and the eBird key are the ones already set under **Settings → Sharing & integrations**.
 
 ## Where the list comes from
 
@@ -47,7 +47,7 @@ The location and the eBird key are the ones already set under **Settings → Int
    confidence threshold and every other rule (blocked species, the non-bird guard). The record's
    technical details say what the model said first.
 2. If no answer qualifies, the detection is not recorded. It is listed under **Recently set
-   aside** in the card and in the activity log under **Settings → Health** as *Not recorded,
+   aside** in the card and in the activity log on the **Health** page as *Not recorded,
    never seen in your eBird region*. A genuine vagrant can still be recorded by hand with
    **Add observation**, while Frigate keeps the clip.
 

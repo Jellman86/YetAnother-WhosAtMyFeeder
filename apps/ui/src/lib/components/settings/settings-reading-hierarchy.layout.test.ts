@@ -1,0 +1,127 @@
+// @ts-nocheck: this source audit runs under Vitest's Node environment; Node types are
+// intentionally absent from the browser application tsconfig.
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { settingsSearchEntry, settingsSearchInMore } from '../../settings/settings-search-index';
+import { readSettingsMarkup } from '../../settings/settings-markup.test-support';
+
+/**
+ * How Settings reads: one heading scale and one place for weight. The page is the h1, the open
+ * section an h2 that stays in view, each group an h3 (an h4 under More options), and a name inside a
+ * card a subheading one level below its card. In a row the label is the one semibold thing: help,
+ * values and links are regular. The display face has no weight under semibold, so text that must
+ * read as regular is never left in it.
+ */
+const SETTINGS_DIR = __dirname;
+const read = (...path: string[]): string => readFileSync(join(SETTINGS_DIR, ...path), 'utf8');
+// The Health page's panel lives in this folder but is not part of Settings.
+const NOT_SETTINGS = new Set(['SystemHealthPanel.svelte']);
+const components = (): Array<[string, string]> =>
+    ['', 'sections', '_primitives'].flatMap((dir) =>
+        readdirSync(join(SETTINGS_DIR, dir))
+            .filter((name) => name.endsWith('.svelte') && !NOT_SETTINGS.has(name))
+            .map((name): [string, string] => [dir ? `${dir}/${name}` : name, read(dir, name)])
+    );
+
+describe('Settings heading hierarchy', () => {
+    it('names the open section once, as the h2 that stays in view', () => {
+        const page = read('_primitives', 'SettingsPage.svelte');
+        expect(page).toMatch(/<header bind:this=\{sectionHeading\} class="settings-section-heading sticky [^"]*" data-settings-section-heading>\s*<h2 id="settings-section-title" class="text-2xl font-bold text-strong">\{sectionTitle\}<\/h2>/);
+        // It sticks below the phone's top bar, and below the jobs strip while that is stuck there too.
+        expect(page).toContain('top: calc(var(--app-chrome-height, 0rem) + var(--settings-jobs-strip-height, 0px));');
+        expect(page).toContain("document.querySelector<HTMLElement>('[data-jobs-strip]')");
+        expect(readFileSync(join(SETTINGS_DIR, '..', '..', '..', 'App.svelte'), 'utf8')).toContain('<div data-jobs-strip class={globalProgressHasScrolled');
+        // What scrolls to or takes focus stops below it.
+        expect(page).toContain('root.style.scrollPaddingTop = `${Math.ceil(chromeHeight() + stuck + heading.getBoundingClientRect().height) + 16}px`;');
+        // The room is added up from the bar, the strip and the name, never read back from the name's `top`.
+        expect(page).not.toContain('getComputedStyle(heading).top');
+        // It is in the page before the status, so on a phone no heading comes before it.
+        expect(page.indexOf('data-settings-section-heading')).toBeLessThan(page.indexOf('data-settings-aside="top"'));
+    });
+
+    it('gives each group the level of where it is: an h3, or an h4 under More options', () => {
+        // From the search index, which holds where every group is and is proven in the browser: a card
+        // says `nested` exactly when its entry opens More options first.
+        const cards = readSettingsMarkup().rows.filter((row) => row.tag === 'SettingsCard' && row.anchor);
+        expect(cards.length).toBeGreaterThan(30);
+        const wrong = cards
+            .map((card) => ({ card, entry: settingsSearchEntry(card.anchor) }))
+            .filter(({ card, entry }) => entry && card.nested !== settingsSearchInMore(entry))
+            .map(({ card, entry }) => `${card.file}: ${card.anchor} is ${settingsSearchInMore(entry) ? 'under More options, so it needs `nested`' : 'not under More options, so it must not be `nested`'}`);
+        expect(wrong).toEqual([]);
+        // The card turns that into the tag, and sends a name inside it one level further down.
+        const card = read('_primitives', 'SettingsCard.svelte');
+        expect(card).toContain("const tag = $derived(underPageTitle ? 'h2' : nested ? 'h4' : 'h3');");
+        expect(card).toContain('provideSubheadingLevel(() => (underPageTitle ? 3 : nested ? 5 : 4));');
+        // Only the Health page's panel, which has no section heading above it, sits under the page title.
+        const underTitle = components().filter(([, source]) => /<SettingsCard\b[^>]*\bunderPageTitle\b/.test(source)).map(([name]) => name);
+        expect(underTitle).toEqual([]);
+        expect(read('SystemHealthPanel.svelte')).toMatch(/<SettingsCard\s+underPageTitle\b/);
+        expect(read('sections', 'SectionMore.svelte')).toContain('<h3 class="text-xl font-semibold text-strong">');
+    });
+
+    it('starts every heading on the left edge its card starts on', () => {
+        // A heading inset from its card read as a second, ragged left edge on a phone.
+        const offenders = components()
+            .filter(([, source]) => /<(?:header|h[2-6]|div|p)\b[^>]*class="[^"]*\bpl-1\b[^"]*"[^>]*(?:data-settings-section-heading|data-beta-intro)|<header class="[^"]*\bpl-1\b/.test(source))
+            .map(([name]) => name);
+        expect(offenders).toEqual([]);
+        expect(read('sections', 'AlertsSection.svelte')).toContain('<div class="flex flex-wrap items-center gap-2">');
+    });
+
+    it('leaves every other heading to the shared primitives, so no level is chosen by hand', () => {
+        const own: Record<string, RegExp> = {
+            '_primitives/SettingsPage.svelte': /<h2\b/g,
+            'sections/SectionMore.svelte': /<h3\b/g,
+            'sections/SectionAside.svelte': /<h3\b/g,
+            // Groups under More options that are not cards: a beta feature, and Garden's alerts.
+            'BetaFeatureCard.svelte': /<h4\b/g,
+            'sections/AlertsSection.svelte': /<h4\b/g
+        };
+        const offenders: string[] = [];
+        for (const [name, source] of components()) {
+            const allowed = own[name];
+            for (const heading of source.matchAll(/<h[1-6]\b/g)) {
+                if (!allowed || !heading[0].match(new RegExp(allowed.source))) offenders.push(`${name}: ${heading[0]}`);
+            }
+        }
+        expect(offenders, 'Use SettingsCard for a group and SettingsSubheading for a name inside one').toEqual([]);
+        expect(read('_primitives', 'SettingsSubheading.svelte')).toContain('<svelte:element this={`h${level}`} {id} class="font-sans font-semibold text-strong');
+    });
+});
+
+describe('Settings weights', () => {
+    it('keeps bold for the section name alone', () => {
+        const offenders: string[] = [];
+        for (const [name, source] of components()) {
+            for (const match of source.matchAll(/class="([^"]*\bfont-(?:bold|black|extrabold)\b[^"]*)"/g)) {
+                if (name === '_primitives/SettingsPage.svelte' && match[1] === 'text-2xl font-bold text-strong') continue;
+                offenders.push(`${name}: ${match[1].slice(0, 70)}`);
+            }
+        }
+        expect(offenders).toEqual([]);
+    });
+
+    it('makes the label the one semibold thing in a row: help and values are regular', () => {
+        const row = read('_primitives', 'SettingsRow.svelte');
+        expect(row).toContain('<span class="block text-base font-semibold text-strong" data-settings-row-label>{label}</span>');
+        expect(row).toMatch(/<span id=\{descriptionId\} class="mt-1 block max-w-prose text-sm leading-snug text-muted">/);
+        const slider = read('_primitives', 'SettingsSlider.svelte');
+        expect(slider).toContain('<label for={id} class="block text-base font-semibold text-strong" data-settings-row-label>{label}</label>');
+        expect(slider).toMatch(/<p id=\{descriptionId\} class="mt-1 max-w-prose text-sm leading-snug text-muted">/);
+        expect(slider).toContain('<p class="text-right text-sm tabular-nums text-ink" aria-hidden="true">{shown}</p>');
+    });
+
+    it('never leaves help text in the display face, which has no regular weight', () => {
+        // Text inside a heading takes the display face; a line meant as regular names the reading face.
+        expect(read('sections', 'SectionMore.svelte')).toContain('<span class="block max-w-prose font-sans text-sm font-normal text-muted wrap-break-word">{summary}</span>');
+        expect(read('sections', 'SectionAside.svelte')).not.toMatch(/text-left font-semibold text-accent-ink/);
+    });
+
+    it('lifts a group off the page with the kit\'s panel elevation', () => {
+        const css = readFileSync(join(SETTINGS_DIR, '..', '..', '..', 'app.css'), 'utf8');
+        const body = css.slice(css.indexOf('@utility settings-section-body {'));
+        expect(body.slice(0, body.indexOf('}'))).toContain('box-shadow: var(--elevation-panel);');
+    });
+});

@@ -7,6 +7,7 @@
     import { runSequentialDiagnostic, type DiagnosticResult, type DiagnosticStage, type DiagnosticStep } from '../../utils/diagnostic-runner';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
     import WizardStepLayout from './WizardStepLayout.svelte';
+    import { loadBlockedReason } from './continue-blocked';
     import WizardLoadState, { type WizardLoadStatus } from './WizardLoadState.svelte';
 
     type IntegrationId = 'birdnet' | 'ebird' | 'inaturalist' | 'birdweather' | 'ai';
@@ -26,7 +27,7 @@
     let diagnosticRunId = $state(0);
 
     let integrations = $derived([
-        { id: 'birdnet' as const, name: 'BirdNET-Go', get: () => birdnetEnabled, set: (value: boolean) => (birdnetEnabled = value), note: $_('setup.integrations.note_birdnet', { default: 'Audio confirmation of visual detections.' }) },
+        { id: 'birdnet' as const, name: 'BirdNET-Go', get: () => birdnetEnabled, set: (value: boolean) => (birdnetEnabled = value), note: $_('setup.integrations.note_birdnet', { default: 'Confirms what the camera saw with what the microphone heard.' }) },
         { id: 'ebird' as const, name: 'eBird', get: () => ebirdEnabled, set: (value: boolean) => (ebirdEnabled = value), note: $_('setup.integrations.note_ebird', { default: 'Nearby sightings, maps and an optional range filter. Add an API key in Settings.' }) },
         { id: 'inaturalist' as const, name: 'iNaturalist', get: () => inaturalistEnabled, set: (value: boolean) => (inaturalistEnabled = value), note: $_('setup.integrations.note_inat', { default: 'Owner-reviewed submissions. Connect your account in Settings.' }) },
         { id: 'birdweather' as const, name: 'BirdWeather', get: () => birdweatherEnabled, set: (value: boolean) => (birdweatherEnabled = value), note: $_('setup.integrations.note_bw', { default: 'Report to community stations. Add a station token in Settings.' }) },
@@ -74,7 +75,7 @@
         });
         steps.push({
             id: 'pipeline',
-            label: $_('settings.integrations.birdnet.stage_pipeline', { default: 'Detection ingest and storage' }),
+            label: $_('settings.integrations.birdnet.stage_pipeline', { default: 'Receiving and storing a call' }),
             run: testBirdNET
         });
         try {
@@ -122,34 +123,35 @@
 <WizardStepLayout
     title={$_('setup.integrations.title', { default: 'Integrations' })}
     description={$_('setup.integrations.description', {
-        default: 'Optional add-ons. Enable what you want now; sections that still need credentials are clearly marked in the final review.'
+        default: 'Optional add-ons. Turn on what you want now; the final review marks any that still need a key or an account.'
     })}
     showSkip
     canContinue={loadState === 'ready'}
+    blockedReason={loadBlockedReason(loadState, $_)}
     {busy}
     onContinue={save}
 >
     <WizardLoadState state={loadState} onRetry={load}>
-        <div class="divide-y divide-slate-200/80 border-y border-slate-200/80 dark:divide-slate-700/70 dark:border-slate-700/70">
+        <div class="divide-y divide-line border-y border-line">
             {#each integrations as item}
                 <div class="py-3.5">
                     <label class="flex min-h-11 items-start gap-3">
-                        <span class="mt-0.5 h-5 w-5 shrink-0 text-brand-600 dark:text-brand-300">{@render integrationIcon(item.id)}</span>
+                        <span class="mt-0.5 h-5 w-5 shrink-0 text-accent-ink">{@render integrationIcon(item.id)}</span>
                         <span class="min-w-0 flex-1">
-                            <span class="block text-sm font-semibold text-slate-800 dark:text-slate-100">{item.name}</span>
-                            <span class="block text-xs leading-relaxed text-slate-500 dark:text-slate-400">{item.note}</span>
+                            <span class="block text-sm font-semibold text-strong">{item.name}</span>
+                            <span class="block text-xs leading-relaxed text-muted">{item.note}</span>
                         </span>
-                        <input type="checkbox" checked={item.get()} onchange={(event) => item.set(event.currentTarget.checked)} class="mt-1 h-5 w-5 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                        <input type="checkbox" checked={item.get()} onchange={(event) => item.set(event.currentTarget.checked)} class="mt-1 h-5 w-5 shrink-0 rounded-sm border-line-strong text-accent focus:ring-focus" />
                     </label>
 
                     {#if item.id === 'birdnet' && birdnetEnabled}
-                        <div class="ml-8 mt-3 space-y-2 border-l-2 border-brand-100 pl-4 dark:border-brand-900/60">
-                            <label for="setup-birdnet-url" class="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        <div class="ml-8 mt-3 space-y-2 border-l-2 border-line-soft pl-4">
+                            <label for="setup-birdnet-url" class="block text-xs font-semibold text-muted">
                                 {$_('settings.integrations.birdnet.internal_url_label', { default: 'BirdNET-Go internal URL' })}
                             </label>
                             <input id="setup-birdnet-url" type="url" placeholder="http://birdnet-go:8080" bind:value={birdnetUrl} class="input-base" />
-                            <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                                {$_('setup.integrations.birdnet_test_subtitle', { default: 'The staged test uses this URL, then verifies the saved MQTT broker and local detection storage.' })}
+                            <p class="text-xs leading-relaxed text-muted">
+                                {$_('setup.integrations.birdnet_test_subtitle', { default: 'The test uses this address, then checks the saved MQTT broker and that calls can be stored.' })}
                             </p>
                             <button type="button" class="btn btn-secondary px-4 py-2.5" onclick={testBirdnet} disabled={diagnosticRunning}>
                                 {$_('setup.integrations.birdnet_test', { default: 'Test BirdNET-Go path' })}
@@ -160,9 +162,9 @@
             {/each}
         </div>
 
-        <p class="flex items-start gap-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+        <p class="flex items-start gap-2 text-xs leading-relaxed text-muted">
             <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.7 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z" /></svg>
-            <span>{$_('setup.integrations.notifications_note', { default: 'Notification channels are configured under Settings → Notifications. Home Assistant is installed and configured externally; see the integration guide.' })}</span>
+            <span>{$_('setup.integrations.notifications_note', { default: 'Notification channels are configured under Settings → Alerts. Home Assistant is installed and configured externally; see the integration guide.' })}</span>
         </p>
     </WizardLoadState>
 </WizardStepLayout>
@@ -170,7 +172,7 @@
 {#if diagnosticOpen}
     <DiagnosticDialog
         title={$_('settings.integrations.birdnet.test_title', { default: 'BirdNET-Go connection test' })}
-        subtitle={$_('setup.integrations.birdnet_test_subtitle', { default: 'Checks this URL, the saved MQTT broker, and local detection storage.' })}
+        subtitle={$_('setup.integrations.birdnet_test_subtitle', { default: 'The test uses this address, then checks the saved MQTT broker and that calls can be stored.' })}
         stages={diagnosticStages}
         result={diagnosticResult}
         busy={diagnosticRunning}

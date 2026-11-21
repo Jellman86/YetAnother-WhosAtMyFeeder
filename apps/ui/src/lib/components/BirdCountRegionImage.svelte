@@ -20,7 +20,7 @@
             style={crop ?? 'visibility:hidden'} class="absolute" />
         {#if crop && outline}
             <!-- White with a dark edge, so the mark stays visible on bright and dark scenes alike. -->
-            <span class="pointer-events-none absolute rounded-sm border-2 border-white ring-1 ring-slate-900/70" style={outline} aria-hidden="true"></span>
+            <span class="pointer-events-none absolute rounded-xs border-2 border-white ring-1 ring-slate-900/70" style={outline} aria-hidden="true"></span>
         {/if}
     {/if}
 </span>

@@ -1,0 +1,15 @@
+{
+  "state": {
+    "loading": "Loading…",
+    "empty": "Nothing here yet",
+    "failed": "Could not load",
+    "stale": "May be out of date",
+    "off": "Switched off",
+    "not_measured": "Not measured",
+    "try_again": "Try again"
+  },
+  "chart": {
+    "show_data": "Show the data as a table",
+    "key": "Key"
+  }
+}

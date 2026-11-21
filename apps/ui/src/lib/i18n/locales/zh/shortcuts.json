@@ -4,10 +4,14 @@
   "actions": "操作",
   "open_panel": "打开快捷键面板",
   "go_dashboard": "转到仪表盘",
-  "go_events": "转到事件",
+  "go_events": "转到探索",
   "go_species": "转到排行榜",
   "go_settings": "转到设置",
-  "close_modal": "关闭模态框",
+  "close_modal": "关闭对话框",
   "refresh": "刷新页面",
-  "go_notifications": "转到通知"
+  "go_notifications": "转到通知",
+  "previous_day": "前一天",
+  "next_day": "后一天",
+  "all_days": "显示所有日期",
+  "search": "搜索此页面（探索和设置）"
 }

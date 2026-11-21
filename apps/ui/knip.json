@@ -12,6 +12,7 @@
     "browser-tests/counted-birds.ts",
     "browser-tests/snapshot-candidates-race.ts",
     "browser-tests/modal-text-layout.ts",
+    "browser-tests/media-fallback.ts",
     "browser-tests/media-settings.ts",
     "browser-tests/focus.ts",
     "browser-tests/touch-targets.ts",
@@ -36,6 +37,11 @@
     "browser-tests/map-popup.ts",
     "browser-tests/lazy-modal.ts",
     "browser-tests/score-tone.ts",
-    "browser-tests/manual-observation.ts"
+    "browser-tests/manual-observation.ts",
+    "browser-tests/status-feed.ts",
+    "browser-tests/record-layout.ts"
+  ],
+  "ignore": [
+    "scripts/*.d.mts"
   ]
 }

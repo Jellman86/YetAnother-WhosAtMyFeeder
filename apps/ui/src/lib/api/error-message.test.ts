@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { extractApiErrorMessage } from './error-message';
+import { extractApiErrorMessage, readApiErrorMessage } from './error-message';
 
 describe('extractApiErrorMessage', () => {
     it('returns plain-string detail values', () => {
@@ -48,5 +48,22 @@ describe('extractApiErrorMessage', () => {
 
     it('falls back cleanly when detail is not useful', () => {
         expect(extractApiErrorMessage({ detail: {} }, 'Fallback')).toBe('Fallback');
+    });
+});
+
+describe('readApiErrorMessage', () => {
+    it('cancels a gateway page it will not show, so a stalled one does not hold the connection', async () => {
+        let cancelled = 0;
+        const body = new ReadableStream<Uint8Array>({
+            start(controller) {
+                controller.enqueue(new TextEncoder().encode('<html><body>Bad Gateway'));
+            },
+            cancel() {
+                cancelled += 1;
+            }
+        });
+        const response = new Response(body, { status: 502, headers: { 'Content-Type': 'text/html' } });
+        await expect(readApiErrorMessage(response, 'Could not load')).resolves.toBe('Could not load');
+        expect(cancelled).toBe(1);
     });
 });

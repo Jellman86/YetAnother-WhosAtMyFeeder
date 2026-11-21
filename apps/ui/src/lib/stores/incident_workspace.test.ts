@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { asGuarded } from '../test-support/guarded';
 import { createIncidentWorkspaceStore } from './incident_workspace.svelte';
 
 describe('incidentWorkspaceStore', () => {
@@ -469,5 +470,138 @@ describe('incidentWorkspaceStore', () => {
         expect(store.backendEvents).toEqual([]);
         expect(store.localGroups).toEqual([]);
         expect(store.workspacePayload).toBeNull();
+    });
+});
+
+describe('RF-DETR CPU fallback health', () => {
+    it('keeps CPU use open in System status and resolves it when the finder uses an accelerator', () => {
+        const store = createIncidentWorkspaceStore();
+        const event = { id: 'finder-cpu', component: 'bird_finder', source: 'backend',
+            reason_code: 'rfdetr_cpu_fallback', severity: 'warning' as const,
+            message: 'RF-DETR Nano uses CPU. Check devices to restore NPU or GPU.', timestamp: '2026-11-15T19:00:00Z' };
+        store.ingestBackendDiagnostics([event]);
+        expect(store.currentIssues).toHaveLength(1);
+        store.ingestWorkspacePayload({ health: { ml: { bird_finder: { active: true } } }, workspace_schema_version: 'test', classifier: {}, taxonomy_repair: {}, maintenance_coordinator: {}, focused_diagnostics: {}, startup_warnings: [],
+            backend_diagnostics: { captured_at: event.timestamp, capacity: 500, total_events: 1, filtered_events: 1,
+                returned_events: 1, severity_counts: { warning: 1 }, component_counts: { bird_finder: 1 }, events: [event] } });
+        expect(store.currentIssues).toHaveLength(1);
+        store.ingestWorkspacePayload({ health: { ml: { bird_finder: { active: false } } }, workspace_schema_version: 'test', classifier: {}, taxonomy_repair: {}, maintenance_coordinator: {}, focused_diagnostics: {}, startup_warnings: [],
+            backend_diagnostics: { captured_at: event.timestamp, capacity: 500, total_events: 1, filtered_events: 1,
+                returned_events: 1, severity_counts: { warning: 1 }, component_counts: { bird_finder: 1 }, events: [event] } });
+        expect(store.currentIssues).toHaveLength(0);
+        expect(store.recentIncidents[0].status).toBe('resolved');
+    });
+});
+
+describe('Frigate availability incidents', () => {
+    const offline = { id: 'frigate-offline', component: 'mqtt_service', source: 'mqtt',
+        reason_code: 'frigate_went_offline', severity: 'warning' as const,
+        message: 'Frigate has gone offline (frigate/available: offline). No new detections until Frigate restarts.',
+        timestamp: '2026-11-18T06:58:43Z' };
+    const workspaceWith = (status: string | undefined) => ({ health: { mqtt: { frigate_availability: { status } } },
+        workspace_schema_version: 'test', classifier: {}, taxonomy_repair: {}, maintenance_coordinator: {}, focused_diagnostics: {}, startup_warnings: [],
+        backend_diagnostics: { captured_at: offline.timestamp, capacity: 500, total_events: 1, filtered_events: 1,
+            returned_events: 1, severity_counts: { warning: 1 }, component_counts: { mqtt_service: 1 }, events: [offline] } });
+
+    it('keeps a restart blip in history as resolved once Frigate says it is online again', () => {
+        const store = createIncidentWorkspaceStore();
+        store.ingestWorkspacePayload(workspaceWith('online'));
+        expect(store.currentIssues).toHaveLength(0);
+        expect(store.recentIncidents.map((incident) => [incident.primaryReasonCode, incident.status]))
+            .toEqual([['frigate_went_offline', 'resolved']]);
+    });
+
+    it('keeps an outage open while Frigate is still offline, or while its availability is unknown', () => {
+        const store = createIncidentWorkspaceStore();
+        store.ingestWorkspacePayload(workspaceWith('offline'));
+        expect(store.currentIssues.map((incident) => incident.status)).toEqual(['open']);
+        store.ingestWorkspacePayload(workspaceWith('unknown'));
+        expect(store.currentIssues.map((incident) => incident.status)).toEqual(['open']);
+    });
+});
+
+describe('incident workspace refresh', () => {
+    it('never lets an older reading overwrite a newer one, and says which read was applied', async () => {
+        const releases: Array<(payload: never) => void> = [];
+        const store = createIncidentWorkspaceStore(() => asGuarded(new Promise((resolve) => { releases.push(resolve as (payload: never) => void); })));
+        const older = store.refresh();
+        const newer = store.refresh();
+        releases[1]({ workspace_schema_version: 'newer', backend_diagnostics: { events: [] } } as never);
+        expect(await newer).toBe(true);
+        releases[0]({ workspace_schema_version: 'older', backend_diagnostics: { events: [] } } as never);
+        expect(await older).toBe(false);
+        expect(store.workspacePayload?.workspace_schema_version).toBe('newer');
+    });
+
+    it('stays stale through a retry, and turns fresh only when a read succeeds, whoever started it', async () => {
+        let next: () => Promise<never> = () => Promise.resolve({ workspace_schema_version: 'one', backend_diagnostics: { events: [] } } as never);
+        const store = createIncidentWorkspaceStore(() => asGuarded(next()));
+        await store.refresh();
+        expect(store.readFreshness).toBe('read');
+
+        next = () => Promise.reject(new Error('HTTP 500'));
+        await expect(store.refresh()).rejects.toThrow('HTTP 500');
+        expect(store.readFreshness).toBe('stale');
+        expect(store.readSettled.error).toBe('HTTP 500');
+
+        // A retry in flight does not make the kept reading current.
+        let release: (payload: never) => void = () => undefined;
+        next = () => new Promise((resolve) => { release = resolve as (payload: never) => void; });
+        const retry = store.refresh();
+        expect(store.readFreshness).toBe('stale');
+        release({ workspace_schema_version: 'two', backend_diagnostics: { events: [] } } as never);
+        await retry;
+        expect(store.readFreshness).toBe('read');
+    });
+
+    it('clears an earlier failure after clear-and-refresh, and is reading, not failed, in between', async () => {
+        let next: () => Promise<never> = () => Promise.reject(new Error('HTTP 500'));
+        const store = createIncidentWorkspaceStore(() => asGuarded(next()));
+        await expect(store.refresh()).rejects.toThrow();
+        expect(store.readFreshness).toBe('failed');
+        store.clear();
+        expect(store.readFreshness).toBe('reading');
+        next = () => Promise.resolve({ workspace_schema_version: 'fresh', backend_diagnostics: { events: [] } } as never);
+        await store.refresh();
+        expect(store.readFreshness).toBe('read');
+        expect(store.readSettled.error).toBeNull();
+    });
+
+    it('ignores a failure that arrives after a newer read succeeded', async () => {
+        const pending: Array<{ resolve: (payload: never) => void; reject: (error: Error) => void }> = [];
+        const store = createIncidentWorkspaceStore(() => asGuarded(new Promise((resolve, reject) => { pending.push({ resolve: resolve as (payload: never) => void, reject }); })));
+        const older = store.refresh();
+        const newer = store.refresh();
+        pending[1].resolve({ workspace_schema_version: 'newer', backend_diagnostics: { events: [] } } as never);
+        await newer;
+        pending[0].reject(new Error('late'));
+        await expect(older).rejects.toThrow('late');
+        expect(store.readFreshness).toBe('read');
+    });
+});
+
+describe('incident workspace across an access change', () => {
+    it('ignores a read that lands after the workspace was cleared for a new access', async () => {
+        type Payload = Awaited<ReturnType<typeof import('../api/diagnostics').fetchDiagnosticsWorkspace>>;
+        let answer: (payload: Payload) => void = () => undefined;
+        const store = createIncidentWorkspaceStore(() => asGuarded(new Promise<Payload>((resolve) => { answer = resolve; })));
+        const pending = store.refresh();
+        store.clear();
+        answer({ backend_diagnostics: { events: [] }, health: { status: 'ok' } } as unknown as Payload);
+        await expect(pending).resolves.toBe(false);
+        expect(store.workspacePayload).toBeNull();
+    });
+
+    it('ignores a read that fails after the workspace was cleared for a new access', async () => {
+        type Payload = Awaited<ReturnType<typeof import('../api/diagnostics').fetchDiagnosticsWorkspace>>;
+        let fail: (error: Error) => void = () => undefined;
+        const store = createIncidentWorkspaceStore(() => asGuarded(new Promise<Payload>((_resolve, reject) => { fail = reject; })));
+        const pending = store.refresh();
+        store.clear();
+        const settledBefore = store.readSettled;
+        fail(new Error('HTTP 502 for the old session'));
+        await expect(pending).resolves.toBe(false);
+        expect(store.readSettled).toEqual(settledBefore);
+        expect(store.readFreshness).not.toBe('failed');
     });
 });

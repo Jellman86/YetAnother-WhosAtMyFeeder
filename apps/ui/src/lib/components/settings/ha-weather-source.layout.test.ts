@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import integrationSource from './IntegrationSettings.svelte?raw';
+import integrationSource from './HaWeatherSettings.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
 
 describe('weather from Home Assistant sensors (#277)', () => {
@@ -9,7 +9,7 @@ describe('weather from Home Assistant sensors (#277)', () => {
     // override per reading behind progressive disclosure.
 
     it('the card offers URL, secret token, entity, and per-reading overrides', () => {
-        expect(integrationSource).toContain('setting-ha-weather-enabled');
+        expect(integrationSource).toContain('titleId="integration-ha-weather-title"');
         expect(integrationSource).toContain('setting-ha-weather-url');
         expect(integrationSource).toContain('id="ha-weather-token"');
         expect(integrationSource).toContain('setting-ha-weather-entity');

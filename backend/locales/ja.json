@@ -25,6 +25,7 @@
       "frigate_auth_failed": "Frigateの認証に失敗しました - 認証トークンを確認してください",
       "frigate_error": "Frigateがエラーを返しました: {status_code}",
       "connection_failed": "{url}でFrigateへの接続に失敗しました",
+      "frigate_unreachable": "Frigateに接続できませんでした。しばらくしてからもう一度お試しください。",
       "snapshot_not_found": "スナップショットが見つかりません",
       "thumbnail_not_found": "サムネイルが見つかりません",
       "clip_not_found": "クリップが見つかりません",
@@ -47,7 +48,8 @@
       "wildlife_model_unavailable": "野生動物モデルは利用できません。最初にダウンロードしてください。",
       "reclassification_failed": "再分類に失敗しました",
       "video_analysis_paused": "推論エラーが繰り返されたため、動画解析を一時停止しています。しばらくしてからもう一度お試しください。",
-      "video_analysis_capacity": "動画解析は現在処理上限に達しています。実行中のジョブが完了してからもう一度お試しください。"
+      "video_analysis_capacity": "動画解析は現在処理上限に達しています。実行中のジョブが完了してからもう一度お試しください。",
+      "identification_changed": "この訪問は別の場所で変更されました。現在は {species} です。"
     },
     "species": {
       "unknown_bird": "不明な鳥",
@@ -89,8 +91,11 @@
       "not_enabled": "メール通知が有効になっていません",
       "recipient_not_configured": "宛先メールアドレスが設定されていません",
       "smtp_incomplete": "SMTP設定が不完全です",
-      "send_failed": "テストメールの送信に失敗しました",
-      "send_error": "テストメールの送信に失敗しました: {error}",
+      "send_failed": "メールサーバーがテストメールを受け付けませんでした。SMTP ホスト、ポート、ユーザー名、パスワードを確認してから、もう一度テストしてください。",
+      "send_failed_oauth": "{provider} がテストメールを受け付けませんでした。アカウントを接続し直してから、もう一度テストしてください。",
+      "send_timeout": "メールサーバーの応答に時間がかかりすぎました。SMTP ホストとポートを確認してから、もう一度テストしてください。",
+      "send_timeout_oauth": "{provider} の応答に時間がかかりすぎました。少し待ってから、もう一度テストしてください。",
+      "prepare_failed": "YA-WAMF はテストメールを準備できませんでした。「稼働状況」を開いてから、もう一度テストしてください。",
       "invalid_state": "OAuth の状態が無効です。もう一度お試しください。",
       "state_expired": "OAuth の状態が期限切れです。もう一度お試しください。",
       "email_missing": "プロバイダーからメールアドレスが返されませんでした。"

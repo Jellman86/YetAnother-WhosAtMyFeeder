@@ -56,7 +56,7 @@
     "video": "Vidéo",
     "image": "Photographie",
     "title": "Recherche de la meilleure preuve",
-    "body": "Le classificateur de production compare les images et les recadrages. Vous pouvez quitter cette page ; le brouillon sera restauré à votre retour.",
+    "body": "YA-WAMF compare les images et les recadrages d’oiseaux trouvés. Vous pouvez quitter cette page ; votre brouillon sera là à votre retour.",
     "progress": "Progression de l’analyse",
     "failed_title": "Analyse arrêtée en toute sécurité",
     "failed_body": "Votre média original reste conservé. Réessayez lorsque le modèle sera disponible.",

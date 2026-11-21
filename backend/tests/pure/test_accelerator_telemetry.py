@@ -470,3 +470,111 @@ def test_gpu_probe_xe_engine_names_and_busiest_engine_survive_clock_rollover(tmp
     write(105, [1060, 1070, 1080, 1090, 1100])
     assert probe.read(now=20.0, pids=[100])[0].utilization_percent == 50.0
     assert {counter.engine for counter in probe.diagnostics.counters} == {*engines, "other"}
+
+
+# #944: xe busy cycles wrap at 2**32 while the total-cycle clock runs on past it.
+# One five-second interval from the report: the total clock advanced 96,214,018
+# cycles and the compute engine was busy for 17,161,297 of them.
+_REPORTED_TOTALS = (5_237_645_879, 5_333_859_897)
+_REPORTED_BUSY = 17_161_297
+
+
+def _ccs_client(client_id: int, *, cycles: int, total_cycles: int) -> str:
+    return (
+        "drm-driver:\txe\n"
+        f"drm-client-id:\t{client_id}\n"
+        "drm-pdev:\t0000:00:02.0\n"
+        f"drm-cycles-ccs:\t{cycles}\n"
+        f"drm-total-cycles-ccs:\t{total_cycles}\n"
+    )
+
+
+def test_gpu_probe_measures_xe_busy_cycles_across_a_32_bit_wrap(tmp_path: Path) -> None:
+    probe = DrmEngineTimeProbe(proc_root=tmp_path, drm_root=tmp_path / "drm")
+    before = 4_294_000_000
+    after = before + _REPORTED_BUSY - 2**32
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=before, total_cycles=_REPORTED_TOTALS[0]))
+    probe.read(now=10.0, pids=[100])
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=after, total_cycles=_REPORTED_TOTALS[1]))
+
+    assert probe.read(now=15.0, pids=[100])[0].utilization_percent == 17.8
+    assert probe.diagnostics.counters[0].state == "counter_wrapped"
+    assert probe.diagnostics.counters[0].previous == before
+
+    _write_fdinfo(
+        tmp_path, 100, 9, _ccs_client(1, cycles=after + 9_621_402, total_cycles=_REPORTED_TOTALS[1] + 96_214_018)
+    )
+    assert probe.read(now=20.0, pids=[100])[0].utilization_percent == 10.0
+    assert probe.diagnostics.counters[0].state == "measured"
+    assert probe.diagnostics.counters[0].previous == after
+
+
+def test_gpu_probe_counts_a_wrapped_client_alongside_one_that_did_not_wrap(tmp_path: Path) -> None:
+    probe = DrmEngineTimeProbe(proc_root=tmp_path, drm_root=tmp_path / "drm")
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=4_294_000_000, total_cycles=_REPORTED_TOTALS[0]))
+    _write_fdinfo(tmp_path, 100, 10, _ccs_client(2, cycles=1_800_999_373, total_cycles=_REPORTED_TOTALS[0]))
+    probe.read(now=10.0, pids=[100])
+    _write_fdinfo(
+        tmp_path,
+        100,
+        9,
+        _ccs_client(1, cycles=4_294_000_000 + _REPORTED_BUSY - 2**32, total_cycles=_REPORTED_TOTALS[1]),
+    )
+    _write_fdinfo(tmp_path, 100, 10, _ccs_client(2, cycles=1_803_736_182, total_cycles=_REPORTED_TOTALS[1]))
+
+    assert probe.read(now=15.0, pids=[100])[0].utilization_percent == 20.7
+
+
+def test_gpu_probe_keeps_a_small_busy_regression_near_the_wrap_as_a_regression(tmp_path: Path) -> None:
+    # The DRM usage-stats spec lets busy counters step back briefly. A small step
+    # back just below 2**32 is that, not a wrap through the whole 32-bit range.
+    probe = DrmEngineTimeProbe(proc_root=tmp_path, drm_root=tmp_path / "drm")
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=4_294_000_000, total_cycles=1_000_000_000))
+    probe.read(now=10.0, pids=[100])
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=4_293_999_000, total_cycles=1_100_000_000))
+    assert probe.read(now=15.0, pids=[100])[0].utilization_percent is None
+    assert probe.diagnostics.counters[0].state == "counter_regressed"
+
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=4_294_010_000, total_cycles=1_200_000_000))
+    assert probe.read(now=20.0, pids=[100])[0].utilization_percent == 0.0
+    assert probe.diagnostics.counters[0].previous == 4_294_000_000
+
+
+def test_gpu_probe_reanchors_without_measuring_a_wrap_it_cannot_bound(tmp_path: Path) -> None:
+    # The report's stuck counter: its last good value was held across an earlier
+    # step back, so the wrapped work spans more than the clock interval beside it.
+    probe = DrmEngineTimeProbe(proc_root=tmp_path, drm_root=tmp_path / "drm")
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=4_288_527_109, total_cycles=5_000_000_000))
+    probe.read(now=10.0, pids=[100])
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=4_288_527_000, total_cycles=5_100_000_000))
+    probe.read(now=15.0, pids=[100])
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=1_466_826_510, total_cycles=5_200_000_000))
+
+    assert probe.read(now=20.0, pids=[100])[0].utilization_percent is None
+    assert probe.diagnostics.counters[0].state == "counter_wrapped"
+
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=1_476_826_510, total_cycles=5_300_000_000))
+    assert probe.read(now=25.0, pids=[100])[0].utilization_percent == 10.0
+
+
+def test_gpu_probe_reanchors_without_measuring_a_wrap_wider_than_the_clock_interval(tmp_path: Path) -> None:
+    probe = DrmEngineTimeProbe(proc_root=tmp_path, drm_root=tmp_path / "drm")
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=4_294_967_000, total_cycles=_REPORTED_TOTALS[0]))
+    probe.read(now=10.0, pids=[100])
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=1_000_000_000, total_cycles=_REPORTED_TOTALS[1]))
+
+    assert probe.read(now=15.0, pids=[100])[0].utilization_percent is None
+    assert probe.diagnostics.counters[0].state == "counter_wrapped"
+
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=1_009_621_402, total_cycles=_REPORTED_TOTALS[1] + 96_214_018))
+    assert probe.read(now=20.0, pids=[100])[0].utilization_percent == 10.0
+
+
+def test_gpu_probe_does_not_treat_a_drop_in_a_counter_wider_than_32_bits_as_a_wrap(tmp_path: Path) -> None:
+    probe = DrmEngineTimeProbe(proc_root=tmp_path, drm_root=tmp_path / "drm")
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=5_000_000_000, total_cycles=1_000_000_000))
+    probe.read(now=10.0, pids=[100])
+    _write_fdinfo(tmp_path, 100, 9, _ccs_client(1, cycles=10, total_cycles=1_100_000_000))
+
+    assert probe.read(now=15.0, pids=[100])[0].utilization_percent is None
+    assert probe.diagnostics.counters[0].state == "counter_regressed"

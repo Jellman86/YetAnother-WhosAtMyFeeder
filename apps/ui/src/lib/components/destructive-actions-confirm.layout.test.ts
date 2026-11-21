@@ -44,7 +44,7 @@ describe('destructive actions ask in the app, never through the browser', () => 
         ['handleResetDatabase', 'settings.danger.reset_button'],
         ['handleClearFavorites', 'settings.data.clear_favorites_confirm'],
         ['handleClearFeedback', 'settings.danger.clear_feedback_button'],
-        ['handlePurgeMissingMedia', 'settings.data.purge_missing_media_confirm']
+        ['handlePurgeMissingMedia', 'settings.data.purge_missing_media_confirm_delete']
     ])('%s asks before it deletes anything', (name, key) => {
         const body = handler(settingsSource, name);
         const asked = body.indexOf('await confirmAction(');
@@ -53,8 +53,44 @@ describe('destructive actions ask in the app, never through the browser', () => 
         expect(body.indexOf('if (!confirmed)')).toBeGreaterThan(asked);
     });
 
+    it('the media integrity scan words the saved policy, and under Delete says it cannot be undone', () => {
+        // The scan applies the saved policy, and it can delete; nothing counts what before it runs.
+        const body = handler(settingsSource, 'handlePurgeMissingMedia');
+        expect(body).toContain('normalizeFrigateMissingBehavior(settingsStore.settings?.frigate_missing_behavior)');
+        expect(body).toContain("savedPolicy === 'delete'");
+        expect(body).toContain("tone: 'danger'");
+        expect(body).toContain('A deletion cannot be undone.');
+        expect(body).toContain('How many of each is not known until the scan has run.');
+        // A visit whose photo YA-WAMF still holds is marked missing, never deleted.
+        expect(body).toContain('unless YA-WAMF still holds their photo');
+    });
+
     it('purging with unlimited retention skips the question, since nothing would be deleted', () => {
         const body = handler(settingsSource, 'handleCleanup');
         expect(body).toContain('if (days > 0)');
+    });
+});
+
+describe('a destructive question states only a count it read', () => {
+    it('Purge reads its count when asked and never falls back to zero', () => {
+        const body = handler(settingsSource, 'handleCleanup');
+        expect(body).not.toMatch(/\?\?\s*0/);
+        expect(body).toContain('reading: {');
+        expect(body).toContain('measuredCount((await fetchMaintenanceStats()).');
+    });
+
+    it('Delete all history counts the reset\'s own scope and sends the number it showed', () => {
+        const body = handler(settingsSource, 'handleResetDatabase');
+        expect(body).not.toMatch(/\?\?\s*0/);
+        // Not the maintenance total, which leaves hidden detections out.
+        expect(body).not.toContain('fetchMaintenanceStats()).total_detections');
+        expect(body).toContain('measuredCount((await fetchResetPreview()).detection_count)');
+        expect(body).toContain('resetWithConfirmedCount({');
+        expect(body).toContain('resetDatabase(expectedCount)');
+    });
+
+    it('cannot be confirmed while the count is still being read', () => {
+        expect(dialogSource).toContain('disabled={pending.reading}');
+        expect(dialogSource).toContain('aria-live="polite"');
     });
 });

@@ -1,11 +1,17 @@
 <script lang="ts">
+    import { tick } from 'svelte';
+    import { settingsScrollBehaviour } from '../../settings/scroll-behaviour';
+    import { useDisclosure } from '../../settings/disclosures.svelte';
+    import { settingsMoreId } from '../../settings/settings-more';
     import { _, locale } from 'svelte-i18n';
+    import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import type { NotificationSpeciesFilterMode } from '../../api/settings';
     import {
         enabledChannelNames,
         formatChannelList,
         presetSentenceKey,
         speciesSummaryKey,
+        NOTIFICATION_CHANNELS_SECTION_ID,
         type NotifyMode,
         type PolicyChannel,
     } from '../../settings/notification-policy';
@@ -23,7 +29,7 @@
         speciesCount,
         speciesSectionId,
         channels,
-        onChannelToggle,
+        channelsSectionId,
     }: {
         mode: NotifyMode;
         onModeChange: (mode: NotifyMode) => void;
@@ -37,10 +43,11 @@
         speciesCount: number;
         speciesSectionId: string;
         channels: PolicyChannel[];
-        onChannelToggle: (id: PolicyChannel['id'], enabled: boolean) => void;
+        /** The channel cards, the one place a channel is switched on. */
+        channelsSectionId: string;
     } = $props();
 
-    type Slot = 'what' | 'confidence' | 'channels';
+    type Slot = 'what' | 'confidence';
     let openSlot = $state<Slot | null>(null);
     let alignRight = $state(false);
     let container = $state<HTMLElement | null>(null);
@@ -74,10 +81,22 @@
         if (preset !== 'final') openSlot = null;
     }
 
-    function jumpToSpeciesFilter() {
+    // Species and channels are each set in one place; their words here are links to it. The species
+    // filter is under Alerts' More options, which opens first, then the link waits for it to be drawn.
+    const more = useDisclosure(() => ({ id: settingsMoreId('alerts') }));
+    const FIELD_WAIT_FRAMES = 60;
+    async function jumpTo(sectionId: string): Promise<void> {
         openSlot = null;
-        const section = document.getElementById(speciesSectionId);
-        section?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        if (sectionId !== NOTIFICATION_CHANNELS_SECTION_ID) more.open = true;
+        for (let frame = 0; frame < FIELD_WAIT_FRAMES; frame += 1) {
+            await tick();
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.scrollIntoView({ block: 'start', behavior: settingsScrollBehaviour() });
+                return;
+            }
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+        }
     }
 
     // Popovers close on outside pointer press or Escape; document listeners are
@@ -101,9 +120,17 @@
     });
 
     const chipClass =
-        'inline-flex items-baseline gap-1.5 rounded-xl border border-brand-300 bg-brand-50 px-3 py-1 font-bold text-brand-800 transition-colors hover:bg-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-brand-700/70 dark:bg-brand-950/60 dark:text-brand-200 dark:hover:bg-brand-900/60';
+        'focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-slate-100 px-3 font-semibold text-slate-900 transition-colors hover:bg-slate-200 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700';
+    const linkClass =
+        'focus-ring min-h-11 rounded-sm font-semibold text-brand-700 underline underline-offset-4 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200';
     const popoverClass =
         'absolute left-0 top-full z-20 mt-2 w-72 rounded-2xl border border-line-soft bg-surface p-3 text-left shadow-xl';
+
+    // A chip shows only its value; the hidden words after it say which setting it opens, so the
+    // name still starts with what is on screen (WCAG 2.5.3). The space is added here because a
+    // translation may not start with one and markup would trim it.
+    const chipContext = (setting: string): string =>
+        ` ${$_('settings.notifications.sentence.chip_context', { values: { setting }, default: '({setting})' })}`;
 </script>
 
 {#snippet chevron()}
@@ -118,12 +145,12 @@
                 onclick={() => choosePreset(preset)}
                 class="block w-full rounded-xl px-3 py-2 text-left transition-colors hover:bg-surface-raised {mode === preset ? 'bg-brand-50 dark:bg-brand-950/60' : ''}"
             >
-                <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_(presetSentenceKey(preset))}</span>
-                <span class="mt-0.5 block text-xs font-bold text-slate-500">{$_(`settings.notifications.mode_${preset}_desc`)}</span>
+                <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_(presetSentenceKey(preset))}</span>
+                <span class="mt-0.5 block text-xs text-slate-600 dark:text-slate-400">{$_(`settings.notifications.mode_${preset}_desc`)}</span>
             </button>
             {#if preset === 'final' && mode === 'final'}
                 <div class="flex items-center gap-2 px-3 pb-2 pt-1">
-                    <label for="policy-video-fallback" class="text-xs font-bold text-slate-500">{$_('settings.notifications.video_fallback_timeout')}</label>
+                    <label for="policy-video-fallback" class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.notifications.video_fallback_timeout')}</label>
                     <input
                         id="policy-video-fallback"
                         type="number"
@@ -131,20 +158,20 @@
                         step="5"
                         value={videoFallbackTimeout}
                         oninput={(event) => onVideoFallbackChange(Number(event.currentTarget.value))}
-                        class="w-20 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white"
+                        class="input-base w-24"
                     />
-                    <span class="text-xs font-bold text-slate-500">{$_('settings.notifications.video_fallback_seconds')}</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.notifications.video_fallback_seconds')}</span>
                 </div>
             {/if}
         {/each}
         {#if mode === 'custom'}
-            <p class="mt-1 border-t border-slate-200 px-3 pt-2 text-xs font-bold text-slate-400 dark:border-slate-700">{$_('settings.notifications.sentence.custom_hint')}</p>
+            <p class="mt-1 border-t border-slate-200 px-3 pt-2 text-xs text-slate-600 dark:text-slate-400 dark:border-slate-700">{$_('settings.notifications.sentence.custom_hint')}</p>
         {/if}
     </div>
 {/snippet}
 
 <div bind:this={container} class="relative">
-    <div class="flex flex-wrap items-center gap-x-2 gap-y-2.5 text-lg font-bold text-slate-700 dark:text-slate-200">
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-2 text-base text-slate-700 dark:text-slate-200">
         {#if mode === 'silent'}
             <span>{$_('settings.notifications.sentence.silent_lead')}</span>
             <span class="relative inline-block">
@@ -153,10 +180,9 @@
                     class={chipClass}
                     aria-haspopup="dialog"
                     aria-expanded={openSlot === 'what'}
-                    aria-label={$_('settings.notifications.mode_title')}
                     onclick={(event) => toggleSlot('what', event.currentTarget)}
                 >
-                    {whatLabel}
+                    {whatLabel}<span class="sr-only">{chipContext($_('settings.notifications.mode_title'))}</span>
                     {@render chevron()}
                 </button>
                 {#if openSlot === 'what'}
@@ -172,10 +198,9 @@
                     class={chipClass}
                     aria-haspopup="dialog"
                     aria-expanded={openSlot === 'what'}
-                    aria-label={$_('settings.notifications.mode_title')}
                     onclick={(event) => toggleSlot('what', event.currentTarget)}
                 >
-                    {whatLabel}
+                    {whatLabel}<span class="sr-only">{chipContext($_('settings.notifications.mode_title'))}</span>
                     {@render chevron()}
                 </button>
                 {#if openSlot === 'what'}
@@ -189,7 +214,6 @@
                     class={chipClass}
                     aria-haspopup="dialog"
                     aria-expanded={openSlot === 'confidence'}
-                    aria-label={$_('settings.notifications.min_confidence_label', { values: { value: confidencePercent } })}
                     onclick={(event) => toggleSlot('confidence', event.currentTarget)}
                 >
                     {$_(
@@ -197,14 +221,14 @@
                             ? 'settings.notifications.sentence.confidence_chip_audio'
                             : 'settings.notifications.sentence.confidence_chip',
                         { values: { value: confidencePercent } }
-                    )}
+                    )}<span class="sr-only">{chipContext($_('settings.notifications.min_confidence'))}</span>
                     {@render chevron()}
                 </button>
                 {#if openSlot === 'confidence'}
                     <div class="{popoverClass} {alignRight ? 'left-auto right-0' : ''}" role="dialog" aria-label={$_('settings.notifications.min_confidence')}>
                         <div class="mb-2 flex items-center justify-between">
-                            <label for="policy-confidence-slider" class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.notifications.min_confidence')}</label>
-                            <output for="policy-confidence-slider" class="rounded-lg bg-brand-700 px-2 py-0.5 text-xs font-bold text-white">{confidencePercent}%</output>
+                            <label for="policy-confidence-slider" class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.notifications.min_confidence')}</label>
+                            <output for="policy-confidence-slider" class="rounded-lg bg-brand-700 px-2 py-0.5 text-xs font-semibold text-white">{confidencePercent}%</output>
                         </div>
                         <input
                             id="policy-confidence-slider"
@@ -221,70 +245,45 @@
                             aria-label={$_('settings.notifications.min_confidence_label', { values: { value: confidencePercent } })}
                             class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-brand-600 dark:bg-slate-700"
                         />
-                        <div class="mt-1.5 flex justify-between">
-                            <span class="text-xs font-bold uppercase tracking-tighter text-slate-400">{$_('settings.notifications.notify_all')}</span>
-                            <span class="text-xs font-bold uppercase tracking-tighter text-slate-400">{$_('settings.notifications.high_confidence_only')}</span>
+                        <div class="mt-0.5 flex justify-between gap-x-4 text-xs font-medium text-slate-600 dark:text-slate-300">
+                            <span>{$_('settings.notifications.notify_all')}</span>
+                            <span class="text-right">{$_('settings.notifications.high_confidence_only')}</span>
                         </div>
-                        <label class="mt-2 flex cursor-pointer items-start gap-2 border-t border-slate-200 pt-2.5 dark:border-slate-700">
-                            <input
-                                type="checkbox"
-                                checked={audioOnly}
-                                onchange={(event) => onAudioOnlyChange(event.currentTarget.checked)}
-                                class="mt-0.5 h-4 w-4 rounded border-slate-300 accent-brand-600 dark:border-slate-600"
-                            />
-                            <span>
-                                <span class="block text-xs font-bold text-slate-900 dark:text-white">{$_('settings.notifications.audio_only')}</span>
-                                <span class="block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.audio_only_desc')}</span>
+                        <div class="mt-2 flex items-start justify-between gap-3 border-t border-line-soft pt-2.5">
+                            <span class="min-w-0">
+                                <span id="policy-audio-only-label" class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.audio_only')}</span>
+                                <span class="block text-xs leading-snug text-slate-600 dark:text-slate-400">{$_('settings.notifications.audio_only_desc')}</span>
                             </span>
-                        </label>
+                            <SettingsToggle
+                                checked={audioOnly}
+                                labelledBy="policy-audio-only-label"
+                                srLabel={$_('settings.notifications.audio_only')}
+                                onchange={onAudioOnlyChange}
+                            />
+                        </div>
                     </div>
                 {/if}
             </span>
             <span>{$_('settings.notifications.sentence.species_join')}</span>
             <button
                 type="button"
-                class={chipClass}
+                class={linkClass}
                 aria-label={$_('settings.notifications.sentence.species_jump', { values: { summary: speciesLabel } })}
-                onclick={jumpToSpeciesFilter}
+                onclick={() => void jumpTo(speciesSectionId)}
+                data-policy-species-link
             >
                 {speciesLabel}
             </button>
             <span>{$_('settings.notifications.sentence.channels_join')}</span>
-            <span class="relative inline-block">
-                <button
-                    type="button"
-                    class="{chipClass} {channelNames.length === 0 ? 'border-dashed' : ''}"
-                    aria-haspopup="dialog"
-                    aria-expanded={openSlot === 'channels'}
-                    aria-label="{$_('settings.notifications.sentence.destinations')}: {channelsLabel}"
-                    onclick={(event) => toggleSlot('channels', event.currentTarget)}
-                >
-                    {channelsLabel}
-                    {@render chevron()}
-                </button>
-                {#if openSlot === 'channels'}
-                    <div class="{popoverClass} {alignRight ? 'left-auto right-0' : ''}" role="dialog" aria-label={$_('settings.notifications.sentence.destinations')}>
-                        <p class="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.notifications.sentence.destinations')}</p>
-                        <p class="mb-2 text-xs font-bold text-slate-400">{$_('settings.notifications.sentence.channels_hint')}</p>
-                        {#each channels as channel (channel.id)}
-                            <label class="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-800">
-                                <span class="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={channel.enabled}
-                                        onchange={(event) => onChannelToggle(channel.id, event.currentTarget.checked)}
-                                        class="h-4 w-4 rounded border-slate-300 accent-brand-600 dark:border-slate-600"
-                                    />
-                                    <span class="text-sm font-bold text-slate-900 dark:text-white">{channel.label}</span>
-                                </span>
-                                {#if !channel.configured}
-                                    <span class="text-xs font-bold text-slate-400">{$_('settings.notifications.sentence.channel_needs_setup')}</span>
-                                {/if}
-                            </label>
-                        {/each}
-                    </div>
-                {/if}
-            </span>
+            <button
+                type="button"
+                class={linkClass}
+                aria-label={$_('settings.notifications.sentence.channels_jump', { values: { channels: channelsLabel }, default: 'Channels: {channels}. Go to the channels' })}
+                onclick={() => void jumpTo(channelsSectionId)}
+                data-policy-channels-link
+            >
+                {channelsLabel}
+            </button>
         {/if}
     </div>
 </div>

@@ -2,29 +2,89 @@ import { describe, expect, it } from 'vitest';
 import pipelineSource from './InstancePipeline.svelte?raw';
 import instanceSource from './InstanceSummary.svelte?raw';
 import privacySummarySource from './PrivacySummary.svelte?raw';
+import { outboundRequests } from '../utils/outbound-requests';
 import aboutSource from '../pages/About.svelte?raw';
 import enAbout from '../i18n/locales/en/about.json';
+import enSubtitle from '../i18n/locales/en/page_subtitle.json';
+import portraitSource from './FeederPortrait.svelte?raw';
 
 const en = { about: enAbout };
+const notes = Object.fromEntries(
+    Object.entries(import.meta.glob<{ outbound: { show_everything_note: string } }>('../i18n/locales/*/about.json', { eager: true, import: 'default' }))
+        .map(([path, about]) => [path, about.outbound.show_everything_note])
+);
 
 describe('About surface polish', () => {
+    it('describes the page it titles and carries no trivia', () => {
+        // The subtitle listed a changelog and contributors the page does not show, and a card of
+        // general bird facts closed a page that is otherwise only about this install.
+        expect(enSubtitle.about).toBe('What this feeder has recorded, how YA-WAMF works, and what it stores and sends.');
+        expect(aboutSource).not.toMatch(/ProjectNotes|did_you_know|bird_facts/);
+        // The footer under every page already carries the licence and the copyright line.
+        expect(aboutSource).not.toContain('license_notice');
+    });
+
+    it('names the latest visit by its caption, so the spoken name starts with the words shown', () => {
+        // An aria-label that reworded the caption failed label-in-name (WCAG 2.5.3).
+        const button = portraitSource.slice(portraitSource.indexOf('<button'), portraitSource.indexOf('</button>'));
+        expect(button).not.toContain('aria-label=');
+        expect(button).not.toMatch(/bg-linear-to-t[^>]*aria-hidden/);
+        expect(button).toContain("about.portrait.open_this_visit");
+    });
+
     it('gives the quick links and credit links a full touch target', () => {
-        expect(aboutSource).toContain('class="group inline-flex min-h-11 items-center gap-1.5 text-brand-600 focus-ring');
+        expect(aboutSource).toContain('class="group inline-flex min-h-11 items-center gap-1.5 text-accent-ink focus-ring');
         expect(aboutSource).toMatch(/<a href=\{credit\.href\}[^>]*class="inline-flex min-h-11 items-center/);
     });
 
-    it('prints the classifier model id whole, as an identifier that may break anywhere', () => {
-        expect(pipelineSource).toContain("identifier: true");
-        expect(pipelineSource).toContain("step.identifier ? 'font-mono break-all' : ''");
+    it('names the model as the Models tab does, with its runtime as a muted second line', () => {
+        // A file id such as mobilenet_v2_birds ran past the card; ids belong in the issue report only.
+        expect(pipelineSource).toContain('classifier.effective_model_name');
+        expect(pipelineSource).not.toMatch(/effective_model_id|active_model_id|font-mono|break-all/);
+        expect(pipelineSource).toContain('data-pipeline-note');
+        // The step's state is worded by the readiness vocabulary the Models tab and the wizard use.
+        expect(pipelineSource).toContain('readinessLabel(step.readiness, $_)');
+        expect(en.about.pipeline).not.toHaveProperty('standby');
     });
 
-    it('lists every browser-side network call the sighting map makes', () => {
-        // The panel promises "nothing leaves your network except the calls listed
-        // below", and the eBird map fetches OpenStreetMap tiles from each
-        // viewer's browser, so both rows must be in the list.
-        expect(privacySummarySource).toContain("key: 'ebird'");
-        expect(privacySummarySource).toContain("key: 'osm'");
-        expect(en.about.outbound.osm_desc.toLowerCase()).toContain('browser');
+    it('draws every step as the same card, with its state as a dot and a word', () => {
+        // Three border styles and a three-item legend were more encoding than seven cards can carry.
+        expect(pipelineSource).not.toMatch(/kindClass|border-dashed|legend_local|legend_optional|legend_external/);
+        expect(pipelineSource).toContain('border border-line-soft p-3');
+        expect(pipelineSource).toContain('toneDot(step.tone)');
+        expect(pipelineSource).toContain('about.pipeline.legend_note');
+    });
+
+    it('makes no promise that the list is everything, and builds it from the features that send', () => {
+        // The old line said nothing else leaves the network, over a list without Google Fonts or Wikipedia.
+        expect(en.about.pipeline.legend_note).toBe('What leaves your network is listed below.');
+        expect(JSON.stringify(en.about)).not.toMatch(/Nothing leaves your network/i);
+        expect(privacySummarySource).toContain('outboundRequests(facts)');
+        expect(privacySummarySource).not.toContain("on: ebirdEnabled");
+        // Who sends each request is said in words, and every entry has a name and what it sends.
+        expect(en.about.outbound.from_server).toBe('Sent by this server');
+        expect(en.about.outbound.from_browser).toBe('Sent by each viewer’s browser');
+        const outbound = en.about.outbound as Record<string, string>;
+        // Every request the inventory can list has a name and says what it sends, fetches or opens.
+        const everything = outboundRequests({
+            owner: true, ebird: true, llm: true, llmKey: true, telemetryUsage: true, telemetryHealth: true, updateChecks: true,
+            birdweather: true, birdweatherToken: true, inaturalistSubmissions: true, inaturalistConnected: true,
+            birdChannels: 1, gardenChannels: 1, garden: true, locationSet: true, locationAutomatic: true
+        });
+        expect(everything.length).toBeGreaterThanOrEqual(28);
+        for (const { key } of everything) {
+            expect(outbound[key], key).toBeTruthy();
+            expect(outbound[`${key}_desc`], key).toMatch(/Sends|sees|see |etch|installation ID|Asks|opens|exchanges|contacts/);
+        }
+        expect(en.about.outbound.on_demand).toBe('When you connect, test or run diagnostics');
+        // Payloads that were understated: coordinates, and what an AI request and a notification carry.
+        expect(outbound.birdweather_desc).toContain('coordinates');
+        expect(outbound.inat_local_desc).toContain('coordinates');
+        expect(outbound.llm_desc).toMatch(/weather.*chart content.*questions.*conversation/);
+        expect(outbound.notify_desc).toMatch(/confidence.*camera name.*links.*weather/);
+        // One state vocabulary: On, Off, Always, When used.
+        expect(privacySummarySource).toContain("$_('status.state_on'");
+        expect(privacySummarySource).not.toContain("'common.enabled'");
     });
     it('sweeps a pulse along the pipeline in the direction data travels', () => {
         // Svelte scopes @keyframes, so a name referenced from a class resolves to nothing
@@ -47,8 +107,10 @@ describe('About surface polish', () => {
     it('never prints the same unknown twice, and marks unprobed steps as unchecked', () => {
         expect(pipelineSource).toContain('detail: noReading, state: unknown');
         expect(pipelineSource).not.toContain('detail: unknown, state: unknown');
-        // MQTT and the database have no health endpoint; saying so beats a blank chip.
+        // The database has no health endpoint, and the broker stays unchecked until its
+        // measured session is read; saying so beats a blank chip.
         expect(pipelineSource.match(/state: notChecked/g)?.length).toBe(2);
+        expect(pipelineSource).toContain('serviceConnectionsStore.connections?.mqtt.state');
     });
 
     it('keeps the availability footprint without calling a failed request empty history', () => {
@@ -70,10 +132,16 @@ describe('About surface polish', () => {
         // whole card, carrying both the report row and the 24-hour strip past the viewport.
         expect(instanceSource).toContain('class="grid min-w-0 gap-6');
         expect(instanceSource).toContain('data-instance-uptime class="min-w-0"');
-        expect(instanceSource).toContain('class="mt-2 flex w-full min-w-0 max-w-full gap-[2px]"');
-        expect(instanceSource).toContain('class="min-w-0" data-instance-report');
+        expect(instanceSource).toContain('class="mt-2 flex w-full min-w-0 max-w-full gap-0.5"');
+        expect(instanceSource).toContain('class="min-w-0 sm:col-span-2" data-instance-report');
+        // The identification sentence has the whole row, at a reading measure, above the two short columns.
+        expect(instanceSource).toContain('class="grid min-w-0 gap-6 sm:grid-cols-3"');
+        expect(instanceSource).toContain('class="min-w-0 sm:col-span-3" data-instance-runtime');
+        expect(instanceSource).toContain('<div class="mt-1 max-w-prose">');
         expect(instanceSource).toContain('flex min-w-0 flex-col items-stretch gap-2');
-        expect(instanceSource).toContain('whitespace-normal break-all');
+        // The report line breaks between its parts, never inside a model name.
+        expect(instanceSource).not.toContain('break-all');
+        expect(instanceSource).toContain('{#each supportParts as part, position (position)}');
         expect(instanceSource).toContain('w-full sm:w-auto');
     });
 
@@ -85,7 +153,7 @@ describe('About surface polish', () => {
 
     it('sizes the external link arrow in the icon, not the display font', () => {
         expect(aboutSource).not.toContain('↗');
-        expect(aboutSource).toContain('h-2.5 w-2.5 shrink-0 text-slate-400');
+        expect(aboutSource).toContain('h-2.5 w-2.5 shrink-0 text-muted');
     });
 
     it('speaks in the first person and drops the title case', () => {
@@ -96,5 +164,55 @@ describe('About surface polish', () => {
         for (const value of JSON.stringify(en.about).match(/"[^"]*"/g) ?? []) {
             expect(value).not.toContain('—');
         }
+    });
+
+    it('never puts an unmeasured running time beside a measured availability', () => {
+        // "Running for Unknown" above "100% up" claimed a measurement that was not made.
+        expect(instanceSource).not.toMatch(/uptime \?\? \$_\('about\.pipeline\.unknown'/);
+        expect(instanceSource).toContain('data-instance-running-unmeasured');
+        // The availability figure names its own window, apart from the running time.
+        expect(instanceSource).toContain("about.instance.availability_heading");
+        expect(instanceSource.indexOf('data-instance-running-for')).toBeLessThan(
+            instanceSource.indexOf('about.instance.availability_heading')
+        );
+        // The start time is read from the probes, never assumed.
+        expect(instanceSource).toContain('startedAtFrom(readiness) ?? startedAtFrom(await checkHealth()');
+    });
+
+    it('names the runtime and its device rather than a bare runtime token', () => {
+        expect(instanceSource).toContain('describeRuntime(classifier)');
+        expect(instanceSource).not.toContain('about.instance.acceleration');
+    });
+
+    it('leads the network list with what is or may be sent now, and keeps the rest one disclosure away', () => {
+        // About 28 rows put a first-time owner's own situation below a wall of switched-off features.
+        // The rule itself is the pure leadsOutboundList, tested in utils/outbound-requests.test.ts.
+        expect(privacySummarySource).toContain('outbound.filter((request) => leadsOutboundList(request.state))');
+        expect(privacySummarySource).toContain('outbound.filter((request) => !leadsOutboundList(request.state))');
+        expect(privacySummarySource).toContain('<div data-outbound-now>');
+        expect(privacySummarySource).toContain('{@render requestGroups(nowGroups)}');
+        expect(privacySummarySource).toMatch(/<Disclosure[^>]*about\.outbound\.show_everything[^>]*data-outbound-everything/s);
+        expect(privacySummarySource).toContain('{@render requestGroups(restGroups)}');
+        expect(en.about.outbound.show_everything).toBe('Show everything YA-WAMF can contact');
+        // The count and its word stay on one line, in every language.
+        expect(Object.keys(notes)).toHaveLength(9);
+        for (const note of Object.values(notes)) expect(note).not.toContain(' ');
+        // The two parts are told apart in a heading list: the lead has its heading, the rest an sr-only one,
+        // and the origins sit a level below both.
+        expect(privacySummarySource).toContain("about.outbound.now_heading");
+        expect(privacySummarySource).toContain('<h4 class="sr-only">{$_(\'about.outbound.rest_heading\'');
+        expect(privacySummarySource).toContain('<h5 class="eyebrow mt-3" data-outbound-origin={group.group}>');
+        // An origin with nothing in a part gets no heading there.
+        expect(privacySummarySource).toContain('.filter((group) => group.requests.length > 0)');
+    });
+
+    it('puts the reference in a side column from 1280 px, after the main column in reading order', () => {
+        expect(aboutSource).toContain('<div class="grid gap-6 xl:grid-cols-12 xl:items-start">');
+        expect(aboutSource).toContain('xl:col-span-8" data-about-main');
+        expect(aboutSource).toContain('xl:col-span-4" aria-labelledby="about-close-heading" data-about-side');
+        expect(aboutSource.indexOf('data-about-main')).toBeLessThan(aboutSource.indexOf('data-about-side'));
+        // The pipeline lays out by the width it is given, not the window's, now it shares the row.
+        expect(pipelineSource).toContain('<div class="@container space-y-4" data-about-pipeline>');
+        expect(pipelineSource).not.toMatch(/[\s"](sm|md|lg|xl):grid-cols/);
     });
 });

@@ -1,6 +1,5 @@
 import asyncio
 import json
-import math
 import re
 import hashlib
 import weakref
@@ -21,7 +20,7 @@ import sqlite3
 import structlog
 from prometheus_client import Counter, Histogram
 from typing import Literal
-from app.utils.diagnostic_redaction import safe_error_message
+from app.utils.diagnostic_redaction import redact_address, safe_error_message
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
@@ -55,6 +54,7 @@ from app.repositories.video_share_repository import VideoShareRepository
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.public_access import public_media_window
 from app.utils.integration_url import validated_http_base_url
+from app.services.frigate_camera_health import parse_camera_stats, validate_camera_name
 from app.utils.hls import is_hls_asset, rewrite_hls_playlist
 
 router = APIRouter()
@@ -100,6 +100,18 @@ HIGH_QUALITY_SNAPSHOT_SOURCES = {
 HLS_PLAYLIST_MEDIA_TYPE = "application/vnd.apple.mpegurl"
 
 
+def _frigate_unreachable_detail(lang: str, auth: AuthContext | None) -> str:
+    """Say Frigate could not be reached, naming its address only to the owner who configures it.
+
+    The configured URL can carry reverse-proxy credentials in its userinfo, path or query, so even
+    the owner sees only ``scheme://host[:port]``. Callers without a known owner get no address.
+    """
+    address = redact_address(str(settings.frigate.frigate_url or ""))
+    if auth is not None and auth.is_owner and address:
+        return i18n_service.translate("errors.proxy.connection_failed", lang, url=address)
+    return i18n_service.translate("errors.proxy.frigate_unreachable", lang)
+
+
 def get_http_client() -> httpx.AsyncClient:
     global _http_client
     if _http_client is None:
@@ -107,7 +119,9 @@ def get_http_client() -> httpx.AsyncClient:
     return _http_client
 
 
-async def _proxy_hls_asset(request: Request, upstream_url: str, asset: str, lang: str) -> Response:
+async def _proxy_hls_asset(
+    request: Request, upstream_url: str, asset: str, lang: str, auth: AuthContext | None = None
+) -> Response:
     if not is_hls_asset(asset):
         raise HTTPException(status_code=400, detail="Invalid HLS asset")
 
@@ -143,7 +157,7 @@ async def _proxy_hls_asset(request: Request, upstream_url: str, asset: str, lang
         except httpx.RequestError as exc:
             raise HTTPException(
                 status_code=502,
-                detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+                detail=_frigate_unreachable_detail(lang, auth),
             ) from exc
         finally:
             if "upstream" in locals():
@@ -160,7 +174,7 @@ async def _proxy_hls_asset(request: Request, upstream_url: str, asset: str, lang
     except httpx.RequestError as exc:
         raise HTTPException(
             status_code=502,
-            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+            detail=_frigate_unreachable_detail(lang, auth),
         ) from exc
 
     if upstream.status_code == 404:
@@ -189,15 +203,10 @@ async def _proxy_hls_asset(request: Request, upstream_url: str, asset: str, lang
 
 # Validate event_id format (Frigate uses UUIDs, numeric IDs, or timestamp-based IDs with dots)
 EVENT_ID_PATTERN = re.compile(r"^[a-zA-Z0-9\-_.]+$")
-CAMERA_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_\-]+$")
 
 
 def validate_event_id(event_id: str) -> bool:
     return bool(EVENT_ID_PATTERN.match(event_id)) and len(event_id) <= 64
-
-
-def validate_camera_name(camera: str) -> bool:
-    return bool(CAMERA_NAME_PATTERN.match(camera)) and len(camera) <= 64
 
 
 def _is_probably_thumbnail_sized_snapshot(image_bytes: bytes, *, source: str | None = None) -> bool:
@@ -1196,7 +1205,9 @@ async def _recording_clip_exists_for_share(event_id: str, lang: str) -> bool:
         await response.aclose()
 
 
-async def _fetch_recording_clip_ready(event_id: str, lang: str) -> RecordingClipCacheState:
+async def _fetch_recording_clip_ready(
+    event_id: str, lang: str, auth: AuthContext | None = None
+) -> RecordingClipCacheState:
     from app.services.media_cache import media_cache, _MIN_VALID_CLIP_BYTES
 
     cached_path, state, _duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
@@ -1264,14 +1275,14 @@ async def _fetch_recording_clip_ready(event_id: str, lang: str) -> RecordingClip
         except httpx.RequestError:
             raise HTTPException(
                 status_code=502,
-                detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+                detail=_frigate_unreachable_detail(lang, auth),
             )
         finally:
             await response.aclose()
             await client.aclose()
 
 
-async def _ensure_preview_assets(event_id: str, lang: str) -> str:
+async def _ensure_preview_assets(event_id: str, lang: str, auth: AuthContext | None = None) -> str:
     """Ensure preview sprite + manifest exist in media cache."""
     from app.services.media_cache import media_cache
     from app.services.video_preview_service import video_preview_service
@@ -1334,9 +1345,7 @@ async def _ensure_preview_assets(event_id: str, lang: str) -> str:
             except httpx.RequestError:
                 raise HTTPException(
                     status_code=502,
-                    detail=i18n_service.translate(
-                        "errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url
-                    ),
+                    detail=_frigate_unreachable_detail(lang, auth),
                 )
 
         try:
@@ -1599,7 +1608,7 @@ async def test_frigate_connection(
         resp = await client.get(version_url, headers=headers, timeout=10.0)
         resp.raise_for_status()
         version = resp.text.strip().strip('"')
-        return {"status": "ok", "frigate_url": base_url, "version": version}
+        return {"status": "ok", "frigate_url": redact_address(base_url), "version": version}
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail=i18n_service.translate("errors.proxy.frigate_timeout", lang))
     except httpx.HTTPStatusError as e:
@@ -1614,7 +1623,7 @@ async def test_frigate_connection(
     except httpx.RequestError:
         raise HTTPException(
             status_code=502,
-            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=base_url),
+            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=redact_address(base_url)),
         )
 
 
@@ -1642,7 +1651,7 @@ async def proxy_config(request: Request, auth: AuthContext = Depends(require_own
     except httpx.RequestError:
         raise HTTPException(
             status_code=502,
-            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+            detail=_frigate_unreachable_detail(lang, auth),
         )
 
 
@@ -2112,7 +2121,7 @@ async def proxy_snapshot(
             return Response(content=retained_legacy_photo, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
         raise HTTPException(
             status_code=502,
-            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+            detail=_frigate_unreachable_detail(lang, auth),
         )
 
 
@@ -2120,7 +2129,7 @@ async def proxy_snapshot(
 async def proxy_latest_camera_snapshot(
     request: Request,
     camera: str = Path(..., min_length=1, max_length=64),
-    _auth: AuthContext = Depends(require_owner),
+    auth: AuthContext = Depends(require_owner),
 ):
     """Proxy latest snapshot for a camera from Frigate."""
     lang = get_user_language(request)
@@ -2149,26 +2158,15 @@ async def proxy_latest_camera_snapshot(
     except httpx.RequestError:
         raise HTTPException(
             status_code=502,
-            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+            detail=_frigate_unreachable_detail(lang, auth),
         )
-
-
-def _finite_camera_metric(value: object) -> float | None:
-    """Return a finite Frigate camera metric without trusting its JSON shape."""
-    if isinstance(value, bool):
-        return None
-    try:
-        metric = float(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return None
-    return metric if math.isfinite(metric) and metric >= 0 else None
 
 
 @router.get("/frigate/cameras/status", response_model=FrigateCameraStatusResponse)
 async def get_frigate_camera_status(
     request: Request,
     response: Response,
-    _auth: AuthContext = Depends(require_owner),
+    auth: AuthContext = Depends(require_owner),
 ):
     """Return lightweight per-camera health derived from Frigate's stats feed."""
     lang = get_user_language(request)
@@ -2186,35 +2184,12 @@ async def get_frigate_camera_status(
     except (httpx.RequestError, json.JSONDecodeError, ValueError, TypeError):
         raise HTTPException(
             status_code=502,
-            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+            detail=_frigate_unreachable_detail(lang, auth),
         )
 
-    raw_cameras = payload.get("cameras") if isinstance(payload, dict) else None
-    camera_items: list[FrigateCameraStatusItem] = []
-    if isinstance(raw_cameras, dict):
-        for camera, raw_metrics in raw_cameras.items():
-            if not isinstance(camera, str) or not validate_camera_name(camera):
-                continue
-            metrics = raw_metrics if isinstance(raw_metrics, dict) else {}
-            camera_fps = _finite_camera_metric(metrics.get("camera_fps"))
-            process_fps = _finite_camera_metric(metrics.get("process_fps"))
-            detection_fps = _finite_camera_metric(metrics.get("detection_fps"))
-            status: Literal["online", "offline", "unknown"]
-            if camera_fps is None:
-                status = "unknown"
-            elif camera_fps > 0:
-                status = "online"
-            else:
-                status = "offline"
-            camera_items.append(
-                FrigateCameraStatusItem(
-                    camera=camera,
-                    status=status,
-                    camera_fps=camera_fps,
-                    process_fps=process_fps,
-                    detection_fps=detection_fps,
-                )
-            )
+    camera_items = [
+        FrigateCameraStatusItem.model_validate(camera.model_dump()) for camera in parse_camera_stats(payload)
+    ]
 
     response.headers.update(SNAPSHOT_NO_STORE_HEADERS)
     return FrigateCameraStatusResponse(
@@ -2307,7 +2282,7 @@ async def check_clip_exists(
     except httpx.RequestError:
         raise HTTPException(
             status_code=502,
-            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+            detail=_frigate_unreachable_detail(lang, auth),
         )
 
 
@@ -2385,7 +2360,7 @@ async def check_recording_clip_exists(
     except httpx.RequestError:
         raise HTTPException(
             status_code=502,
-            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+            detail=_frigate_unreachable_detail(lang, auth),
         )
     finally:
         if "resp" in locals():
@@ -2412,7 +2387,7 @@ async def fetch_recording_clip(
 
     from app.services.media_cache import media_cache
 
-    recording_state = await _fetch_recording_clip_ready(event_id, lang)
+    recording_state = await _fetch_recording_clip_ready(event_id, lang, auth)
     return RecordingClipFetchResponse(
         event_id=event_id,
         status="ready" if recording_state == "complete" else "partial",
@@ -2447,7 +2422,7 @@ async def proxy_event_hls(
         raise HTTPException(status_code=404, detail="Archived video is available through MP4 playback")
 
     upstream_url = f"{settings.frigate.frigate_url}/vod/event/{event_id}/{asset}"
-    return await _proxy_hls_asset(request, upstream_url, asset, lang)
+    return await _proxy_hls_asset(request, upstream_url, asset, lang, auth)
 
 
 @router.get("/frigate/{event_id}/recording-hls/{asset}", response_class=Response)
@@ -2478,7 +2453,7 @@ async def proxy_recording_hls(
     if not validate_camera_name(camera_name):
         raise HTTPException(status_code=400, detail="Invalid Frigate camera name")
     upstream_url = f"{settings.frigate.frigate_url}/vod/{camera_name}/start/{start_ts}/end/{end_ts}/{asset}"
-    return await _proxy_hls_asset(request, upstream_url, asset, lang)
+    return await _proxy_hls_asset(request, upstream_url, asset, lang, auth)
 
 
 @router.get("/frigate/{event_id}/clip.mp4", response_class=StreamingResponse)
@@ -2931,7 +2906,7 @@ async def proxy_clip_thumbnails_vtt(
         raise HTTPException(status_code=502, detail=i18n_service.translate("errors.proxy.media_fetch_failed", lang))
 
     try:
-        generation_outcome = await _ensure_preview_assets(event_id, lang)
+        generation_outcome = await _ensure_preview_assets(event_id, lang, auth)
     except HTTPException as exc:
         VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome=f"http_{exc.status_code}").inc()
         raise
@@ -3003,7 +2978,7 @@ async def proxy_clip_thumbnails_sprite(
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang, media="clip")
     try:
-        generation_outcome = await _ensure_preview_assets(event_id, lang)
+        generation_outcome = await _ensure_preview_assets(event_id, lang, auth)
     except HTTPException as exc:
         VIDEO_PREVIEW_REQUESTS.labels(endpoint=endpoint_name, outcome=f"http_{exc.status_code}").inc()
         raise
@@ -3138,5 +3113,5 @@ async def proxy_thumb(
     except httpx.RequestError:
         raise HTTPException(
             status_code=502,
-            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+            detail=_frigate_unreachable_detail(lang, auth),
         )

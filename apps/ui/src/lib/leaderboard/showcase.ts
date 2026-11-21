@@ -13,6 +13,8 @@ export interface ShowcaseRow {
     count: number;
     /** This feeder's own crop, a path served by the reel's image route. */
     photo: string | null;
+    /** The visit that crop is from, so a small slot can ask the reel's route for the tile size. */
+    photoEvent: string | null;
     /** The species' scientific name and taxon, so a capture is matched to it whatever the naming mode. */
     scientificName: string | null;
     taxaId: number | null;
@@ -39,8 +41,8 @@ export interface ReferenceImage {
 /** How many species the share bar names before it sums the rest. */
 const SPOTLIGHT_LIST = 6;
 
-/** Ranked species to ask a photograph for: the list plus the flagged species shown beneath it. */
-export const SPOTLIGHT_PORTRAITS = 16;
+/** Every ranking row shows this feeder's own crop where there is one: as many as the portraits route gives (its maximum). */
+export const RANKING_PORTRAITS = 24;
 
 /**
  * Match a species' own photograph to its row. The taxon is the identity when both sides
@@ -91,6 +93,7 @@ export function buildShowcaseRows<T extends ShowcaseSource>(
             subName: labels[index] !== row.displayName && row.subName === row.scientific_name ? null : row.subName,
             count: countForMode(metricRow, options.sourceMode),
             photo: portrait?.image_url ?? null,
+            photoEvent: portrait?.frigate_event ?? null,
             scientificName: row.scientific_name ?? null,
             taxaId: row.taxa_id ?? null,
             reference: reference.url,

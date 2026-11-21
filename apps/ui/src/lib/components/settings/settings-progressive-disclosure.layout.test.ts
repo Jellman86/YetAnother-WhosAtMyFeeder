@@ -6,14 +6,24 @@ import appearanceSource from './AppearanceSettings.svelte?raw';
 import authenticationSource from './AuthenticationSettings.svelte?raw';
 import connectionSource from './ConnectionSettings.svelte?raw';
 import dataSource from './DataSettings.svelte?raw';
+import maintenanceSource from './MaintenanceSettings.svelte?raw';
+import dangerSource from './DangerZoneSettings.svelte?raw';
 import detectionSource from './DetectionSettings.svelte?raw';
+import modelSource from './ModelSettings.svelte?raw';
+import hardwareSource from './HardwareSettings.svelte?raw';
 import enrichmentSource from './EnrichmentSettings.svelte?raw';
 import integrationSource from './IntegrationSettings.svelte?raw';
-import notificationSource from './NotificationSettings.svelte?raw';
+import birdnetSource from './BirdnetSettings.svelte?raw';
+import notificationRulesSource from './NotificationSettings.svelte?raw';
+import notificationChannelsSource from './NotificationChannelsSettings.svelte?raw';
+
+// Alerts' rules and its channels are two components; these checks read them as one.
+const notificationSource = `${notificationRulesSource}\n${notificationChannelsSource}`;
 import advancedSectionSource from './_primitives/AdvancedSection.svelte?raw';
 import settingsCardSource from './_primitives/SettingsCard.svelte?raw';
 import healthSource from '../../pages/Errors.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
+import sharingSource from './sections/SharingSection.svelte?raw';
 
 const settingsSources = [
     accessibilitySource,
@@ -22,7 +32,9 @@ const settingsSources = [
     authenticationSource,
     connectionSource,
     dataSource,
+    maintenanceSource,
     detectionSource,
+    modelSource,
     enrichmentSource,
     integrationSource,
     notificationSource,
@@ -36,8 +48,8 @@ describe('Settings progressive disclosure', () => {
         expect(authenticationSource.indexOf('{#if authEnabled}')).toBeLessThan(authenticationSource.indexOf('labelId="setting-auth-username"'));
         expect(authenticationSource.indexOf('{#if publicAccessEnabled}')).toBeLessThan(authenticationSource.indexOf('labelId="setting-public-show-cameras"'));
 
+        expect(birdnetSource.indexOf('{#if birdnetEnabled}')).toBeLessThan(birdnetSource.indexOf('setting-birdnet-url'));
         for (const [enabled, firstField] of [
-            ['birdnetEnabled', 'setting-birdnet-url'],
             ['inaturalistEnabled', 'setting-inat-client-id'],
             ['ebirdEnabled', 'setting-ebird-api-key'],
             ['birdweatherEnabled', 'setting-birdweather-token']
@@ -52,15 +64,24 @@ describe('Settings progressive disclosure', () => {
     });
 
     it('keeps optional, analytical, and destructive work out of the default hierarchy', () => {
-        expect(connectionSource).toContain('id="connection-telemetry"');
+        // Telemetry is what leaves the installation, so it sits with Security, beside who can reach it.
+        expect(connectionSource).not.toContain('settings.telemetry.title');
+        const security = sharingSource.slice(sharingSource.indexOf('data-settings-part="security"'));
+        expect(security).toContain('<TelemetrySettings');
         expect(aiSource).toContain('id="ai-usage"');
         expect(appearanceSource).toContain('id="appearance-typography-and-colour"');
-        expect(dataSource).toContain('id="data-tools"');
-        expect(dataSource).toContain('id="data-danger"');
+        // Repairs and deletions have their own tab; the deletions are the last section, a plain
+        // heading like every other, each behind its own confirmation.
+        expect(dataSource).not.toContain('id="data-danger"');
+        expect(maintenanceSource).not.toContain('id="data-danger"');
+        expect(dangerSource).toContain('id="data-danger"');
+        expect(maintenanceSource).not.toMatch(/<SettingsCard\s+collapsible/);
         expect(dataSource).not.toContain('settings.data.setup_wizard_title');
-        expect(dataSource.indexOf('id="data-danger"')).toBeLessThan(dataSource.indexOf('settings.danger.reset_desc'));
-        expect(settingsPageSource).toContain('id="debug-model-evaluation"');
-        expect(settingsPageSource).toContain('<SettingsToggle');
+        expect(dangerSource.indexOf('id="data-danger"')).toBeLessThan(dangerSource.indexOf('settings.danger.reset_desc'));
+        // Testing the models is one row that opens Model evaluation, not a section of its own.
+        expect(modelSource).toContain('labelId="setting-model-evaluation"');
+        expect(modelSource).not.toContain('id="models-testing"');
+        expect(hardwareSource).toContain('<SettingsToggle');
         expect(settingsPageSource).not.toContain('role="switch"');
         expect(advancedSectionSource).toContain('openByDefault?: boolean');
     });
@@ -69,7 +90,7 @@ describe('Settings progressive disclosure', () => {
         expect(settingsCardSource).not.toContain('icon?: string');
         expect(settingsCardSource).not.toContain('{icon}');
         expect(settingsCardSource).toContain('text-sm leading-relaxed');
-        expect(enrichmentSource).toContain('divide-y divide-slate-200/70');
+        expect(enrichmentSource).toContain('divide-y divide-line-soft');
         expect(enrichmentSource).not.toContain('grid grid-cols-1 md:grid-cols-2 gap-4');
 
         for (const source of settingsSources) {

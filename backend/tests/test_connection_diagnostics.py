@@ -66,8 +66,8 @@ async def test_frigate_diagnostic_rejects_unsafe_url_override(client):
 @pytest.mark.asyncio
 async def test_mqtt_diagnostic_uses_current_form_values_and_preserves_saved_password(client, monkeypatch):
     settings.frigate.mqtt_password = "stored-password"
-    test_connection = AsyncMock(return_value=True)
-    monkeypatch.setattr("app.services.mqtt_service.mqtt_service.test_connection", test_connection)
+    test_connection = AsyncMock(return_value=None)
+    monkeypatch.setattr("app.services.mqtt_service.mqtt_service.diagnose_connection", test_connection)
 
     response = await client.post(
         "/api/settings/mqtt/test-publish",
@@ -87,6 +87,31 @@ async def test_mqtt_diagnostic_uses_current_form_values_and_preserves_saved_pass
         username="birder",
         password="stored-password",
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("cause", "said"),
+    [
+        ("host_not_found", "The host name in mqtt.invalid:1883 was not found"),
+        ("refused", "Nothing answered at mqtt.invalid:1883"),
+        ("not_authorised", "refused the user name or password"),
+    ],
+)
+async def test_mqtt_diagnostic_names_the_cause_and_the_next_step(client, monkeypatch, cause, said):
+    monkeypatch.setattr("app.services.mqtt_service.mqtt_service.diagnose_connection", AsyncMock(return_value=cause))
+
+    response = await client.post("/api/settings/mqtt/test-publish", json={"server": "mqtt.invalid", "port": 1883})
+
+    assert response.status_code == 502
+    body = response.json()
+    # A stable code and safe parameters, so the page words the cause in the reader's language.
+    assert body["cause"] == cause
+    assert body["service"] == "mqtt"
+    assert body["address"] == "mqtt.invalid:1883"
+    # The English sentence stays for clients that only read `message`.
+    assert said in body["message"]
+    assert "logs" not in body["message"].lower()
 
 
 @pytest.mark.asyncio
@@ -117,3 +142,28 @@ async def test_birdnet_ingest_diagnostic_reports_failed_persistence(client, monk
 
     assert response.status_code == 502
     assert response.json()["status"] == "error"
+
+
+@pytest.mark.asyncio
+async def test_birdnet_url_check_names_the_cause_not_the_exception_class(client, monkeypatch):
+    class _Refusing:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def get(self, url, timeout):
+            raise httpx.ConnectError("[Errno -2] Name or service not known", request=httpx.Request("GET", url))
+
+    monkeypatch.setattr("app.routers.settings.httpx.AsyncClient", lambda **_: _Refusing())
+
+    response = await client.get("/api/settings/birdnet/reachability", params={"url": "http://birdnet.invalid:8080"})
+
+    assert response.status_code == 502
+    message = response.json()["message"]
+    assert "ConnectError" not in message
+    # The error names a host that does not resolve, so that is the cause given, with its code.
+    assert response.json()["cause"] == "host_not_found"
+    assert "was not found" in message
+    assert "Check the address for BirdNET-Go" in message

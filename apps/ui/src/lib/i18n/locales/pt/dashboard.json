@@ -1,12 +1,12 @@
 {
   "title": "Painel",
-  "live_feed": "Ao Vivo",
+  "live_feed": "Ao vivo",
   "showing_last_3_days": "Mostrando últimos 3 dias",
-  "no_detections": "Nenhuma detecção ainda",
+  "no_detections": "Nenhuma visita nas últimas 24 horas.",
   "waiting_first_visitor": "Nenhuma visita nas últimas 24 horas. Novas visitas aparecem aqui assim que chegam.",
-  "discovery_feed": "Feed de Descobertas",
+  "discovery_feed": "Feed de descobertas",
   "see_full_history": "Ver histórico completo",
-  "audio_confirmations": "Confirmações de Áudio",
+  "audio_confirmations": "Confirmações de áudio",
   "hero": {
     "just_discovered": "Acabou de ser detectado",
     "one_hour_ago": "há 1 hora",
@@ -23,7 +23,7 @@
     "audio": "Áudio"
   },
   "histogram": {
-    "title": "Pulso de atividade",
+    "title": "Atividade",
     "visits_per_hour": "Visitas por hora, últimas 24 horas",
     "peak": "Mais movimento às {time}, {count, plural, one {# visita} other {# visitas}}",
     "now": "agora",
@@ -72,12 +72,12 @@
     "places": "{count, plural, one {# local} other {# locais}}"
   },
   "day_bar": {
-    "birds_found": "aves encontradas",
+    "birds_found": "Aves encontradas",
     "birds_scope": "Em {count, plural, one {# captura analisada} other {# capturas analisadas}}; algumas aves podem não ser detectadas",
-    "visits": "visitas",
-    "unresolved": "por resolver",
-    "calls_heard": "cantos ouvidos",
-    "cross_confirmed": "confirmados por ambos",
+    "visits": "Visitas",
+    "unresolved": "Por resolver",
+    "calls_heard": "Cantos ouvidos",
+    "cross_confirmed": "Confirmados por ambos",
     "reconnecting": "A reconectar…",
     "window": "Últimas 24 horas",
     "loading": "ainda carregando",
@@ -87,7 +87,7 @@
     "seen_and_heard": "vistos e ouvidos"
   },
   "desk": {
-    "cameras_empty": "Ainda não há câmeras respondendo. Adicione-as em Configurações → Conexão.",
+    "cameras_empty": "Ainda não há câmeras respondendo. Adicione-as em Configurações → Câmeras e conexão.",
     "camera_no_visits": "sem visitas",
     "no_cross_confirmation": "{count, plural, one {# canto foi ouvido, mas não coincidiu com nenhuma visita de câmera.} other {# cantos foram ouvidos, mas nenhum coincidiu com uma visita de câmera.}} O microfone e as câmeras podem estar cobrindo áreas diferentes.",
     "temperature_span": "As visitas variaram entre {low} e {high}",
@@ -133,6 +133,7 @@
     "skipped_note": "{count, plural, one {# para mais tarde. Continua na fila.} other {# para mais tarde. Continuam na fila.}}",
     "back": "Voltar ao painel",
     "threshold_note": "O modelo ficou abaixo do limiar de identificação.",
+    "unknown_note": "O modelo não conseguiu identificar esta ave, então não há espécie para confirmar. Escolha uma abaixo.",
     "search": "Procurar espécie…",
     "no_matches": "Nenhuma espécie corresponde. Tente menos letras.",
     "search_failed": "Não foi possível pesquisar espécies. Altere a pesquisa para tentar novamente.",

@@ -31,7 +31,7 @@ for behavior shipped in a tagged image.
 - [AI Models & Performance](features/ai-models.md) — select and validate a classifier.
 - [October model catalogue](features/model-catalogue-2026-10.md) — coverage, sizes and hardware limits.
 - [Accuracy and benchmarks](features/model-accuracy.md) — measured results and their limits.
-- [Model Evaluation](features/model-evaluation.md) — compatibility checks, results and temporary model changes.
+- [Model evaluation](features/model-evaluation.md) — compatibility checks, results and temporary model changes.
 
 ## 🔗 Integrations
 
@@ -58,5 +58,5 @@ for behavior shipped in a tagged image.
 - [Offline Garden replay](development/garden-replay.md) — compare detector sampling without changing live collection or history.
 - [Engineering contract](../CLAUDE.md) · [Code quality](standards/code-quality.md) · [UI/UX](standards/ui-ux.md).
 - [Documentation standard](documentation-standard.md) · [Screenshot capture](images/README.md).
-- [Writing a release](development/releasing.md) · [v2.23.2 notes](releases/v2.23.2.md) · [Contributors](../CONTRIBUTORS.md).
+- [Writing a release](development/releasing.md) · [v2.24.0 notes](releases/v2.24.0.md) · [Contributors](../CONTRIBUTORS.md).
 - [Release archive](releases/) · [Dated reviews](reviews/) · [Roadmap](../ROADMAP.md).

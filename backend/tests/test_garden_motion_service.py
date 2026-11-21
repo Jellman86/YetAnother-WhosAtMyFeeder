@@ -16,6 +16,7 @@ from app.repositories.garden_repository import GardenRepository
 from app.services import garden_motion_privacy
 from app.services.garden_identification import garden_identification_service
 from app.services.garden_motion import GardenMotionService
+from app.services.garden_motion_decode import MotionDecoder
 
 
 def test_motion_cameras_default_off_and_reject_path_names():
@@ -37,6 +38,8 @@ async def collector(monkeypatch, tmp_path):
     monkeypatch.setattr(garden_identification_service, "error", None)
     monkeypatch.setattr("app.services.garden_motion.garden_inference_pressure", lambda: {"live": {}, "background": {}})
     service = GardenMotionService()
+    # A developer machine may have a GPU; tests decide the decoder explicitly.
+    service.decoder = MotionDecoder("not_packaged")
     service.path = tmp_path / "detector.onnx"
     service.path.write_bytes(b"model")
     bundle = dict(
@@ -254,7 +257,7 @@ async def test_queue_drains_long_recording_and_restart_resumes_durable_cursor(co
         assert await GardenRepository(db).motion_cursor("patio") == 1930
         assert await GardenRepository(db).count("pending") == 0
     assert requests == [
-        {"after": 200, "before": 1980},
+        {"after": 1400, "before": 1980},
         {"after": 1910, "before": 1980},
         {"after": 1920, "before": 1980},
     ]
@@ -672,3 +675,424 @@ def test_unreadable_summary_counts_only_the_last_hour_on_collecting_cameras():
     skipped = [(50.0, "patio", "decode_failed"), (3000.0, "patio", "duration_limit"), (3000.0, "old", "pixel_limit")]
     summary = unreadable_summary(skipped, now=3700.0, cameras=["patio"])
     assert [(item.camera, item.count, item.last_reason) for item in summary] == [("patio", 1, "duration_limit")]
+
+
+@pytest.mark.asyncio
+async def test_an_oversize_recording_is_skipped_and_counted_instead_of_failing_every_retry(collector, monkeypatch):
+    from app.services.frigate_client import MotionRecordingTooLarge
+
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: 100.0)
+    download = AsyncMock(side_effect=MotionRecordingTooLarge("Motion recording exceeds its byte limit"))
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.download_motion_recording", download)
+    native = AsyncMock()
+    monkeypatch.setattr(collector, "_native", native)
+    await collector.scan_once()
+    native.assert_not_awaited()
+    assert collector.last_outcome == "unusable_recording"
+    # The window is skipped, not retried in thirty seconds as a failure.
+    assert collector.next_scan < 130.0
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_cursor("patio") is not None
+    status = await collector.status()
+    assert [(item.camera, item.count, item.last_reason) for item in status.unreadable_recordings] == [
+        ("patio", 1, "size_limit")
+    ]
+
+
+def _records_get(records, queries):
+    async def get(path, **kwargs):
+        if path == "api/stats":
+            payload = {"cameras": {"patio": {"camera_fps": 10, "process_fps": 10, "skipped_fps": 0}}}
+        else:
+            queries.append(kwargs["params"])
+            payload = records
+        return httpx.Response(200, json=payload, request=httpx.Request("GET", "http://frigate/"))
+
+    return get
+
+
+@pytest.mark.asyncio
+async def test_a_restart_skips_backlog_older_than_the_window_with_one_log_line(collector, monkeypatch):
+    from app.services import garden_motion
+
+    clock, wall = [100.0], [5000.0]
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: wall[0])
+    # Continuous motion since well before the outage; the saved cursor is at 1000.
+    records = [{"start_time": float(start), "end_time": start + 10.0, "motion": 5} for start in range(1000, 4980, 10)]
+    queries = []
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, queries))
+    native = AsyncMock(return_value={"outcome": "no_candidate"})
+    monkeypatch.setattr(collector, "_native", native)
+    info = Mock()
+    monkeypatch.setattr(garden_motion.log, "info", info)
+    async with get_db() as db:
+        await GardenRepository(db).advance_motion_cursor("patio", 1000.0)
+    await collector.scan_once()
+    skipped = [call for call in info.call_args_list if call.args[0] == "garden_motion_backlog_skipped"]
+    assert len(skipped) == 1
+    # Counted from the lookback, so one bounded request covers it.
+    assert queries[0]["after"] == 1000
+    assert skipped[0].kwargs["camera"] == "patio"
+    assert skipped[0].kwargs["skipped_windows"] == (4400 - 1000) // 10
+    assert native.await_args.args[0]["duration"] == 10
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_cursor("patio") == 4410
+    # The window keeps moving while the scanner rests; a creeping skip is not logged again soon.
+    clock[0], wall[0] = 160.0, 5100.0
+    collector.next_scan = 0
+    await collector.scan_once()
+    assert len([call for call in info.call_args_list if call.args[0] == "garden_motion_backlog_skipped"]) == 1
+    clock[0], wall[0] = 800.0, 5800.0
+    collector.next_scan = 0
+    await collector.scan_once()
+    skipped = [call for call in info.call_args_list if call.args[0] == "garden_motion_backlog_skipped"]
+    assert len(skipped) == 2
+    assert skipped[1].kwargs["skipped_windows"] > 0
+
+
+@pytest.mark.asyncio
+async def test_a_first_enable_starts_at_the_window_without_reporting_skipped_footage(collector, monkeypatch):
+    from app.services import garden_motion
+
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 5000.0)
+    records = [{"start_time": float(start), "end_time": start + 10.0, "motion": 5} for start in range(1000, 4980, 10)]
+    queries = []
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, queries))
+    native = AsyncMock(return_value={"outcome": "no_candidate"})
+    monkeypatch.setattr(collector, "_native", native)
+    info = Mock()
+    monkeypatch.setattr(garden_motion.log, "info", info)
+    await collector.scan_once()
+    assert queries[0]["after"] == 4400
+    assert not [call for call in info.call_args_list if call.args[0] == "garden_motion_backlog_skipped"]
+
+
+@pytest.mark.asyncio
+async def test_fast_catchup_returns_to_the_normal_interval_once_the_cycle_budget_is_spent(collector, monkeypatch):
+    from app.models.garden_motion import MOTION_CATCHUP_BUDGET
+
+    clock = [100.0]
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 5000.0)
+    records = [{"start_time": 4400.0, "end_time": 4970.0, "motion": 5}]
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, []))
+    monkeypatch.setattr(collector, "_native", AsyncMock(return_value={"outcome": "no_candidate"}))
+    intervals = []
+    for _ in range(MOTION_CATCHUP_BUDGET + 2):
+        await collector.scan_once()
+        intervals.append(collector.interval_seconds)
+        clock[0] = collector.next_scan
+    assert intervals[: MOTION_CATCHUP_BUDGET - 1] == [5] * (MOTION_CATCHUP_BUDGET - 1)
+    assert intervals[MOTION_CATCHUP_BUDGET - 1 :] == [10, 10, 10]
+
+
+@pytest.mark.asyncio
+async def test_a_proven_gpu_decoder_reaches_the_worker_and_software_images_send_none(collector, monkeypatch):
+    seen = []
+    original = collector._native
+
+    async def native(payload, blocked):
+        seen.append(payload["decode_device"])
+        return await original(payload, blocked)
+
+    monkeypatch.setattr(collector, "_native", native)
+    await collector.scan_once()
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.next_scan = 0
+    async with get_db() as db:
+        for table in ("garden_motion_sources", "garden_motion_cursors", "garden_captures"):
+            await db.execute(f"DELETE FROM {table}")
+        await db.commit()
+    await collector.scan_once()
+    assert seen == [None, "/dev/dri/renderD128"]
+
+
+@pytest.mark.asyncio
+async def test_the_decoder_is_probed_once_and_reported_when_collection_first_runs(collector, monkeypatch):
+    from app.services import garden_motion
+
+    collector.decoder = None
+    probe = AsyncMock(return_value=MotionDecoder("no_render_node"))
+    monkeypatch.setattr(garden_motion, "probe_motion_decoder", probe)
+    warning, record = Mock(), Mock()
+    monkeypatch.setattr(garden_motion.log, "warning", warning)
+    monkeypatch.setattr(garden_motion.error_diagnostics_history, "record", record)
+    monkeypatch.setattr(collector, "_native", AsyncMock(return_value={"outcome": "no_candidate"}))
+    await collector.scan_once()
+    collector.next_scan = 0
+    await collector.scan_once()
+    probe.assert_awaited_once()
+    events = [call.args[0] for call in warning.call_args_list]
+    assert events.count("garden_motion_software_decode") == 1
+    assert warning.call_args_list[events.index("garden_motion_software_decode")].kwargs["state"] == "no_render_node"
+    record.assert_called_once()
+    assert record.call_args.kwargs["reason_code"] == "hardware_decode_no_render_node"
+    assert collector.decode_health()["state"] == "no_render_node"
+    assert collector.decode_health()["decoder"] == "software"
+
+
+@pytest.mark.asyncio
+async def test_an_image_without_the_gpu_decoder_warns_without_a_diagnostics_fault(collector, monkeypatch):
+    from app.services import garden_motion
+
+    collector.decoder = None
+    monkeypatch.setattr(garden_motion, "probe_motion_decoder", AsyncMock(return_value=MotionDecoder("not_packaged")))
+    warning, record = Mock(), Mock()
+    monkeypatch.setattr(garden_motion.log, "warning", warning)
+    monkeypatch.setattr(garden_motion.error_diagnostics_history, "record", record)
+    await collector.scan_once()
+    assert [call.args[0] for call in warning.call_args_list].count("garden_motion_software_decode") == 1
+    record.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_repeated_gpu_failures_switch_collection_to_cpu_decode_until_restart(collector, monkeypatch):
+    from app.services import garden_motion
+    from app.services.garden_motion import MOTION_HARDWARE_FALLBACK_LIMIT
+
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 5000.0)
+    records = [{"start_time": 4400.0, "end_time": 4970.0, "motion": 5}]
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, []))
+    devices = []
+
+    async def native(payload, blocked):
+        devices.append(payload["decode_device"])
+        # Like the worker: a result names its decoder only when the GPU was requested.
+        return {"outcome": "no_candidate", **({"decoder": "software_fallback"} if payload["decode_device"] else {})}
+
+    monkeypatch.setattr(collector, "_native", native)
+    warning, record = Mock(), Mock()
+    monkeypatch.setattr(garden_motion.log, "warning", warning)
+    monkeypatch.setattr(garden_motion.error_diagnostics_history, "record", record)
+    for _ in range(MOTION_HARDWARE_FALLBACK_LIMIT + 1):
+        collector.next_scan = 0
+        await collector.scan_once()
+    assert devices == ["/dev/dri/renderD128"] * MOTION_HARDWARE_FALLBACK_LIMIT + [None]
+    events = [call.args[0] for call in warning.call_args_list]
+    # The first fallback is information; each one after it in a row is a warning.
+    assert events.count("garden_motion_hardware_decode_fallback") == MOTION_HARDWARE_FALLBACK_LIMIT - 1
+    assert collector.decode_health()["state"] == "decode_failed"
+    assert record.call_args.kwargs["reason_code"] == "hardware_decode_decode_failed"
+
+
+@pytest.mark.asyncio
+async def test_a_successful_gpu_scan_clears_earlier_fallbacks(collector, monkeypatch):
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    collector.hardware_fallbacks = 2
+    monkeypatch.setattr(collector, "_native", AsyncMock(return_value={"outcome": "no_candidate", "decoder": "vaapi"}))
+    await collector.scan_once()
+    assert collector.hardware_fallbacks == 0
+    assert collector.decode_health() == {
+        "state": "vaapi",
+        "decoder": "vaapi",
+        "device": "/dev/dri/renderD128",
+        "message": "Motion recordings decode on the Intel GPU (/dev/dri/renderD128).",
+        "consecutive_fallbacks": 0,
+        "software_cameras": [],
+    }
+
+
+def test_decode_health_says_when_the_decoder_has_not_been_checked():
+    service = GardenMotionService()
+    assert service.decode_health()["state"] == "not_checked"
+    assert service.decode_health()["decoder"] is None
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_decoder_in_a_worker_result_is_a_failure(collector, monkeypatch):
+    from app.services import garden_motion
+
+    monkeypatch.setattr(
+        collector.worker, "request", AsyncMock(return_value={"outcome": "no_candidate", "decoder": "magic"})
+    )
+    with pytest.raises(ValueError, match="decoder"):
+        await garden_motion.GardenMotionService._native(
+            collector, {"model": "m", "model_sha256": "e" * 64}, lambda: False
+        )
+
+
+@pytest.mark.asyncio
+async def test_an_unusable_recording_from_a_gpu_scan_is_skipped_not_retried(collector, monkeypatch):
+    from app.services import garden_motion
+
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: 100.0)
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    # The worker reports an unreadable recording before decoding anything, so it names no decoder.
+    monkeypatch.setattr(
+        collector.worker,
+        "request",
+        AsyncMock(return_value={"outcome": "unusable_recording", "reason": "invalid_metadata"}),
+    )
+    monkeypatch.setattr(collector, "_native", garden_motion.GardenMotionService._native.__get__(collector))
+    await collector.scan_once()
+    assert collector.last_outcome == "unusable_recording"
+    assert collector.next_scan < 130.0
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_cursor("patio") is not None
+    status = await collector.status()
+    assert [(item.camera, item.count, item.last_reason) for item in status.unreadable_recordings] == [
+        ("patio", 1, "invalid_metadata")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_gpu_fallbacks_that_recover_on_the_next_recording_are_counted_as_information(collector, monkeypatch):
+    from app.services import garden_motion
+    from app.services.error_diagnostics import ErrorDiagnosticsHistory
+
+    history = ErrorDiagnosticsHistory()
+    monkeypatch.setattr(garden_motion, "error_diagnostics_history", history)
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 5000.0)
+    records = [{"start_time": 4400.0, "end_time": 4970.0, "motion": 5}]
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, []))
+    # Intermittent: never three in a row, so the decoder is never switched off.
+    decoders = iter(["software_fallback", "vaapi", "software_fallback", "vaapi"])
+    monkeypatch.setattr(
+        collector,
+        "_native",
+        AsyncMock(side_effect=lambda *args: {"outcome": "no_candidate", "decoder": next(decoders)}),
+    )
+    for _ in range(4):
+        collector.next_scan = 0
+        await collector.scan_once()
+    events = history.snapshot(source="garden_motion")["events"]
+    fallbacks = [event for event in events if event["reason_code"] == "hardware_decode_fallback"]
+    assert len(fallbacks) == 1 and fallbacks[0]["count"] == 2
+    assert fallbacks[0]["severity"] == "info"
+    assert fallbacks[0]["context"] == {"camera": "patio"}
+    assert [event for event in events if event["severity"] != "info"] == []
+    assert collector.decode_health()["state"] == "vaapi"
+
+
+@pytest.mark.asyncio
+async def test_a_gpu_that_falls_back_on_every_other_recording_is_a_warning(collector, monkeypatch):
+    """Never two in a row, so the consecutive rule never fires, but half the recordings fail."""
+    from app.services import garden_motion
+    from app.services.error_diagnostics import ErrorDiagnosticsHistory
+    from app.services.garden_motion import MOTION_HARDWARE_FALLBACK_RATE_COUNT
+
+    history = ErrorDiagnosticsHistory()
+    monkeypatch.setattr(garden_motion, "error_diagnostics_history", history)
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 5000.0)
+    records = [{"start_time": 4400.0, "end_time": 4970.0, "motion": 5}]
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, []))
+    scans = 2 * MOTION_HARDWARE_FALLBACK_RATE_COUNT - 1
+    decoders = iter(["software_fallback", "vaapi"] * MOTION_HARDWARE_FALLBACK_RATE_COUNT)
+    monkeypatch.setattr(
+        collector,
+        "_native",
+        AsyncMock(side_effect=lambda *args: {"outcome": "no_candidate", "decoder": next(decoders)}),
+    )
+    for _ in range(scans):
+        collector.next_scan = 0
+        await collector.scan_once()
+    warnings = [event for event in history.snapshot(source="garden_motion")["events"] if event["severity"] != "info"]
+    assert [(event["reason_code"], event["severity"]) for event in warnings] == [
+        ("hardware_decode_fallback_frequent", "warning")
+    ]
+    assert warnings[0]["context"]["fallbacks"] == MOTION_HARDWARE_FALLBACK_RATE_COUNT
+    # The consecutive rule never fired, so GPU decode stays on; Health's CPU state is unchanged.
+    assert collector.decode_health()["state"] == "vaapi"
+
+
+@pytest.mark.asyncio
+async def test_a_gpu_fallback_that_repeats_on_the_next_recording_is_a_warning(collector, monkeypatch):
+    from app.services import garden_motion
+    from app.services.error_diagnostics import ErrorDiagnosticsHistory
+    from app.services.garden_motion import MOTION_HARDWARE_FALLBACK_WARN_AFTER
+
+    history = ErrorDiagnosticsHistory()
+    monkeypatch.setattr(garden_motion, "error_diagnostics_history", history)
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 5000.0)
+    records = [{"start_time": 4400.0, "end_time": 4970.0, "motion": 5}]
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, []))
+    monkeypatch.setattr(
+        collector, "_native", AsyncMock(return_value={"outcome": "no_candidate", "decoder": "software_fallback"})
+    )
+    for _ in range(MOTION_HARDWARE_FALLBACK_WARN_AFTER):
+        collector.next_scan = 0
+        await collector.scan_once()
+    warnings = [event for event in history.snapshot(source="garden_motion")["events"] if event["severity"] != "info"]
+    assert [(event["reason_code"], event["severity"]) for event in warnings] == [
+        ("hardware_decode_fallback_repeated", "warning")
+    ]
+    assert warnings[0]["context"] == {"camera": "patio", "consecutive": MOTION_HARDWARE_FALLBACK_WARN_AFTER}
+    # Still on the GPU until the switch-off limit; the Health card keeps saying so.
+    assert collector.decode_health()["state"] == "vaapi"
+
+
+@pytest.mark.asyncio
+async def test_person_rejected_windows_spend_the_catchup_budget_too(collector, monkeypatch):
+    from app.models.garden_motion import MOTION_CATCHUP_BUDGET
+    from app.services.garden_motion import frigate_client
+
+    clock = [100.0]
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 5000.0)
+    records = [{"start_time": 4400.0, "end_time": 4970.0, "motion": 5}]
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, []))
+    monkeypatch.setattr(frigate_client, "list_events", AsyncMock(return_value=[{"start_time": 1.0, "end_time": None}]))
+    native = AsyncMock()
+    monkeypatch.setattr(collector, "_native", native)
+    intervals = []
+    for _ in range(MOTION_CATCHUP_BUDGET + 2):
+        await collector.scan_once()
+        assert collector.last_outcome == "person_rejected"
+        intervals.append(collector.interval_seconds)
+        clock[0] = collector.next_scan
+    native.assert_not_awaited()
+    assert intervals[: MOTION_CATCHUP_BUDGET - 1] == [5] * (MOTION_CATCHUP_BUDGET - 1)
+    assert intervals[MOTION_CATCHUP_BUDGET - 1 :] == [10, 10, 10]
+
+
+@pytest.mark.asyncio
+async def test_a_recording_decoded_in_software_by_design_does_not_count_against_the_gpu(collector, monkeypatch):
+    from app.services import garden_motion
+
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    collector.hardware_fallbacks = 2
+    record = Mock()
+    monkeypatch.setattr(garden_motion.error_diagnostics_history, "record", record)
+    monkeypatch.setattr(
+        collector.worker, "request", AsyncMock(return_value={"outcome": "no_candidate", "decoder": "software"})
+    )
+    monkeypatch.setattr(collector, "_native", garden_motion.GardenMotionService._native.__get__(collector))
+    await collector.scan_once()
+    assert collector.last_outcome == "no_candidate"
+    assert collector.hardware_fallbacks == 2 and collector.decode_health()["state"] == "vaapi"
+    record.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_a_camera_that_always_decodes_in_software_is_said_once_and_shown_in_health(collector, monkeypatch):
+    from app.services import garden_motion
+
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 5000.0)
+    records = [{"start_time": 4400.0, "end_time": 4970.0, "motion": 5}]
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, []))
+    monkeypatch.setattr(
+        collector, "_native", AsyncMock(return_value={"outcome": "no_candidate", "decoder": "software"})
+    )
+    info = Mock()
+    monkeypatch.setattr(garden_motion.log, "info", info)
+    for _ in range(3):
+        collector.next_scan = 0
+        await collector.scan_once()
+    lines = [call for call in info.call_args_list if call.args[0] == "garden_motion_camera_decodes_in_software"]
+    assert len(lines) == 1 and lines[0].kwargs["camera"] == "patio"
+    health = collector.decode_health()
+    assert health["state"] == "vaapi" and health["software_cameras"] == ["patio"]

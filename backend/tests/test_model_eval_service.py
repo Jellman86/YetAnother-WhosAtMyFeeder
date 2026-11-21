@@ -15,14 +15,17 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from app.services.model_eval_service import (
     DEVICE_MATRIX_FILENAME,
     ModelEvalAlreadyRunning,
     ModelEvalRunner,
+    ModelEvalStopped,
     SUMMARY_FILENAME,
     _build_summary_envelope,
+    run_failure_code,
     _compatibility_model_summaries,
     _catalogue_labels_present,
     _drift_ratio,
@@ -37,6 +40,16 @@ from app.services.model_eval_service import (
     _safe_run_id,
 )
 from app.services.eval.species_panel import SpeciesEntry
+
+
+@pytest.fixture(autouse=True)
+def saved_full_frames(monkeypatch):
+    """Bird finder sweeps use this host's saved full frames; tests supply a stand-in panel."""
+    from app.services import bird_finder_revalidation
+
+    frames = ["/frames/a.jpg", "/frames/b.jpg", "/frames/c.jpg"]
+    monkeypatch.setattr(bird_finder_revalidation, "recent_bird_photos", lambda: frames)
+    return frames
 
 
 def _set_runs_dir(monkeypatch, path: Path) -> None:
@@ -549,6 +562,20 @@ def test_get_run_does_not_normalize_untrusted_input_to_an_existing_run(tmp_path:
     assert runner.get_run("../20260507-200000") is None
 
 
+def test_get_run_lists_only_the_result_files_the_run_wrote(tmp_path: Path, monkeypatch):
+    _set_runs_dir(monkeypatch, tmp_path)
+    run_dir = tmp_path / "20260507-210000"
+    run_dir.mkdir()
+    (run_dir / SUMMARY_FILENAME).write_text(json.dumps({"run_id": "20260507-210000", "models": []}))
+    (run_dir / "results.jsonl").write_text("{}\n")
+    (run_dir / "notes.txt").write_text("not a result file")
+
+    payload = ModelEvalRunner().get_run("20260507-210000")
+
+    assert payload is not None
+    assert payload["available_artifacts"] == [SUMMARY_FILENAME, "results.jsonl"]
+
+
 def test_get_run_reads_summary_and_runtime(tmp_path: Path, monkeypatch):
     _set_runs_dir(monkeypatch, tmp_path)
     run_dir = tmp_path / "20260507-200000"
@@ -839,3 +866,127 @@ async def test_a_subprocess_install_still_scores_by_species(tmp_path, monkeypatc
 
     assert model["vocabulary_known"] is True
     assert model["top1_accuracy_in_vocabulary"] == 1.0
+
+
+@pytest.mark.parametrize(
+    ("raised", "code"),
+    [
+        (ModelEvalStopped("no_models", "no installed classifier models found"), "no_models"),
+        (ModelEvalStopped("no_test_photos", "no species had any retrievable images"), "no_test_photos"),
+        (httpx.ConnectError("[Errno 111] Connection refused"), "network"),
+        (ValueError("tensor shape (1, 3, 384, 384) at 0x7f3a"), "unexpected"),
+    ],
+)
+def test_a_stopped_run_is_recorded_by_code_not_by_what_was_raised(raised, code):
+    assert run_failure_code(raised) == code
+
+
+@pytest.mark.asyncio
+async def test_a_failed_run_writes_its_code_and_keeps_the_exception_out_of_the_summary(tmp_path: Path, monkeypatch):
+    _set_runs_dir(monkeypatch, tmp_path)
+    runner = ModelEvalRunner()
+
+    async def explode(**_kwargs):
+        raise ValueError("secret path /config/models/x.onnx at 0x7f3a")
+
+    async def emit(_run_id, **_fields):
+        return None
+
+    monkeypatch.setattr(runner, "_do_run", explode)
+    monkeypatch.setattr(runner, "_emit", emit)
+    run_id = await runner.start()
+    await runner._task
+
+    written = (tmp_path / run_id / SUMMARY_FILENAME).read_text()
+    assert json.loads(written)["error_code"] == "unexpected"
+    assert "0x7f3a" not in written
+    assert "error" not in json.loads(written)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["crash", "unavailable", "no_positive"])
+async def test_inconclusive_crop_sweep_preserves_all_current_passes(tmp_path, monkeypatch, outcome):
+    from app.services import model_validation
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "intel")
+    finder = "bird_crop_detector_accurate_rfdetr_nano"
+    model_validation.write_eligibility_entry(finder, ["cpu", "intel_npu"], image_flavor="intel", artifact_sha256="abc")
+    model_validation.write_validation_record(
+        finder, provider="intel_npu", ok=True, reason="previous pass", artifact_sha256="abc"
+    )
+    probe = (
+        AsyncMock(side_effect=RuntimeError("probe failed"))
+        if outcome == "crash"
+        else AsyncMock(
+            return_value={
+                "baseline_status": outcome,
+                "eligible_providers": ["cpu"] if outcome == "no_positive" else [],
+                "providers": [],
+            }
+        )
+    )
+    monkeypatch.setattr(model_validation, "sweep_crop_model_devices", probe)
+    runner = ModelEvalRunner()
+    monkeypatch.setattr(runner, "_emit", AsyncMock())
+    await runner._device_sweep(
+        "run-1", tmp_path, [], [SimpleNamespace(id=finder, metadata=SimpleNamespace(sha256="abc"))]
+    )
+    assert set(model_validation.host_eligible_providers(finder, artifact_sha256="abc")) == {"cpu", "intel_npu"}
+    assert model_validation.read_validation_record(finder)["validated"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("crash", [True, False])
+async def test_owner_crop_sweeps_are_recorded_for_the_automatic_finder_check(tmp_path, monkeypatch, crash):
+    from app.services import bird_finder_revalidation, model_validation
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    finder = "bird_crop_detector_accurate_rfdetr_nano"
+    result = {
+        "baseline_status": "usable",
+        "eligible_providers": ["cpu"],
+        "providers": [{"provider": "cpu", "ok": True}],
+    }
+    sweep = AsyncMock(side_effect=RuntimeError("probe failed")) if crash else AsyncMock(return_value=result)
+    monkeypatch.setattr(model_validation, "sweep_crop_model_devices", sweep)
+    record = AsyncMock()
+    monkeypatch.setattr(bird_finder_revalidation.bird_finder_revalidation, "record_owner_check", record)
+    runner = ModelEvalRunner()
+    monkeypatch.setattr(runner, "_emit", AsyncMock())
+    await runner._device_sweep(
+        "run-1", tmp_path, [], [SimpleNamespace(id=finder, metadata=SimpleNamespace(sha256="abc"))]
+    )
+    record.assert_awaited_once_with(finder, "abc", None if crash else result)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("frames", [["/frames/a.jpg", "/frames/b.jpg", "/frames/c.jpg"], []])
+async def test_owner_finder_checks_use_the_automatic_checks_full_frame_panel(tmp_path, monkeypatch, frames):
+    from app.services import bird_finder_revalidation, model_validation
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "intel")
+    finder = "bird_crop_detector_accurate_rfdetr_nano"
+    model_validation.write_eligibility_entry(finder, ["cpu", "intel_npu"], image_flavor="intel", artifact_sha256="abc")
+    monkeypatch.setattr(bird_finder_revalidation, "recent_bird_photos", lambda: frames)
+    monkeypatch.setattr(bird_finder_revalidation, "saved_bird_photos_present", lambda: True)
+    monkeypatch.setattr(bird_finder_revalidation.bird_finder_revalidation, "record_owner_check", AsyncMock())
+    result = {"baseline_status": "usable", "eligible_providers": ["cpu", "intel_npu"], "providers": []}
+    sweep = AsyncMock(return_value=result)
+    monkeypatch.setattr(model_validation, "sweep_crop_model_devices", sweep)
+    runner = ModelEvalRunner()
+    monkeypatch.setattr(runner, "_emit", AsyncMock())
+    payload = await runner._device_sweep(
+        "run-1", tmp_path, [], [SimpleNamespace(id=finder, metadata=SimpleNamespace(sha256="abc"))]
+    )
+    if frames:
+        assert sweep.await_args.kwargs["image_paths"] == frames
+    else:
+        sweep.assert_not_awaited()
+        assert payload["crop_detectors"][finder]["inconclusive"] is True
+        assert payload["crop_detectors"][finder]["error"] == "no_full_frames"
+        assert set(model_validation.host_eligible_providers(finder, artifact_sha256="abc")) == {"cpu", "intel_npu"}

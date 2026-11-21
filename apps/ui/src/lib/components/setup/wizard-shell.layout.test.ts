@@ -10,9 +10,9 @@ import appSource from '../../../App.svelte?raw';
 import camerasStepSource from './CamerasStep.svelte?raw';
 import connectionStepSource from './ConnectionStep.svelte?raw';
 import integrationsStepSource from './IntegrationsStep.svelte?raw';
-import telemetryStepSource from './TelemetryStep.svelte?raw';
 import historyStepSource from './HistoryStep.svelte?raw';
 import accountStepSource from './AccountStep.svelte?raw';
+import welcomeStepSource from './WelcomeStep.svelte?raw';
 import { WIZARD_STEPS } from '../../stores/setup_wizard.svelte';
 import enSetup from '../../i18n/locales/en/setup.json';
 
@@ -120,14 +120,14 @@ describe('setup wizard wiring', () => {
         expect(modelStepSource).toContain('role="progressbar"');
         expect(modelStepSource).toContain('downloadPct');
         expect(modelStepSource).not.toContain('id="setup-execution-mode"');
-        expect(modelStepSource).toContain('Hardware validation completed successfully.');
+        expect(modelStepSource).toContain('The check finished: this model runs on this machine.');
         expect(modelStepSource).toContain('getVisibleTieredModelLineup');
     });
 
     it('treats best-image selection as one automatic policy', () => {
         expect(qualityStepSource).toContain('media_cache_high_quality_event_snapshots: hqSnapshots');
         expect(qualityStepSource).not.toContain('media_cache_high_quality_event_snapshot_bird_crop');
-        expect(qualityStepSource).toContain('strongest reliable bird crop');
+        expect(qualityStepSource).toContain('the best close-up of the bird');
     });
 
     it('blocks writes until each settings-backed step has loaded the saved configuration', () => {
@@ -136,8 +136,7 @@ describe('setup wizard wiring', () => {
             connectionStepSource,
             modelStepSource,
             qualityStepSource,
-            integrationsStepSource,
-            telemetryStepSource
+            integrationsStepSource
         ]) {
             expect(source).toContain('<WizardLoadState');
             expect(source).toContain("loadState === 'ready'");
@@ -168,6 +167,69 @@ describe('setup wizard wiring', () => {
         expect(historyStepSource).toContain('startBackfillJob');
         expect(historyStepSource).toContain('importHistory = $state(false)');
         expect(historyStepSource).toContain("route: '/jobs'");
-        expect(historyStepSource).toContain('cannot recreate BirdNET-Go audio');
+        expect(historyStepSource).toContain('not BirdNET-Go audio that was never stored');
+    });
+
+    it('says why Continue is disabled, and ties the reason to the button', () => {
+        expect(wizardStepLayoutSource).toContain('data-setup-continue-blocked');
+        expect(wizardStepLayoutSource).toContain("aria-describedby={blocked ? 'setup-continue-blocked' : undefined}");
+        for (const source of [camerasStepSource, connectionStepSource, modelStepSource, qualityStepSource, integrationsStepSource]) {
+            expect(source).toMatch(/blockedReason/);
+        }
+    });
+
+    it('offers an honest way past a Frigate that is not up yet', () => {
+        expect(connectionStepSource).toContain("skipLabel={$_('setup.connection.later'");
+        expect(connectionStepSource).toContain('data-setup-connection-later');
+        // The note names what waits on the connection, rather than a vague "fix it later".
+        expect(en.setup.connection.later_note).toMatch(/no visits arrive, no photos or clips can be fetched/);
+    });
+
+    it('asks the two optional closing questions on one screen', () => {
+        expect(WIZARD_STEPS.map((step) => step.id)).not.toContain('telemetry');
+        expect(WIZARD_STEPS).toHaveLength(9);
+        expect(historyStepSource).toContain("updateSettings({ telemetry_enabled: shareUsage })");
+        // A choice that never loaded is never written over the stored one.
+        expect(historyStepSource).toContain("if (usageLoad === 'ready')");
+    });
+
+    it('lists what setup covers as text, not as tiles that look like buttons', () => {
+        expect(welcomeStepSource).toContain('data-setup-welcome-covers');
+        expect(welcomeStepSource).not.toContain('SetupStepIcon');
+    });
+
+    it('keeps Back and Continue in the card: the step scrolls above them, never with them', () => {
+        expect(wizardShellSource).not.toContain('max-h-[70vh]');
+        // The shell itself never scrolls; the one scrolling box in it is the skip prompt's words, held
+        // to half the screen with its buttons outside it, so they and the step's actions stay put.
+        expect(wizardShellSource.match(/overflow-y-auto/g) ?? []).toHaveLength(1);
+        const prompt = wizardShellSource.slice(wizardShellSource.indexOf('role="alertdialog"') - 200);
+        expect(prompt).toMatch(/max-h-half-screen shrink-0 flex-col[^"]*" role="alertdialog"/);
+        expect(prompt.indexOf('overflow-y-auto')).toBeLessThan(prompt.indexOf('skip_confirm_action'));
+        // A failed skip is said outside the scrolling words, just above the buttons, so it is never below the fold.
+        const words = prompt.indexOf('data-skip-setup-text');
+        const wordsEnd = prompt.indexOf('</div>', words);
+        const error = prompt.indexOf('data-skip-setup-error');
+        expect(error).toBeGreaterThan(wordsEnd);
+        expect(error).toBeLessThan(prompt.indexOf('skip_confirm_action'));
+        expect(prompt.slice(words, wordsEnd)).not.toContain('role="alert"');
+        // The words take a tab stop and a name, so the keyboard can scroll them in Safari too.
+        expect(prompt).toMatch(/overflow-y-auto[^"]*" role="group" tabindex="0" aria-labelledby="skip-setup-title" data-skip-setup-text/);
+        expect(wizardShellSource).toContain('flex max-h-full w-full max-w-2xl flex-col');
+        const scroller = wizardStepLayoutSource.indexOf('data-setup-scroll');
+        const footer = wizardStepLayoutSource.indexOf('data-setup-footer');
+        expect(scroller).toBeGreaterThan(-1);
+        expect(footer).toBeGreaterThan(scroller);
+        expect(wizardStepLayoutSource).toMatch(/class="shrink-0[^"]*" data-setup-footer/);
+        // The footer is a sibling of the scroller, so it cannot scroll out of the card.
+        const scrollerEnd = wizardStepLayoutSource.lastIndexOf('</div>', footer);
+        expect(wizardStepLayoutSource.slice(scroller, scrollerEnd)).not.toContain('setup.continue');
+    });
+
+    it('waits for Frigate apart from the settings, and never calls that wait loading settings', () => {
+        expect(camerasStepSource).not.toContain('Promise.allSettled');
+        expect(camerasStepSource).toContain('readCameraList(fetchFrigateConfig)');
+        expect(camerasStepSource).toContain('data-setup-camera-reading');
+        expect(camerasStepSource).toContain("$_('setup.cameras.list_timed_out'");
     });
 });

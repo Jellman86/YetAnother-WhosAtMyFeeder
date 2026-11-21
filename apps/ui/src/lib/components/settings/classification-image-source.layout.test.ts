@@ -7,6 +7,7 @@ import componentSource from './ClassificationImageSourceSetting.svelte?raw';
 import connectionSettingsSource from './ConnectionSettings.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
 import settingsApiSource from '../../api/settings.ts?raw';
+import generatedApiSource from '../../api/generated/openapi.ts?raw';
 import type { ClassificationImageSource } from '../../api/settings';
 import { authoredLocale } from '../../i18n/authored-locales';
 import deSettings from '../../i18n/locales/de/settings.json';
@@ -84,7 +85,7 @@ describe('initial classification image setting', () => {
         expect(settingsPageSource).toContain('bind:recordingFrameDelaySeconds');
         expect(settingsPageSource).toContain('recordingFrameDelaySeconds = settings.recording_frame_delay_seconds ?? 12;');
         expect(settingsPageSource).toContain('recording_frame_delay_seconds: recordingFrameDelaySeconds,');
-        expect(settingsPageSource).toContain("{ key: 'recordingFrameDelaySeconds', val: recordingFrameDelaySeconds, store: s.recording_frame_delay_seconds ?? 12 }");
+        expect(settingsPageSource).toContain("{ field: 'recording_frame_delay_seconds', draft: recordingFrameDelaySeconds, saved: s.recording_frame_delay_seconds ?? 12 }");
         expect(settingsApiSource).toContain("recording_frame_delay_seconds?: NonNullable<components['schemas']['SettingsResponse']['recording_frame_delay_seconds']>;");
     });
     it('offers exactly the generated contract values with the snapshot first', () => {
@@ -186,7 +187,9 @@ describe('initial classification image wiring', () => {
     });
 
     it('keeps the owner-only setting out of the guest settings payload', () => {
-        const publicSettings = settingsApiSource.slice(settingsApiSource.indexOf('export interface PublicSettings'));
+        // The guest payload's type is the generated contract, so its schema is what a guest can receive.
+        expect(settingsApiSource).toContain("export type PublicSettings = components['schemas']['PublicSettings'];");
+        const publicSettings = generatedApiSource.slice(generatedApiSource.indexOf('    PublicSettings: {'));
         const publicSettingsBody = publicSettings.slice(0, publicSettings.indexOf('}'));
 
         expect(publicSettingsBody).toContain('clips_enabled');
@@ -197,7 +200,7 @@ describe('initial classification image wiring', () => {
         expect(settingsPageSource).toContain("let classificationImageSource = $state<ClassificationImageSource>('frigate_snapshot');");
         expect(settingsPageSource).toContain("classificationImageSource = settings.classification_image_source ?? 'frigate_snapshot';");
         expect(settingsPageSource).toContain(
-            "{ key: 'classificationImageSource', val: classificationImageSource, store: s.classification_image_source ?? 'frigate_snapshot' }"
+            "{ field: 'classification_image_source', draft: classificationImageSource, saved: s.classification_image_source ?? 'frigate_snapshot' }"
         );
         expect(settingsPageSource).toContain('classification_image_source: classificationImageSource,');
         expect(settingsPageSource).toContain('bind:classificationImageSource');
@@ -264,7 +267,7 @@ describe('initial classification image copy', () => {
     it('wraps long setting names in the recording note instead of clipping them', () => {
         const note = renderSetting('recording_snapshot').match(/<div\b[^>]*data-recording-frame-note[^>]*>/)?.[0] ?? '';
 
-        expect(attribute(note, 'class')?.split(/\s+/)).toContain('break-words');
+        expect(attribute(note, 'class')?.split(/\s+/)).toContain('wrap-break-word');
     });
 
     // Recording reads have a bounded retry grace after the configurable initial delay.

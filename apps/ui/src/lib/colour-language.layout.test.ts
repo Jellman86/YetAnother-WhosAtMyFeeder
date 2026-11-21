@@ -112,3 +112,166 @@ describe('white text on a brand fill', () => {
         expect(offenders).toEqual([]);
     });
 });
+
+/**
+ * layout-patterns.md §1.3 names the whole palette: brand blue for normal emphasis and choice,
+ * `success-*` for confirmed or healthy, `attention-*` for "this needs a person", rose (and the kit's
+ * red danger buttons) for a failure, slate for everything else. Any other hue in component code is
+ * either a second accent or decoration, and amber outside the attention scale reads as work waiting
+ * on the owner when there is none. A component may only step outside the palette for a reason
+ * written here.
+ */
+const OFF_PALETTE = /(?<![\w-])(?:[a-z0-9-]+:)*[a-z]+-(amber|accent|orange|yellow|cyan|indigo|violet|purple|teal|sky|blue|emerald|green|lime|pink|fuchsia)-\d{2,3}\b/g;
+
+const PALETTE_EXCEPTIONS: Record<string, { families: string[]; reason: string }> = {
+    'components/settings/AppearanceSettings.svelte': {
+        families: ['blue', 'amber'],
+        reason: "the colour-theme picker shows each theme's own two colours"
+    },
+    'components/DetectionCard.svelte': {
+        families: ['orange'],
+        reason: 'orange is the documented missing-upstream mark (§1): Frigate no longer has the media'
+    },
+    'components/DetectionRow.svelte': {
+        families: ['orange'],
+        reason: 'orange is the documented missing-upstream mark (§1): Frigate no longer has the media'
+    },
+    'components/settings/SystemHealthPanel.svelte': {
+        families: ['amber', 'blue', 'teal', 'violet'],
+        reason: 'categorical CPU-share segments, chosen for colour-vision separation and always named; a segment is not a state'
+    },
+};
+
+/**
+ * Work that needs a person lives in these components. Anything else that reaches for the attention
+ * scale is claiming a person is needed where none is, so it has to say why here first.
+ */
+const ATTENTION_COMPONENTS: Record<string, string> = {
+    // The review queue and everything that feeds it.
+    'components/ReviewQueueCard.svelte': 'Needs your call: visits and species checks waiting on the owner',
+    'components/ReviewQueueModal.svelte': 'the reason each queued visit needs a decision',
+    'components/DayBar.svelte': 'days with visits still waiting for a decision',
+    'components/FieldLogVisitRow.svelte': 'a visit below the naming threshold',
+    'components/FieldLogGardenRow.svelte': 'a Garden capture waiting for review',
+    'components/GardenExplorerCard.svelte': 'a Garden capture waiting for review',
+    'components/GardenExplorerRow.svelte': 'a Garden capture waiting for review',
+    'components/GardenCapturePreview.svelte': 'a Garden capture waiting for review',
+    'components/GardenCaptureModal.svelte': 'a Garden capture waiting for review',
+    'components/GardenVisitCaptures.svelte': 'a Garden capture waiting for review',
+    'components/DetectionRow.svelte': 'a visit below the naming threshold',
+    'components/SpeciesChecks.svelte': 'species the range check asks the owner to look at',
+    'components/SpeciesCheckSheet.svelte': 'species the range check asks the owner to look at',
+    'components/SpeciesDetailModal.svelte': 'an unidentified bird waiting for a decision, and an eBird warning',
+    'pages/Species.svelte': 'species the range check flags as unlikely here',
+    'components/DetectionModal.svelte': 'a video result held back until the owner confirms it',
+    'components/record/RecordVideoStatusNotice.svelte': 'an identification from a borderline snapshot, for the owner to check',
+    'pages/ManualObservation.svelte': 'an observation with no species chosen yet',
+    // Something is wrong or degraded and only the owner can put it right.
+    'components/Toast.svelte': 'warning toasts',
+    'components/BackendStatusScreen.svelte': 'start-up that needs the owner',
+    'components/CameraStatus.svelte': 'some cameras offline',
+    'components/ConnectionStatus.svelte': 'the camera feed is down or degraded',
+    'components/Sidebar.svelte': 'open issues on Health that need the owner',
+    'components/DiagnosticDialog.svelte': 'a diagnostic step that warned',
+    'components/JobCircuitBanner.svelte': 'background work paused after repeated failures',
+    'components/GlobalProgress.svelte': 'a job that is blocked',
+    'components/LazyRoute.svelte': 'a page that could not load',
+    'components/LanguageSelector.svelte': 'a language that could not load',
+    'components/ProviderWarning.svelte': 'an accelerator that is not being used',
+    'components/FamilyTreeDialog.svelte': 'part of the tree that could not load',
+    'pages/Errors.svelte': 'subsystems that are degraded',
+    'pages/Notifications.svelte': 'notifications and jobs that need the owner',
+    'pages/AudioHistory.svelte': 'filters changed but not yet applied',
+    'pages/ModelEvaluation.svelte': 'checks that did not match',
+    'pages/models/ModelManager.svelte': 'an incomplete install that needs repair',
+    'pages/models/FinderDevicePanel.svelte': 'a finder that fell back to the CPU after a failed or interrupted device check',
+    // Settings and first run: a value that cannot work as set.
+    'components/settings/sections/SharingSection.svelte': 'the page is served without HTTPS',
+    'components/settings/_primitives/SettingsPage.svelte': 'a save that conflicts with a newer change',
+    'components/settings/_primitives/SettingsInput.svelte': 'a field in conflict',
+    'components/settings/_primitives/FieldRefusal.svelte': 'a field in conflict',
+    'components/settings/AuthenticationSettings.svelte': 'an access setting that leaves the instance exposed',
+    'components/settings/CameraWatchRow.svelte': 'a camera Frigate does not know',
+    'components/settings/ConnectionSettings.svelte': 'a camera list that could not be read',
+    'components/settings/DataSettings.svelte': 'records due for deletion and a media folder that cannot be written',
+    'components/settings/MaintenanceSettings.svelte': 'repairs to review and analysis paused after failures',
+    'components/settings/sections/IdentificationSection.svelte': 'video checks paused after repeated failures',
+    'components/settings/ModelSettings.svelte': 'a model or device setting that cannot run as chosen',
+    'components/settings/HardwareSettings.svelte': 'a device that cannot run as chosen, or a runtime to restart',
+    'components/IdentificationStatusLine.svelte': 'nothing that can name birds, or a fallback model or device in use',
+    'components/settings/GardenNotificationSettings.svelte': 'Garden alerts that cannot be delivered',
+    'components/settings/NotificationSettings.svelte': 'notifications with nowhere to go',
+    'components/settings/RangeFilterSettings.svelte': 'a range filter that cannot run',
+    'components/setup/WelcomeStep.svelte': 'a first-run problem',
+    'components/setup/WizardShell.svelte': 'skipping setup',
+    'components/setup/CamerasStep.svelte': 'a camera Frigate does not know',
+    'components/setup/ModelStep.svelte': 'a model or device that cannot run as chosen',
+    'components/setup/ReviewStep.svelte': 'a setup step that still needs attention'
+};
+
+/** Amber, as a step of its scale or as the semantic status token. */
+const ATTENTION_USE = /\battention-\d|\bstatus-attention\b/;
+
+function relative(path: string): string {
+    return path.replace(/^\.\//, '').replace(/^\.\.\//, '');
+}
+
+describe('one palette across the app', () => {
+    it('uses only brand, success, attention, rose, red and slate outside the named exceptions', () => {
+        const offenders: string[] = [];
+        for (const [path, source] of Object.entries(svelteSources)) {
+            const file = relative(path);
+            const allowed = PALETTE_EXCEPTIONS[file]?.families ?? [];
+            const found = new Set([...source.matchAll(OFF_PALETTE)].map((match) => match[1]).filter((family) => !allowed.includes(family)));
+            if (found.size) offenders.push(`${file}: ${[...found].sort().join(', ')}`);
+        }
+        expect(offenders).toEqual([]);
+    });
+
+    it('keeps every palette exception in use, so the list cannot rot', () => {
+        for (const [file, { families }] of Object.entries(PALETTE_EXCEPTIONS)) {
+            const source = Object.entries(svelteSources).find(([path]) => relative(path) === file)?.[1] ?? '';
+            const found = new Set([...source.matchAll(OFF_PALETTE)].map((match) => match[1]));
+            for (const family of families) expect(found.has(family), `${file} ${family}`).toBe(true);
+        }
+    });
+
+    it('draws attention only where work waits on a person', () => {
+        const offenders = Object.entries(svelteSources)
+            .map(([path, source]) => [relative(path), source] as const)
+            .filter(([file, source]) => ATTENTION_USE.test(source) && !(file in ATTENTION_COMPONENTS))
+            .map(([file]) => file);
+        expect(offenders).toEqual([]);
+    });
+
+    it('keeps every attention entry in use', () => {
+        for (const file of Object.keys(ATTENTION_COMPONENTS)) {
+            const source = Object.entries(svelteSources).find(([path]) => relative(path) === file)?.[1] ?? '';
+            expect(ATTENTION_USE.test(source), file).toBe(true);
+        }
+    });
+});
+
+/**
+ * A "·" between two facts is drawn by the shared Separator alone. It takes its parent's ink, which
+ * already meets 4.5:1 wherever the text beside it does, rather than a lighter grey of its own
+ * (slate-300 and slate-400 dots measured 1.5:1 to 2.6:1 on light panels), and is hidden from
+ * screen readers, which would otherwise announce "dot" between every fact.
+ */
+describe('separator dots', () => {
+    const DOT = /<span\b[^>]*>\s*(?:·|&middot;|\{'\s*·\s*'\})\s*<\/span>/;
+
+    it('are drawn only by the shared Separator', () => {
+        const offenders = Object.entries(svelteSources)
+            .filter(([path, source]) => !path.endsWith('/Separator.svelte') && DOT.test(source))
+            .map(([path]) => relative(path));
+        expect(offenders).toEqual([]);
+    });
+
+    it('take the ink of the text they sit in and stay silent', () => {
+        const separator = Object.entries(svelteSources).find(([path]) => path.endsWith('/Separator.svelte'))?.[1] ?? '';
+        expect(separator).toContain('aria-hidden="true"');
+        expect(separator).not.toMatch(/\btext-(?:slate|gray|brand|success|attention|rose|red)-\d/);
+        expect(separator).not.toMatch(/\bopacity-\d/);
+    });
+});

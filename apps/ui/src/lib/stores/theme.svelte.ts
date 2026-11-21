@@ -1,3 +1,5 @@
+import { accessibilityDevice } from '../settings/accessibility-device.svelte';
+
 export type Theme = 'light' | 'dark' | 'system';
 export type FontTheme = 'default' | 'clean' | 'studio' | 'classic' | 'compact';
 export type ColorTheme = 'default' | 'bluetit';
@@ -38,10 +40,14 @@ function syncThemeColorMeta() {
     if (bg) meta.content = bg;
 }
 
-function applyTheme(theme: Theme) {
+/**
+ * High contrast is one black scheme, so it takes the dark variants whatever theme is chosen:
+ * over the light theme every dark ink would otherwise sit on its black page.
+ */
+function applyTheme(theme: Theme, highContrast: boolean) {
     if (typeof document === 'undefined') return;
     const isDark = getIsDark(theme);
-    document.documentElement.classList.toggle('dark', isDark);
+    document.documentElement.classList.toggle('dark', isDark || highContrast);
 
     // After class changes apply, sync the browser UI color (mobile/PWA).
     requestAnimationFrame(syncThemeColorMeta);
@@ -90,6 +96,11 @@ class ThemeStore {
     currentColorTheme = $state<ColorTheme>('bluetit');
     /** Kept on this device only: a wall display and a phone want different sizes. */
     currentTextSize = $state<TextSize>('standard');
+    /**
+     * Whether high contrast applies, set by the app shell. It starts from this device's own choice,
+     * which the boot script has already applied, so the first paint keeps the black scheme.
+     */
+    private highContrast = $state(accessibilityDevice.get('highContrast') ?? false);
     private mediaQueryList: MediaQueryList | null = null;
 
     constructor() {
@@ -111,7 +122,7 @@ class ThemeStore {
         }
 
         // Apply theme immediately
-        applyTheme(this.currentTheme);
+        applyTheme(this.currentTheme, this.highContrast);
         applyFontTheme(this.currentFontTheme);
         applyColorTheme(this.currentColorTheme);
         applyTextSize(this.currentTextSize);
@@ -122,7 +133,7 @@ class ThemeStore {
             if (typeof localStorage !== 'undefined') {
                 $effect(() => {
                     localStorage.setItem('theme', this.currentTheme);
-                    applyTheme(this.currentTheme);
+                    applyTheme(this.currentTheme, this.highContrast);
                 });
                 $effect(() => {
                     localStorage.setItem('font_theme', this.currentFontTheme);
@@ -144,7 +155,7 @@ class ThemeStore {
 
                 const handleMediaChange = () => {
                     if (this.currentTheme === 'system') {
-                        applyTheme('system');
+                        applyTheme('system', this.highContrast);
                     }
                 };
 
@@ -166,8 +177,18 @@ class ThemeStore {
         return this.currentTheme;
     }
 
+    /** Whether the page is drawn dark: the chosen theme, or high contrast over any theme. */
     get isDark(): boolean {
+        return this.highContrast || getIsDark(this.currentTheme);
+    }
+
+    /** The reader's own theme choice, which the theme switch shows and high contrast leaves alone. */
+    get prefersDark(): boolean {
         return getIsDark(this.currentTheme);
+    }
+
+    setHighContrast(value: boolean) {
+        this.highContrast = value;
     }
 
     get fontTheme(): FontTheme {

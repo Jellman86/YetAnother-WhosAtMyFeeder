@@ -9,6 +9,7 @@ from app.database import get_db
 from app.repositories.ai_usage_repository import AIUsageRepository
 from app.config import settings
 from app.auth import AuthContext, require_owner
+from app.services.ai_cost import cost_summary
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -22,7 +23,9 @@ class AIUsageBreakdown(BaseModel):
     input_tokens: int
     output_tokens: int
     total_tokens: int
-    estimated_cost_usd: float = 0.0
+    # None when the pricing registry holds no rate for this model: not estimated, never zero.
+    estimated_cost_usd: float | None = None
+    priced: bool = False
 
 
 class AIUsageDaily(BaseModel):
@@ -31,7 +34,6 @@ class AIUsageDaily(BaseModel):
     input_tokens: int
     output_tokens: int
     total_tokens: int
-    estimated_cost_usd: float = 0.0
 
 
 class AIUsageResponse(BaseModel):
@@ -42,8 +44,15 @@ class AIUsageResponse(BaseModel):
     input_tokens: int
     output_tokens: int
     total_tokens: int
-    estimated_cost_usd: float = 0.0
+    # The cost of the priced usage only; None when there was usage and none of it had a price.
+    estimated_cost_usd: float | None = None
     pricing_configured: bool = False
+    # How much of the usage the estimate covers, so a total is never read as the whole bill.
+    priced_calls: int = 0
+    unpriced_calls: int = 0
+    priced_tokens: int = 0
+    unpriced_tokens: int = 0
+    unpriced_models: List[str] = []
     breakdown: List[AIUsageBreakdown]
     daily: List[AIUsageDaily]
 
@@ -75,20 +84,6 @@ def _parse_pricing() -> Dict[str, Dict[str, float]]:
         return {}
 
 
-def _calculate_cost(input_tokens: int, output_tokens: int, provider: str, model: str, rates: Dict) -> float:
-    key = f"{provider.lower()}|{model.lower()}"
-    rate = rates.get(key)
-    if not rate:
-        # Try wildcard for model
-        rate = rates.get(f"{provider.lower()}|*")
-
-    if not rate:
-        return 0.0
-
-    cost = (input_tokens / 1_000_000.0) * rate["input"] + (output_tokens / 1_000_000.0) * rate["output"]
-    return cost
-
-
 @router.get("/stats/ai/usage", response_model=AIUsageResponse)
 async def get_ai_usage(
     request: Request,
@@ -113,24 +108,8 @@ async def get_ai_usage(
     rates = _parse_pricing()
     pricing_configured = len(rates) > 0
 
-    # Enrich breakdown with costs
-    enriched_breakdown = []
-    total_cost = 0.0
-    for item in raw_summary["breakdown"]:
-        cost = _calculate_cost(item["input_tokens"], item["output_tokens"], item["provider"], item["model"], rates)
-        total_cost += cost
-        enriched_breakdown.append(AIUsageBreakdown(**item, estimated_cost_usd=cost))
-
-    # Enrich daily with costs (this is tricky because we need provider/model per day to be accurate)
-    # For now, we'll do a best-effort daily cost if possible, or skip it if repo summary doesn't have it.
-    # Actually, let's update repo to provide daily breakdown if we want accurate daily costs.
-    # Given HarborWatch has it, let's just use total daily stats for now and simplify.
-
-    daily_stats = []
-    for item in raw_summary["daily"]:
-        # Note: accurate daily cost requires provider/model grouping per day.
-        # For simplicity in this first pass, we'll just return the tokens.
-        daily_stats.append(AIUsageDaily(**item))
+    costs = cost_summary(raw_summary["breakdown"], rates)
+    daily_stats = [AIUsageDaily(**item) for item in raw_summary["daily"]]
 
     return AIUsageResponse(
         span=span,
@@ -140,9 +119,14 @@ async def get_ai_usage(
         input_tokens=raw_summary["input_tokens"],
         output_tokens=raw_summary["output_tokens"],
         total_tokens=raw_summary["total_tokens"],
-        estimated_cost_usd=total_cost,
+        estimated_cost_usd=costs.estimated_cost_usd,
         pricing_configured=pricing_configured,
-        breakdown=enriched_breakdown,
+        priced_calls=costs.priced_calls,
+        unpriced_calls=costs.unpriced_calls,
+        priced_tokens=costs.priced_tokens,
+        unpriced_tokens=costs.unpriced_tokens,
+        unpriced_models=costs.unpriced_models,
+        breakdown=[AIUsageBreakdown(**item) for item in costs.items],
         daily=daily_stats,
     )
 

@@ -16,7 +16,7 @@
     import { captureFacts } from '../utils/visit-captures';
     import { VisitCaptureList } from '../utils/visit-capture-list.svelte';
     import { formatTime } from '../utils/datetime';
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { SCORE_FILL, SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import { FIELD_LOG_CELL as cell } from '../utils/field-log';
@@ -59,18 +59,16 @@
     onDestroy(() => list?.dispose());
 
     function names(detection: Detection): { primary: string; secondary: string | null } {
-        return getBirdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary);
+        return $birdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary);
     }
 
     const naming = $derived(names(visit.lead));
     const score = $derived(visit.best.score ?? 0);
     const birds = $derived(visitBirdMarker(visit));
     const capturesText = $derived($_('visits.captures', { values: { count: captureCount }, default: '{count} captures' }));
-    const span = $derived.by(() => {
-        const start = formatTime(visit.startTime);
-        const end = formatTime(visit.endTime);
-        return start === end ? end : `${start}–${end}`;
-    });
+    const startsAt = $derived(formatTime(visit.startTime));
+    const endsAt = $derived(formatTime(visit.endTime));
+    const span = $derived(startsAt === endsAt ? endsAt : `${startsAt}–${endsAt}`);
     // The visit's node says what it stands for on hover.
     const visitHint = $derived(
         captureCount > 1
@@ -119,7 +117,7 @@
 
 {#snippet ownerConfirmation()}
     <svg class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 10 4 4 8-8" /></svg>
-    <span class="min-w-0 break-words font-medium">{$_('visits.owner_confirmed')}</span>
+    <span class="min-w-0 wrap-break-word font-medium">{$_('visits.owner_confirmed')}</span>
 {/snippet}
 
 <!-- A stretch of the thread. Captures tint it so the visit they belong to is visible at a glance. -->
@@ -127,47 +125,41 @@
     <!-- Two kinds of node only: the visit's solid one, and this ring for each of its captures. The
          visit photo is said in words on its row, so the day's one thread runs on unchanged. -->
     <span class="relative flex h-full justify-center {dot === 'capture' ? cell.node : ''}" aria-hidden="true">
-        <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
+        <span class="absolute inset-y-[-0.7rem] w-px bg-line"></span>
         {#if dot === 'capture'}
             <!-- A 20px hover area around the 8px node, so its tooltip is easy to find. -->
             <span class="relative my-auto grid h-5 w-5 cursor-help place-items-center" title={hint} data-field-log-node-hint>
-                <span class="h-2 w-2 rounded-full bg-white ring-[1.5px] ring-slate-400 dark:bg-slate-900 dark:ring-slate-500" data-field-log-capture-dot="capture"></span>
+                <span class="h-2 w-2 rounded-full bg-surface ring-[1.5px] ring-status-neutral-line" data-field-log-capture-dot="capture"></span>
             </span>
         {/if}
     </span>
 {/snippet}
 
+<!-- A range may break after its dash: two times do not fit the narrow log's time column side by
+     side, and the browser will not break between a dash and a digit by itself. -->
+{#snippet timeSpan()}{#if startsAt === endsAt}{endsAt}{:else}{startsAt}–<wbr />{endsAt}{/if}{/snippet}
+
 <li
-    class="{grid} items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 log-wide:py-2.5 dark:border-slate-700/40 {visit.needsReview ? 'bg-attention-500/5' : ''}"
+    class="{grid} items-center gap-y-1 rounded-xl border-b border-line px-2 py-2 last:border-b-0 log-wide:py-2.5 {visit.needsReview ? 'bg-status-attention-soft' : ''}"
     data-field-log-row
     data-field-log-visit={visit.key}
     data-needs-review={visit.needsReview ? 'true' : 'false'}
 >
-    {#if expandable}
-        <!-- The time is the visit's handle: it opens the captures that make the visit. -->
-        <button
-            type="button"
-            class="-mx-1 min-h-11 self-stretch rounded-lg px-1 text-left text-xs font-medium tabular-nums {cell.time} text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-200 dark:hover:bg-slate-800/60 dark:hover:text-white"
-            aria-expanded={expanded}
-            aria-controls={listId}
-            aria-label="{span}, {capturesText}"
-            onclick={() => (open = !open)}
-            data-field-log-time-toggle
-        >
-            <span class="block">{span}</span>
-        </button>
-    {:else}
-        <span class="text-xs tabular-nums text-slate-500 dark:text-slate-400 {cell.time}">{span}</span>
-    {/if}
+    <!-- The time is text. One control per row opens the captures: the count chip under the name
+         where the log is narrow, the count button at the row's end where it is wide. -->
+    <span class="text-xs tabular-nums {expandable ? 'font-medium text-ink' : 'text-muted'} {cell.time}" data-field-log-time>
+        <!-- Beside the photo on the narrowest log there is room for only a few digits: break rather than spill. -->
+        <span class="block wrap-anywhere">{@render timeSpan()}</span>
+    </span>
 
     <span class="relative flex h-full justify-center {cell.node}" aria-hidden="true">
         <!-- The spine runs behind the nodes so the day reads as one thread. -->
-        <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
+        <span class="absolute inset-y-[-0.7rem] w-px bg-line"></span>
         <span class="relative my-auto grid h-5 w-5 shrink-0 cursor-help place-items-center" title={visitHint} data-field-log-node-hint>
             <span
-                class="h-2 w-2 rounded-full ring-2 ring-white dark:ring-slate-900 {visit.needsReview
-                    ? 'bg-attention-500'
-                    : 'bg-brand-500'}"
+                class="h-2 w-2 rounded-full ring-2 ring-surface {visit.needsReview
+                    ? 'bg-status-attention-line'
+                    : 'bg-status-info-line'}"
             ></span>
         </span>
     </span>
@@ -185,21 +177,21 @@
     </span>
 
     <div class="min-w-0 {cell.body}">
-        <p class="hyphens-auto break-words text-sm font-semibold leading-5 text-slate-900 dark:text-white" data-field-log-name>
+        <p class="hyphens-auto wrap-break-word text-sm font-semibold leading-5 text-strong" data-field-log-name>
             {naming.primary}
         </p>
         <!-- Wraps rather than truncates, so a marker is never cut off behind the name. -->
-        <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
+        <p class="flex flex-wrap items-baseline gap-x-1.5 gap-y-1.5 text-2xs leading-4 text-muted">
             <span class="font-bold tabular-nums log-wide:hidden {SCORE_TEXT[scoreBand(score)]}">{percent(score)}%</span>
             {#if showCamera}
-                <span class="break-words" data-field-log-camera>{visit.camera}</span>
+                <span class="wrap-break-word" data-field-log-camera>{visit.camera}</span>
             {/if}
             {#if visit.needsReview}
-                <span class="inline-flex items-center gap-1.5 font-medium text-attention-800 dark:text-attention-300" data-attention-reason>
+                <span class="inline-flex items-center gap-1.5 font-medium text-status-attention" data-attention-reason>
                     <span class="attention-dot" aria-hidden="true"></span>{$_('dashboard.field_log.needs_name', { default: 'Below the naming threshold' })}
                 </span>
             {:else if naming.secondary}
-                <span class="hidden min-w-0 truncate italic log-wide:inline">{naming.secondary}</span>
+                <span class="hidden min-w-0 wrap-break-word italic log-wide:inline">{naming.secondary}</span>
             {/if}
             {#if captureCount > 1}
                 <!-- Captures, not birds: the busiest capture's bird count is stated on its own. -->
@@ -209,17 +201,21 @@
                          target around a small pill, the negative margin keeping the line's height. -->
                     <button
                         type="button"
-                        class="group/captures -my-3.5 inline-flex min-h-11 min-w-11 items-center rounded-full focus-visible:outline-none log-wide:hidden"
+                        class="group/captures -my-3.5 inline-flex min-h-11 min-w-11 items-center rounded-full focus-visible:outline-hidden log-wide:hidden"
                         aria-expanded={expanded}
                         aria-controls={listId}
+                        aria-label={expanded
+                            ? $_('visits.hide_captures', { default: 'Hide captures' })
+                            : $_('visits.show_captures', { values: { count: captureCount }, default: '{count, plural, one {Show # capture} other {Show # captures}}' })}
                         onclick={() => (open = !open)}
                         data-field-log-captures-phone
                     >
                         <!-- A quiet chip, not a second button shape: tinted, no border, the chevron
                              after the count so the line still reads score, then captures. -->
-                        <span class="inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 font-semibold group-focus-visible/captures:ring-2 group-focus-visible/captures:ring-brand-500 {expanded
-                            ? 'bg-brand-50 text-brand-700 dark:bg-brand-950/50 dark:text-brand-300'
-                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}">
+                        <!-- One line always: the target's negative margin borrows room from the lines above and below, which a second line of pill would be drawn over. -->
+                        <span class="inline-flex items-center gap-0.5 whitespace-nowrap rounded-md px-1.5 py-0.5 font-semibold group-focus-visible/captures:ring-2 group-focus-visible/captures:ring-focus {expanded
+                            ? 'bg-accent-soft text-accent-ink'
+                            : 'bg-surface-raised text-muted'}">
                             {capturesText}
                             <svg class="h-3 w-3 transition-transform duration-200 motion-reduce:transition-none {expanded ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 8 5 5 5-5" /></svg>
                         </span>
@@ -227,11 +223,11 @@
                 {/if}
             {/if}
             {#if visit.ownerConfirmed}
-                <span class="inline-flex min-w-0 max-w-full items-center text-success-700 dark:text-success-300" data-field-log-owner-confirmed>
+                <span class="inline-flex min-w-0 max-w-full items-center text-status-ok" data-field-log-owner-confirmed>
                     <span class="flex min-w-0 items-center gap-1 log-wide:hidden">{@render ownerConfirmation()}</span>
                     <span class="hidden log-wide:inline-flex">
                         <BadgeHint target text={$_('visits.owner_confirmed_hint')} label={$_('visits.owner_confirmed')}
-                            class="max-w-full gap-1 text-left font-medium text-success-700 dark:text-success-300">
+                            class="max-w-full gap-1 text-left font-medium text-status-ok">
                             {@render ownerConfirmation()}
                         </BadgeHint>
                     </span>
@@ -239,7 +235,7 @@
             {/if}
             {#if visit.audioConfirmed}
                 <!-- A second sensor agreed; said in words, so it is never colour alone. -->
-                <span class="inline-flex shrink-0 items-center gap-1 font-medium text-brand-700 dark:text-brand-300" data-field-log-audio>
+                <span class="inline-flex min-w-0 items-center gap-1 font-medium text-accent-ink" data-field-log-audio>
                     <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path stroke-linecap="round" d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4" />
                     </svg>
@@ -250,13 +246,13 @@
     </div>
 
     <span class="hidden flex-col items-end gap-1 log-wide:flex">
-        <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(score) } })} class="rounded text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(score)]}">{percent(score)}%</BadgeHint>
-        <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+        <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(score) } })} class="rounded-sm text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(score)]}">{percent(score)}%</BadgeHint>
+        <span class="h-[3px] w-16 overflow-hidden rounded-full bg-track">
             <span class="block h-full rounded-full {SCORE_FILL[scoreBand(score)]}" style="width: {percent(score)}%"></span>
         </span>
         {#if captureCount > 1}
             <!-- A visit's score is its best capture's, the one its photo comes from. -->
-            <span class="text-3xs text-slate-500 dark:text-slate-400" data-field-log-best-capture>{$_('visits.best_capture', { default: 'best capture' })}</span>
+            <span class="text-3xs leading-4 text-muted" data-field-log-best-capture>{$_('visits.best_capture', { default: 'best capture' })}</span>
         {/if}
     </span>
 
@@ -266,9 +262,9 @@
                  height. Its label says what it does; the count says how much it holds. -->
             <button
                 type="button"
-                class="hidden min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl border px-2 text-xs log-wide:inline-flex font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {expanded
-                    ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-300'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-brand-300'}"
+                class="hidden min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl border px-2 text-xs log-wide:inline-flex font-semibold tabular-nums transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus {expanded
+                    ? 'border-accent-line bg-accent-soft text-accent-ink'
+                    : 'border-line bg-surface text-muted hover:border-accent-line hover:text-accent-ink'}"
                 aria-expanded={expanded}
                 aria-controls={listId}
                 aria-label={expanded
@@ -285,7 +281,7 @@
             </button>
         {/if}
         {#if visit.needsReview && canIdentify}
-            <button class="btn btn-primary min-h-11 px-2 py-1.5 text-xs log-wide:px-3" onclick={() => onidentify?.(visit.best)} data-field-log-action>
+            <button class="btn btn-primary min-h-11 px-1.5 py-1.5 text-xs log-wide:px-3" onclick={() => onidentify?.(visit.best)} data-field-log-action>
                 {$_('dashboard.field_log.identify', { default: 'Identify' })}
             </button>
         {:else}
@@ -310,17 +306,17 @@
         <!-- Its own line, so the bird count wraps instead of truncating beside the name. The thread
              carries on beside it, and stays tinted while the captures beneath are open. -->
         <span class="relative col-start-2 flex h-full justify-center log-narrow:col-start-1" aria-hidden="true">
-            <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
+            <span class="absolute inset-y-[-0.7rem] w-px bg-line"></span>
         </span>
         <div class="col-[3/-1] -mt-1 min-w-0 log-wide:col-[4/-1] log-narrow:col-[2/-1]" data-field-log-footer>
             <button
                 type="button"
-                class="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-brand-300"
+                class="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-left text-xs font-medium text-muted transition-colors hover:bg-surface-raised hover:text-accent-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
                 aria-label={$_('dashboard.field_log.birds_open', { values: { summary: text }, default: '{summary}, open that capture' })}
                 onclick={() => onselect?.(birds.detection)}
                 data-field-log-birds={birds.summary.counted}
             >
-                <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <svg class="h-3.5 w-3.5 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3M14 17.75V21" />
                 </svg>
@@ -332,14 +328,14 @@
     {#if list && expandable}
         <ol
             id={listId}
-            class="col-span-full mt-1 grid-cols-subgrid rounded-xl bg-slate-50 py-1 dark:bg-slate-800/30 {expanded ? 'grid' : 'hidden'}"
+            class="col-span-full mt-1 grid-cols-subgrid rounded-xl bg-surface-raised py-1 {expanded ? 'grid' : 'hidden'}"
             aria-label="{naming.primary}, {capturesText}"
             aria-busy={list.loading}
             data-visit-captures={server?.visit_id}
         >
             <li class="col-span-full grid grid-cols-subgrid" data-visit-captures-caption>
                 <span class="log-narrow:hidden"></span>{@render branch(null)}
-                <p class="col-[3/-1] log-narrow:col-[2/-1] py-1 text-2xs text-slate-500 dark:text-slate-400">
+                <p class="col-[3/-1] log-narrow:col-[2/-1] py-1 text-2xs text-muted">
                     {$_('visits.captures_caption', { default: 'Captures in this visit, oldest first.' })}
                 </p>
             </li>
@@ -350,7 +346,7 @@
                 {@const captureNaming = names(capture)}
                 <li class="col-span-full grid grid-cols-subgrid items-center py-0.5" data-visit-capture={capture.frigate_event}>
                     <!-- A step smaller on phones, where the time column is narrowest and seconds must still fit. -->
-                    <time class="block text-3xs tabular-nums text-slate-500 log-wide:text-2xs dark:text-slate-400 {cell.time}" datetime={capture.detection_time}>{time}</time>
+                    <time class="block text-3xs tabular-nums wrap-anywhere text-muted log-wide:text-2xs {cell.time}" datetime={capture.detection_time}>{time}</time>
                     {@render branch(
                         'capture',
                         server && captureFacts(capture, server).shown
@@ -369,24 +365,24 @@
                     <div class="min-w-0 py-1 {cell.body}">
                         <!-- Quieter than the visit above it: a capture is a moment of the visit. -->
                         <button type="button" class="block min-h-11 w-full rounded-lg text-left focus-ring" onclick={() => onselect?.(capture)}>
-                            <span class="block break-words text-[0.8125rem] font-medium leading-5 text-slate-700 dark:text-slate-200">{captureNaming.primary}</span>
-                            {#if captureNaming.secondary}<span class="block break-words text-2xs italic text-slate-500 dark:text-slate-400">{captureNaming.secondary}</span>{/if}
+                            <span class="block wrap-break-word text-[0.8125rem] font-medium leading-5 text-ink">{captureNaming.primary}</span>
+                            {#if captureNaming.secondary}<span class="block wrap-break-word text-2xs italic text-muted">{captureNaming.secondary}</span>{/if}
                         </button>
-                        <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
+                        <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-muted">
                             <span class="font-bold tabular-nums log-wide:hidden {SCORE_TEXT[scoreBand(captureScore)]}" data-visit-capture-score>{percent(captureScore)}%</span>
                             {#each notes as note (note.text)}
-                                <span class={note.emphasis ? 'font-medium text-brand-700 dark:text-brand-300' : ''}>{note.text}</span>
+                                <span class={note.emphasis ? 'font-medium text-accent-ink' : ''}>{note.text}</span>
                             {/each}
                         </p>
                     </div>
-                    <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(captureScore) } })} data-visit-capture-score class="hidden justify-end rounded text-xs font-bold tabular-nums log-wide:flex {SCORE_TEXT[scoreBand(captureScore)]}">
+                    <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(captureScore) } })} data-visit-capture-score class="hidden justify-end rounded-sm text-xs font-bold tabular-nums log-wide:flex {SCORE_TEXT[scoreBand(captureScore)]}">
                         {percent(captureScore)}%
                     </BadgeHint>
                     <span class="flex justify-end {cell.action}">
                         {#if onplay && capture.has_clip}
                             <button
                                 type="button"
-                                class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-brand-400"
+                                class="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-raised hover:text-accent-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
                                 aria-label={$_('detection.play_video', { values: { species: `${captureNaming.primary}, ${time}` } })}
                                 onclick={() => onplay?.(capture)}
                             >
@@ -400,10 +396,10 @@
             {#if list.loading && list.captures.length === 0}
                 {#each [0, 1] as placeholder (placeholder)}
                     <li class="col-span-full grid grid-cols-subgrid items-center py-0.5" aria-hidden="true">
-                        <span class="h-2.5 w-10 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {cell.time}" data-loading-placeholder></span>
+                        <span class="h-2.5 w-10 rounded-sm bg-line animate-pulse motion-reduce:animate-none {cell.time}" data-loading-placeholder></span>
                         {@render branch('capture')}
                         <span class="grid min-h-11 min-w-11 place-items-center {cell.photo}">
-                            <span class="h-9 w-9 rounded-lg bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>
+                            <span class="h-9 w-9 rounded-lg bg-line animate-pulse motion-reduce:animate-none" data-loading-placeholder></span>
                         </span>
                     </li>
                 {/each}
@@ -411,7 +407,7 @@
             {#if list.loading}
                 <li class="col-span-full grid grid-cols-subgrid">
                     <span class="log-narrow:hidden"></span>{@render branch(null)}
-                    <p role="status" class="col-[3/-1] log-narrow:col-[2/-1] py-1 text-xs text-slate-500 dark:text-slate-400 {list.captures.length === 0 ? 'sr-only' : ''}">
+                    <p role="status" class="col-[3/-1] log-narrow:col-[2/-1] py-1 text-xs text-muted {list.captures.length === 0 ? 'sr-only' : ''}">
                         {$_('common.loading')}
                     </p>
                 </li>
@@ -419,14 +415,14 @@
                 <li class="col-span-full grid grid-cols-subgrid">
                     <span class="log-narrow:hidden"></span>{@render branch(null)}
                     <div class="col-[3/-1] log-narrow:col-[2/-1] flex flex-wrap items-center gap-x-3 gap-y-1 py-1" role="alert">
-                        <p class="text-xs text-slate-600 dark:text-slate-300">{$_('visits.load_failed', { default: 'Could not load the captures. Try again.' })}</p>
+                        <p class="text-xs text-muted">{$_('visits.load_failed', { default: 'Could not load the captures. Try again.' })}</p>
                         <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void list.load()}>{$_('common.retry', { default: 'Retry' })}</button>
                     </div>
                 </li>
             {:else if list.loaded && list.captures.length === 0}
                 <li class="col-span-full grid grid-cols-subgrid">
                     <span class="log-narrow:hidden"></span>{@render branch(null)}
-                    <p class="col-[3/-1] log-narrow:col-[2/-1] py-2 text-xs text-slate-500 dark:text-slate-400">
+                    <p class="col-[3/-1] log-narrow:col-[2/-1] py-2 text-xs text-muted">
                         {$_('visits.captures_empty', { default: 'No captures from this visit are visible in this view.' })}
                     </p>
                 </li>
@@ -437,7 +433,7 @@
                         <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void list.load()}>
                             {$_('visits.load_more', { default: 'Load more captures' })}
                         </button>
-                        <p class="text-2xs tabular-nums text-slate-500 dark:text-slate-400">
+                        <p class="text-2xs tabular-nums text-muted">
                             {$_('visits.loaded_of_total', { values: { shown: list.captures.length, total: list.total }, default: '{shown} of {total} captures shown' })}
                         </p>
                     </div>

@@ -1,5 +1,7 @@
 import type { Chart, ChartConfiguration, ChartType } from 'chart.js';
 
+import { whenNearViewport } from './near-viewport';
+
 export type CanvasChartConfig =
     | ChartConfiguration<'line', number[], string>
     | ChartConfiguration<'bar', number[], string>
@@ -43,6 +45,28 @@ export function chartjs(node: HTMLCanvasElement, initialConfig: CanvasChartConfi
             instance?.destroy();
             instance = null;
             chartNode.__chartjs = null;
+        },
+    };
+}
+
+/**
+ * The same chart, drawn when its canvas first comes near the viewport. A long page keeps the chart
+ * library and the drawing work off its first paint for charts nobody has scrolled to yet.
+ */
+export function chartjsWhenNear(node: HTMLCanvasElement, initialConfig: CanvasChartConfig | MixedCanvasChartConfig) {
+    let latestConfig = initialConfig;
+    let chart: ReturnType<typeof chartjs> | null = null;
+    const watcher = whenNearViewport(node, () => {
+        chart = chartjs(node, latestConfig);
+    });
+    return {
+        update(config: CanvasChartConfig | MixedCanvasChartConfig) {
+            latestConfig = config;
+            chart?.update(config);
+        },
+        destroy() {
+            watcher.destroy();
+            chart?.destroy();
         },
     };
 }

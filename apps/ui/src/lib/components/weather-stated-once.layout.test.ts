@@ -9,7 +9,8 @@ describe('the weather is stated once in the event overview (#268)', () => {
     it('one row states every measured fact, unknowns omitted', () => {
         expect(modalSource).toContain('data-detection-weather-row');
         expect(modalSource).toContain('const weatherSummary');
-        expect(modalSource).toContain("parts.join(' · ')");
+        // The separator is tied to the reading before it, so a wrapped line never starts with "·".
+        expect(modalSource).toContain("parts.join('\\u00a0· ')");
     });
 
     it('the duplicating section and its disclosure are gone', () => {

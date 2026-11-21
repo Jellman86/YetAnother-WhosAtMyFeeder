@@ -1,5 +1,8 @@
-import type { BackendDiagnosticEvent, DiagnosticsWorkspacePayload } from '../api/diagnostics';
-import { clearDiagnosticsWorkspace, fetchDiagnosticsWorkspace } from '../api/diagnostics';
+import type { BackendDiagnosticEvent, DiagnosticDismissalEntry, DiagnosticsWorkspacePayload, DismissDiagnosticsResponse } from '../api/diagnostics';
+import { mapGuarded, type Guarded } from '../api/core';
+import { clearDiagnosticsWorkspace, dismissDiagnostics, fetchDiagnosticsWorkspace, restoreDiagnostics } from '../api/diagnostics';
+import { STATEFUL_INCIDENTS, readSignal } from './incident-signals';
+import { INITIAL_READ, readFreshness, settleRead, type ReadSettled } from '../utils/read-freshness';
 
 type IncidentStatus = 'open' | 'recovering' | 'resolved';
 type IncidentSeverity = 'warning' | 'error' | 'critical';
@@ -22,6 +25,18 @@ interface IncidentRecord {
     lastSeenAt: number;
     evidenceRefs: string[];
     primaryReasonCode: string;
+    /**
+     * Decided by a live check that has not measured it closed (open now, or no reading yet), so it
+     * can be neither dismissed nor hidden.
+     */
+    live: boolean;
+    /** Every backend entry it is built from is dismissed, up to the occurrence the owner saw. */
+    dismissed: boolean;
+}
+
+interface DismissalApi {
+    dismiss: typeof dismissDiagnostics;
+    restore: typeof restoreDiagnostics;
 }
 
 interface IncidentIssueDraft {
@@ -94,6 +109,7 @@ function backendEventsEqual(a: BackendDiagnosticEvent[], b: BackendDiagnosticEve
             || left.message !== right.message
             || normalizeString(left.job_id) !== normalizeString(right.job_id)
             || normalizeString(left.correlation_key) !== normalizeString(right.correlation_key)
+            || left.dismissed !== right.dismissed
         ) {
             return false;
         }
@@ -169,37 +185,31 @@ function isStatefulIncidentOpen(
 ): boolean | null {
     const normalizedComponent = normalizeString(component).toLowerCase();
     const normalizedReason = normalizeString(reasonCode).toLowerCase();
-    const currentHealth = health ?? {};
-    const ml = asRecord(currentHealth.ml);
-    const workerPools = asRecord(ml.worker_pools ?? currentHealth.worker_pools);
+    const incident = STATEFUL_INCIDENTS.find(
+        (candidate) => candidate.component === normalizedComponent && candidate.reasons.includes(normalizedReason)
+    );
+    return incident ? incident.isOpen((path) => readSignal(health, path)) : null;
+}
 
-    if (
-        (normalizedComponent === 'video_classifier' && normalizedReason === 'circuit_open')
-        || (normalizedComponent === 'auto_video_classifier'
-            && (normalizedReason === 'video_circuit_open' || normalizedReason === 'video_circuit_opened'))
-    ) {
-        return Boolean(asRecord(currentHealth.video_classifier).circuit_open);
-    }
+/** A stateful incident is live unless its check measured it closed; anything else is a recorded one. */
+function isLiveIncident(component: string, reasonCode: string, health: Record<string, unknown> | null): boolean {
+    const normalizedComponent = normalizeString(component).toLowerCase();
+    const normalizedReason = normalizeString(reasonCode).toLowerCase();
+    const stateful = STATEFUL_INCIDENTS.some(
+        (candidate) => candidate.component === normalizedComponent && candidate.reasons.includes(normalizedReason)
+    );
+    return stateful && isStatefulIncidentOpen(component, reasonCode, health) !== false;
+}
 
-    if (normalizedComponent === 'ml_live_image' && normalizedReason === 'recovery_active') {
-        return Boolean(asRecord(ml.live_image).recovery_active);
-    }
+export type DismissOutcome = 'dismissed' | 'happened_again' | 'already_cleared';
 
-    if (normalizedComponent === 'ml_background_image' && normalizedReason === 'throttled_by_live_pressure') {
-        const backgroundImage = asRecord(ml.background_image);
-        return Boolean(backgroundImage.background_throttled)
-            && Number(backgroundImage.queued ?? 0) > 0;
-    }
-
-    if (normalizedComponent === 'ml_worker_live' && normalizedReason === 'circuit_open') {
-        return Boolean(asRecord(workerPools.live).circuit_open);
-    }
-
-    if (normalizedComponent === 'ml_worker_background' && normalizedReason === 'circuit_open') {
-        return Boolean(asRecord(workerPools.background).circuit_open);
-    }
-
-    return null;
+/**
+ * What a Dismiss did, from the server's answer and the read after it. Only an item the server hid
+ * and the next read no longer lists was dismissed; the page never says so otherwise.
+ */
+export function dismissOutcome(result: DismissDiagnosticsResponse, stillListed: boolean): DismissOutcome {
+    if (result.dismissed.length === 0 && result.missing.length > 0) return 'already_cleared';
+    return stillListed ? 'happened_again' : 'dismissed';
 }
 
 function deriveEventStatus(
@@ -215,13 +225,28 @@ function deriveEventStatus(
 }
 
 class IncidentWorkspaceStore {
+    /** Open and not dismissed: what Health and the sidebar count. */
     currentIssues = $state<IncidentRecord[]>([]);
+    /** Resolved and not dismissed. */
     recentIncidents = $state<IncidentRecord[]>([]);
+    /** Hidden by the owner, open or resolved, newest first; kept for Show dismissed and the export. */
+    dismissedIncidents = $state<IncidentRecord[]>([]);
     workspacePayload = $state<DiagnosticsWorkspacePayload | null>(null);
+    /** How current the workspace is, changed only when a read settles (whoever started it). */
+    readSettled = $state<ReadSettled>(INITIAL_READ);
+    readFreshness = $derived(readFreshness(this.workspacePayload !== null, this.readSettled));
     backendEvents = $state<BackendDiagnosticEvent[]>([]);
     localGroups = $state<LocalDiagnosticGroup[]>([]);
 
     private jobs = new Map<string, IncidentJobState>();
+    private refreshGeneration = 0;
+    /** Reads up to this generation were made before the last clear. */
+    private clearedThrough = 0;
+
+    constructor(
+        private readonly fetchWorkspace: typeof fetchDiagnosticsWorkspace = fetchDiagnosticsWorkspace,
+        private readonly dismissals: DismissalApi = { dismiss: dismissDiagnostics, restore: restoreDiagnostics }
+    ) {}
 
     ingestWorkspacePayload(payload: DiagnosticsWorkspacePayload): void {
         this.workspacePayload = payload;
@@ -233,9 +258,28 @@ class IncidentWorkspaceStore {
         }
     }
 
-    async refresh(limit = 200): Promise<void> {
-        const payload = await fetchDiagnosticsWorkspace(limit);
-        this.ingestWorkspacePayload(payload);
+    /**
+     * Read the workspace. Resolves true when this reading was applied and false when a newer read
+     * started meanwhile, so a slow, older answer never replaces a newer one.
+     */
+    refresh(limit = 200, signal?: AbortSignal): Guarded<boolean> {
+        const generation = ++this.refreshGeneration;
+        return mapGuarded(
+            this.fetchWorkspace(limit, signal),
+            (payload) => {
+                if (generation !== this.refreshGeneration) return false;
+                this.ingestWorkspacePayload(payload);
+                this.readSettled = settleRead(this.readSettled, generation, { ok: true, at: Date.now() });
+                return true;
+            },
+            (error) => {
+                // A read made before the workspace was cleared (another session's) says nothing now.
+                if (generation <= this.clearedThrough) return false;
+                const message = error instanceof Error && error.message ? error.message : String(error);
+                this.readSettled = settleRead(this.readSettled, generation, { ok: false, error: message });
+                throw error;
+            }
+        );
     }
 
     ingestBackendDiagnostics(events: BackendDiagnosticEvent[]): void {
@@ -264,17 +308,65 @@ class IncidentWorkspaceStore {
     }
 
     clear(): void {
+        // A read still in flight was made for whoever was signed in before; it must not land now.
+        this.clearedThrough = this.refreshGeneration;
+        this.refreshGeneration += 1;
         this.workspacePayload = null;
+        // Nothing is read now, so nothing is failed either; late answers to older reads stay ignored.
+        this.readSettled = { ...INITIAL_READ, token: this.readSettled.token };
         this.backendEvents = [];
         this.localGroups = [];
         this.jobs.clear();
         this.currentIssues = [];
         this.recentIncidents = [];
+        this.dismissedIncidents = [];
     }
 
     async clearRemote(): Promise<void> {
         await clearDiagnosticsWorkspace();
         this.clear();
+    }
+
+    /** Hide entries for everyone on this install, then read the workspace that now says so. */
+    async dismissRemote(entries: DiagnosticDismissalEntry[]): Promise<DismissDiagnosticsResponse> {
+        if (entries.length === 0) return { dismissed: [], missing: [] };
+        const result = await this.dismissals.dismiss(entries);
+        await this.refresh();
+        return result;
+    }
+
+    /** Whether an item (`incident:<id>` or `entry:<id>`) is listed, undismissed, in the latest read. */
+    isListed(key: string): boolean {
+        if (key.startsWith('incident:')) {
+            const id = key.slice('incident:'.length);
+            return [...this.currentIssues, ...this.recentIncidents].some((incident) => incident.id === id);
+        }
+        const id = key.startsWith('entry:') ? key.slice('entry:'.length) : key;
+        return this.backendEvents.some((event) => event.id === id && event.dismissed !== true);
+    }
+
+    async restoreRemote(ids: string[]): Promise<void> {
+        if (ids.length === 0) return;
+        await this.dismissals.restore(ids);
+        await this.refresh();
+    }
+
+    /** The backend entries an incident is built from, each with the newest occurrence the page showed. */
+    dismissalEntries(incident: IncidentRecord): DiagnosticDismissalEntry[] {
+        const refs = new Set(incident.evidenceRefs);
+        return this.backendEvents
+            .filter((event) => refs.has(normalizeString(event.id)))
+            .map((event) => ({ id: event.id, count: Math.max(1, event.count ?? 1) }));
+    }
+
+    /** Every incident for a diagnostics bundle, dismissed ones included and marked. */
+    exportIncidents(): { current: IncidentRecord[]; recent: IncidentRecord[] } {
+        const dismissedOpen = this.dismissedIncidents.filter((incident) => incident.status !== 'resolved');
+        const dismissedResolved = this.dismissedIncidents.filter((incident) => incident.status === 'resolved');
+        return {
+            current: [...this.currentIssues, ...dismissedOpen],
+            recent: [...this.recentIncidents, ...dismissedResolved]
+        };
     }
 
     getDiagnosticGroups(incident: IncidentRecord | null | undefined): IncidentDiagnosticGroup[] {
@@ -370,6 +462,8 @@ class IncidentWorkspaceStore {
 
     private recompute(): void {
         const grouped = new Map<string, IncidentRecord>();
+        // An incident is hidden only while every entry it is built from is dismissed.
+        const everyEntryDismissed = new Map<string, boolean>();
         const currentHealth = this.workspacePayload?.health && typeof this.workspacePayload.health === 'object'
             ? (this.workspacePayload.health as Record<string, unknown>)
             : null;
@@ -385,10 +479,14 @@ class IncidentWorkspaceStore {
             const summary = normalizeString(job?.message, normalizeString(event.message, 'Incident detected'));
             const evidenceRefs = [normalizeString(event.id)].filter(Boolean);
             if (jobId) evidenceRefs.push(`job:${jobId}`);
+            everyEntryDismissed.set(key, (everyEntryDismissed.get(key) ?? true) && event.dismissed === true);
+            const live = isLiveIncident(event.component, event.reason_code, currentHealth);
             const existing = grouped.get(key);
             if (!existing) {
                 grouped.set(key, {
                     id: key,
+                    live,
+                    dismissed: false,
                     status: deriveEventStatus(event.component, event.reason_code, currentHealth, job),
                     severity,
                     title,
@@ -403,6 +501,7 @@ class IncidentWorkspaceStore {
             }
 
             existing.status = deriveEventStatus(event.component, event.reason_code, currentHealth, job);
+            existing.live = live;
             if (severityRank(severity) > severityRank(existing.severity)) {
                 existing.severity = severity;
             }
@@ -420,14 +519,22 @@ class IncidentWorkspaceStore {
         }
 
         const incidents = [...grouped.values()].sort((a, b) => b.lastSeenAt - a.lastSeenAt);
-        incidents.sort((a, b) => b.lastSeenAt - a.lastSeenAt);
-        this.currentIssues = incidents.filter((incident) => incident.status !== 'resolved');
-        this.recentIncidents = incidents.filter((incident) => incident.status === 'resolved').slice(0, 20);
+        for (const incident of incidents) {
+            // Dismissing never hides what a live check shows open now.
+            incident.dismissed = !incident.live && everyEntryDismissed.get(incident.id) === true;
+        }
+        const shown = incidents.filter((incident) => !incident.dismissed);
+        this.currentIssues = shown.filter((incident) => incident.status !== 'resolved');
+        this.recentIncidents = shown.filter((incident) => incident.status === 'resolved').slice(0, 20);
+        this.dismissedIncidents = incidents.filter((incident) => incident.dismissed);
     }
 }
 
-export function createIncidentWorkspaceStore(): IncidentWorkspaceStore {
-    return new IncidentWorkspaceStore();
+export function createIncidentWorkspaceStore(
+    fetchWorkspace?: typeof fetchDiagnosticsWorkspace,
+    dismissals?: DismissalApi
+): IncidentWorkspaceStore {
+    return new IncidentWorkspaceStore(fetchWorkspace, dismissals);
 }
 
 export const incidentWorkspaceStore = createIncidentWorkspaceStore();

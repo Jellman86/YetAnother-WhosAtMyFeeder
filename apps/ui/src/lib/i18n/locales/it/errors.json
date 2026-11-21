@@ -1,3 +1,27 @@
 {
-  "stack_trace": "Traccia dello stack:"
+  "stack_trace": "Traccia dello stack:",
+  "server_failure": "Qualcosa sul server ha interrotto questa richiesta. Riprova; se continua a succedere, apri Stato per vedere cosa non va.",
+  "connection": {
+    "service_mqtt": "Broker MQTT",
+    "host_not_found": "{service}: il nome host in {address} non è stato trovato. Controlla l’indirizzo.",
+    "refused": "{service}: nessuna risposta da {address}. Controlla che sia in esecuzione e che la porta sia corretta.",
+    "timeout": "{service}: nessuna risposta da {address} in tempo utile. Controlla l’indirizzo e che questa macchina possa raggiungerlo.",
+    "not_authorised": "{service}: nome utente o password rifiutati. Controllali, oppure disattiva l’autenticazione se accetta client anonimi.",
+    "unreachable": "{service}: impossibile connettersi a {address}. Controlla l’indirizzo e la porta.",
+    "unreachable_url": "{service}: impossibile connettersi a {address}. Controlla l’indirizzo, lo schema (http o https) e la porta."
+  },
+  "delivery": {
+    "not_configured_discord": "{channel} non è ancora configurato. Inserisci l’URL del webhook, poi riprova.",
+    "not_configured_pushover": "{channel} non è ancora configurato. Inserisci la chiave utente e il token API, poi riprova.",
+    "not_configured_telegram": "{channel} non è ancora configurato. Inserisci il token del bot e l’ID della chat, poi riprova.",
+    "no_answer_address": "{channel} non ha risposto. Controlla l’URL del webhook, poi riprova.",
+    "no_answer_network": "{channel} non ha risposto. Controlla che YA-WAMF possa raggiungere internet, poi riprova.",
+    "timeout": "{channel} ha impiegato troppo tempo a rispondere. Attendi un momento, poi riprova.",
+    "refused_discord": "{channel} ha rifiutato il messaggio. Controlla l’URL del webhook, poi riprova.",
+    "refused_pushover": "{channel} ha rifiutato il messaggio. Controlla la chiave utente e il token API, poi riprova.",
+    "refused_telegram": "{channel} ha rifiutato il messaggio. Controlla il token del bot e l’ID della chat, poi riprova.",
+    "unexpected_reply": "Qualcos’altro ha risposto al posto di {channel}. Controlla che non ci sia un proxy o una pagina di accesso tra YA-WAMF e internet, poi riprova.",
+    "rate_limited": "{channel} sta limitando i messaggi per ora. Attendi un minuto, poi riprova.",
+    "provider_error": "{channel} ha segnalato un problema dal suo lato. Attendi qualche minuto, poi riprova."
+  }
 }

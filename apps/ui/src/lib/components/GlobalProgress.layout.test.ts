@@ -11,12 +11,12 @@ describe('Global progress layout', () => {
         expect(appSource).toContain('--app-chrome-height');
         expect(appSource).toContain("style=\"--app-chrome-height: {isMobile ? '4rem' : '0rem'};\"");
         expect(appSource).toContain('window.scrollY > 0');
-        expect(appSource).toContain("? 'sticky top-[var(--app-chrome-height)] z-30 shrink-0'");
+        expect(appSource).toContain("? 'sticky top-(--app-chrome-height) z-30 shrink-0'");
         expect(appSource).toContain(": 'relative z-30 shrink-0 mb-2'");
         expect(appSource).toContain('<GlobalProgress onNavigate={navigate} />');
-        expect(appSource).toContain('<Sidebar {currentRoute} onNavigate={navigate} {isMobile} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>');
+        expect(appSource).toContain('<Sidebar {currentRoute} onNavigate={navigate} onPrefetch={(path) => void prefetchRoute(path)} {isMobile} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>');
         expect(appSource).not.toContain("effectiveLayout === 'horizontal'");
-        expect(mobileTopBarSource).toContain('h-[var(--app-chrome-height,4rem)]');
+        expect(mobileTopBarSource).toContain('h-(--app-chrome-height,4rem)');
     });
 
     it('caps expanded details height and uses explicit, dismissible disclosure', () => {
@@ -52,11 +52,26 @@ describe('Global progress layout', () => {
     });
 });
 
+describe('global progress honesty', () => {
+    it('draws a bar only for a measured total, never a fixed block standing in for progress', () => {
+        expect(progressSource).not.toContain('w-2/5');
+        expect(progressSource).toContain('{#if aggregate.determinate && aggregate.percent !== null}');
+        expect(progressSource).toContain('data-global-progress-bar');
+    });
+
+    it('wraps the headline and the reason rather than cutting them off, on a flat banner', () => {
+        expect(progressSource).toContain('data-global-progress-headline');
+        expect(progressSource).not.toMatch(/data-global-progress-(headline|subline)[^>]*truncate/);
+        expect(progressSource).not.toMatch(/class="[^"]*truncate[^"]*"[^>]*>\s*\{aggregate\./);
+        expect(progressSource).not.toContain('bg-brand-500/5');
+    });
+});
+
 describe('global progress colour', () => {
     it('keeps amber for a blocked lane and runs work in flight on the brand colour', () => {
         // layout-patterns 1.3: amber says "this needs a person"; a job in flight needs nobody.
-        expect(progressSource).not.toContain('accent-');
-        expect(progressSource).toContain('bg-brand-500');
-        expect(progressSource).toContain('text-amber-600');
+        expect(progressSource).not.toMatch(/\baccent-\d/);
+        expect(progressSource).toContain('bg-status-info-line');
+        expect(progressSource).toContain("presentation.blockerLabel ? 'text-status-attention'");
     });
 });

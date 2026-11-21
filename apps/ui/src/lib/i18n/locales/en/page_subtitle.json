@@ -1,10 +1,19 @@
 {
-  "about": "Version, changelog, contributors, and support links.",
-  "dashboard": "Live detections, recent activity, and feeder health at a glance.",
+  "about": "What this feeder has recorded, how YA-WAMF works, and what it stores and sends.",
+  "dashboard": "The last 24 hours at your feeder, and anything waiting on you.",
   "events": "Browse, filter, and manage every classified visit.",
   "add_observation": "Classify your own photo or video, review the evidence, and add it to your history.",
-  "audio_history": "Browse persisted BirdNET-Go detections and audio-only activity.",
-  "notifications": "Alerts, reminders, and active background jobs.",
-  "settings": "Connections, classification, integrations, and personalization.",
-  "species": "Leaderboard, totals, and taxonomy details for the birds you have seen."
+  "audio_history": "Calls BirdNET-Go has heard, by species and source.",
+  "notifications": "Visits, alerts and background work, newest first.",
+  "species": "Which birds visit most, how often, and when.",
+  "health": "Whether YA-WAMF is working, what the host is doing, and what happened.",
+  "settings_section": {
+    "cameras": "Where events come from: Frigate, its MQTT broker and the cameras to watch.",
+    "identification": "How sure a name must be, the models that find and name birds and their hardware, and features still in Beta.",
+    "alerts": "When you hear about a visit, and the channels the message goes to.",
+    "sharing": "Your feeder’s location and who can open this install, then the other services YA-WAMF reads from or reports to, AI descriptions and telemetry.",
+    "storage": "What is kept and for how long, a backup of these settings, and the jobs that repair or fill in the history.",
+    "display": "How YA-WAMF looks and names birds, and contrast, a reading font, motion and spoken updates."
+  },
+  "model_evaluation": "How often each installed model names a bird correctly, and how fast."
 }

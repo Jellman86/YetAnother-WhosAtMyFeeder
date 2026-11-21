@@ -19,7 +19,14 @@ from app.database import close_db, get_db, init_db
 from app.main import app
 from app.models import Detection
 from app.auth import session_cookie_allowed
-from app.routers.about import REEL_IMAGE_MAX_EDGE, is_crop_source, resize_for_reel, stored_crops
+from app.routers.about import (
+    REEL_IMAGE_MAX_EDGE,
+    REEL_TILE_MAX_EDGE,
+    is_crop_source,
+    newest_photographed_visit,
+    resize_for_reel,
+    stored_crops,
+)
 from app.services import media_cache as media_cache_module
 
 SOURCES = {
@@ -85,6 +92,31 @@ async def test_the_walk_is_bounded_by_reads_and_by_the_limit():
     kept = await stored_crops(rows, limit=1, read_source=reads)
     assert [d.frigate_event for d in kept] == ["robin_new"]
     assert reads.await_count == 2  # stopped as soon as the reel was full
+
+
+@pytest.mark.asyncio
+async def test_the_latest_visit_prefers_a_crop_but_never_claims_no_picture_while_one_is_stored():
+    rows = [
+        _detection("unphotographed", "Wren", "2026-09-11T13:00"),
+        _detection("greattit", "Great Tit", "2026-09-11T12:00"),
+        _detection("pigeon", "Pigeon", "2026-09-11T11:00"),
+        _detection("robin_new", "Robin", "2026-09-11T10:00"),
+    ]
+
+    async def stored(event_id: str) -> bool:
+        return event_id in SOURCES
+
+    newest = await newest_photographed_visit(rows, max_reads=20, read_source=_source, has_photograph=stored)
+    assert newest is not None and newest.frigate_event == "robin_new"
+
+    # No crop in reach: the newest whole-scene photograph stands in, rather than "no picture".
+    newest = await newest_photographed_visit(rows[:3], max_reads=20, read_source=_source, has_photograph=stored)
+    assert newest is not None and newest.frigate_event == "greattit"
+
+    # Nothing stored at all is the only case with no picture, and the walk stays bounded.
+    checks = AsyncMock(return_value=False)
+    assert await newest_photographed_visit(rows, max_reads=2, read_source=_source, has_photograph=checks) is None
+    assert checks.await_count == 2
 
 
 def test_a_crop_is_whatever_the_classifier_provenance_calls_a_crop():
@@ -207,6 +239,31 @@ async def test_reel_image_route_serves_the_stored_photograph_small(seeded_db, me
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             missing = await client.get("/api/about/showcase/robin_old.jpg")
     assert missing.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_reel_image_route_serves_a_wall_tile_smaller_than_a_card(seeded_db, media_cache_on, tmp_path):
+    from io import BytesIO
+
+    from PIL import Image
+
+    photograph = tmp_path / "robin_new.jpg"
+    photograph.write_bytes(_jpeg(2400, 1800))
+    with patch("app.services.media_cache.media_cache.get_snapshot_path", new=AsyncMock(return_value=photograph)):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            card = await client.get("/api/about/showcase/robin_new.jpg")
+            tile = await client.get("/api/about/showcase/robin_new.jpg?size=tile")
+            card_again = await client.get("/api/about/showcase/robin_new.jpg?size=card")
+            unknown = await client.get("/api/about/showcase/robin_new.jpg?size=poster")
+    assert tile.status_code == 200, tile.text
+    with Image.open(BytesIO(tile.content)) as image:
+        assert image.size == (REEL_TILE_MAX_EDGE, REEL_TILE_MAX_EDGE * 3 // 4)
+    with Image.open(BytesIO(card.content)) as image:
+        assert image.size == (REEL_IMAGE_MAX_EDGE, REEL_IMAGE_MAX_EDGE * 3 // 4)
+    assert len(tile.content) < len(card.content)
+    # The two sizes are cached apart: asking for a tile must not change what a card receives.
+    assert card_again.content == card.content
+    assert unknown.status_code == 422
 
 
 @pytest.fixture

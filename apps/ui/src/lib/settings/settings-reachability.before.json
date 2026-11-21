@@ -1,0 +1,3540 @@
+{
+    "about": "The twelve-tab Settings page on dev (dd5c1fa3f), frozen before it was organised by task. controls: every control the page could render, at any depth, with the tab that rendered it (areas) and the saved-settings payload entries it wrote, from settings-reachability.analysis.ts. ids: every literal element id, with the tabs that rendered it. savedFields: the tab that showed each saved field.",
+    "savedFields": {
+        "accessibility_dyslexia_font": "accessibility",
+        "accessibility_high_contrast": "accessibility",
+        "accessibility_live_announcements": "accessibility",
+        "accessibility_reduced_motion": "accessibility",
+        "ai_pricing_json": "ai",
+        "appearance_color_theme": "appearance",
+        "appearance_explorer_view": "appearance",
+        "appearance_font_theme": "appearance",
+        "audio_buffer_hours": "integrations",
+        "audio_correlation_window_seconds": "integrations",
+        "audio_topic": "integrations",
+        "auth_enabled": "security",
+        "auth_password": "security",
+        "auth_session_expiry_hours": "security",
+        "auth_username": "security",
+        "auto_analyze_unknowns": "maintenance",
+        "auto_purge_missing_clips": "data",
+        "auto_purge_missing_snapshots": "data",
+        "auto_video_classification": "detection",
+        "background_worker_count": "models",
+        "beta_garden_animals": "beta",
+        "bird_crop_accurate_detector": "models",
+        "bird_crop_inference_provider": "models",
+        "bird_model_region_override": "models",
+        "birdnet_enabled": "integrations",
+        "birdnet_external_url": "integrations",
+        "birdnet_url": "integrations",
+        "birdweather_enabled": "integrations",
+        "birdweather_station_token": "integrations",
+        "blocked_labels": "detection",
+        "blocked_species": "detection",
+        "camera_audio_mapping": "integrations",
+        "camera_roles": "connection",
+        "cameras": "connection",
+        "classification_image_source": "connection",
+        "classification_min_confidence": "detection",
+        "classification_threshold": "detection",
+        "clips_enabled": "connection",
+        "date_format": "appearance",
+        "display_common_names": "appearance",
+        "ebird_api_key": "integrations",
+        "ebird_default_days_back": "integrations",
+        "ebird_default_radius_km": "integrations",
+        "ebird_enabled": "integrations",
+        "ebird_locale": "integrations",
+        "ebird_max_results": "integrations",
+        "enrichment_links_sources": "integrations",
+        "enrichment_mode": "integrations",
+        "enrichment_rarity_source": "integrations",
+        "enrichment_seasonality_source": "integrations",
+        "enrichment_sightings_source": "integrations",
+        "enrichment_single_provider": "integrations",
+        "enrichment_summary_source": "integrations",
+        "enrichment_taxonomy_source": "integrations",
+        "frigate_external_url": "connection",
+        "frigate_ingest_labels": "connection",
+        "frigate_missing_behavior": "data",
+        "frigate_url": "connection",
+        "garden_automatic_naming": "beta",
+        "garden_cameras": "connection",
+        "garden_domestic_birds": "beta",
+        "garden_labels": "beta",
+        "garden_motion_cameras": "connection",
+        "garden_motion_confidence": "beta",
+        "garden_naming_threshold": "beta",
+        "garden_notification_channels": "beta",
+        "garden_notifications_enabled": "beta",
+        "garden_notifications_include_photo": "beta",
+        "garden_notifications_use_bird_channels": "beta",
+        "ha_weather_access_token": "integrations",
+        "ha_weather_base_url": "integrations",
+        "ha_weather_cloud_cover_entity": "integrations",
+        "ha_weather_enabled": "integrations",
+        "ha_weather_entity": "integrations",
+        "ha_weather_illuminance_entity": "integrations",
+        "ha_weather_precipitation_entity": "integrations",
+        "ha_weather_rain_entity": "integrations",
+        "ha_weather_snowfall_entity": "integrations",
+        "ha_weather_temperature_entity": "integrations",
+        "ha_weather_wind_direction_entity": "integrations",
+        "ha_weather_wind_speed_entity": "integrations",
+        "image_execution_mode": "models",
+        "inaturalist_client_id": "integrations",
+        "inaturalist_client_secret": "integrations",
+        "inaturalist_default_latitude": "integrations",
+        "inaturalist_default_longitude": "integrations",
+        "inaturalist_default_place_guess": "integrations",
+        "inaturalist_enabled": "integrations",
+        "inference_provider": "models",
+        "live_worker_count": "models",
+        "llm_analysis_prompt_template": "ai",
+        "llm_api_key": "ai",
+        "llm_chart_prompt_template": "ai",
+        "llm_conversation_prompt_template": "ai",
+        "llm_enabled": "ai",
+        "llm_model": "ai",
+        "llm_provider": "ai",
+        "location_automatic": "integrations",
+        "location_country": "integrations",
+        "location_latitude": "integrations",
+        "location_longitude": "integrations",
+        "location_state": "integrations",
+        "location_weather_unit_system": "integrations",
+        "maintenance_max_concurrent": "maintenance",
+        "media_cache_automatic_multi_bird_scan": "data",
+        "media_cache_bird_scan_mode": "data",
+        "media_cache_clips": "data",
+        "media_cache_high_quality_event_snapshot_bird_crop": "data",
+        "media_cache_high_quality_event_snapshot_jpeg_quality": "data",
+        "media_cache_high_quality_event_snapshots": "data",
+        "media_cache_max_size_mb": "data",
+        "media_cache_per_species_maximum": "data",
+        "media_cache_per_species_minimum": "data",
+        "media_cache_retention_days": "data",
+        "mqtt_auth": "connection",
+        "mqtt_password": "connection",
+        "mqtt_port": "connection",
+        "mqtt_server": "connection",
+        "mqtt_username": "connection",
+        "nest_dedupe_minutes": "connection",
+        "notification_language": "notifications",
+        "notifications_delay_until_video": "notifications",
+        "notifications_discord_enabled": "notifications",
+        "notifications_discord_username": "notifications",
+        "notifications_discord_webhook_url": "notifications",
+        "notifications_email_enabled": "notifications",
+        "notifications_email_from_email": "notifications",
+        "notifications_email_gmail_client_id": "notifications",
+        "notifications_email_gmail_client_secret": "notifications",
+        "notifications_email_include_snapshot": "notifications",
+        "notifications_email_oauth_provider": "notifications",
+        "notifications_email_only_on_end": "notifications",
+        "notifications_email_outlook_client_id": "notifications",
+        "notifications_email_outlook_client_secret": "notifications",
+        "notifications_email_smtp_host": "notifications",
+        "notifications_email_smtp_password": "notifications",
+        "notifications_email_smtp_port": "notifications",
+        "notifications_email_smtp_use_tls": "notifications",
+        "notifications_email_smtp_username": "notifications",
+        "notifications_email_to_email": "notifications",
+        "notifications_email_use_oauth": "notifications",
+        "notifications_filter_audio_confirmed_only": "notifications",
+        "notifications_filter_min_confidence": "notifications",
+        "notifications_filter_species_blacklist_structured": "notifications",
+        "notifications_filter_species_mode": "notifications",
+        "notifications_filter_species_whitelist": "notifications",
+        "notifications_filter_species_whitelist_structured": "notifications",
+        "notifications_instance_url": "notifications",
+        "notifications_link_target": "notifications",
+        "notifications_mode": "notifications",
+        "notifications_notification_cooldown_minutes": "notifications",
+        "notifications_notify_on_insert": "notifications",
+        "notifications_notify_on_update": "notifications",
+        "notifications_pushover_api_token": "notifications",
+        "notifications_pushover_device": "notifications",
+        "notifications_pushover_enabled": "notifications",
+        "notifications_pushover_priority": "notifications",
+        "notifications_pushover_user_key": "notifications",
+        "notifications_telegram_bot_token": "notifications",
+        "notifications_telegram_chat_id": "notifications",
+        "notifications_telegram_enabled": "notifications",
+        "notifications_video_fallback_timeout": "notifications",
+        "personalized_rerank_enabled": "detection",
+        "public_access_allow_clip_downloads": "security",
+        "public_access_enabled": "security",
+        "public_access_external_base_url": "security",
+        "public_access_historical_days": "security",
+        "public_access_historical_days_mode": "security",
+        "public_access_location_precision": "security",
+        "public_access_media_days_mode": "security",
+        "public_access_media_historical_days": "security",
+        "public_access_rate_limit_per_minute": "security",
+        "public_access_show_ai_conversation": "security",
+        "public_access_show_audio": "security",
+        "public_access_show_camera_names": "security",
+        "public_access_show_clips": "security",
+        "public_access_show_snapshots": "security",
+        "range_filter_enabled": "detection",
+        "range_filter_region_level": "detection",
+        "recording_clip_after_seconds": "connection",
+        "recording_clip_before_seconds": "connection",
+        "recording_clip_enabled": "connection",
+        "recording_frame_delay_seconds": "connection",
+        "retention_days": "data",
+        "scientific_name_primary": "appearance",
+        "strict_non_finite_output": "models",
+        "telemetry_enabled": "security",
+        "telemetry_health_enabled": "security",
+        "time_format": "appearance",
+        "trust_frigate_sublabel": "detection",
+        "trusted_proxy_hosts": "security",
+        "video_classification_delay": "detection",
+        "video_classification_frames": "detection",
+        "video_classification_max_retries": "detection",
+        "write_frigate_sublabel": "detection"
+    },
+    "controls": [
+        {
+            "file": "../components/DiagnosticDialog.svelte",
+            "id": null,
+            "areas": [
+                "ai",
+                "connection",
+                "integrations",
+                "models",
+                "notifications"
+            ],
+            "entries": [
+                "inference_provider"
+            ]
+        },
+        {
+            "file": "../components/DialogCloseButton.svelte",
+            "id": null,
+            "areas": [
+                "ai",
+                "connection",
+                "integrations",
+                "models",
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/LazyRoute.svelte",
+            "id": null,
+            "areas": [],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/AccessibilitySettings.svelte",
+            "id": null,
+            "areas": [
+                "accessibility"
+            ],
+            "entries": [
+                "...accessibilitySection.encodePatch(accessibilityDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AccessibilitySettings.svelte",
+            "id": null,
+            "areas": [
+                "accessibility"
+            ],
+            "entries": [
+                "...accessibilitySection.encodePatch(accessibilityDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AccessibilitySettings.svelte",
+            "id": null,
+            "areas": [
+                "accessibility"
+            ],
+            "entries": [
+                "...accessibilitySection.encodePatch(accessibilityDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AccessibilitySettings.svelte",
+            "id": null,
+            "areas": [
+                "accessibility"
+            ],
+            "entries": [
+                "...accessibilitySection.encodePatch(accessibilityDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AISettings.svelte",
+            "id": null,
+            "areas": [
+                "ai"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/AISettings.svelte",
+            "id": null,
+            "areas": [
+                "ai"
+            ],
+            "entries": [
+                "...aiSection.encodePatch(aiDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AISettings.svelte",
+            "id": null,
+            "areas": [
+                "ai"
+            ],
+            "entries": [
+                "...aiSection.encodePatch(aiDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AISettings.svelte",
+            "id": null,
+            "areas": [
+                "ai"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/AISettings.svelte",
+            "id": "ai-pricing-json",
+            "areas": [
+                "ai"
+            ],
+            "entries": [
+                "...aiSection.encodePatch(aiDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AISettings.svelte",
+            "id": "llm-api-key",
+            "areas": [
+                "ai"
+            ],
+            "entries": [
+                "...aiSection.encodePatch(aiDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AISettings.svelte",
+            "id": "llm-model",
+            "areas": [
+                "ai"
+            ],
+            "entries": [
+                "...aiSection.encodePatch(aiDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AISettings.svelte",
+            "id": "llm-model",
+            "areas": [
+                "ai"
+            ],
+            "entries": [
+                "...aiSection.encodePatch(aiDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AISettings.svelte",
+            "id": "llm-prompt-analysis",
+            "areas": [
+                "ai"
+            ],
+            "entries": [
+                "...aiSection.encodePatch(aiDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AISettings.svelte",
+            "id": "llm-prompt-chart",
+            "areas": [
+                "ai"
+            ],
+            "entries": [
+                "...aiSection.encodePatch(aiDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AISettings.svelte",
+            "id": "llm-prompt-conversation",
+            "areas": [
+                "ai"
+            ],
+            "entries": [
+                "...aiSection.encodePatch(aiDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AISettings.svelte",
+            "id": "llm-prompt-style",
+            "areas": [
+                "ai"
+            ],
+            "entries": [
+                "...aiSection.encodePatch(aiDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AppearanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "appearance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/AppearanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "appearance"
+            ],
+            "entries": [
+                "...appearanceSection.encodePatch(appearanceDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AppearanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "appearance"
+            ],
+            "entries": [
+                "...appearanceSection.encodePatch(appearanceDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AppearanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "appearance"
+            ],
+            "entries": [
+                "...appearanceSection.encodePatch(appearanceDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AppearanceSettings.svelte",
+            "id": "date-format-select",
+            "areas": [
+                "appearance"
+            ],
+            "entries": [
+                "...appearanceSection.encodePatch(appearanceDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AppearanceSettings.svelte",
+            "id": "explorer-view-select",
+            "areas": [
+                "appearance"
+            ],
+            "entries": [
+                "...appearanceSection.encodePatch(appearanceDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AppearanceSettings.svelte",
+            "id": "language-select",
+            "areas": [
+                "appearance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/AppearanceSettings.svelte",
+            "id": "text-size",
+            "areas": [
+                "appearance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/AppearanceSettings.svelte",
+            "id": "time-format-select",
+            "areas": [
+                "appearance"
+            ],
+            "entries": [
+                "...appearanceSection.encodePatch(appearanceDraft)"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "auth_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "trusted_proxy_hosts"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "trusted_proxy_hosts"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "trusted_proxy_hosts"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "public_access_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "public_access_show_camera_names"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "public_access_show_audio"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "public_access_show_snapshots"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "public_access_show_clips"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "public_access_location_precision"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "public_access_show_ai_conversation"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "public_access_allow_clip_downloads"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": "auth-expiry",
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "auth_session_expiry_hours"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": "auth-password",
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "auth_password"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": "auth-password-confirm",
+            "areas": [
+                "security"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": "auth-username",
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "auth_username"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": "public-days-mode",
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "public_access_historical_days",
+                "public_access_historical_days_mode"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": "public-media-days-mode",
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "public_access_media_days_mode",
+                "public_access_media_historical_days"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": "public-rate",
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "public_access_rate_limit_per_minute"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": "public-share-base-url",
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "public_access_external_base_url"
+            ]
+        },
+        {
+            "file": "../components/settings/AuthenticationSettings.svelte",
+            "id": "trusted-proxy-hosts",
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "trusted_proxy_hosts"
+            ]
+        },
+        {
+            "file": "../components/settings/BetaFeatureCard.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": [
+                "beta_garden_animals"
+            ]
+        },
+        {
+            "file": "../components/settings/BetaSection.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/CameraWatchRow.svelte",
+            "id": null,
+            "areas": [
+                "connection"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/CameraWatchRow.svelte",
+            "id": null,
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "camera_roles",
+                "cameras",
+                "garden_cameras",
+                "garden_motion_cameras"
+            ]
+        },
+        {
+            "file": "../components/settings/CameraWatchRow.svelte",
+            "id": null,
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "camera_roles",
+                "cameras",
+                "garden_cameras",
+                "garden_motion_cameras"
+            ]
+        },
+        {
+            "file": "../components/settings/CameraWatchRow.svelte",
+            "id": null,
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "camera_roles",
+                "cameras",
+                "garden_cameras",
+                "garden_motion_cameras"
+            ]
+        },
+        {
+            "file": "../components/settings/ClassificationImageSourceSetting.svelte",
+            "id": "classification-image-source",
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "classification_image_source"
+            ]
+        },
+        {
+            "file": "../components/settings/ClassificationImageSourceSetting.svelte",
+            "id": "recording-frame-delay",
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "recording_frame_delay_seconds"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "connection"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "clips_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "recording_clip_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "mqtt_auth"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "connection"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "connection"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "camera_roles",
+                "cameras",
+                "garden_cameras",
+                "garden_motion_cameras"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "nest_dedupe_minutes"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": "frigate-external-url",
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "frigate_external_url"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": "frigate-ingest-labels",
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "frigate_ingest_labels"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": "frigate-url",
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "frigate_url"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": "mqtt-password",
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "mqtt_password"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": "mqtt-port",
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "mqtt_port"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": "mqtt-server",
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "mqtt_server"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": "mqtt-username",
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "mqtt_username"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": "recording-clip-after",
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "recording_clip_after_seconds"
+            ]
+        },
+        {
+            "file": "../components/settings/ConnectionSettings.svelte",
+            "id": "recording-clip-before",
+            "areas": [
+                "connection"
+            ],
+            "entries": [
+                "recording_clip_before_seconds"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "auto_purge_missing_clips",
+                "auto_purge_missing_snapshots"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "media_cache_clips"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "media_cache_max_size_mb",
+                "media_cache_per_species_maximum",
+                "media_cache_per_species_minimum"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "media_cache_per_species_minimum"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "media_cache_max_size_mb",
+                "media_cache_per_species_maximum",
+                "media_cache_per_species_minimum"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "media_cache_per_species_maximum"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "media_cache_max_size_mb",
+                "media_cache_per_species_maximum",
+                "media_cache_per_species_minimum"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "media_cache_high_quality_event_snapshot_bird_crop",
+                "media_cache_high_quality_event_snapshots"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "media_cache_automatic_multi_bird_scan"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": null,
+            "areas": [
+                "data"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": "bird-scan-mode",
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "media_cache_bird_scan_mode"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": "cache-hq-jpeg-quality",
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "media_cache_high_quality_event_snapshot_jpeg_quality"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": "cache-max-size-gb",
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "media_cache_max_size_mb"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": "frigate-missing-behavior",
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "frigate_missing_behavior"
+            ]
+        },
+        {
+            "file": "../components/settings/DataSettings.svelte",
+            "id": "retention-days",
+            "areas": [
+                "data"
+            ],
+            "entries": [
+                "retention_days"
+            ]
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "personalized_rerank_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "blocked_labels",
+                "blocked_species"
+            ]
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "blocked_labels"
+            ]
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "blocked_species"
+            ]
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "blocked_labels"
+            ]
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "trust_frigate_sublabel"
+            ]
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "write_frigate_sublabel"
+            ]
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "auto_video_classification"
+            ]
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": "blocked-species-search",
+            "areas": [
+                "detection"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": "confidence-threshold-slider",
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "classification_threshold"
+            ]
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": "min-confidence-slider",
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "classification_min_confidence"
+            ]
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": "video-delay",
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "video_classification_delay"
+            ]
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": "video-frames",
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "video_classification_frames"
+            ]
+        },
+        {
+            "file": "../components/settings/DetectionSettings.svelte",
+            "id": "video-retries",
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "video_classification_max_retries"
+            ]
+        },
+        {
+            "file": "../components/settings/EnrichmentSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/GardenBetaSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/GardenBetaSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/GardenBetaSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/GardenBetaSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/GardenBetaSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": [
+                "garden_automatic_naming"
+            ]
+        },
+        {
+            "file": "../components/settings/GardenBetaSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/GardenBetaSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": [
+                "garden_domestic_birds"
+            ]
+        },
+        {
+            "file": "../components/settings/GardenBetaSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": [
+                "garden_domestic_birds"
+            ]
+        },
+        {
+            "file": "../components/settings/GardenBetaSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/GardenBetaSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/GardenBetaSettings.svelte",
+            "id": "garden-labels",
+            "areas": [
+                "beta"
+            ],
+            "entries": [
+                "garden_labels"
+            ]
+        },
+        {
+            "file": "../components/settings/GardenBetaSettings.svelte",
+            "id": "garden-motion-confidence",
+            "areas": [
+                "beta"
+            ],
+            "entries": [
+                "garden_motion_confidence"
+            ]
+        },
+        {
+            "file": "../components/settings/GardenBetaSettings.svelte",
+            "id": "garden-naming-threshold",
+            "areas": [
+                "beta"
+            ],
+            "entries": [
+                "garden_naming_threshold"
+            ]
+        },
+        {
+            "file": "../components/settings/GardenModelSetup.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/GardenNotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": [
+                "garden_notifications_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/GardenNotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": [
+                "garden_notifications_use_bird_channels"
+            ]
+        },
+        {
+            "file": "../components/settings/GardenNotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": [
+                "garden_notification_channels"
+            ]
+        },
+        {
+            "file": "../components/settings/GardenNotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": [
+                "garden_notifications_include_photo"
+            ]
+        },
+        {
+            "file": "../components/settings/GardenNotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "beta"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "birdnet_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "camera_audio_mapping"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "camera_audio_mapping"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "camera_audio_mapping"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "camera_audio_mapping"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "inaturalist_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "inaturalist_client_id",
+                "inaturalist_client_secret",
+                "inaturalist_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "blocked_labels",
+                "blocked_species"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "blocked_labels",
+                "blocked_species"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "ebird_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "birdweather_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "ha_weather_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "ha_weather_cloud_cover_entity",
+                "ha_weather_precipitation_entity",
+                "ha_weather_rain_entity",
+                "ha_weather_snowfall_entity",
+                "ha_weather_temperature_entity",
+                "ha_weather_wind_direction_entity",
+                "ha_weather_wind_speed_entity"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": null,
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "location_automatic"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "audio-buffer",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "audio_buffer_hours"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "audio-topic",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "audio_topic"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "birdnet-external-url",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "birdnet_external_url"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "birdnet-url",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "birdnet_url"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "birdweather-token",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "birdweather_station_token"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "correlation-window",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "audio_correlation_window_seconds"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "ebird-api-key",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "ebird_api_key"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "ebird-days",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "ebird_default_days_back"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "ebird-export-from",
+            "areas": [
+                "integrations"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "ebird-export-to",
+            "areas": [
+                "integrations"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "ebird-locale",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "ebird_locale"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "ebird-max-results",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "ebird_max_results"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "ebird-radius",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "ebird_default_radius_km"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "ha-weather-entity",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "ha_weather_entity"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "ha-weather-illuminance",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "ha_weather_illuminance_entity"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "ha-weather-token",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "ha_weather_access_token"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "ha-weather-url",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "ha_weather_base_url"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "inat-client-id",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "inaturalist_client_id"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "inat-client-secret",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "inaturalist_client_secret"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "inat-lat",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "inaturalist_default_latitude"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "inat-lon",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "inaturalist_default_longitude"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "inat-place",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "inaturalist_default_place_guess"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "location-lat",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "location_latitude"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "location-lon",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "location_longitude"
+            ]
+        },
+        {
+            "file": "../components/settings/IntegrationSettings.svelte",
+            "id": "weather-unit-system",
+            "areas": [
+                "integrations"
+            ],
+            "entries": [
+                "location_weather_unit_system"
+            ]
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "maintenance"
+            ],
+            "entries": [
+                "auto_analyze_unknowns"
+            ]
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": null,
+            "areas": [
+                "maintenance"
+            ],
+            "entries": [
+                "inference_provider"
+            ]
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": "backfill-from-date",
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": "backfill-range",
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": "backfill-to-date",
+            "areas": [
+                "maintenance"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/MaintenanceSettings.svelte",
+            "id": "maintenance-max-concurrent",
+            "areas": [
+                "maintenance"
+            ],
+            "entries": [
+                "maintenance_max_concurrent"
+            ]
+        },
+        {
+            "file": "../components/settings/ModelSettings.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/ModelSettings.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/ModelSettings.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "inference_provider"
+            ]
+        },
+        {
+            "file": "../components/settings/ModelSettings.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "strict_non_finite_output"
+            ]
+        },
+        {
+            "file": "../components/settings/ModelSettings.svelte",
+            "id": "background-worker-count",
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "background_worker_count"
+            ]
+        },
+        {
+            "file": "../components/settings/ModelSettings.svelte",
+            "id": "bird-model-region-override",
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "...buildBirdModelRegionOverrideSettings(birdModelRegionOverride)"
+            ]
+        },
+        {
+            "file": "../components/settings/ModelSettings.svelte",
+            "id": "image-execution-mode",
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "image_execution_mode"
+            ]
+        },
+        {
+            "file": "../components/settings/ModelSettings.svelte",
+            "id": "inference-provider",
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "inference_provider"
+            ]
+        },
+        {
+            "file": "../components/settings/ModelSettings.svelte",
+            "id": "live-worker-count",
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "live_worker_count"
+            ]
+        },
+        {
+            "file": "../components/settings/NativeProfileRevalidation.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NativeProfileRevalidation.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NativeProfileRevalidation.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NativeProfileRevalidation.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationPolicySentence.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_delay_until_video",
+                "notifications_mode",
+                "notifications_notify_on_insert",
+                "notifications_notify_on_update"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationPolicySentence.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationPolicySentence.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationPolicySentence.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationPolicySentence.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_filter_audio_confirmed_only"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationPolicySentence.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationPolicySentence.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationPolicySentence.svelte",
+            "id": "policy-confidence-slider",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_filter_min_confidence"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationPolicySentence.svelte",
+            "id": "policy-video-fallback",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_video_fallback_timeout"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_notification_cooldown_minutes"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_link_target"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_link_target"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_filter_species_blacklist_structured",
+                "notifications_filter_species_mode",
+                "notifications_filter_species_whitelist",
+                "notifications_filter_species_whitelist_structured"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_filter_species_blacklist_structured",
+                "notifications_filter_species_mode",
+                "notifications_filter_species_whitelist",
+                "notifications_filter_species_whitelist_structured"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_filter_species_blacklist_structured",
+                "notifications_filter_species_mode",
+                "notifications_filter_species_whitelist",
+                "notifications_filter_species_whitelist_structured"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_filter_species_blacklist_structured",
+                "notifications_filter_species_whitelist_structured"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_filter_species_blacklist_structured",
+                "notifications_filter_species_whitelist_structured"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_filter_species_whitelist"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_discord_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_pushover_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_telegram_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_use_oauth"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_oauth_provider"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_smtp_use_tls"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_include_snapshot"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_only_on_end"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": null,
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "discord-botname",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_discord_username"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "discord-webhook",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_discord_webhook_url"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "email-from",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_from_email"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "email-to",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_to_email"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "gmail-client-id",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_gmail_client_id"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "gmail-client-secret",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_gmail_client_secret"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "notification-cooldown-minutes",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_notification_cooldown_minutes"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "notification-instance-url",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_instance_url"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "notification-language",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notification_language"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "notification-species-search",
+            "areas": [
+                "notifications"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "outlook-client-id",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_outlook_client_id"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "outlook-client-secret",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_outlook_client_secret"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "pushover-apitoken",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_pushover_api_token"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "pushover-device",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_pushover_device"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "pushover-priority",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_pushover_priority"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "pushover-userkey",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_pushover_user_key"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "smtp-host",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_smtp_host"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "smtp-password",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_smtp_password"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "smtp-port",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_smtp_port"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "smtp-username",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_email_smtp_username"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "telegram-bottoken",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_telegram_bot_token"
+            ]
+        },
+        {
+            "file": "../components/settings/NotificationSettings.svelte",
+            "id": "telegram-chatid",
+            "areas": [
+                "notifications"
+            ],
+            "entries": [
+                "notifications_telegram_chat_id"
+            ]
+        },
+        {
+            "file": "../components/settings/RangeFilterSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/RangeFilterSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/RangeFilterSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/RangeFilterSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "range_filter_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/RangeFilterSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/RangeFilterSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/RangeFilterSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/RangeFilterSettings.svelte",
+            "id": null,
+            "areas": [
+                "detection"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/RangeFilterSettings.svelte",
+            "id": "range-filter-level",
+            "areas": [
+                "detection"
+            ],
+            "entries": [
+                "range_filter_region_level"
+            ]
+        },
+        {
+            "file": "../components/settings/SettingsTabs.svelte",
+            "id": null,
+            "areas": [],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/SettingsTabs.svelte",
+            "id": null,
+            "areas": [],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/SettingsTabs.svelte",
+            "id": "settings-tab-select",
+            "areas": [],
+            "entries": []
+        },
+        {
+            "file": "../components/settings/TelemetrySettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "telemetry_enabled"
+            ]
+        },
+        {
+            "file": "../components/settings/TelemetrySettings.svelte",
+            "id": null,
+            "areas": [
+                "security"
+            ],
+            "entries": [
+                "telemetry_health_enabled"
+            ]
+        },
+        {
+            "file": "../pages/models/FinderDevicePanel.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../pages/models/FinderDevicePanel.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "inference_provider"
+            ]
+        },
+        {
+            "file": "../pages/models/FinderDevicePanel.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../pages/models/FinderDevicePanel.svelte",
+            "id": "bird-finder-device",
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "bird_crop_inference_provider"
+            ]
+        },
+        {
+            "file": "../pages/models/ModelManager.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../pages/models/ModelManager.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../pages/models/ModelManager.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "inference_provider"
+            ]
+        },
+        {
+            "file": "../pages/models/ModelManager.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "inference_provider"
+            ]
+        },
+        {
+            "file": "../pages/models/ModelManager.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "inference_provider"
+            ]
+        },
+        {
+            "file": "../pages/models/ModelManager.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "inference_provider"
+            ]
+        },
+        {
+            "file": "../pages/models/ModelManager.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "inference_provider"
+            ]
+        },
+        {
+            "file": "../pages/models/ModelManager.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../pages/models/ModelManager.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": []
+        },
+        {
+            "file": "../pages/models/ModelManager.svelte",
+            "id": null,
+            "areas": [
+                "models"
+            ],
+            "entries": [
+                "bird_crop_accurate_detector"
+            ]
+        }
+    ],
+    "ids": {
+        "llm-api-key": [
+            "ai"
+        ],
+        "llm-model-suggestions": [
+            "ai"
+        ],
+        "llm-model": [
+            "ai"
+        ],
+        "ai-test-needs-key": [
+            "ai"
+        ],
+        "ai-pricing-and-prompts": [
+            "ai"
+        ],
+        "ai-pricing-json": [
+            "ai"
+        ],
+        "llm-prompt-style": [
+            "ai"
+        ],
+        "llm-prompt-analysis": [
+            "ai"
+        ],
+        "llm-prompt-conversation": [
+            "ai"
+        ],
+        "llm-prompt-chart": [
+            "ai"
+        ],
+        "ai-usage": [
+            "ai"
+        ],
+        "diagnostic-title": [
+            "ai",
+            "connection",
+            "integrations",
+            "models",
+            "notifications"
+        ],
+        "diagnostic-description": [
+            "ai",
+            "connection",
+            "integrations",
+            "models",
+            "notifications"
+        ],
+        "text-size": [
+            "appearance"
+        ],
+        "language-select": [
+            "appearance"
+        ],
+        "explorer-view-select": [
+            "appearance"
+        ],
+        "date-format-select": [
+            "appearance"
+        ],
+        "time-format-select": [
+            "appearance"
+        ],
+        "appearance-typography-and-colour": [
+            "appearance"
+        ],
+        "garden-animals": [
+            "beta"
+        ],
+        "garden-next-steps": [
+            "beta"
+        ],
+        "garden-section-cameras": [
+            "beta"
+        ],
+        "garden-labels": [
+            "beta"
+        ],
+        "garden-motion-confidence": [
+            "beta"
+        ],
+        "garden-section-checks": [
+            "beta"
+        ],
+        "garden-naming-threshold": [
+            "beta"
+        ],
+        "garden-section-models": [
+            "beta"
+        ],
+        "garden-section-domestic": [
+            "beta"
+        ],
+        "garden-domestic-birds-help": [
+            "beta"
+        ],
+        "garden-section-alerts": [
+            "beta"
+        ],
+        "garden-section-outcomes": [
+            "beta"
+        ],
+        "garden-collection-status": [
+            "beta"
+        ],
+        "garden-models-block": [
+            "beta"
+        ],
+        "timezone-repair-blocked": [
+            "maintenance"
+        ],
+        "backfill-range": [
+            "maintenance"
+        ],
+        "backfill-from-date": [
+            "maintenance"
+        ],
+        "backfill-to-date": [
+            "maintenance"
+        ],
+        "data-backfill-weather": [
+            "maintenance"
+        ],
+        "maintenance-concurrency": [
+            "maintenance"
+        ],
+        "maintenance-max-concurrent": [
+            "maintenance"
+        ],
+        "data-danger": [
+            "maintenance"
+        ],
+        "danger-feedback-consequence": [
+            "maintenance"
+        ],
+        "danger-favorites-consequence": [
+            "maintenance"
+        ],
+        "danger-reset-consequence": [
+            "maintenance"
+        ],
+        "retention-days": [
+            "data"
+        ],
+        "retention-deletion-note": [
+            "data"
+        ],
+        "purge-disabled-reason": [
+            "data"
+        ],
+        "data-missing-media": [
+            "data"
+        ],
+        "frigate-missing-behavior": [
+            "data"
+        ],
+        "cache-max-size-gb": [
+            "data"
+        ],
+        "storage-limit-error": [
+            "data"
+        ],
+        "data-cache-species": [
+            "data"
+        ],
+        "data-cache-advanced": [
+            "data"
+        ],
+        "bird-scan-mode": [
+            "data"
+        ],
+        "cache-hq-jpeg-quality": [
+            "data"
+        ],
+        "auth-username": [
+            "security"
+        ],
+        "auth-password": [
+            "security"
+        ],
+        "auth-password-confirm": [
+            "security"
+        ],
+        "auth-session-and-proxy": [
+            "security"
+        ],
+        "auth-expiry": [
+            "security"
+        ],
+        "trusted-proxy-hosts": [
+            "security"
+        ],
+        "security-public-needs-auth": [
+            "security"
+        ],
+        "public-access-windows": [
+            "security"
+        ],
+        "public-days-mode": [
+            "security"
+        ],
+        "public-media-days-mode": [
+            "security"
+        ],
+        "public-rate": [
+            "security"
+        ],
+        "public-share-base-url": [
+            "security"
+        ],
+        "birdnet-url": [
+            "integrations"
+        ],
+        "birdnet-external-url": [
+            "integrations"
+        ],
+        "audio-topic": [
+            "integrations"
+        ],
+        "integrations-birdnet-advanced": [
+            "integrations"
+        ],
+        "audio-buffer": [
+            "integrations"
+        ],
+        "correlation-window": [
+            "integrations"
+        ],
+        "birdnet-source-options": [
+            "integrations"
+        ],
+        "inat-client-id": [
+            "integrations"
+        ],
+        "inat-client-secret": [
+            "integrations"
+        ],
+        "integrations-inat-advanced": [
+            "integrations"
+        ],
+        "inat-lat": [
+            "integrations"
+        ],
+        "inat-lon": [
+            "integrations"
+        ],
+        "inat-place": [
+            "integrations"
+        ],
+        "ebird-api-key": [
+            "integrations"
+        ],
+        "ebird-export-from": [
+            "integrations"
+        ],
+        "ebird-export-to": [
+            "integrations"
+        ],
+        "integrations-ebird-advanced": [
+            "integrations"
+        ],
+        "ebird-radius": [
+            "integrations"
+        ],
+        "ebird-days": [
+            "integrations"
+        ],
+        "ebird-max-results": [
+            "integrations"
+        ],
+        "ebird-locale": [
+            "integrations"
+        ],
+        "birdweather-token": [
+            "integrations"
+        ],
+        "ha-weather-url": [
+            "integrations"
+        ],
+        "ha-weather-token": [
+            "integrations"
+        ],
+        "ha-weather-entity": [
+            "integrations"
+        ],
+        "ha-weather-illuminance": [
+            "integrations"
+        ],
+        "ha-weather-illuminance-error": [
+            "integrations"
+        ],
+        "location-lat": [
+            "integrations"
+        ],
+        "location-lon": [
+            "integrations"
+        ],
+        "weather-unit-system": [
+            "integrations"
+        ],
+        "notification-cooldown-label": [
+            "notifications"
+        ],
+        "notification-cooldown-minutes": [
+            "notifications"
+        ],
+        "notification-cooldown-unit": [
+            "notifications"
+        ],
+        "notification-language-desc": [
+            "notifications"
+        ],
+        "notification-language": [
+            "notifications"
+        ],
+        "notification-instance-url-hint": [
+            "notifications"
+        ],
+        "notification-instance-url": [
+            "notifications"
+        ],
+        "notification-instance-url-error": [
+            "notifications"
+        ],
+        "notification-species-search": [
+            "notifications"
+        ],
+        "discord-channel-label": [
+            "notifications"
+        ],
+        "discord-webhook": [
+            "notifications"
+        ],
+        "discord-botname": [
+            "notifications"
+        ],
+        "discord-test-reason": [
+            "notifications"
+        ],
+        "pushover-channel-label": [
+            "notifications"
+        ],
+        "pushover-userkey": [
+            "notifications"
+        ],
+        "pushover-apitoken": [
+            "notifications"
+        ],
+        "pushover-test-reason": [
+            "notifications"
+        ],
+        "notifications-pushover-advanced": [
+            "notifications"
+        ],
+        "pushover-priority": [
+            "notifications"
+        ],
+        "pushover-device": [
+            "notifications"
+        ],
+        "telegram-channel-label": [
+            "notifications"
+        ],
+        "telegram-bottoken": [
+            "notifications"
+        ],
+        "telegram-chatid": [
+            "notifications"
+        ],
+        "telegram-test-reason": [
+            "notifications"
+        ],
+        "email-channel-label": [
+            "notifications"
+        ],
+        "gmail-client-id": [
+            "notifications"
+        ],
+        "gmail-client-secret": [
+            "notifications"
+        ],
+        "outlook-client-id": [
+            "notifications"
+        ],
+        "outlook-client-secret": [
+            "notifications"
+        ],
+        "smtp-host": [
+            "notifications"
+        ],
+        "smtp-port": [
+            "notifications"
+        ],
+        "smtp-tls-label": [
+            "notifications"
+        ],
+        "smtp-username": [
+            "notifications"
+        ],
+        "smtp-password": [
+            "notifications"
+        ],
+        "email-from": [
+            "notifications"
+        ],
+        "email-to": [
+            "notifications"
+        ],
+        "email-include-snapshot-label": [
+            "notifications"
+        ],
+        "notifications-email-advanced": [
+            "notifications"
+        ],
+        "email-only-on-end-label": [
+            "notifications"
+        ],
+        "email-test-reason": [
+            "notifications"
+        ],
+        "policy-video-fallback": [
+            "notifications"
+        ],
+        "policy-confidence-slider": [
+            "notifications"
+        ],
+        "policy-audio-only-label": [
+            "notifications"
+        ],
+        "bird-model-region-override": [
+            "models"
+        ],
+        "models-hardware": [
+            "models"
+        ],
+        "inference-provider": [
+            "models"
+        ],
+        "compat-all-models-label": [
+            "models"
+        ],
+        "detection-memory-advanced": [
+            "models"
+        ],
+        "image-execution-mode": [
+            "models"
+        ],
+        "live-worker-count": [
+            "models"
+        ],
+        "background-worker-count": [
+            "models"
+        ],
+        "classifier-model-lineup-label": [
+            "models"
+        ],
+        "classifier-model-catalogue": [
+            "models"
+        ],
+        "bird-finder-desc": [
+            "models"
+        ],
+        "bird-finder-device": [
+            "models"
+        ],
+        "bird-finder-device-note": [
+            "models"
+        ],
+        "bird-finder-check-hint": [
+            "models"
+        ],
+        "confidence-threshold-slider": [
+            "detection"
+        ],
+        "min-confidence-slider": [
+            "detection"
+        ],
+        "blocked-species-search": [
+            "detection"
+        ],
+        "detection-frigate-video": [
+            "detection"
+        ],
+        "video-delay": [
+            "detection"
+        ],
+        "video-retries": [
+            "detection"
+        ],
+        "video-frames": [
+            "detection"
+        ],
+        "range-filter-level": [
+            "detection"
+        ],
+        "range-filter-how-body": [
+            "detection"
+        ],
+        "range-filter-preview": [
+            "detection"
+        ],
+        "range-filter-skips": [
+            "detection"
+        ],
+        "frigate-url": [
+            "connection"
+        ],
+        "frigate-ingest-labels": [
+            "connection"
+        ],
+        "frigate-external-url": [
+            "connection"
+        ],
+        "connection-full-visit": [
+            "connection"
+        ],
+        "recording-clip-before": [
+            "connection"
+        ],
+        "recording-clip-after": [
+            "connection"
+        ],
+        "setting-mqtt-broker": [
+            "connection"
+        ],
+        "setting-mqtt-broker-desc": [
+            "connection"
+        ],
+        "mqtt-server": [
+            "connection"
+        ],
+        "mqtt-port": [
+            "connection"
+        ],
+        "mqtt-username": [
+            "connection"
+        ],
+        "mqtt-password": [
+            "connection"
+        ],
+        "settings-camera-list": [
+            "connection"
+        ],
+        "camera-bird-scope-chosen": [
+            "connection"
+        ],
+        "camera-preview-needs-url": [
+            "connection"
+        ],
+        "classification-image-source": [
+            "connection"
+        ],
+        "recording-frame-delay-label": [
+            "connection"
+        ],
+        "recording-frame-delay-desc": [
+            "connection"
+        ],
+        "recording-frame-delay": [
+            "connection"
+        ],
+        "recording-frame-delay-error": [
+            "connection"
+        ],
+        "settings-save-bar-title": [],
+        "settings-save-rule": [],
+        "settings-conflicts-note": [],
+        "settings-tab-select": [],
+        "settings-tab-unsaved-note": [],
+        "settings-tab-refused-note": []
+    }
+}

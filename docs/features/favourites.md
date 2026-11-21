@@ -57,7 +57,7 @@ Only these:
 
 - **Unfavouriting** the visit. The confirmation names the size. The visit stays in history.
 - **Deleting** the visit.
-- **Delete All Favorites** in **Settings → Data**, and a **database reset**. Both say so.
+- **Delete all favourites** in **Settings → Storage & upkeep → Delete data**, and a **database reset**. Both say so.
 
 Age cleanup, orphan cleanup, **Clear cached files**, the media integrity scan and the
 missing-event policy never touch the archive.
@@ -72,31 +72,62 @@ unfinished and re-acquired if the visit is still a favourite.
 
 ## The per-species floor
 
-**Settings → Data → Keep photos of the newest visits per species** protects the newest N stored
+**Settings → Storage & upkeep → Per-species limits → Keep photos of each species' newest visits** protects the newest N stored
 detections of each species, and their cached photographs, from age-based cleanup, however old
 they are. This is applied to stored captures, not the Explorer's grouping of captures into visits.
-It is off (0) by default. The floor is counted per canonical species, so a bird under two names has one floor, and
+It is off by default (stored as `0`). The floor is counted per canonical species, so a bird under two names has one floor, and
 hidden visits neither count towards it nor are held by it. Clips are not held by the floor; they
 follow the age window as before. The same setting is `MEDIA_CACHE__PER_SPECIES_MINIMUM`.
 
 ## Retention boundaries
 
-With **Keep Everything** (`maintenance.retention_days: 0`), age cleanup does not purge detections.
+With **Keep everything** (`maintenance.retention_days: 0`), age cleanup does not purge detections.
 A positive retention period permanently deletes older visual and BirdNET-Go audio history;
 favourites and the per-species floor protect the qualifying visual records described above.
 Purged history cannot be recovered without a backup. Neither hiding a visit nor clearing ordinary
 cached clips is the same as permanently deleting its database record or removing an archive.
 Review the [data settings](../setup/configuration.md) before changing retention.
 
-The per-species floor is age protection, not reserved disk space. **Most visits per species with
-photos and video** and **Storage limit (MiB)** can still evict ordinary cached media. Such eviction
+### Daily totals keep the counts
+
+Cleanup keeps how many birds each day saw even after it deletes the captures. Before it removes
+any capture from a day, it writes that day's captures and visits for each species, from the
+stored captures, and seals the day. This applies to the scheduled cleanup and to **Purge Old
+Records** alike: both delete through the same step, and if the totals cannot be saved nothing is
+deleted and Health says "Retention paused". The Leaderboard's chart and each species' weekday and
+month charts then count sealed days from these totals, so seasonal trends reach back past your
+retention period. Photos, clips and individual records for those days are gone; the charts say
+from which day their counts come from daily totals.
+
+- A day is local to the instance's timezone (`TZ`), like the rest of the history, including zones
+  half an hour or three quarters of an hour off UTC.
+- A sealed day never changes again. Hiding, renaming or deleting a capture is a correction that
+  changes the counts while the day is live. A day is sealed as soon as cleanup starts removing its
+  captures, so corrections to the ones still stored on it (kept favourites, or the later captures
+  on the oldest day kept) no longer change its totals.
+- A capture Frigate no longer has, removed under **Delete** for missing events, is kept as its
+  own record in the same step as the delete. Its day stays live and correctable, and the lost
+  capture still counts on it, today included, until cleanup folds it into the day's total.
+- Totals start when you upgrade. A day that began before then may already have lost captures
+  without a record (to an earlier cleanup or to missing-event deletes), so it is marked as
+  possibly low, and the charts say so.
+- Time of day and the hour-and-weekday grid count stored captures only: a daily total has no
+  time. The grid says so when older days come from daily totals.
+- **Delete all history** deletes the daily totals and lost-capture records too, and its
+  confirmation says so.
+- The ranked lists on the Leaderboard count their rolling day, week or month from stored captures.
+- Downgrading YA-WAMF below the release that added daily totals deletes them, and they cannot be
+  rebuilt: for days cleanup has already removed they are the only copy of the counts.
+
+The per-species floor is age protection, not reserved disk space. **Limit visits per species with
+photos and video** and **Limit the space photos and video use** can still evict ordinary cached media. Such eviction
 keeps detection history and leaves archived favourites alone. Removed bytes cannot be restored
 from YA-WAMF itself; do not assume Frigate still has them.
 
-![Photos and video settings showing a newest-capture photo floor, a per-species media maximum and a storage limit](../images/settings-media-retention.png)
+![The Photos and video card with a storage limit and the per-species limits: keeping photos of each species' newest visits, and limiting visits per species with photos and video](../images/settings-media-retention.png)
 
 ## Storage
 
-**Settings → Data** shows archived favourites (count and size) apart from the cache size, and how
+**Settings → Storage & upkeep** shows archived favourites (count and size) apart from the cache size, and how
 many could not be archived. The archive is never cleaned automatically, so its size is a choice
 you make one star at a time.

@@ -118,6 +118,20 @@ async def test_a_red_junglefowl_bird_event_becomes_the_owners_chicken_in_garden_
 
 
 @pytest.mark.asyncio
+async def test_the_routed_bird_takes_the_frame_its_model_read_to_garden():
+    from app.services.garden_domestic_service import garden_domestic_service
+
+    junglefowl = {"label": "Gallus gallus", "score": 0.93, "index": 7}
+    with patch.object(garden_domestic_service, "route_bird_event", new=AsyncMock(return_value=True)) as route:
+        service, _ = await process(bird_event(), top=junglefowl, accepted=junglefowl)
+    service.save_detection.assert_not_awaited()
+    kwargs = route.await_args.kwargs
+    assert kwargs["snapshot"] == b"fakeimage"
+    # A live event's Frigate snapshot is a crop, which Garden does not keep as its whole photo.
+    assert kwargs["snapshot_source"] == "frigate_snapshot_cropped"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("declared", [[], ["turkey"]])
 async def test_an_undeclared_chicken_stays_a_bird_detection(declared):
     settings.frigate.garden_domestic_birds = declared

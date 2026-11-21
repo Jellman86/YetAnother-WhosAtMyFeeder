@@ -139,6 +139,12 @@ sources — is [`docs/standards/code-quality.md`](docs/standards/code-quality.md
 - A first-time user should understand what a screen does and what a click will do,
   without a manual. Label actions by their effect. Show *why* something is disabled,
   empty, or skipped.
+- **Colour comes from the semantic tokens** (`bg-surface`, `text-muted`, `text-status-fail`, …)
+  resolved once per mode in `app.css`, and sections, states and chips from the primitives in
+  `apps/ui/src/lib/components/ui/` (`Panel`, `StatusChip`, `StateBlock`, `PageHeader`, `Stat`,
+  `ChartFigure`). No new raw palette class, `dark:` colour override or arbitrary value: the
+  design-token ratchet fails the build. See
+  [`docs/standards/design-tokens.md`](docs/standards/design-tokens.md).
 - **The shared UI kit in [`apps/ui/src/app.css`](apps/ui/src/app.css) is the source
   of truth for controls.** Use `btn` + `btn-primary`/`btn-secondary`/`btn-ghost`,
   `input-base`, `select-base`, `tab-button`, and `card-base` rather than hand-rolled
@@ -172,6 +178,11 @@ sources — is [`docs/standards/code-quality.md`](docs/standards/code-quality.md
   are proxied so no token reaches the browser, must degrade silently to a
   placeholder, must never imply state, and must never shift layout (fixed aspect,
   lazy-loaded).
+- **One word for each thing.** A visit, a capture, a record, the naming threshold, Unknown bird,
+  Health, Explorer: [`docs/standards/glossary.md`](docs/standards/glossary.md) names each concept
+  once, with the words not to use, the form of address per language (German "Sie") and the rules
+  for dates, numbers and units. The copy lint in `npm test` fails on a forbidden synonym, a vague
+  or raw error, an em dash, informal German or a missing translation; its baseline may only fall.
 - User-facing strings go through i18n (`svelte-i18n`); new keys land in
   the English domain file they belong to, `apps/ui/src/lib/i18n/locales/en/<domain>.json` (for example
   `locales/en/settings.json` for `settings.*` keys), with `{ default: '…' }` fallbacks in code.
@@ -210,13 +221,14 @@ A change is done when **all** of these hold:
 
 ## 7. Commands & local environment
 
-Backend (Python 3.12, from `backend/`):
+Backend (Python 3.13, from `backend/`):
 
 ```bash
-python3.12 -m venv .venv && source .venv/bin/activate
+python3.13 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000   # dev server + OpenAPI at /docs
 pytest                                                     # full suite
+python scripts/run_regression_gate.py                       # CI lanes + coverage floor
 pytest tests/test_audio_api.py -v                          # one file
 alembic upgrade head                                       # apply migrations
 ```
@@ -242,11 +254,17 @@ npm run dev        # dev server; proxy target is set in vite.config.ts
 npm run check      # svelte-check: zero errors, zero warnings
 npm test           # vitest unit/layout tests
 npm run lint:dead  # knip: no unused files, exports, or packages
-npm run build      # production build
+npm run build      # production build (fails a page over 10 scripts, or a chunk importing the entry)
+npm run test:browser:production  # Chromium smoke of the built bundle from dist (after build)
+npm run check:cache              # two builds a page apart rename only that page and the entry
 ```
 
 The dev proxy target in `vite.config.ts` points at the container service host; set
 it to your local backend when running the two directly.
+
+`backend/pytest.ini` applies to local pytest runs and both CI regression lanes:
+each test has a 120-second thread timeout, with all thread stacks dumped after
+110 seconds. The gate also bounds each lane, including interpreter shutdown.
 
 ## 8. Project layout & dependency direction
 
@@ -280,10 +298,26 @@ looser.
   Alembic migration smoke (`upgrade → downgrade → upgrade`), migration path matrix
   ([`backend/scripts/ci_migration_path_check.py`](backend/scripts/ci_migration_path_check.py)),
   single-Alembic-head check, and `pytest`. **frontend**: `npm ci` → `npm run check`
-  → `npm run lint:dead` (knip: no unused files, exports, or packages) → `npm test` → `npm run build`.
+  → `npm run lint:dead` (knip: no unused files, exports, or packages) → `npm run lint:tokens`
+  (the design-token ratchet and contrast proof) → `npm test` (which includes the copy lint, with a second step that refuses a raised copy baseline) → `npm run build` → `npm run check:cache`
+  (chunk names stable across a one-page change).
+  **production bundle**: `npm run build`, then `npm run test:browser:production`, a Chromium smoke of
+  the built bundle served from `dist`. It checks every page, every chunk, German and the lazy features,
+  with no console errors. The fixture suite runs on the dev server, which does not split code.
   **browser**: the complete Chromium fixture suite, with failure screenshots and traces retained.
+  **intel image**: when the Dockerfile, `docker/`, the Intel requirements or the motion decoder
+  change, builds the Intel image without publishing it and runs the flavor smoke test, including
+  the Garden motion VA-API decoder check.
   A backend module reachable from nothing that runs fails
   [`backend/tests/test_dead_modules.py`](backend/tests/test_dead_modules.py) inside `pytest`.
+  A backend module that can send a request to an outside service, a new outside host, or a new
+  dependency that is not in [`backend/outbound_requests.json`](backend/outbound_requests.json) fails
+  [`backend/tests/pure/test_outbound_registry.py`](backend/tests/pure/test_outbound_registry.py),
+  which reads each module's syntax tree (imports under any name, clients borrowed from another
+  module, downloading helpers). About's "What leaves your network" list is held to the same
+  registry by the frontend tests, so a new request needs a registry entry, a row and its wording in
+  every locale. What the guard cannot see is listed in the registry's `manual_review`; a change to
+  a registered module is reviewed by hand for a new destination.
   **telemetry worker**: dependency check.
 - [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) — CodeQL scanning
   for Python and TypeScript.
@@ -340,7 +374,7 @@ learning. It receives MQTT events from Frigate, classifies species with local ML
 models (TFLite/ONNX), correlates with audio detections from BirdNET-Go, and serves
 a real-time web dashboard with notifications.
 
-**Tech stack:** Python 3.12 + FastAPI + SQLite + Alembic (backend); Svelte 5 +
+**Tech stack:** Python 3.13 + FastAPI + SQLite + Alembic (backend); Svelte 5 +
 TypeScript + Tailwind + Vite (frontend); ONNX Runtime / TensorFlow Lite (ML);
 MQTT (aiomqtt) for ingest, SSE for the frontend; Docker Compose deployment.
 

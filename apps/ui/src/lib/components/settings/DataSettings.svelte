@@ -1,32 +1,33 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { formatDate } from '../../utils/datetime';
-    import type { MaintenanceStats, BackfillResult, WeatherBackfillResult, CacheStats, TaxonomySyncStatus, AnalysisStatus, TimezoneRepairPreview } from '../../api';
+    import type { MaintenanceStats, CacheStats } from '../../api';
     import type { ClassifierStatus } from '../../api/classifier';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
+    import SettingsSlider from './_primitives/SettingsSlider.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
-    import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import { gigabytesToStoredMegabytes, parseStorageLimitGigabytes, storedMegabytesToGigabytes } from '../../settings/storage-budget';
 
+    // What YA-WAMF keeps, for how long, and the backup of its configuration. Jobs that repair or
+    // fill in history, and the actions that delete it, are on the Maintenance tab.
     let {
         maintenanceStats,
         retentionNote = null,
         retentionDays = $bindable(0),
-        maintenanceMaxConcurrent = $bindable(1),
         frigateMissingBehavior = $bindable<'mark_missing' | 'keep' | 'delete'>('mark_missing'),
         autoPurgeMissingClips = $bindable(false),
         autoPurgeMissingSnapshots = $bindable(false),
-        autoAnalyzeUnknowns = $bindable(false),
         cacheRetentionDays = $bindable(0),
         cachePerSpeciesMaximum = $bindable<number>(0),
         cacheMaxSizeMb = $bindable<number>(0),
+        cacheMaxSizeInvalid = $bindable(false),
         cacheAutomaticMultiBirdScan = $bindable(false),
         cacheBirdScanMode = $bindable<'standard' | 'intensive'>('intensive'),
         cachePerSpeciesMinimum = $bindable(0),
         cleaningUp,
-        clearingFavorites,
         purgingMissingMedia,
         cacheClips = $bindable(false),
         cacheHighQualityEventSnapshots = $bindable(false),
@@ -37,61 +38,33 @@
         onRetryCacheStats,
         classifierStatus,
         cleaningCache,
-        taxonomyStatus,
-        syncingTaxonomy,
-        timezoneRepairPreview,
-        previewingTimezoneRepair,
-        applyingTimezoneRepair,
-        backfillDateRange = $bindable<'day' | 'week' | 'month' | 'custom'>('week'),
-        backfillStartDate = $bindable(''),
-        backfillEndDate = $bindable(''),
-        backfillCustomError = null,
-        backfillCustomValid = true,
-        backfilling,
-        backfillResult,
-        backfillTotal = $bindable(0),
-        weatherBackfilling,
-        weatherBackfillResult,
-        weatherBackfillTotal = $bindable(0),
-        resettingDatabase,
-        clearingFeedback,
         exportingConfigBackup,
         importingConfigBackup,
-        analyzingUnknowns,
-        analysisStatus,
-        analysisTotal,
         handleCleanup,
-        handleClearFavorites,
         handlePurgeMissingMedia,
         handleCacheCleanup,
-        handleStartTaxonomySync,
-        handlePreviewTimezoneRepair,
-        handleApplyTimezoneRepair,
-        handleBackfill,
-        handleWeatherBackfill,
         handleExportConfigBackup,
         handleImportConfigBackup,
-        handleAnalyzeUnknowns,
-        handleResetDatabase,
-        handleClearFeedback,
+        region
     }: {
+        /** What is kept and the backup on the section's first screen, or the rest under More options. */
+        region: 'main' | 'more';
         maintenanceStats: MaintenanceStats | null;
         /** What saving a shorter retention deletes; null when the choice deletes nothing new. */
         retentionNote?: string | null;
         retentionDays: number;
-        maintenanceMaxConcurrent: number;
         frigateMissingBehavior: 'mark_missing' | 'keep' | 'delete';
         autoPurgeMissingClips: boolean;
         autoPurgeMissingSnapshots: boolean;
-        autoAnalyzeUnknowns: boolean;
         cacheRetentionDays: number;
         cachePerSpeciesMaximum: number;
         cacheMaxSizeMb: number;
+        /** The size typed in GB could not be read; the limit stays as it was and the save is refused. */
+        cacheMaxSizeInvalid?: boolean;
         cacheAutomaticMultiBirdScan?: boolean;
         cacheBirdScanMode: 'standard' | 'intensive';
         cachePerSpeciesMinimum: number;
         cleaningUp: boolean;
-        clearingFavorites: boolean;
         purgingMissingMedia: boolean;
         cacheClips: boolean;
         cacheHighQualityEventSnapshots: boolean;
@@ -102,101 +75,22 @@
         onRetryCacheStats?: () => void;
         classifierStatus: ClassifierStatus | null;
         cleaningCache: boolean;
-        taxonomyStatus: TaxonomySyncStatus | null;
-        syncingTaxonomy: boolean;
-        timezoneRepairPreview: TimezoneRepairPreview | null;
-        previewingTimezoneRepair: boolean;
-        applyingTimezoneRepair: boolean;
-        backfillDateRange: 'day' | 'week' | 'month' | 'custom';
-        backfillStartDate: string;
-        backfillEndDate: string;
-        backfillCustomError: string | null;
-        backfillCustomValid: boolean;
-        backfilling: boolean;
-        backfillResult: BackfillResult | null;
-        backfillTotal: number;
-        weatherBackfilling: boolean;
-        weatherBackfillResult: WeatherBackfillResult | null;
-        weatherBackfillTotal: number;
-        resettingDatabase: boolean;
-        clearingFeedback: boolean;
         exportingConfigBackup: boolean;
         importingConfigBackup: boolean;
-        analyzingUnknowns: boolean;
-        analysisStatus: AnalysisStatus | null;
-        analysisTotal: number;
         handleCleanup: () => Promise<void>;
-        handleClearFavorites: () => Promise<void>;
         handlePurgeMissingMedia: () => Promise<void>;
         handleCacheCleanup: () => Promise<void>;
-        handleStartTaxonomySync: () => Promise<void>;
-        handlePreviewTimezoneRepair: () => Promise<void>;
-        handleApplyTimezoneRepair: () => Promise<void>;
-        handleBackfill: () => Promise<void>;
-        handleWeatherBackfill: () => Promise<void>;
         handleExportConfigBackup: () => Promise<void>;
         handleImportConfigBackup: (file: File) => Promise<void>;
-        handleAnalyzeUnknowns: () => Promise<void>;
-        handleResetDatabase: () => Promise<void>;
-        handleClearFeedback: () => Promise<void>;
     } = $props();
 
-    let configImportInput: HTMLInputElement | null = null;
+    let configImportInput = $state<HTMLInputElement | null>(null);
 
     const safeCount = (value: unknown): number => {
         const parsed = Number(value ?? 0);
         return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
     };
     const fmtCount = (value: unknown): string => safeCount(value).toLocaleString();
-    const formatSafeTime = (value: unknown): string => {
-        if (!value) return '';
-        const date = new Date(String(value));
-        if (Number.isNaN(date.getTime())) return '';
-        return date.toLocaleTimeString();
-    };
-    const formatPreviewTimestamp = (value: unknown): string => {
-        if (!value) return '';
-        return String(value).replace('T', ' ').replace(/Z$/, ' UTC');
-    };
-
-    const formatDateOnly = (date: Date): string => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-
-    const parseDateOnly = (value: string): Date | null => {
-        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-        if (!match) return null;
-        const year = Number(match[1]);
-        const month = Number(match[2]);
-        const day = Number(match[3]);
-        const date = new Date(year, month - 1, day);
-        if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
-        date.setHours(0, 0, 0, 0);
-        return date;
-    };
-
-    const todayDateOnly = (): string => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return formatDateOnly(today);
-    };
-
-    const setCustomRangeDays = (days: number) => {
-        const end = new Date();
-        end.setHours(0, 0, 0, 0);
-        const start = new Date(end);
-        start.setDate(end.getDate() - (days - 1));
-        backfillStartDate = formatDateOnly(start);
-        backfillEndDate = formatDateOnly(end);
-    };
-
-    const clearCustomRange = () => {
-        backfillStartDate = '';
-        backfillEndDate = todayDateOnly();
-    };
 
     const openConfigImportPicker = () => {
         configImportInput?.click();
@@ -210,12 +104,6 @@
         await handleImportConfigBackup(file);
     };
 
-    $effect(() => {
-        if (backfillDateRange !== 'custom') return;
-        if (!parseDateOnly(backfillEndDate)) backfillEndDate = todayDateOnly();
-    });
-
-    const timezoneRepairCandidates = $derived(timezoneRepairPreview?.summary.repair_candidate_count ?? 0);
     const autoMediaIntegrityScan = $derived(autoPurgeMissingClips || autoPurgeMissingSnapshots);
     const cropDetectorReady = $derived(Boolean(
         classifierStatus?.crop_detector?.installed
@@ -228,7 +116,7 @@
         autoPurgeMissingSnapshots = enabled;
     };
 
-    // Stat tiles and Purge follow the saved policy; the picker above them may hold an unsaved one.
+    // The summary and Purge follow the saved policy; the picker above them may hold an unsaved one.
     const savedRetentionDays = $derived(maintenanceStats?.retention_days ?? 0);
     const dueForDeletion = $derived(safeCount(maintenanceStats?.detections_to_cleanup));
     const purgeDisabledReason = $derived.by(() => {
@@ -245,10 +133,70 @@
         return null;
     });
 
-    const buttonPrimaryClass = 'btn btn-primary min-h-11 px-4 py-3';
+    const historyTotal = $derived(safeCount(maintenanceStats?.total_detections));
+
+    // Each limit is a switch with its number beside it, so "0 means off" never has to be typed or
+    // explained. Turning one off and on again brings back the number it had.
+    const DEFAULT_LIMIT_MB = 20 * 1024;
+    const DEFAULT_SPECIES_FLOOR = 10;
+    const DEFAULT_SPECIES_MAXIMUM = 100;
+    const remembered = { size: DEFAULT_LIMIT_MB, floor: DEFAULT_SPECIES_FLOOR, maximum: DEFAULT_SPECIES_MAXIMUM };
+    function setStorageLimit(on: boolean): void {
+        if (!on && cacheMaxSizeMb > 0) remembered.size = cacheMaxSizeMb;
+        cacheMaxSizeMb = on ? remembered.size : 0;
+        cacheMaxSizeInvalid = false;
+    }
+    // What was typed while it cannot be read, so the field keeps showing it beside the reason.
+    let invalidLimitText = $state('');
+    const limitFieldText = $derived(cacheMaxSizeInvalid ? invalidLimitText : String(storedMegabytesToGigabytes(cacheMaxSizeMb)));
+    function commitStorageLimit(text: string): void {
+        const gigabytes = parseStorageLimitGigabytes(text);
+        if (gigabytes === null) {
+            invalidLimitText = text;
+            cacheMaxSizeInvalid = true;
+            return;
+        }
+        cacheMaxSizeMb = gigabytesToStoredMegabytes(gigabytes);
+        cacheMaxSizeInvalid = false;
+    }
+    function setSpeciesFloor(on: boolean): void {
+        if (!on && cachePerSpeciesMinimum > 0) remembered.floor = cachePerSpeciesMinimum;
+        cachePerSpeciesMinimum = on ? remembered.floor : 0;
+    }
+    function setSpeciesMaximum(on: boolean): void {
+        if (!on && cachePerSpeciesMaximum > 0) remembered.maximum = cachePerSpeciesMaximum;
+        cachePerSpeciesMaximum = on ? remembered.maximum : 0;
+    }
+    const wholeCount = (value: string): number => Math.max(1, Math.min(10000, Math.round(Number(value)) || 1));
+    // What the storage rules add up to, every active rule in it, so no limit evicts media unannounced.
+    const storagePolicy = $derived(
+        [
+            cacheMaxSizeMb > 0
+                ? $_('settings.data.storage_policy_size_limit', {
+                    values: { size: storedMegabytesToGigabytes(cacheMaxSizeMb) },
+                    default: 'When photos and video pass {size} GB, the oldest go first.'
+                })
+                : cachePerSpeciesMaximum > 0
+                    ? $_('settings.data.storage_policy_no_size_limit', { default: 'No size limit.' })
+                    : $_('settings.data.storage_policy_history_only', { default: 'No size limit: photos and video stay until the history window removes their visits.' }),
+            cachePerSpeciesMaximum > 0
+                ? $_('settings.data.storage_policy_species_cap', {
+                    values: { count: cachePerSpeciesMaximum },
+                    default: '{count, plural, one {Each species keeps photos and video only for its newest visit.} other {Each species keeps photos and video only for its newest # visits.}}'
+                })
+                : null,
+            cachePerSpeciesMinimum > 0
+                ? $_('settings.data.storage_policy_species_floor', {
+                    values: { count: cachePerSpeciesMinimum },
+                    default: "{count, plural, one {Each species' newest visit keeps its photos past the history window.} other {Each species' newest # visits keep their photos past the history window.}}"
+                })
+                : null,
+            $_('settings.data.storage_policy_favourites', { default: 'Favourites and their archive are always kept.' })
+        ].filter((part): part is string => part !== null).join(' ')
+    );
+
     const buttonNeutralClass = 'btn btn-secondary min-h-11 px-4 py-3';
     const buttonDangerOutlineClass = 'btn btn-danger min-h-11 px-4 py-3';
-    const buttonDangerSolidClass = 'btn btn-danger-solid min-h-11 px-4 py-3';
 </script>
 
 {#snippet spinner()}
@@ -259,31 +207,27 @@
 {/snippet}
 
 <div class="space-y-6">
-    {#if maintenanceStats}
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {#each [
-                { label: $_('settings.data.records'), val: fmtCount(maintenanceStats.total_detections) },
-                { label: $_('settings.data.oldest'), val: maintenanceStats.oldest_detection ? formatDate(maintenanceStats.oldest_detection) : 'N/A' },
-                { label: $_('settings.data.retention'), val: savedRetentionDays === 0 ? '∞' : `${savedRetentionDays} ${$_('leaderboard.days')}` },
-                { label: $_('settings.data.due_for_deletion', { default: 'Due for deletion' }), val: fmtCount(dueForDeletion), highlight: dueForDeletion > 0 }
-            ] as stat}
-                <div class="card-base rounded-2xl p-6 text-center">
-                    <p class="text-2xl font-bold tracking-tight {stat.highlight ? 'text-amber-500' : 'text-slate-900 dark:text-white'}">{stat.val}</p>
-                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">{stat.label}</p>
-                </div>
-            {/each}
-        </div>
-    {/if}
 
-    {#snippet retentionIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v4l3 1.5" /></svg>
-    {/snippet}
-    {#snippet cacheIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3Z" /><path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7" /><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" /></svg>
-    {/snippet}
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-        <SettingsCard accent iconSnippet={retentionIcon} title={$_('settings.data.retention_title')}>
+    <div class="space-y-8">
+        {#if region === 'main'}
+        <SettingsCard id="settings-group-data-retention" title={$_('settings.data.retention_title')}>
+            {#if maintenanceStats}
+                <p class="text-sm text-slate-700 dark:text-slate-200" data-history-summary>
+                    {maintenanceStats.oldest_detection
+                        ? $_('settings.data.history_summary', {
+                            values: { count: historyTotal, oldest: formatDate(maintenanceStats.oldest_detection) },
+                            default: '{count, plural, one {# record} other {# records}}, the oldest from {oldest}.'
+                        })
+                        : $_('settings.data.history_summary_empty', { default: 'No records yet.' })}
+                    {#if dueForDeletion > 0}
+                        {$_('settings.data.history_due', {
+                            values: { count: dueForDeletion },
+                            default: '{count, plural, one {# is} other {# are}} older than the saved window and will go at the next clean-up.'
+                        })}
+                    {/if}
+                </p>
+            {/if}
             <SettingsRow
                 labelId="setting-retention-days"
                 label={$_('settings.data.history_duration')}
@@ -305,790 +249,422 @@
                     onchange={(v) => (retentionDays = Number(v) || 0)}
                 />
                 {#if retentionNote}
-                    <p id="retention-deletion-note" class="text-sm font-semibold text-amber-800 dark:text-amber-200" role="status" data-retention-deletion-note>
+                    <p id="retention-deletion-note" class="text-sm font-semibold text-attention-800 dark:text-attention-200" role="status" data-retention-deletion-note>
                         {retentionNote}
                     </p>
                 {/if}
             </SettingsRow>
 
-            <button
-                type="button"
-                onclick={handleCleanup}
-                disabled={cleaningUp || purgeDisabledReason !== null}
-                aria-describedby={purgeDisabledReason ? 'purge-disabled-reason' : undefined}
-                class="w-full {buttonDangerOutlineClass}"
-            >
-                {cleaningUp ? $_('settings.data.cleaning') : $_('settings.data.purge_button')}
-            </button>
-            {#if purgeDisabledReason}
-                <p id="purge-disabled-reason" class="text-xs text-center text-slate-600 dark:text-slate-300">{purgeDisabledReason}</p>
-            {/if}
-            <p class="text-xs text-center text-slate-400 font-bold italic">{$_('settings.data.auto_cleanup_note')}</p>
-
-            <AdvancedSection
-                id="data-retention-advanced"
-                title={$_('settings.data.advanced_title', { default: 'Maintenance & media integrity' })}
-            >
-                <SettingsRow
-                    labelId="setting-maint-concurrency"
-                    label={$_('settings.data.maintenance_max_concurrent', { default: 'Maintenance concurrency' })}
-                    description={$_('settings.data.maintenance_max_concurrent_help', { default: 'Best practice is 1. Increase this only if you intentionally want backfill, taxonomy repair, timezone repair, or analyze-unknowns to overlap.' })}
-                    layout="stacked"
+            <div class="space-y-2">
+                <button
+                    type="button"
+                    onclick={handleCleanup}
+                    disabled={cleaningUp || purgeDisabledReason !== null}
+                    aria-describedby={purgeDisabledReason ? 'purge-disabled-reason' : undefined}
+                    class="w-full sm:w-auto {buttonDangerOutlineClass}"
                 >
-                    <SettingsInput
-                        id="maintenance-max-concurrent"
-                        type="number"
-                        min={1}
-                        max={8}
-                        value={maintenanceMaxConcurrent}
-                        ariaLabel={$_('settings.data.maintenance_max_concurrent', { default: 'Maintenance concurrency' })}
-                        oninput={(v) => (maintenanceMaxConcurrent = Number(v) || 1)}
-                    />
-                </SettingsRow>
+                    {cleaningUp ? $_('settings.data.cleaning') : $_('settings.data.purge_button')}
+                </button>
+                {#if purgeDisabledReason}
+                    <p id="purge-disabled-reason" class="text-xs text-slate-600 dark:text-slate-300">{purgeDisabledReason}</p>
+                {/if}
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.data.auto_cleanup_note')}</p>
+        </SettingsCard>
+        {/if}
 
-                <SettingsRow
-                    labelId="setting-frigate-missing-behavior"
-                    label={$_('settings.data.frigate_missing_behavior', { default: 'When Frigate no longer has the event/media' })}
-                    description={$_('settings.data.frigate_missing_behavior_note', { default: 'This policy is applied during manual scans and scheduled checks. Use mark-missing when YA-WAMF should keep detections longer than Frigate.' })}
-                    layout="stacked"
-                >
-                    <SettingsSelect
-                        id="frigate-missing-behavior"
-                        value={frigateMissingBehavior}
-                        ariaLabel={$_('settings.data.frigate_missing_behavior', { default: 'When Frigate no longer has the event/media' })}
-                        options={[
-                            { value: 'mark_missing', label: $_('settings.data.frigate_missing_behavior_mark', { default: 'Mark missing and keep local data' }) },
-                            { value: 'keep', label: $_('settings.data.frigate_missing_behavior_keep', { default: 'Keep local data unchanged' }) },
-                            { value: 'delete', label: $_('settings.data.frigate_missing_behavior_delete', { default: 'Delete local data' }) }
-                        ]}
-                        onchange={(v) => (frigateMissingBehavior = v as 'mark_missing' | 'keep' | 'delete')}
-                    />
-                </SettingsRow>
+        {#if region === 'more'}
+        <SettingsCard
+            nested
+            id="data-missing-media"
+            title={$_('settings.data.missing_media_title', { default: 'When Frigate loses a visit' })}
+            description={$_('settings.data.missing_media_desc', { default: 'Frigate deletes old events on its own schedule. This decides what YA-WAMF keeps when one is gone.' })}
+        >
+            <SettingsRow
+                labelId="setting-frigate-missing-behavior"
+                label={$_('settings.data.frigate_missing_behavior', { default: 'When Frigate no longer has the event/media' })}
+                description={$_('settings.data.frigate_missing_behavior_note', { default: 'This choice is applied during manual scans and scheduled checks. Choose “Mark missing and keep local data” when YA-WAMF should keep its captures longer than Frigate keeps the events. A record whose photo YA-WAMF still holds is never deleted; it is marked missing instead.' })}
+                layout="stacked"
+            >
+                <SettingsSelect
+                    id="frigate-missing-behavior"
+                    value={frigateMissingBehavior}
+                    ariaLabel={$_('settings.data.frigate_missing_behavior', { default: 'When Frigate no longer has the event/media' })}
+                    options={[
+                        { value: 'mark_missing', label: $_('settings.data.frigate_missing_behavior_mark', { default: 'Mark missing and keep local data' }) },
+                        { value: 'keep', label: $_('settings.data.frigate_missing_behavior_keep', { default: 'Keep local data unchanged' }) },
+                        { value: 'delete', label: $_('settings.data.frigate_missing_behavior_delete', { default: 'Delete records YA-WAMF has no photo for' }) }
+                    ]}
+                    onchange={(v) => (frigateMissingBehavior = v as 'mark_missing' | 'keep' | 'delete')}
+                />
+            </SettingsRow>
 
+            <div>
                 <button
                     type="button"
                     onclick={handlePurgeMissingMedia}
                     disabled={purgingMissingMedia}
                     aria-label={$_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })}
-                    class="w-full {buttonDangerOutlineClass}"
+                    class={frigateMissingBehavior === 'delete' ? buttonDangerOutlineClass : buttonNeutralClass}
                 >
                     {purgingMissingMedia
                         ? $_('settings.data.cleaning', { default: 'Cleaning...' })
                         : $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })}
                 </button>
+            </div>
 
-                <SettingsRow
-                    labelId="setting-auto-media-integrity"
-                    label={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan periodically' })}
-                    description={$_('settings.data.media_integrity_note', { default: 'Re-checks a batch of detections against Frigate every few hours and applies the upstream-missing behaviour above. It never deletes anything while Frigate is unreachable, and a long history takes several runs to work through.' })}
-                >
-                    <SettingsToggle
-                        checked={autoMediaIntegrityScan}
-                        labelledBy="setting-auto-media-integrity"
-                        srLabel={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan periodically' })}
-                        onchange={(v) => setAutoMediaIntegrityScan(v)}
-                    />
-                </SettingsRow>
-            </AdvancedSection>
-        </SettingsCard>
-
-        <SettingsCard accent iconSnippet={cacheIcon} title={$_('settings.data.cache_title', { default: 'Photos and video' })}>
-            <p class="text-sm text-slate-600 dark:text-slate-300" data-media-always-kept>
-                {$_('settings.data.cache_always_kept', { default: 'Photos, full-visit clips and previews are always kept. The limits below decide for how long and how much space they use.' })}
-            </p>
-            {#if cacheStats && cacheStats.storage_available === false}
-                <p class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200" role="status" data-media-storage-unavailable>
-                    {$_('settings.data.cache_unavailable', { default: "The media folder can't be written, so photos and video are not being kept. Check the folder's permissions; system checks show the error." })}
-                </p>
-            {/if}
             <SettingsRow
-                labelId="setting-cache-clips"
-                label={$_('settings.data.cache_clips', { default: "Keep copies of Frigate's event clips" })}
-                description={$_('settings.data.cache_clips_help', { default: 'Frigate already keeps these. Copies survive Frigate deleting them, at about the size of the clip each.' })}
+                labelId="setting-auto-media-integrity"
+                label={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan periodically' })}
+                description={$_('settings.data.media_integrity_note', { default: 'Re-checks a batch of detections against Frigate every few hours and applies the upstream-missing behaviour above. It never deletes anything while Frigate is unreachable, and a long history takes several runs to work through.' })}
             >
                 <SettingsToggle
-                    checked={cacheClips}
-                    labelledBy="setting-cache-clips"
-                    srLabel={$_('settings.data.cache_clips', { default: "Keep copies of Frigate's event clips" })}
-                    onchange={(v) => (cacheClips = v)}
+                    checked={autoMediaIntegrityScan}
+                    labelledBy="setting-auto-media-integrity"
+                    srLabel={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan periodically' })}
+                    onchange={(v) => setAutoMediaIntegrityScan(v)}
                 />
             </SettingsRow>
+        </SettingsCard>
+        {/if}
+    </div>
 
-            <div class="p-4 rounded-xl bg-surface-raised/70 flex items-center justify-between gap-3">
-                <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.cache_size')}</span>
-                <span class="flex flex-wrap items-center justify-end gap-2">
-                    {#if cacheStats}
-                        <span class="text-sm font-bold text-slate-900 dark:text-white" data-cache-size>{cacheStats.total_size_mb} MB</span>
-                    {/if}
-                    {#if cacheStatsLoading}
-                        <span class="text-sm text-slate-600 dark:text-slate-300" role="status" data-cache-size-loading>
-                            {$_('settings.data.cache_size_loading', { default: 'Measuring…' })}
-                        </span>
-                    {:else if cacheStatsError}
-                        <span class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300" data-cache-size-unavailable>
-                            {$_('settings.data.cache_size_unavailable', { default: "Couldn't load" })}
-                            {#if onRetryCacheStats}
-                                <button type="button" class="btn btn-ghost min-h-11 px-2 text-sm" onclick={onRetryCacheStats} data-cache-size-retry>
-                                    {$_('settings.data.cache_size_retry', { default: 'Retry' })}
-                                </button>
-                            {/if}
-                        </span>
-                    {:else if !cacheStats}
-                        <span class="text-sm font-bold text-slate-900 dark:text-white" data-cache-size>…</span>
-                    {/if}
-                </span>
-            </div>
-            {#if cacheStats && (cacheStats.garden_count ?? 0) > 0}
-                <p class="px-4 text-xs text-slate-600 dark:text-slate-300" data-cache-garden-share>
-                    {$_('settings.data.cache_garden_share', {
-                        values: { size: `${cacheStats.garden_size_mb ?? 0} MB` },
-                        default: 'Includes {size} kept for confirmed Garden animals'
-                    })}
-                </p>
-            {/if}
+    {#if region === 'main'}
+    <SettingsCard id="settings-group-data-cache" title={$_('settings.data.cache_title', { default: 'Photos and video' })}>
+        <p class="text-sm text-slate-600 dark:text-slate-300" data-media-always-kept>
+            {$_('settings.data.cache_always_kept', { default: 'Photos, full-visit clips and previews are kept with their visits until the history window or the storage limit removes them.' })}
+        </p>
+        {#if cacheStats && cacheStats.storage_available === false}
+            <p class="text-sm text-attention-800 dark:text-attention-200" role="status" data-media-storage-unavailable>
+                {$_('settings.data.cache_unavailable', { default: "The media folder can't be written, so photos and video are not being kept. Check the folder's permissions; system checks show the error." })}
+            </p>
+        {/if}
+        <SettingsRow
+            labelId="setting-cache-clips"
+            label={$_('settings.data.cache_clips', { default: "Keep copies of Frigate's event clips" })}
+            description={$_('settings.data.cache_clips_help', { default: 'Frigate already keeps these. Copies survive Frigate deleting them, at about the size of the clip each.' })}
+        >
+            <SettingsToggle
+                checked={cacheClips}
+                labelledBy="setting-cache-clips"
+                srLabel={$_('settings.data.cache_clips', { default: "Keep copies of Frigate's event clips" })}
+                onchange={(v) => (cacheClips = v)}
+            />
+        </SettingsRow>
 
-            <!-- The archive is not the cache: clearing the cache leaves it alone (#178). -->
-            <div class="p-4 rounded-xl bg-surface-raised/70 flex flex-col gap-1" data-archive-usage>
-                <div class="flex items-center justify-between gap-3">
-                    <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.archive_usage', { default: 'Archived favourites' })}</span>
-                    <span class="text-sm font-bold text-slate-900 dark:text-white">
+        <div class="border-t border-line-soft pt-4 flex items-center justify-between gap-3">
+            <span class="text-base font-semibold text-strong">{$_('settings.data.cache_size')}</span>
+            <span class="flex flex-wrap items-center justify-end gap-2">
+                {#if cacheStats}
+                    <span class="text-sm tabular-nums text-ink" data-cache-size>{cacheStats.total_size_mb} MB</span>
+                {/if}
+                {#if cacheStatsLoading}
+                    <span class="text-sm text-slate-600 dark:text-slate-300" role="status" data-cache-size-loading>
+                        {$_('settings.data.cache_size_loading', { default: 'Measuring…' })}
+                    </span>
+                {:else if cacheStatsError}
+                    <span class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300" data-cache-size-unavailable>
+                        {$_('settings.data.cache_size_unavailable', { default: "Couldn't load" })}
+                        {#if onRetryCacheStats}
+                            <button type="button" class="btn btn-ghost min-h-11 px-2 text-sm" onclick={onRetryCacheStats} data-cache-size-retry>
+                                {$_('settings.data.cache_size_retry', { default: 'Retry' })}
+                            </button>
+                        {/if}
+                    </span>
+                {:else if !cacheStats}
+                    <span class="text-sm tabular-nums text-ink" data-cache-size>…</span>
+                {/if}
+            </span>
+        </div>
+        {#if cacheStats && (cacheStats.garden_count ?? 0) > 0}
+            <p class="px-4 text-xs text-slate-600 dark:text-slate-300" data-cache-garden-share>
+                {$_('settings.data.cache_garden_share', {
+                    values: { size: `${cacheStats.garden_size_mb ?? 0} MB` },
+                    default: 'Includes {size} kept for confirmed Garden animals'
+                })}
+            </p>
+        {/if}
+
+        <!-- The archive is not the cache: clearing the cache leaves it alone (#178). -->
+        <div class="border-t border-line-soft pt-4 flex flex-col gap-1" data-archive-usage>
+            <div class="flex items-center justify-between gap-3">
+                <span class="text-base font-semibold text-strong">{$_('settings.data.archive_usage', { default: 'Archived favourites' })}</span>
+                <!-- Zero only after a measurement: until then the figure is not known, so it is not shown. -->
+                {#if cacheStats}
+                    <span class="text-sm tabular-nums text-ink">
                         {$_('settings.data.archive_usage_detail', {
-                            values: { count: cacheStats?.archive_durable ?? 0, size: `${cacheStats?.archive_size_mb ?? 0} MB` },
+                            values: { count: cacheStats.archive_durable ?? 0, size: `${cacheStats.archive_size_mb ?? 0} MB` },
                             default: '{count} kept, {size}'
                         })}
                     </span>
-                </div>
-                {#if (cacheStats?.archive_failed ?? 0) > 0}
-                    <p class="text-xs text-rose-600 dark:text-rose-300" data-archive-failed>
-                        {$_('settings.data.archive_failed_count', {
-                            values: { count: cacheStats?.archive_failed ?? 0 },
-                            default: '{count} could not be archived. Open the visit to try again.'
-                        })}
-                    </p>
+                {:else if cacheStatsError}
+                    <span class="text-sm text-slate-600 dark:text-slate-300">{$_('settings.data.cache_size_unavailable', { default: "Couldn't load" })}</span>
+                {:else}
+                    <span class="text-sm text-slate-600 dark:text-slate-300">{$_('settings.data.cache_size_loading', { default: 'Measuring…' })}</span>
                 {/if}
             </div>
+            {#if (cacheStats?.archive_failed ?? 0) > 0}
+                <p class="text-xs text-rose-700 dark:text-rose-300" data-archive-failed>
+                    {$_('settings.data.archive_failed_count', {
+                        values: { count: cacheStats?.archive_failed ?? 0 },
+                        default: '{count} could not be archived. Open the visit to try again.'
+                    })}
+                </p>
+            {/if}
+        </div>
 
-            <SettingsRow
-                labelId="setting-cache-species-floor"
-                label={$_('settings.data.per_species_minimum', { default: 'Keep photos of the newest visits per species' })}
-                description={$_('settings.data.per_species_minimum_help', { default: "This many of each species' newest visits keep their photos after they pass the history window, so a rare bird keeps its pictures. Video is not kept longer. 0 turns this off." })}
-            >
-                <input
-                    type="number"
-                    min="0"
-                    max="10000"
-                    step="1"
-                    bind:value={cachePerSpeciesMinimum}
-                    aria-labelledby="setting-cache-species-floor"
-                    class="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right text-sm font-semibold text-slate-900 focus-ring dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        <SettingsRow
+            labelId="setting-cache-max_size_mb"
+            label={$_('settings.data.storage_limit', { default: 'Limit the space photos and video use' })}
+            description={storagePolicy}
+        >
+            <div class="flex flex-wrap items-center justify-end gap-3">
+                {#if cacheMaxSizeMb > 0}
+                    <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                        <span class="sr-only">{$_('settings.data.storage_limit_size', { default: 'Storage limit in GB' })}</span>
+                        <input
+                            id="cache-max-size-gb"
+                            type="number"
+                            min="0.5"
+                            max="1024"
+                            step="0.5"
+                            value={limitFieldText}
+                            onchange={(event) => commitStorageLimit(event.currentTarget.value)}
+                            aria-invalid={cacheMaxSizeInvalid}
+                            aria-describedby={cacheMaxSizeInvalid ? 'storage-limit-error' : undefined}
+                            class="input-base w-24 py-2 text-right"
+                        />
+                        <span aria-hidden="true">GB</span>
+                    </label>
+                {/if}
+                <SettingsToggle
+                    checked={cacheMaxSizeMb > 0}
+                    labelledBy="setting-cache-max_size_mb"
+                    srLabel={$_('settings.data.storage_limit', { default: 'Limit the space photos and video use' })}
+                    onchange={setStorageLimit}
                 />
-            </SettingsRow>
+            </div>
+            {#if cacheMaxSizeInvalid && cacheMaxSizeMb > 0}
+                <p id="storage-limit-error" class="mt-2 text-sm font-medium text-red-700 dark:text-red-300" role="alert" data-storage-limit-error>
+                    {$_('settings.data.storage_limit_invalid', {
+                        values: { size: storedMegabytesToGigabytes(cacheMaxSizeMb) },
+                        default: 'Enter a size from 0.5 to 1024 GB. The limit stays at {size} GB until you do.'
+                    })}
+                </p>
+            {/if}
+        </SettingsRow>
 
-            <SettingsRow
-                labelId="setting-cache-per_species_maximum"
-                label={$_('settings.data.per_species_maximum', { default: 'Most visits per species with photos and video' })}
-                description={$_('settings.data.per_species_maximum_help', { default: "A species' visits beyond this number lose their photos and video, oldest first. The visits stay in history. Favourites don't count. 0 means no limit." })}
-            >
-                <input type="number" min="0" max="10000" step="1"
-                    bind:value={cachePerSpeciesMaximum} aria-labelledby="setting-cache-per_species_maximum"
-                    class="input-base w-24 py-2 text-right font-semibold" />
-            </SettingsRow>
-
-            <SettingsRow
-                labelId="setting-cache-max_size_mb"
-                label={$_('settings.data.max_size_mb', { default: 'Storage limit (MiB)' })}
-                description={$_('settings.data.max_size_mb_help', { default: 'When photos and video use more than this, the oldest are removed first. Favourites and their archive are kept. This limit and the one above win over the photo floor. 0 means no limit.' })}
-            >
-                <input type="number" min="0" max="1048576" step="1"
-                    bind:value={cacheMaxSizeMb} aria-labelledby="setting-cache-max_size_mb"
-                    class="input-base w-24 py-2 text-right font-semibold" />
-            </SettingsRow>
-
+        <div>
             <button
                 type="button"
                 onclick={handleCacheCleanup}
                 disabled={cleaningCache}
                 aria-label={$_('settings.data.cache_clear_button')}
-                class="w-full {buttonNeutralClass}"
+                class="w-full sm:w-auto {buttonNeutralClass}"
             >
                 {cleaningCache ? $_('settings.data.cleaning') : $_('settings.data.cache_clear_button')}
             </button>
+        </div>
 
-            <AdvancedSection
-                id="data-cache-advanced"
-                title={$_('settings.data.cache_advanced_title', { default: 'Snapshot quality' })}
+        <AdvancedSection
+            id="data-cache-species"
+            title={$_('settings.data.species_limits_title', { default: 'Per-species limits' })}
+            openByDefault={cachePerSpeciesMinimum > 0 || cachePerSpeciesMaximum > 0}
+        >
+            <SettingsRow
+                labelId="setting-cache-species-floor"
+                label={$_('settings.data.per_species_minimum', { default: "Keep photos of each species' newest visits" })}
+                description={$_('settings.data.per_species_minimum_help', { default: "That many of each species' newest visits keep their photos after they leave the history window, so a rare bird keeps its pictures. Video is not kept longer. The storage limit still applies." })}
             >
-                <SettingsRow
-                    labelId="setting-cache-hq"
-                    label={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
-                    description={`${$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'After an event ends, choose the clearest main-stream frame and best crop available. The full frame is kept when a reliable crop cannot be made.' })} ${$_('settings.data.cache_high_quality_storage_note', { default: 'Each visit then also keeps full-resolution frames, often several MB, so set a storage limit if space is tight.' })}`}
-                >
+                <div class="flex flex-wrap items-center justify-end gap-3">
+                    {#if cachePerSpeciesMinimum > 0}
+                        <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                            <span class="sr-only">{$_('settings.data.per_species_minimum_count', { default: 'Visits kept per species' })}</span>
+                            <input type="number" min="1" max="10000" step="1" value={cachePerSpeciesMinimum}
+                                onchange={(event) => (cachePerSpeciesMinimum = wholeCount(event.currentTarget.value))}
+                                class="input-base w-24 py-2 text-right" />
+                        </label>
+                    {/if}
                     <SettingsToggle
-                        checked={cacheHighQualityEventSnapshots}
-                        labelledBy="setting-cache-hq"
-                        srLabel={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
-                        onchange={(v) => (cacheHighQualityEventSnapshots = v)}
+                        checked={cachePerSpeciesMinimum > 0}
+                        labelledBy="setting-cache-species-floor"
+                        srLabel={$_('settings.data.per_species_minimum', { default: "Keep photos of each species' newest visits" })}
+                        onchange={setSpeciesFloor}
                     />
-                </SettingsRow>
+                </div>
+            </SettingsRow>
 
-                <SettingsRow
-                    labelId="setting-automatic-multi-bird-scan"
-                    layout="stacked"
-                    label={$_('settings.data.automatic_multi_bird_scan', { default: 'Automatically find additional birds' })}
-                    description={$_('settings.data.automatic_multi_bird_scan_help', { default: 'Off by default to reduce processing. Normal bird identification and the target bird’s crop continue, and existing findings are kept. Use Find more birds on a photograph whenever you need a scan. When enabled, scans run on retained whole frames.' })}
-                >
-                    <SettingsToggle labelledBy="setting-automatic-multi-bird-scan" checked={cacheAutomaticMultiBirdScan}
-                        srLabel={$_('settings.data.automatic_multi_bird_scan', { default: 'Automatically find additional birds' })}
-                        onchange={(value) => (cacheAutomaticMultiBirdScan = value)} />
-                </SettingsRow>
-
-                <SettingsRow
-                    labelId="setting-bird-scan-mode"
-                    label={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
-                    description={$_('settings.data.bird_scan_mode_help', { default: 'Applies to manual and automatic scans. Standard uses less CPU. Intensive also searches tiles in large frames and classifies more crop choices. Neither guarantees every bird is found.' })}
-                    layout="stacked"
-                >
-                    <SettingsSelect id="bird-scan-mode" value={cacheBirdScanMode}
-                        ariaLabel={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
-                        options={[
-                            { value: 'standard', label: $_('settings.data.bird_scan_standard', { default: 'Standard' }) },
-                            { value: 'intensive', label: $_('settings.data.bird_scan_intensive', { default: 'Intensive' }) }
-                        ]}
-                        onchange={(v) => (cacheBirdScanMode = v === 'standard' ? 'standard' : 'intensive')}
+            <SettingsRow
+                labelId="setting-cache-per_species_maximum"
+                label={$_('settings.data.per_species_maximum', { default: 'Limit visits per species with photos and video' })}
+                description={$_('settings.data.per_species_maximum_help', { default: "A species' visits beyond this number lose their photos and video, oldest first. The visits stay in history. Favourites don't count." })}
+            >
+                <div class="flex flex-wrap items-center justify-end gap-3">
+                    {#if cachePerSpeciesMaximum > 0}
+                        <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                            <span class="sr-only">{$_('settings.data.per_species_maximum_count', { default: 'Visits per species with photos and video' })}</span>
+                            <input type="number" min="1" max="10000" step="1" value={cachePerSpeciesMaximum}
+                                onchange={(event) => (cachePerSpeciesMaximum = wholeCount(event.currentTarget.value))}
+                                class="input-base w-24 py-2 text-right" />
+                        </label>
+                    {/if}
+                    <SettingsToggle
+                        checked={cachePerSpeciesMaximum > 0}
+                        labelledBy="setting-cache-per_species_maximum"
+                        srLabel={$_('settings.data.per_species_maximum', { default: 'Limit visits per species with photos and video' })}
+                        onchange={setSpeciesMaximum}
                     />
-                </SettingsRow>
-                {#if cacheHighQualityEventSnapshots}
-                    <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-success-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
-                        <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-success-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            {#if cropDetectorReady}
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                            {:else}
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7V4h3m10 0h3v3M4 17v3h3m10 0h3v-3M8 12h8" />
-                            {/if}
-                        </svg>
-                        <div class="min-w-0">
-                            <p class="text-sm font-bold text-slate-700 dark:text-slate-200">
-                                {cropDetectorReady
-                                    ? $_('settings.data.cache_crop_detector_ready', { default: 'Crop detector ready' })
-                                    : $_('settings.data.cache_crop_fallback_ready', { default: 'Frigate tracking fallback ready' })}
-                            </p>
-                            <p class="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                                {cropDetectorReady
-                                    ? $_('settings.data.cache_crop_detector_ready_help', { default: 'Frigate tracking hints and the crop detectors are evaluated automatically.' })
-                                    : $_('settings.data.cache_crop_fallback_ready_help', { default: 'Frigate tracking hints are used automatically; detector crops join in when a model is installed.' })}
-                            </p>
-                        </div>
+                </div>
+            </SettingsRow>
+        </AdvancedSection>
+
+        <AdvancedSection
+            id="data-cache-advanced"
+            title={$_('settings.data.cache_advanced_title', { default: 'Snapshot quality' })}
+        >
+            <SettingsRow
+                labelId="setting-cache-hq"
+                label={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
+                description={`${$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'After an event ends, choose the clearest main-stream frame and best crop available. The full frame is kept when a reliable crop cannot be made.' })} ${$_('settings.data.cache_high_quality_storage_note', { default: 'Each visit then also keeps full-resolution frames, often several MB, so set a storage limit if space is tight.' })}`}
+            >
+                <SettingsToggle
+                    checked={cacheHighQualityEventSnapshots}
+                    labelledBy="setting-cache-hq"
+                    srLabel={$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
+                    onchange={(v) => (cacheHighQualityEventSnapshots = v)}
+                />
+            </SettingsRow>
+
+            <SettingsRow
+                labelId="setting-automatic-multi-bird-scan"
+                layout="stacked"
+                label={$_('settings.data.automatic_multi_bird_scan', { default: 'Automatically find additional birds' })}
+                description={$_('settings.data.automatic_multi_bird_scan_help', { default: 'Off by default to reduce processing. Normal bird identification and the target bird’s crop continue, and existing findings are kept. Use Find more birds on a photograph whenever you need a scan. When enabled, scans run on retained whole frames.' })}
+            >
+                <SettingsToggle labelledBy="setting-automatic-multi-bird-scan" checked={cacheAutomaticMultiBirdScan}
+                    srLabel={$_('settings.data.automatic_multi_bird_scan', { default: 'Automatically find additional birds' })}
+                    onchange={(value) => (cacheAutomaticMultiBirdScan = value)} />
+            </SettingsRow>
+
+            <SettingsRow
+                labelId="setting-bird-scan-mode"
+                label={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
+                description={$_('settings.data.bird_scan_mode_help', { default: 'Applies to manual and automatic scans. Standard uses less CPU. Intensive also searches tiles in large frames and classifies more crop choices. Neither guarantees every bird is found.' })}
+                layout="stacked"
+            >
+                <SettingsSelect id="bird-scan-mode" value={cacheBirdScanMode}
+                    ariaLabel={$_('settings.data.bird_scan_mode', { default: 'Bird scanning effort' })}
+                    options={[
+                        { value: 'standard', label: $_('settings.data.bird_scan_standard', { default: 'Standard' }) },
+                        { value: 'intensive', label: $_('settings.data.bird_scan_intensive', { default: 'Intensive' }) }
+                    ]}
+                    onchange={(v) => (cacheBirdScanMode = v === 'standard' ? 'standard' : 'intensive')}
+                />
+            </SettingsRow>
+            {#if cacheHighQualityEventSnapshots}
+                <div class="flex items-start gap-3">
+                    <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-success-500' : 'text-slate-600 dark:text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        {#if cropDetectorReady}
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        {:else}
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7V4h3m10 0h3v3M4 17v3h3m10 0h3v-3M8 12h8" />
+                        {/if}
+                    </svg>
+                    <div class="min-w-0">
+                        <p class="text-sm text-slate-700 dark:text-slate-200">
+                            {cropDetectorReady
+                                ? $_('settings.data.cache_crop_detector_ready', { default: 'Bird finder ready' })
+                                : $_('settings.data.cache_crop_fallback_ready', { default: 'Frigate tracking fallback ready' })}
+                        </p>
+                        <p class="mt-0.5 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                            {cropDetectorReady
+                                ? $_('settings.data.cache_crop_detector_ready_help', { default: 'Frigate’s tracking hints and the bird finders are tried automatically.' })
+                                : $_('settings.data.cache_crop_fallback_ready_help', { default: 'Frigate tracking hints are used automatically; detector crops join in when a model is installed.' })}
+                        </p>
                     </div>
+                </div>
 
-                    <SettingsRow
-                        labelId="setting-cache-hq-jpeg-quality"
-                        label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
-                        description={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality_help', { default: 'Higher values keep more detail but create larger derived snapshot files.' })}
-                        layout="stacked"
-                    >
-                        <div class="space-y-2">
-                            <div class="flex justify-end">
-                                <span class="text-sm font-bold text-slate-900 dark:text-white">{cacheHighQualityEventSnapshotJpegQuality}</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="70"
-                                max="100"
-                                step="1"
-                                bind:value={cacheHighQualityEventSnapshotJpegQuality}
-                                aria-label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
-                                class="w-full accent-brand-500"
-                            />
-                            <div class="flex items-center justify-between text-xs font-bold uppercase tracking-widest text-slate-400">
-                                <span>70</span>
-                                <span>100</span>
-                            </div>
-                        </div>
-                    </SettingsRow>
-                {/if}
-            </AdvancedSection>
-        </SettingsCard>
-    </div>
+                <SettingsSlider
+                    id="cache-hq-jpeg-quality"
+                    label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ snapshot JPEG quality' })}
+                    description={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality_help', { default: 'Higher values keep more detail but create larger derived snapshot files.' })}
+                    bind:value={cacheHighQualityEventSnapshotJpegQuality}
+                    min={70}
+                    max={100}
+                    step={1}
+                    display={(value) => String(value)}
+                    lowLabel="70"
+                    highLabel="100"
+                />
+            {/if}
+        </AdvancedSection>
+    </SettingsCard>
+    {/if}
 
-    <AdvancedSection
-        id="data-tools"
-        title={$_('settings.data.tools_title', { default: 'Backup & maintenance tools' })}
-        openByDefault={backfilling || weatherBackfilling || analyzingUnknowns || syncingTaxonomy || previewingTimezoneRepair || applyingTimezoneRepair || exportingConfigBackup || importingConfigBackup}
-    >
+    {#if region === 'main'}
     <SettingsCard
-        title={$_('settings.data.config_backup_title', { default: 'Configuration Backup' })}
+        id="settings-group-data-config-backup"
+        title={$_('settings.data.config_backup_title', { default: 'Configuration backup' })}
         description={$_('settings.data.config_backup_desc', { default: 'Export or restore the complete YA-WAMF configuration as JSON, including secrets.' })}
     >
-        <div class="rounded-2xl border border-amber-200 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 flex items-start gap-3">
-            <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p class="text-xs font-bold leading-relaxed text-amber-800 dark:text-amber-200">
-                {$_('settings.data.config_backup_secret_warning', { default: 'Backup files include tokens, webhooks, passwords, and auth secrets. Treat them like credentials.' })}
+        <div class="space-y-4">
+            <p class="max-w-prose text-sm font-medium text-slate-800 dark:text-slate-200">
+                    {$_('settings.data.config_backup_secret_warning', { default: 'Backup files include tokens, webhooks, passwords, and auth secrets. Treat them like credentials.' })}
             </p>
-        </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <button
-                type="button"
-                onclick={handleExportConfigBackup}
-                disabled={exportingConfigBackup || importingConfigBackup}
-                aria-label={$_('settings.data.config_backup_export', { default: 'Export config JSON' })}
-                class="w-full {buttonNeutralClass}"
-            >
-                {#if exportingConfigBackup}
-                    {@render spinner()}
-                {:else}
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                {/if}
-                {exportingConfigBackup
-                    ? $_('settings.data.config_backup_exporting', { default: 'Exporting...' })
-                    : $_('settings.data.config_backup_export', { default: 'Export Config' })}
-            </button>
+            <div class="flex flex-wrap gap-3">
+                <button
+                    type="button"
+                    onclick={handleExportConfigBackup}
+                    disabled={exportingConfigBackup || importingConfigBackup}
+                    aria-label={$_('settings.data.config_backup_export', { default: 'Export config JSON' })}
+                    class="w-full sm:w-auto {buttonNeutralClass}"
+                >
+                    {#if exportingConfigBackup}
+                        {@render spinner()}
+                    {:else}
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                    {/if}
+                    {exportingConfigBackup
+                        ? $_('settings.data.config_backup_exporting', { default: 'Exporting...' })
+                        : $_('settings.data.config_backup_export', { default: 'Export Config' })}
+                </button>
 
-            <button
-                type="button"
-                onclick={openConfigImportPicker}
-                disabled={exportingConfigBackup || importingConfigBackup}
-                aria-label={$_('settings.data.config_backup_import', { default: 'Import config JSON' })}
-                class="w-full {buttonDangerOutlineClass}"
-            >
-                {#if importingConfigBackup}
-                    {@render spinner()}
-                {:else}
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
-                    </svg>
-                {/if}
-                {importingConfigBackup
-                    ? $_('settings.data.config_backup_importing', { default: 'Importing...' })
-                    : $_('settings.data.config_backup_import', { default: 'Import Config' })}
-            </button>
-        </div>
+                <button
+                    type="button"
+                    onclick={openConfigImportPicker}
+                    disabled={exportingConfigBackup || importingConfigBackup}
+                    aria-label={$_('settings.data.config_backup_import', { default: 'Import config JSON' })}
+                    class="w-full sm:w-auto {buttonDangerOutlineClass}"
+                >
+                    {#if importingConfigBackup}
+                        {@render spinner()}
+                    {:else}
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
+                        </svg>
+                    {/if}
+                    {importingConfigBackup
+                        ? $_('settings.data.config_backup_importing', { default: 'Importing...' })
+                        : $_('settings.data.config_backup_import', { default: 'Import Config' })}
+                </button>
+            </div>
 
-        <input
-            bind:this={configImportInput}
-            type="file"
-            accept="application/json,.json"
-            class="sr-only"
-            onchange={handleConfigImportChange}
-            aria-label={$_('settings.data.config_backup_import_file', { default: 'Select YA-WAMF config backup JSON' })}
-        />
+            <input
+                bind:this={configImportInput}
+                type="file"
+                accept="application/json,.json"
+                class="sr-only"
+                onchange={handleConfigImportChange}
+                aria-label={$_('settings.data.config_backup_import_file', { default: 'Select YA-WAMF config backup JSON' })}
+            />
 
-        <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 px-4 py-3 flex items-start gap-3">
-            <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+            <p class="max-w-prose text-sm text-slate-600 dark:text-slate-400">
                 {$_('settings.data.config_backup_restore_note', { default: 'After importing on a fresh install, run a detection backfill to rebuild the event history from Frigate.' })}
             </p>
         </div>
     </SettingsCard>
-
-    <SettingsCard
-        title={$_('settings.data.taxonomy_title')}
-        description={$_('settings.data.taxonomy_desc')}
-    >
-        {#if taxonomyStatus}
-            {#if taxonomyStatus.is_running}
-                <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-brand-500/10 border border-brand-500/20 text-brand-700 dark:text-brand-300">
-                    <span class="text-xs font-bold uppercase tracking-widest">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
-                    <span class="text-xs font-bold">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
-                </div>
-            {:else if taxonomyStatus.current_item || taxonomyStatus.message || taxonomyStatus.error}
-                <div class="p-4 rounded-xl bg-surface-raised/70 flex items-center gap-3">
-                    {#if taxonomyStatus.error}
-                        <div class="w-2 h-2 rounded-full bg-red-500"></div>
-                        <p class="text-xs font-bold text-red-500">{taxonomyStatus.error}</p>
-                    {:else}
-                        <div class="w-2 h-2 rounded-full bg-accent-500"></div>
-                        <p class="text-xs font-bold text-slate-600 dark:text-slate-300">{taxonomyStatus.message || taxonomyStatus.current_item}</p>
-                    {/if}
-                </div>
-            {/if}
-        {/if}
-
-        <button
-            type="button"
-            onclick={handleStartTaxonomySync}
-            disabled={taxonomyStatus?.is_running || syncingTaxonomy}
-            aria-label={$_('settings.data.taxonomy_run_button')}
-            class="w-full {buttonPrimaryClass}"
-        >
-            {#if syncingTaxonomy || taxonomyStatus?.is_running}{@render spinner()}{/if}
-            {$_('settings.data.taxonomy_run_button')}
-        </button>
-    </SettingsCard>
-
-    <SettingsCard
-        title={$_('settings.data.timezone_repair_title', { default: 'Timezone Repair' })}
-        description={$_('settings.data.timezone_repair_desc', { default: 'Validate older detection timestamps against Frigate and repair only safe whole-hour timezone offsets.' })}
-    >
-        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-            {$_('settings.data.timezone_repair_note', { default: 'This only updates detections when Frigate still has the matching event and the timestamp difference looks like a real timezone offset.' })}
-        </p>
-
-        {#if timezoneRepairPreview}
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
-                    <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
-                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
-                </div>
-                <div class="rounded-2xl border border-amber-200 dark:border-amber-700/60 px-4 py-3">
-                    <p class="text-lg font-bold text-amber-600 dark:text-amber-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
-                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}</p>
-                </div>
-                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
-                    <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.missing_frigate_event_count)}</p>
-                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' })}</p>
-                </div>
-                <div class="rounded-2xl border border-red-200 dark:border-red-700/60 px-4 py-3">
-                    <p class="text-lg font-bold text-red-600 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
-                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_lookup_errors', { default: 'Lookup errors' })}</p>
-                </div>
-                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
-                    <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.unsupported_delta_count)}</p>
-                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_unsupported', { default: 'Unsupported delta' })}</p>
-                </div>
-            </div>
-
-            {#if timezoneRepairPreview.candidates.length > 0}
-                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-                    <div class="px-5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
-                        <p class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.data.timezone_repair_preview_list', { default: 'Preview' })}</p>
-                    </div>
-                    <div class="divide-y divide-slate-200 dark:divide-slate-700">
-                        {#each timezoneRepairPreview.candidates.slice(0, 5) as candidate}
-                            <div class="px-5 py-4 space-y-1">
-                                <div class="flex items-center justify-between gap-3">
-                                    <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
-                                    <span class="text-xs font-bold uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500'}">{candidate.status.replace(/_/g, ' ')}</span>
-                                </div>
-                                <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{candidate.frigate_event}</p>
-                                <div class="text-xs text-slate-600 dark:text-slate-300">
-                                    <span>{formatPreviewTimestamp(candidate.stored_detection_time)}</span>
-                                    {#if candidate.repaired_detection_time}<span> -> {formatPreviewTimestamp(candidate.repaired_detection_time)}</span>{/if}
-                                    {#if candidate.delta_hours != null}<span class="ml-2">({candidate.delta_hours > 0 ? '+' : ''}{candidate.delta_hours}h)</span>{/if}
-                                </div>
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-            {/if}
-        {/if}
-
-        <div class="flex flex-col md:flex-row gap-3">
-            <button
-                type="button"
-                onclick={handlePreviewTimezoneRepair}
-                disabled={previewingTimezoneRepair || applyingTimezoneRepair}
-                aria-label={$_('settings.data.timezone_repair_preview_button', { default: 'Scan for timezone issues' })}
-                class="flex-1 {buttonNeutralClass}"
-            >
-                {previewingTimezoneRepair
-                    ? $_('settings.data.timezone_repair_preview_loading', { default: 'Scanning...' })
-                    : $_('settings.data.timezone_repair_preview_button', { default: 'Scan for timezone issues' })}
-            </button>
-            <button
-                type="button"
-                onclick={handleApplyTimezoneRepair}
-                disabled={previewingTimezoneRepair || applyingTimezoneRepair || timezoneRepairCandidates === 0}
-                aria-label={$_('settings.data.timezone_repair_apply_button', { default: 'Apply timezone repair' })}
-                class="flex-1 {buttonDangerOutlineClass}"
-            >
-                {applyingTimezoneRepair
-                    ? $_('settings.data.timezone_repair_apply_loading', { default: 'Repairing...' })
-                    : $_('settings.data.timezone_repair_apply_button', { default: 'Apply timezone repair' })}
-            </button>
-        </div>
-    </SettingsCard>
-
-    <SettingsCard
-        title={$_('settings.data.backfill_title')}
-        description={$_('settings.data.backfill_desc')}
-    >
-        <SettingsRow
-            labelId="setting-backfill-window"
-            label={$_('settings.data.backfill_window')}
-            layout="stacked"
-        >
-            <SettingsSelect
-                id="backfill-range"
-                value={backfillDateRange}
-                ariaLabel={$_('settings.data.backfill_window')}
-                options={[
-                    { value: 'day', label: $_('settings.data.backfill_24h') },
-                    { value: 'week', label: $_('settings.data.backfill_week') },
-                    { value: 'month', label: $_('settings.data.backfill_month') },
-                    { value: 'custom', label: $_('settings.data.backfill_custom') }
-                ]}
-                onchange={(v) => (backfillDateRange = v as 'day' | 'week' | 'month' | 'custom')}
-            />
-        </SettingsRow>
-
-        {#if backfillDateRange === 'custom'}
-            <div class="space-y-3 animate-in fade-in slide-in-from-top-2">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                        <label for="backfill-from-date" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
-                            {$_('settings.data.backfill_from', { default: 'From' })}
-                        </label>
-                        <input
-                            id="backfill-from-date"
-                            type="date"
-                            bind:value={backfillStartDate}
-                            max={backfillEndDate || todayDateOnly()}
-                            aria-label={$_('settings.data.backfill_from', { default: 'From date' })}
-                            class="input-base"
-                        />
-                    </div>
-                    <div>
-                        <label for="backfill-to-date" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
-                            {$_('settings.data.backfill_to', { default: 'To' })}
-                        </label>
-                        <input
-                            id="backfill-to-date"
-                            type="date"
-                            bind:value={backfillEndDate}
-                            min={backfillStartDate || undefined}
-                            max={todayDateOnly()}
-                            aria-label={$_('settings.data.backfill_to', { default: 'To date' })}
-                            class="input-base"
-                        />
-                    </div>
-                </div>
-                <div class="grid grid-cols-3 gap-2">
-                    <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={() => setCustomRangeDays(7)}>7D</button>
-                    <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={() => setCustomRangeDays(30)}>30D</button>
-                    <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={clearCustomRange}>{$_('common.clear', { default: 'Clear' })}</button>
-                </div>
-                {#if backfillCustomError}
-                    <p class="text-xs font-bold text-red-500">{backfillCustomError}</p>
-                {/if}
-            </div>
-        {/if}
-
-        {#if backfillResult}
-            {#if backfillResult.message}
-                <p class="flex items-start gap-2 border-l-2 {backfilling ? 'border-brand-400 text-brand-800 dark:text-brand-200' : safeCount(backfillResult.errors) > 0 ? 'border-amber-400 text-amber-800 dark:text-amber-200' : 'border-accent-400 text-slate-700 dark:text-slate-300'} py-1 pl-3 text-sm" aria-live="polite">
-                    {#if backfilling}{@render spinner()}{/if}
-                    <span>{backfillResult.message}</span>
-                </p>
-            {/if}
-            <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-5 sm:divide-y-0">
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_new')}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(backfillResult.new_detections)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_updated')}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(backfillResult.updated)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-600 dark:text-slate-300">{safeCount(backfillResult.skipped)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(backfillResult.errors) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(backfillResult.errors)}</dd></div>
-            </dl>
-            {#if backfillResult.skipped_reasons && Object.keys(backfillResult.skipped_reasons).length > 0}
-                <div class="p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/30">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{$_('settings.data.backfill_skipped_breakdown')}</p>
-                    <div class="grid grid-cols-1 gap-2">
-                        {#each Object.entries(backfillResult.skipped_reasons) as [reason, count]}
-                            <div class="flex justify-between items-center text-xs">
-                                <span class="text-slate-500">
-                                    {$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}
-                                </span>
-                                <span class="font-bold text-slate-700 dark:text-slate-300">{count}</span>
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-            {/if}
-            {#if backfillResult.error_reasons && Object.keys(backfillResult.error_reasons).length > 0}
-                <div class="border-l-2 border-rose-400 py-1 pl-3">
-                    <p class="mb-2 text-xs font-semibold text-rose-700 dark:text-rose-300">{$_('settings.data.backfill_error_breakdown', { default: 'Errors that need attention' })}</p>
-                    <div class="space-y-1.5">
-                        {#each Object.entries(backfillResult.error_reasons) as [reason, count]}
-                            <div class="flex items-center justify-between gap-3 text-xs">
-                                <span class="break-words text-slate-600 dark:text-slate-300">{$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}</span>
-                                <span class="font-bold tabular-nums text-rose-700 dark:text-rose-300">{count}</span>
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-            {/if}
-        {/if}
-
-        <button
-            type="button"
-            onclick={handleBackfill}
-            disabled={backfilling || weatherBackfilling || !backfillCustomValid}
-            aria-label={$_('settings.data.backfill_scan_button')}
-            class="btn btn-primary min-h-11 w-full px-5 py-2.5"
-        >
-            {#if backfilling}{@render spinner()}{/if}
-            {backfilling ? $_('settings.data.backfill_scanning') : $_('settings.data.backfill_scan_button')}
-        </button>
-
-        <AdvancedSection
-            id="data-backfill-weather"
-            title={$_('settings.data.weather_backfill_title')}
-        >
-            {#if weatherBackfillResult}
-                {#if weatherBackfillResult.message}<p class="text-sm text-slate-600 dark:text-slate-300" aria-live="polite">{weatherBackfillResult.message}</p>{/if}
-                <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-4 sm:divide-y-0">
-                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</dd></div>
-                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_updated', { default: 'Updated' })}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(weatherBackfillResult.updated)}</dd></div>
-                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-600 dark:text-slate-300">{safeCount(weatherBackfillResult.skipped)}</dd></div>
-                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(weatherBackfillResult.errors) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(weatherBackfillResult.errors)}</dd></div>
-                </dl>
-                {#if weatherBackfillResult.error_reasons && Object.keys(weatherBackfillResult.error_reasons).length > 0}
-                    <div class="border-l-2 border-rose-400 py-1 pl-3">
-                        <p class="mb-2 text-xs font-semibold text-rose-700 dark:text-rose-300">{$_('settings.data.backfill_error_breakdown', { default: 'Errors that need attention' })}</p>
-                        {#each Object.entries(weatherBackfillResult.error_reasons) as [reason, count]}
-                            <div class="flex items-center justify-between gap-3 text-xs">
-                                <span class="break-words text-slate-600 dark:text-slate-300">{$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}</span>
-                                <span class="font-bold tabular-nums text-rose-700 dark:text-rose-300">{count}</span>
-                            </div>
-                        {/each}
-                    </div>
-                {/if}
-            {/if}
-            <button
-                type="button"
-                onclick={handleWeatherBackfill}
-                disabled={weatherBackfilling || backfilling || !backfillCustomValid}
-                aria-label={$_('settings.data.weather_backfill_button')}
-                class="btn btn-secondary min-h-11 w-full px-5 py-2.5"
-            >
-                {#if weatherBackfilling}{@render spinner()}{/if}
-                {weatherBackfilling ? $_('settings.data.weather_backfill_filling') : $_('settings.data.weather_backfill_button')}
-            </button>
-        </AdvancedSection>
-    </SettingsCard>
-
-    <SettingsCard
-        title={$_('settings.data.batch_analysis_title')}
-        description={$_('settings.data.batch_analysis_desc')}
-    >
-        <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">
-            {$_('settings.data.batch_analysis_long_desc')}
-        </p>
-
-        <button
-            type="button"
-            onclick={handleAnalyzeUnknowns}
-            disabled={analyzingUnknowns}
-            aria-label={$_('settings.data.batch_analysis_button')}
-            class="w-full {buttonPrimaryClass}"
-        >
-            {#if analyzingUnknowns}{@render spinner()}{/if}
-            {analyzingUnknowns ? $_('settings.data.batch_analysis_queueing') : $_('settings.data.batch_analysis_button')}
-        </button>
-
-        <SettingsRow
-            labelId="setting-auto-analyze"
-            label={$_('settings.data.auto_analyze_unknowns', { default: 'Run automatically (daily)' })}
-        >
-            <SettingsToggle
-                checked={autoAnalyzeUnknowns}
-                labelledBy="setting-auto-analyze"
-                srLabel={$_('settings.data.auto_analyze_unknowns', { default: 'Run automatically (daily)' })}
-                onchange={(v) => (autoAnalyzeUnknowns = v)}
-            />
-        </SettingsRow>
-
-        {#if analysisStatus && (analysisStatus.pending > 0 || analysisStatus.active > 0)}
-            {@const remaining = analysisStatus.pending + analysisStatus.active}
-            {@const processed = analysisTotal > 0 ? Math.max(0, analysisTotal - remaining) : 0}
-
-            <div class="p-4 rounded-xl bg-surface-raised/70 space-y-3 animate-in fade-in slide-in-from-top-2">
-                <div class="flex justify-between text-xs font-bold uppercase tracking-widest">
-                    <span class="text-slate-700 dark:text-slate-200">{$_('settings.data.batch_analysis_processing')}</span>
-                    <span class="text-slate-500">{processed} / {analysisTotal}</span>
-                </div>
-                <div class="flex justify-between text-xs font-bold text-slate-400">
-                    <span>{$_('settings.data.batch_analysis_pending')}: {analysisStatus.pending}</span>
-                    <span>{$_('settings.data.batch_analysis_active')}: {analysisStatus.active}</span>
-                </div>
-                {#if analysisStatus.maintenance_status_message}
-                    <div class="text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                        {analysisStatus.maintenance_status_message}
-                    </div>
-                {/if}
-                {#if analysisStatus.circuit_open}
-                    <div class="text-xs font-bold text-amber-500 flex items-center gap-1 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                        {$_('settings.data.batch_analysis_circuit_open')}
-                        {#if analysisStatus.open_until}
-                            <span class="ml-auto text-xs font-bold text-amber-600 dark:text-amber-300">{formatSafeTime(analysisStatus.open_until)}</span>
-                        {/if}
-                    </div>
-                    {#if analysisStatus.failure_count !== undefined}
-                        <div class="text-xs font-bold text-amber-500/90">
-                            {$_('settings.data.batch_analysis_recent_failures', { default: 'Recent failures' })}: {analysisStatus.failure_count}
-                        </div>
-                    {/if}
-                {/if}
-            </div>
-        {/if}
-    </SettingsCard>
-    </AdvancedSection>
-
-    <AdvancedSection
-        id="data-danger"
-        title={$_('settings.danger.title')}
-        description={$_('settings.danger.subtitle')}
-        openByDefault={resettingDatabase || clearingFavorites || clearingFeedback}
-    >
-        <!-- One block per action, narrowest reach first, each consequence beside its own button. -->
-        <ul class="divide-y divide-red-500/15 rounded-2xl border-2 border-red-500/20 bg-red-500/5" data-danger-actions>
-            <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6" data-danger-action="feedback">
-                <div class="min-w-0 space-y-1">
-                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.feedback_title', { default: 'Personalization data' })}</h4>
-                    <p id="danger-feedback-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">
-                        {$_('settings.danger.clear_feedback_desc', { default: 'Clearing personalization feedback will delete all manual tag corrections the AI uses to adjust confidence scores. This will revert the classifier to its baseline accuracy.' })}
-                        {$_('settings.danger.clear_feedback_hint', { default: 'This does not delete detections or media. Re-ranking will begin learning again as you make new manual corrections.' })}
-                    </p>
-                </div>
-                <button
-                    type="button"
-                    onclick={handleClearFeedback}
-                    disabled={clearingFeedback}
-                    aria-describedby="danger-feedback-consequence"
-                    class="shrink-0 {buttonDangerOutlineClass}"
-                >
-                    {#if clearingFeedback}{@render spinner()}{/if}
-                    {clearingFeedback ? $_('settings.danger.clearing_feedback', { default: 'Clearing...' }) : $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })}
-                </button>
-            </li>
-            <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6" data-danger-action="favorites">
-                <div class="min-w-0 space-y-1">
-                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.favorites_title', { default: 'Favourites' })}</h4>
-                    <p id="danger-favorites-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">{$_('settings.data.clear_favorites_desc')}</p>
-                </div>
-                <button
-                    type="button"
-                    onclick={handleClearFavorites}
-                    disabled={clearingFavorites}
-                    aria-describedby="danger-favorites-consequence"
-                    class="shrink-0 {buttonDangerOutlineClass}"
-                >
-                    {#if clearingFavorites}{@render spinner()}{/if}
-                    {clearingFavorites ? $_('settings.data.cleaning') : $_('settings.data.clear_favorites_button')}
-                </button>
-            </li>
-            <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6" data-danger-action="reset">
-                <div class="min-w-0 space-y-1">
-                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.reset_title', { default: 'Database and media cache' })}</h4>
-                    <p id="danger-reset-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">{$_('settings.danger.reset_desc')}</p>
-                </div>
-                <button
-                    type="button"
-                    onclick={handleResetDatabase}
-                    disabled={resettingDatabase}
-                    aria-describedby="danger-reset-consequence"
-                    class="shrink-0 {buttonDangerSolidClass}"
-                >
-                    {#if resettingDatabase}{@render spinner()}{/if}
-                    {resettingDatabase ? $_('settings.danger.resetting') : $_('settings.danger.reset_button')}
-                </button>
-            </li>
-        </ul>
-    </AdvancedSection>
+    {/if}
 </div>

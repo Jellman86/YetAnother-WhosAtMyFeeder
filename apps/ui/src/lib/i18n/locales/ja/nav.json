@@ -9,14 +9,14 @@
   "settings": "設定",
   "setup_wizard": "セットアップウィザード",
   "about": "このアプリについて",
-  "toggle_menu": "メニューの切り替え",
+  "toggle_menu": "メニュー",
   "collapse_sidebar": "サイドバーを折りたたむ",
   "expand_sidebar": "サイドバーを展開",
   "jobs": "ジョブ",
   "close_menu": "メニューを閉じる",
   "close_language_selector": "言語セレクターを閉じる",
-  "events": "イベント",
   "notifications": "通知",
   "species": "種",
-  "navigation": "メインナビゲーション"
+  "navigation": "メインナビゲーション",
+  "health": "稼働状況"
 }

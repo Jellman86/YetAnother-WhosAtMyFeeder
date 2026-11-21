@@ -1,22 +1,27 @@
 {
   "chart": {
     "heard": "Gehört",
-    "daily_title": "Aktivität im Zeitverlauf",
-    "daily_sub": "Pro Tag gehörte BirdNET-Go-Erkennungen",
-    "hourly_title": "Tageszeit",
-    "species_title": "Artenverteilung",
-    "empty": "Keine Aktivität in diesem Zeitraum."
+    "daily_title": "Gehörte Rufe im Zeitverlauf",
+    "heatmap_title": "Gehörte Rufe nach Stunde und Wochentag",
+    "species_title": "Artenzusammensetzung",
+    "empty": "Keine gehörten Rufe in diesem Zeitraum.",
+    "other_species": "Andere Arten",
+    "unavailable": "Nicht verfügbar, solange der Verlauf nicht gelesen werden kann.",
+    "col_day": "Tag",
+    "col_calls": "Rufe",
+    "col_species": "Art"
   },
   "stat": {
-    "heard": "Gehört",
-    "heard_sub": "Angezeigte BirdNET-Erkennungen",
+    "heard": "Gehörte Rufe",
+    "heard_sub": "Von BirdNET-Go gehörte Rufe in diesem Zeitraum",
     "species": "Arten",
-    "species_sub": "Durch Audio erkannte Arten",
-    "peak_hour": "Aktivste Stunde",
-    "peak_hour_sub": "{count, plural, one {# Erkennung} other {# Erkennungen}}",
+    "species_sub": "In diesem Zeitraum gehört",
+    "busiest_hour": "Aktivste Stunde",
     "no_activity": "Noch keine Aktivität",
     "sources": "Quellen",
-    "sources_sub": "Mikrofone oder Streams"
+    "sources_sub": "Mikrofone oder Streams",
+    "not_available": "Nicht verfügbar",
+    "no_calls": "Keine Rufe in diesem Zeitraum"
   },
   "filter": {
     "window": "Zeitraum",
@@ -28,7 +33,9 @@
     "species": "Art",
     "source": "Quelle",
     "min_confidence": "Mindestkonfidenz",
-    "changed": "Filter geändert. Übernehmen, um die Liste zu aktualisieren."
+    "changed": "Filter geändert. Übernehmen, um die Liste zu aktualisieren.",
+    "species_placeholder": "Jede Art",
+    "source_placeholder": "Jede Quelle"
   },
   "top_species": "Am häufigsten gehörte Arten",
   "card": {
@@ -37,14 +44,17 @@
     "max": "Max."
   },
   "history": {
-    "title": "Erkennungsverlauf",
-    "sub": "Gespeicherte BirdNET-Go-Erkennungen, getrennt von visuellen Besuchen.",
-    "empty": "Keine BirdNET-Erkennungen entsprechen diesen Filtern.",
+    "title": "Rufverlauf",
+    "sub": "Jeder Ruf, den BirdNET-Go gemeldet hat, getrennt von den Kamerabesuchen.",
+    "empty": "Keine Rufe entsprechen diesen Filtern.",
     "showing": "{from}–{to} von {total} werden angezeigt",
-    "hide": "Lokal ausblenden",
+    "hide": "In YA-WAMF ausblenden",
     "undo": "Rückgängig",
-    "hidden_message": "Audioerkennung ausgeblendet.",
-    "local_only": "Ausblenden entfernt einen Eintrag aus dem YA-WAMF-Verlauf und zukünftigen Audioabgleichen. BirdNET-Go bleibt unverändert; dortige Löschungen werden nicht automatisch synchronisiert."
+    "hidden_message": "Ruf ausgeblendet.",
+    "local_only": "Ausblenden entfernt einen Eintrag aus dem YA-WAMF-Verlauf und zukünftigen Audioabgleichen. BirdNET-Go bleibt unverändert; dortige Löschungen werden nicht automatisch synchronisiert.",
+    "read_failed": "Der Audioverlauf konnte nicht von YA-WAMF gelesen werden, daher ist nichts auf dieser Seite ein Messwert.",
+    "read_failed_next": "Versuchen Sie es erneut. Wenn es weiter fehlschlägt, öffnen Sie die Seite Zustand, um zu sehen, ob das Backend einen Fehler meldet.",
+    "stale": "Die letzte Aktualisierung ist fehlgeschlagen, dies ist der Stand von {at}."
   },
   "table": {
     "sound": "Ton",
@@ -53,7 +63,7 @@
     "source": "Quelle",
     "confidence": "Konfidenz",
     "open_birdnet": "In BirdNET-Go öffnen",
-    "open_visual_match": "Passende visuelle Erkennung öffnen",
+    "open_visual_match": "Passenden Besuch öffnen",
     "unknown_source": "Unbekannte Quelle",
     "spectrogram_alt": "Spektrogramm des Rufs von {species}"
   },
@@ -62,5 +72,13 @@
     "empty": "Noch keine Quellen."
   },
   "not_shared_title": "Audio wird nicht öffentlich geteilt",
-  "not_shared_body": "Die Besitzerin oder der Besitzer dieser Instanz hat Audio für Besucher deaktiviert."
+  "not_shared_body": "Die Besitzerin oder der Besitzer dieser Instanz hat Audio für Gäste deaktiviert.",
+  "summary_title": "Dieser Zeitraum",
+  "calls_heard": "{count, plural, one {# gehörter Ruf} other {# gehörte Rufe}}",
+  "heatmap": {
+    "grid_label": "Gehörte Rufe nach Stunde und Wochentag. Mit den Pfeiltasten ein Feld vorlesen.",
+    "per_hour": "gehörte Rufe pro Stundenfeld",
+    "read_failed": "Gehörte Rufe nach Stunde und Wochentag konnten nicht gelesen werden, daher fehlen dieses Raster und die aktivste Stunde. Alles andere auf der Seite wurde gelesen."
+  },
+  "side_label": "Am häufigsten gehörte Arten und Quellen"
 }

@@ -21,22 +21,21 @@ const appCss = readFileSync(new URL('./app.css', import.meta.url), 'utf-8');
  * and the owner has no way to give it to them.
  */
 describe('accessibility choices reaching a public visitor', () => {
-    it('falls back through preview, saved value, then the public payload', () => {
-        expect(appSource).toContain('accessibilityPreview.highContrast ??');
-        expect(appSource).toContain('settingsStore.settings?.accessibility_high_contrast ??');
-        expect(appSource).toContain('authStore.highContrast');
-        expect(appSource).toContain('accessibilityPreview.dyslexiaFont ??');
-        expect(appSource).toContain('accessibilityPreview.reducedMotion ??');
+    it('applies the one order the applied store writes, for every class', () => {
+        // The order itself is tested in stores/accessibility_applied.test.ts.
+        for (const choice of ['highContrast', 'dyslexiaFont', 'reducedMotion']) {
+            expect(appSource).toContain(`$derived(accessibilityApplied.${choice})`);
+        }
     });
 
     it('gives the document root exactly one owner', () => {
-        // The Settings editor previously toggled the same classes from its
-        // unsaved props with no teardown, so an abandoned preview stuck to
-        // the whole app until a reload. The editor now publishes a preview
-        // value, only on a change, and clears it on unmount; App alone
+        // The Settings editor once toggled the same classes from its unsaved props with no
+        // teardown, so an abandoned preview stuck to the whole app until a reload. The preview is
+        // now read from the Settings draft, which the editor never writes it from; App alone
         // touches the DOM.
         expect(accessibilityEditorSource).not.toContain('documentElement');
-        expect(accessibilityEditorSource).toContain('accessibilityPreview.clear()');
+        expect(accessibilityEditorSource).not.toMatch(/accessibilityPreview\.\w+\s*=[^=]/);
+        expect(settingsPageSource).toContain('accessibilityPreview.connect(');
     });
 
     it('backs the reduced-motion class with stylesheet rules', () => {
@@ -48,8 +47,16 @@ describe('accessibility choices reaching a public visitor', () => {
         expect(appCss).toContain('.reduced-motion .animate-ping');
     });
 
+    it('turns transitions off under reduced motion rather than cutting them short', () => {
+        // At 0.01ms every element still ran a transition for each property a change touched, and
+        // Safari then kept the old text size inside each one after a text size change until reload.
+        expect(appCss).not.toMatch(/transition-duration:\s*0\.01ms/);
+        expect(appCss.match(/transition-duration: 0s !important;/g)).toHaveLength(2);
+    });
+
     it('reaches the scripts that gate their own motion', () => {
-        expect(footerSource).toContain("classList.contains('reduced-motion')");
+        // The footer has nothing left to gate: it carries the version, the licence and the links only.
+        expect(footerSource).not.toMatch(/setInterval|setTimeout|transition-opacity/);
         expect(wallSource).toContain("classList.contains('reduced-motion')");
     });
 

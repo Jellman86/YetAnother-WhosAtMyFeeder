@@ -118,3 +118,87 @@ test('an Explorer list row draws the scan behind itself without growing or movin
     for (let step = 0; step < 2; step += 1) await page.getByRole('button', { name: 'Read four frames' }).click();
     await expect(backdrop.locator('.frame-scan-playhead')).toHaveCount(0);
 });
+
+test('while a card is analysed, its readings and play leave the keyboard and the pointer', async ({ page }) => {
+    await open(page);
+    const analysing = page.locator('[data-fixture="card-analysing"]');
+    const idle = page.locator('[data-fixture="card-idle"]');
+    // The idle card offers its time, score and play, each reachable by Tab.
+    const idleReadings = idle.locator('[data-detection-card-readings]');
+    await expect(idleReadings.getByRole('button', { name: /Play/ })).toBeVisible();
+    await expect(idleReadings).not.toHaveAttribute('inert', '');
+
+    // Under the opaque analysis overlay they are inert: nothing hidden takes focus or a click.
+    const readings = analysing.locator('[data-detection-card-readings]');
+    await expect(readings).toHaveAttribute('inert', '');
+    await expect(readings).toBeHidden();
+
+    // The card's own record button comes first in it.
+    const record = analysing.locator('button').first();
+    await record.focus();
+    const reached: string[] = [];
+    for (let step = 0; step < 4; step += 1) {
+        await page.keyboard.press('Tab');
+        reached.push(await page.evaluate(() => {
+            const active = document.activeElement as HTMLElement | null;
+            const card = active?.closest('[data-fixture]')?.getAttribute('data-fixture') ?? 'outside';
+            return `${card}:${active?.getAttribute('aria-label') ?? active?.textContent?.trim() ?? ''}`;
+        }));
+    }
+    // Tab leaves the analysed card at once and goes on to the idle card's own controls.
+    expect(reached.filter((stop) => stop.startsWith('card-analysing'))).toEqual([]);
+    expect(reached.some((stop) => stop.startsWith('card-idle'))).toBe(true);
+    await expect(page.locator('[data-fixture-played]')).toHaveAttribute('data-fixture-played', 'none');
+});
+
+test('an analysed card keeps its height, wrapping marks and all, and lands at the same height when the analysis ends', async ({ page }) => {
+    await open(page);
+    const card = page.locator('[data-fixture="card-marked"] [data-detection-card]');
+    const readings = page.locator('[data-fixture="card-marked"] [data-detection-card-readings]');
+    // At 240px the time, score, play and three marks wrap onto two lines.
+    await expect(readings).toHaveAttribute('inert', '');
+    const marks = readings.locator('[data-explorer-owner-confirmed], [aria-label], button');
+    expect(await marks.count()).toBeGreaterThan(3);
+    const during = await card.boundingBox();
+
+    await page.getByRole('button', { name: 'End the analysis' }).click();
+    await expect(readings).not.toHaveAttribute('inert', '');
+    await expect(readings).toBeVisible();
+    const after = await card.boundingBox();
+    const lines = await readings.evaluate((node) => Math.round(node.getBoundingClientRect().height));
+    expect(lines, 'the readings wrap, which is the case that used to shift').toBeGreaterThan(48);
+    expect(after?.height).toBe(during?.height);
+});
+
+test('thirty analysed cards are spoken as one start and one finish through the page announcer, and never again', async ({ page }) => {
+    await open(page);
+    // Every text the shared live region is given, in order.
+    await page.evaluate(() => {
+        const said: string[] = [];
+        (window as unknown as { said: string[] }).said = said;
+        const region = document.querySelector('[aria-live]');
+        if (!region) throw new Error('no announcer');
+        new MutationObserver(() => {
+            const text = region.textContent?.trim() ?? '';
+            if (text) said.push(text);
+        }).observe(region, { childList: true, subtree: true, characterData: true });
+    });
+    // The raw sequence, every line in the order it was given, so a repeated announcement fails.
+    const said = () => page.evaluate(() => [...(window as unknown as { said: string[] }).said]);
+    // The fixture's own scanning card is analysing at load: end it, let its lines pass, and start clean.
+    await page.getByRole('button', { name: 'End the analysis' }).click();
+    await page.waitForTimeout(800);
+    await page.evaluate(() => { (window as unknown as { said: string[] }).said.length = 0; });
+    // Cards hold no live region of their own.
+    await expect(page.locator('[data-fixture="bulk-cards"] [role="status"], [data-fixture="bulk-cards"] [aria-live]')).toHaveCount(0);
+    await expect(page.locator('[aria-live]')).toHaveCount(1);
+
+    await page.getByRole('button', { name: 'Analyse thirty' }).click();
+    await expect.poll(said).toEqual(['Analysing 30 visits']);
+    await page.getByRole('button', { name: 'Finish thirty' }).click();
+    await expect.poll(said).toEqual(['Analysing 30 visits', 'Analysis finished for 30 visits']);
+    // A second completion of the same runs (as a species correction sends) says nothing more.
+    await page.getByRole('button', { name: 'Finish thirty' }).click();
+    await page.waitForTimeout(800);
+    expect(await said()).toEqual(['Analysing 30 visits', 'Analysis finished for 30 visits']);
+});

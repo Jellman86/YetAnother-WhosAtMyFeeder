@@ -9,7 +9,9 @@ describe('RecentAudio dashboard widget layout', () => {
         expect(recentAudioSource).toContain('data-dashboard-most-heard');
         expect(recentAudioSource).toContain('data-dashboard-latest-call');
         expect(recentAudioSource).toContain("onNavigate?.('/audio')");
-        expect(recentAudioSource).toMatch(/data-audio-history-action[^>]+rounded-full/);
+        // A kit button like every other on the desk, not a pill (round 4).
+        expect(recentAudioSource).toMatch(/data-audio-history-action[^>]*class="btn btn-secondary/);
+        expect(recentAudioSource).not.toMatch(/data-audio-history-action[^>]+rounded-full/);
     });
 
     it('names the species heard and leaves the call totals to the day bar', () => {
@@ -23,13 +25,18 @@ describe('RecentAudio dashboard widget layout', () => {
     it('explains a microphone that matched no visit without raising it as work', () => {
         // Amber is for what needs a person; this is context.
         expect(recentAudioSource).toContain('data-dashboard-no-match');
-        expect(recentAudioSource).not.toContain('accent-');
+        expect(recentAudioSource).not.toMatch(/\baccent-\d/);
         expect(recentAudioSource).not.toContain('amber-');
     });
 
     it('serializes background refreshes and stops them with the component lifecycle', () => {
-        expect(recentAudioSource).toContain('scheduleAudioPoll();');
-        expect(recentAudioSource).toContain('if (!document.hidden)');
+        // Serial reads, the hidden-tab pause, following the live stream and the stop are the shared
+        // reading's, tested with timers in app/live-reading.test.ts; here the card is only required to
+        // use it, to pass on announced calls, and to stop it.
+        expect(recentAudioSource).toContain('latestCallReading = startLiveReading({');
+        expect(recentAudioSource).toContain('live: () => followsLiveStream,');
+        expect(recentAudioSource).toContain('latestCallReading?.changed();');
+        expect(recentAudioSource).toContain('latestCallReading?.stop();');
         expect(recentAudioSource).not.toContain('setInterval(loadAudio');
         expect(recentAudioSource).toContain('audioLoader.dispose();');
     });

@@ -12,7 +12,21 @@ export interface SettingsHarness {
     moduleRequests: (fileName: string) => number;
 }
 
-export async function openSettings(page: Page, saved: FixtureSettings = {}): Promise<SettingsHarness> {
+type HarnessAnswer = { status?: number; json: unknown };
+
+export interface SettingsHarnessOptions {
+    /**
+     * Answers a request the harness would otherwise answer with an empty body; undefined passes.
+     * A promise holds the answer until it settles, as a slow upstream does.
+     */
+    respond?: (path: string, method: string) => HarnessAnswer | undefined | Promise<HarnessAnswer | undefined>;
+    /** Answers a settings write instead of accepting it, e.g. to refuse it; undefined accepts it. */
+    refuseWrite?: (payload: FixtureSettings) => { status: number; json: unknown } | undefined;
+    /** The tab to open on, as its route; Connection when omitted. */
+    route?: string;
+}
+
+export async function openSettings(page: Page, saved: FixtureSettings = {}, options: SettingsHarnessOptions = {}): Promise<SettingsHarness> {
     let settings: FixtureSettings = {
         frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883, mqtt_auth: false,
         cameras: [], classification_threshold: 0.7, trusted_proxy_hosts: ['*'], notifications_notify_on_insert: true,
@@ -28,23 +42,48 @@ export async function openSettings(page: Page, saved: FixtureSettings = {}): Pro
             if (request.method() === 'POST') {
                 const payload = request.postDataJSON() as FixtureSettings;
                 writes.push(payload);
+                const refusal = options.refuseWrite?.(payload);
+                if (refusal) return route.fulfill(refusal);
                 settings = { ...settings, ...payload };
                 return route.fulfill({ json: { status: 'updated' } });
             }
             return route.fulfill({ json: settings });
         }
+        const answer = await options.respond?.(path, request.method());
+        // A held answer can outlive the request: the page may have cancelled it meanwhile.
+        if (answer) return route.fulfill(answer).catch(() => undefined);
         if (path === '/api/models/installed' || path === '/api/models/available') return route.fulfill({ json: [] });
         if (path.endsWith('/audio/sources')) return route.fulfill({ json: [] });
         if (path.endsWith('/frigate/config')) return route.fulfill({ json: { cameras: {} } });
         if (path.endsWith('/backfill/status')) return route.fulfill({ json: null });
         return route.fulfill({ json: {} });
     });
-    await page.goto('/browser-tests/settings-backfill.html');
-    await expect(page.locator('#mqtt-server')).toHaveValue('mqtt');
+    await page.goto(`/browser-tests/settings-backfill.html${options.route ? `?route=${encodeURIComponent(options.route)}` : ''}`);
+    // The first open compiles the page and its tab on the dev server, which is slow under load.
+    if (options.route) await expect(page.locator('[data-settings-navigation]')).toBeVisible({ timeout: 15_000 });
+    else await expect(page.locator('#mqtt-server')).toHaveValue('mqtt', { timeout: 15_000 });
     return {
         writes,
         moduleRequests: fileName => requestedPaths.filter(path => path.endsWith(`/${fileName}`)).length
     };
 }
 
-export const unsavedChanges = (page: Page) => page.getByText('Unsaved Changes', { exact: true });
+/** The save bar, present only while the draft differs from what is saved. */
+export const saveBar = (page: Page) => page.getByRole('region', { name: 'Unsaved changes' });
+/** What waits, in full, just above the bar: section names, the save rule, conflicts and refusals. */
+export const saveDetails = (page: Page) => page.locator('[data-settings-save-details]');
+/** Opens the save details from the bar, as a person would. */
+export async function openSaveDetails(page: Page): Promise<void> {
+    // A conflict, a refused value or restored changes hold them open already.
+    if (!(await saveDetails(page).isVisible())) await saveBar(page).getByRole('button', { name: 'Details', exact: true }).click();
+    await expect(saveDetails(page)).toBeVisible();
+}
+/** Opens the open section's "More options", where the settings fewer owners need are kept. */
+export async function openMoreOptions(page: Page): Promise<void> {
+    const toggle = page.locator('[data-settings-more] > h3 > button');
+    if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+    await expect(page.locator('[data-settings-more-body]')).toBeVisible();
+}
+
+export const saveButton = (page: Page) => saveBar(page).getByRole('button', { name: 'Save changes', exact: true });
+export const discardButton = (page: Page) => saveBar(page).getByRole('button', { name: 'Discard changes', exact: true });

@@ -25,7 +25,7 @@ check; ordinary CPU fallback can continue until it succeeds. A successful check 
 classifier without changing your selected model or provider.
 
 The Dashboard shows an owner-only warning when the selected provider falls back, plus progress
-while automatic validation runs. Use **Review model and provider** to open **Settings → Detection**.
+while automatic validation runs. Use **Review model and provider** to open **Settings → Identifying birds**.
 A failed or interrupted check does not retry on every restart: validate the model manually there.
 A different runtime or model artifact permits a new automatic attempt. New, never-validated
 accelerators still require manual validation.
@@ -78,7 +78,7 @@ every image uses the same `/config` and `/data` volume contract.
 
 An image flavor states what is **packaged**, not what the host can execute. Intel
 devices still need device passthrough and host support; NVIDIA still needs its
-driver and Container Toolkit. **Settings → Detection → Runtime diagnostics** is
+driver and Container Toolkit. **Settings → Identifying birds → More options → Hardware → Runtime report** is
 the source of truth for what is actually available and active.
 
 ## Switch safely between flavors
@@ -92,14 +92,14 @@ tag**; do not create new mount paths or copy data into the container filesystem.
    `dev` → `dev-intel`, or `v2.21.1` → `v2.21.1-intel`. Immutable commit tags are
    even safer for comparisons: `<sha>`, `<sha>-cpu`, `<sha>-intel`, and
    `<sha>-cuda` are built from exactly the same source.
-2. Record the current tag. Export a configuration backup from **Settings → Data
+2. Record the current tag. Export a configuration backup from **Settings → Storage & upkeep
    → Setup, backup & maintenance tools → Configuration Backup** and protect it
    like a credential because it contains secrets. This export does not include
    `/data`; use your normal stopped-volume or storage snapshot procedure as an
    additional precaution for production data.
 3. Change only `YAWAMF_MONALITHIC_TAG`, pull the selected image, and recreate the
    existing `yawamf` service with the existing Compose project.
-4. Check **Settings → Detection → Runtime diagnostics**. Confirm **Image**,
+4. Check **Settings → Identifying birds → More options → Hardware → Runtime report**. Confirm **Image**,
    **Packaged**, **Selected**, and **Active** before comparing inference.
 5. To roll back, restore the recorded tag and recreate the same service. No
    config import or database rollback is required for a same-commit flavor
@@ -118,7 +118,7 @@ directly on the Docker host.
 
 ## Providers
 
-Set the provider at **Settings → Detection → Inference Provider**. The values map
+Set the provider at **Settings → Identifying birds → More options → Hardware → Inference provider**. The values map
 to `classification.inference_provider` (`auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu`,
 also settable via the `CLASSIFICATION__INFERENCE_PROVIDER` environment variable):
 
@@ -158,7 +158,7 @@ selected again.
 
 ## Validate this host
 
-The **Setup wizard**, guided Model Manager flow, and **Settings → Detection → Hardware →
+The **Setup wizard**, guided Model Manager flow, and **Settings → Identifying birds → More options → Hardware →
 Check devices on this host** use the same provider-validation engine. Candidates are the exact
 intersection of:
 
@@ -173,17 +173,17 @@ accelerator's top prediction with the CPU baseline, and records median inference
 latency. The measured passing order is persisted without treating a merely installed runtime as
 working hardware.
 
-When the check finishes, **Settings → Detection** reads the classifier status back from the
+When the check finishes, **Settings → Identifying birds** reads the classifier status back from the
 backend, so the **Runtime** cell, the runtime report and the Models card show the provider the
 workers actually report, not the check's recommendation. Unsaved edits on the page are kept. Until a
 worker has loaded the model, the provider is shown as planned (**loads on first detection**)
 rather than active. If the status cannot be read, the page says so and asks you to reload.
-The visible Detection tab also refreshes runtime status every five seconds and when the browser
+The visible Models tab also refreshes runtime status every five seconds and when the browser
 becomes visible again. This catches a check finishing elsewhere or a worker starting later;
 it does not reload your settings. **Models → Refresh** reads the runtime too.
 
 Activating a model saves that model's recommended provider. When the status shows the saved
-provider has changed, the **Inference Provider** field follows it, so saving an unrelated edit
+provider has changed, the **Identification model runs on** field follows it, so saving an unrelated edit
 later keeps the new provider. If you have already picked a different provider on the page and
 not saved it, your choice is kept. The field shows your saved preference, not the provider the
 workers run on: with **Auto** saved it stays **Auto** while the runtime reports, say, Intel NPU.
@@ -235,19 +235,19 @@ fallback cannot be mistaken for successful validation of the selected ONNX model
    docker compose -f docker-compose.monolith.yml up -d
    ```
 
-5. Open **Settings → Detection**, download the classifier if needed, and run its
+5. Open **Settings → Identifying birds**, download the classifier if needed, and run its
    device compatibility check. After it passes, select the supported device under
-   **Inference Provider** (or keep **Auto**) and select **Apply settings**.
+   **Identification model runs on** (or keep **Auto**) and select **Save changes**.
    Downloading alone does not authorize a host-gated GPU/NPU.
 
 ## Expected result
 
-Under **Settings → Detection → Hardware → Runtime report**, the accelerator status pills reflect what YA-WAMF
+Under **Settings → Identifying birds → More options → Hardware → Runtime report**, the accelerator status pills reflect what YA-WAMF
 found. For example **Intel NPU: Auto-detected · verified ✓** means the NPU was
 detected and has passed validation for the loaded model. A device that is present
 but not yet proven for the current model shows **unverified**.
 
-Select the active model under **Settings → Detection → Models** to inspect it. **Current runtime**
+Select the active model under **Settings → Identifying birds** to inspect it. **Current runtime**
 shows the provider that is running now, and **Automatic order** lists its verified
 fallbacks in the order YA-WAMF will try them. **Best fit** describes the model's
 accuracy and use case; it does not claim which device is active.
@@ -294,7 +294,7 @@ check the host kernel/driver boundary and container permissions. The `cpu` and
 
 ## NVIDIA CUDA
 
-Set **Inference Provider** to **NVIDIA CUDA**, install the NVIDIA Container
+Set **Identification model runs on** to **NVIDIA CUDA**, install the NVIDIA Container
 Toolkit on the host, and pass the GPU per the CUDA example in
 `docker-compose.monolith.yml`. Use the `full` or `cuda` image; both include the
 CUDA/cuDNN userspace runtime for ONNX Runtime. The `cpu` and `intel` images do
@@ -309,8 +309,8 @@ Repository tag instead.
 ### Optional RF-DETR bird finder
 
 RF-DETR Nano is a CUDA candidate in the `full` and `cuda` images. Under
-**Settings → Detection → Models → Bird finder**, select RF-DETR Nano, download it and
-select **Apply Settings**, then run **Hardware → Check devices on this host** with it installed.
+**Settings → Identifying birds → Bird finder**, select RF-DETR Nano, download it and
+select **Save changes**, then run **Hardware → Check devices on this host** with it installed.
 The crop detector needs its own passing CPU/CUDA box comparison; selecting CUDA
 for the species classifier does not validate the bird finder.
 
@@ -324,20 +324,78 @@ its own current host validation; the species classifier's selected device does
 not choose the crop detector's device. The compatibility API can check only the
 installed RF-DETR artifact using `compat_only`, `sweep_devices` and its `model_ids`
 entry, as shown in the [API reference](../api.md#model-evaluation-owner).
-The bird finder card's **Check *devices* for *finder*** button runs that scoped check.
-The fastest passing crop provider is recommended. **Finder device** can instead
-keep a specific validated device, such as **Intel NPU (OpenVINO)**. Save it with
-**Apply Settings**. If its evidence expires or the device fails, the accurate
-finder uses CPU rather than switching to another accelerator. The fast fallback
-finder keeps its own device evidence. Startup re-checks respect the saved choice;
-manual **Check devices** still checks all supported devices, so do not use it to
-retry a known failing GPU during an NPU-only investigation. Existing worker crop sessions
+The bird finder card's **Check devices for the bird finder** button runs that scoped check.
+**Automatic** prefers a verified NPU, then a verified GPU for RF-DETR; other
+finders use their fastest passing provider. **Device** can keep a specific device.
+RF-DETR may recover from its saved NPU to a verified GPU before using CPU. The
+**Runs on** row reports that recovery. Other finders keep the saved explicit
+provider or use CPU. Manual **Check devices for the bird finder** checks all supported devices.
+Existing worker crop sessions
 adopt a changed recommendation on their next use without restarting the worker.
-After a kernel, driver or image update, startup re-checks the chosen finder once on
-its previously passing accelerators, using the newest saved bird snapshots.
-If an accelerator fails at runtime, CPU fallback remains in place while its
-recommendation is unchanged. Checks consume compute and may compete with video
-processing; a model-forward benchmark does not predict full video throughput.
+After a kernel, driver or image update, startup re-checks the chosen finder on
+its previously checked accelerators, or its explicitly saved accelerator, using at
+most 12 of this host's saved full camera frames. A wide-frame finder looks for birds
+in whole frames, so the check skips model crops, Frigate-hint crops, retained HQ
+snapshots and thumbnails, and any image whose short side is under 480 px or that does
+not fully decode. Saved full frames (including final-frame captures) come first, across
+every visit, starting with frames where a bird was cropped; an event snapshot is used
+only when its sidecar records a confirmed uncropped source and the hash of the exact
+image it describes, because HQ processing can replace it with the bird crop. Snapshots
+the media proxy saved from a live event (recorded as unverified) can be crops, so they
+never count. Snapshots saved
+before this release recorded no hash, so only their saved full frames are used. It takes one frame per visit before a second (never more than
+two), newest visits first. It reads only regular files, never symlinks or FIFOs, and at
+most 256 KB to find an image's size. With fewer than three full frames it waits as
+**no full frames**, says so under **Runs on**, and checks again every five minutes
+without spending an attempt; the snapshot folder is listed again only after it
+changes or after 30 minutes, and not at all while no check is due. **Check devices for the bird finder** uses the same
+frames. A missing eligibility list does not
+prevent this recovery. The five-minute scheduler waits for photos without spending
+an attempt. A completed pass or box mismatch finishes that runtime, artifact,
+comparison-policy and device-preference context. Interrupted, unfinished or superseded
+checks retry after one hour, then four hours, with at most three attempts in that
+context. A panel without reliable CPU bird detections retries when the saved photo
+set changes, after four hours, then eight, sixteen and at most once a day, because
+a busy feeder changes that set most minutes. Only accelerators the container can
+reach are checked (`/dev/accel` for the NPU, `/dev/dri` for the GPU), so an Intel
+image on a host without them never runs a CPU-only sweep; a sweep that still opened
+no accelerator ends as **no accelerator** and is not retried on that runtime. In
+an automatic RF-DETR check, the NPU and GPU are probed only after the CPU baseline
+proves usable, and OpenVINO CPU is never probed because it cannot move the finder
+off the CPU. **Check devices for the bird finder** allows an owner-run check at any time, and its
+result is recorded so the automatic check does not repeat it.
+CPU remains eligible when it runs successfully, even if the photos contain no
+admitted bird boxes; accelerator approval still requires a positive CPU baseline.
+An unavailable CPU baseline is inconclusive and preserves all previous evidence.
+RF-DETR also checks its packaged Intel accelerators when no passing history remains.
+The check reads the same full frame and tiles as normal inference and matches all
+admitted boxes regardless of score ordering. Both sides use the same score floor.
+Unmatched proposals within 0.03 of that floor are ignored as threshold jitter;
+stronger extra or missing birds fail. Within each production NMS group, equivalent
+full-frame and tile proposals can match at IoU 0.85 with score difference at most
+0.03, so a small score change that swaps the survivor does not fail the check.
+Every pairing includes one device's surviving box: two survivors that only share a
+suppressed neighbour do not match, and the reported IoU is the survivors' own.
+When overlapping boxes chain (A suppresses B while C survives on one device, and B
+suppresses both on the other), a strong box that the other device suppressed into
+its group, at IoU 0.85 and within 0.03 of its score, counts as the same bird.
+The status API keeps the last result and marks evidence from a different runtime
+as historical, including while a new check runs. A structured
+`bird_finder_revalidation_result` log records the outcome and each provider's box
+counts and worst matched IoU (zero when boxes remain unmatched).
+RF-DETR CPU use is a degraded Health condition when an Intel NPU or GPU is
+packaged and present and the saved preference is neither CPU nor Intel CPU
+(OpenVINO). A structured `bird_finder_cpu_fallback` warning and one Health incident
+per ongoing condition name the finder, reason and next action. The System status
+indicator counts that open incident; it resolves after current evidence reports an
+accelerator in use, including a device check that passed after the last frame.
+Provider-check child processes run at nice 19 on POSIX hosts with bounded
+numerical-library threads. Only these disposable probes cap CPU inference at two
+intra-op threads (one inter-op for ONNX Runtime); production CPU settings keep their
+runtime defaults. Automatic and owner-run sweeps for the same finder are serialized.
+If an accelerator fails at runtime, a cached recovery provider remains in place
+while its recommendation is unchanged. Checks consume compute and may compete
+with video processing; a model-forward benchmark does not predict full video throughput.
 
 The reference RTX 4070 container passed real CUDA execution and CPU consistency
 checks. This does not qualify every NVIDIA host, sustained workload or two-bird
@@ -346,7 +404,7 @@ counting accuracy. See the [validation evidence and limits](../reviews/2026-10-2
 ## Next steps
 
 - Confirm the active backend and per-device diagnostics under
-  **Settings → Detection → Runtime diagnostics**.
+  **Settings → Identifying birds → More options → Hardware → Runtime report**.
 - See [`configuration.md`](configuration.md) for all detection settings and
   [`../troubleshooting/diagnostics.md`](../troubleshooting/diagnostics.md) if
   inference is falling back unexpectedly.
@@ -355,7 +413,7 @@ counting accuracy. See the [validation evidence and limits](../reviews/2026-10-2
 
 If saved native crash evidence blocks the selected model/provider, choose a
 concrete provider and subprocess image execution, save the settings, then open
-**Settings → Detection → Check quarantined profile**. On Linux, an owner can
+**Settings → Identifying birds → Check quarantined profile**. On Linux, an owner can
 upload three different bird photos and a short clip, acknowledge the native
 execution risk and run a bounded disposable-worker check. Keep the host idle;
 classification demand aborts the check. Cancel waits for child cleanup.
@@ -387,3 +445,39 @@ CPU-agreement check bound to the Garden model and this host. A bird model's vali
 qualify SpeciesNet. Auto considers packaged NPU, Intel GPU and CUDA routes; unavailable or failed
 routes use CPU and retain their negative evidence. Motion scans remain on CPU. These checks do
 not change bird runtime validation or qualify accuracy and sustained live concurrency.
+
+## Garden motion video decode
+
+The Intel image (`latest-intel`, `dev-intel`) also decodes Garden motion recordings on the
+Intel GPU through VA-API, using the same `/dev/dri` passthrough and render group as OpenVINO.
+It ships a small ffmpeg (`yawamf-ffmpeg`) built only for this and Debian's iHD media driver,
+which covers Broadwell and newer. The Cedar detector still runs on CPU. On start, YA-WAMF
+decodes a tiny test recording on each render node and uses the first that works.
+`GET /health` reports the result under `garden_motion_decode`:
+
+| `state` | Meaning |
+|---|---|
+| `vaapi` | Recordings decode on the GPU named in `device`. |
+| `not_packaged` | This image has no GPU decoder; recordings decode on the CPU. Expected for every image except `-intel`. |
+| `no_render_node` | No `/dev/dri/renderD*` device is visible in the container. Pass `/dev/dri` through. |
+| `probe_failed` | The GPU could not decode the test recording. Check the render group (`ls -ln /dev/dri`) and host driver. |
+| `decode_failed` | Three recordings in a row fell back to the CPU, so GPU decode stays off until restart. |
+
+The last three states also appear as a warning in **Diagnostics** once motion collection runs.
+Decoding falls back to the CPU for one recording at a time, so a GPU problem never stops
+collection. A fallback the next recording recovers from is counted as information
+(`hardware_decode_fallback`), not a warning. A second fallback in a row records the
+`hardware_decode_fallback_repeated` warning, one recording before the third switches GPU
+decode off and the state becomes `decode_failed`. A GPU that recovers in between but fails often
+records the `hardware_decode_fallback_frequent` warning once 3 of its last 10 GPU decodes have
+fallen back; it stays on, since it still decodes most recordings.
+
+The GPU returns the same frames and pixels as CPU decoding, so the detector sees what it
+always saw. Each sample is the frame OpenCV's seek would return, worked out from the
+recording's packet timestamps; on cameras whose timestamps jitter that can be a frame either
+side of the frame number OpenCV reports. Recordings that reorder frames (B-frames), carry
+an edit list that drops packets, or whose packet listing cannot be read decode on the CPU.
+That is a property of the recording, not a GPU fault, so it never switches GPU decode off;
+the log says so once per camera and `garden_motion_decode.software_cameras` lists those
+cameras. If YA-WAMF stops or the scan is pre-empted for birds, the decoder process is
+killed with it.

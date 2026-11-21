@@ -6,10 +6,12 @@
         labelledBy: string;
         srLabel: string;
         disabled?: boolean;
+        /** The id of help text that explains the switch, announced after its name. */
+        describedBy?: string;
         onchange: (next: boolean) => void;
     }
 
-    let { checked, labelledBy, srLabel, disabled = false, onchange }: Props = $props();
+    let { checked, labelledBy, srLabel, disabled = false, describedBy, onchange }: Props = $props();
 
     function toggle() {
         if (disabled) return;
@@ -22,6 +24,7 @@
     role="switch"
     aria-checked={checked}
     aria-labelledby={labelledBy}
+    aria-describedby={describedBy}
     aria-disabled={disabled || undefined}
     onclick={toggle}
     onkeydown={(e) => {
@@ -30,12 +33,10 @@
             toggle();
         }
     }}
-    class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900
-           {disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-           {checked ? 'bg-brand-500' : 'bg-slate-300 dark:bg-slate-600'}"
+    class="switch-track"
 >
     <span class="sr-only">{srLabel}</span>
-    <span
-        class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {checked ? 'translate-x-5' : 'translate-x-0'}"
-    ></span>
+    <!-- The kit draws the off and on tracks, the disabled state from aria-disabled, the thumb's
+         side from aria-checked, and the focus ring. -->
+    <span class="switch-thumb"></span>
 </button>

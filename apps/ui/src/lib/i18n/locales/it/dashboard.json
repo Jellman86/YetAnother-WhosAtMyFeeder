@@ -1,12 +1,12 @@
 {
   "title": "Dashboard",
-  "live_feed": "Live Feed",
+  "live_feed": "Feed live",
   "showing_last_3_days": "Visualizzazione ultimi 3 giorni",
-  "no_detections": "Nessun rilevamento ancora",
+  "no_detections": "Nessuna visita nelle ultime 24 ore.",
   "waiting_first_visitor": "Nessuna visita nelle ultime 24 ore. Le nuove visite compaiono qui appena arrivano.",
-  "discovery_feed": "Feed Scoperte",
+  "discovery_feed": "Feed scoperte",
   "see_full_history": "Vedi cronologia completa",
-  "audio_confirmations": "Conferme Audio",
+  "audio_confirmations": "Conferme audio",
   "hero": {
     "just_discovered": "Appena rilevato",
     "one_hour_ago": "1 ora fa",
@@ -23,7 +23,7 @@
     "audio": "Audio"
   },
   "histogram": {
-    "title": "Impulso attività",
+    "title": "Attività",
     "visits_per_hour": "Visite all'ora, ultime 24 ore",
     "peak": "Più attività alle {time}, {count, plural, one {# visita} other {# visite}}",
     "now": "adesso",
@@ -72,12 +72,12 @@
     "places": "{count, plural, one {# luogo} other {# luoghi}}"
   },
   "day_bar": {
-    "birds_found": "uccelli trovati",
+    "birds_found": "Uccelli trovati",
     "birds_scope": "Da {count, plural, one {# acquisizione analizzata} other {# acquisizioni analizzate}}; alcuni uccelli potrebbero sfuggire",
-    "visits": "visite",
-    "unresolved": "non risolte",
-    "calls_heard": "richiami uditi",
-    "cross_confirmed": "confermati da entrambi",
+    "visits": "Visite",
+    "unresolved": "Non risolte",
+    "calls_heard": "Richiami uditi",
+    "cross_confirmed": "Confermati da entrambi",
     "reconnecting": "Riconnessione…",
     "window": "Ultime 24 ore",
     "loading": "ancora in caricamento",
@@ -87,7 +87,7 @@
     "seen_and_heard": "visti e sentiti"
   },
   "desk": {
-    "cameras_empty": "Nessuna telecamera segnalata. Aggiungile in Impostazioni → Connessione.",
+    "cameras_empty": "Nessuna telecamera segnalata. Aggiungile in Impostazioni → Telecamere e connessione.",
     "camera_no_visits": "nessuna visita",
     "no_cross_confirmation": "{count, plural, one {È stato udito # richiamo, ma non coincide con nessuna visita ripresa.} other {Sono stati uditi # richiami, ma nessuno coincide con una visita ripresa.}} Microfono e telecamere potrebbero coprire zone diverse.",
     "temperature_span": "Visite tra {low} e {high}",
@@ -133,6 +133,7 @@
     "skipped_note": "{count, plural, one {# rimandata. Resta in coda.} other {# rimandate. Restano in coda.}}",
     "back": "Torna alla dashboard",
     "threshold_note": "Il modello è rimasto sotto la soglia di identificazione.",
+    "unknown_note": "Il modello non è riuscito a identificare questo uccello, quindi non c’è una specie da confermare. Scegline una qui sotto.",
     "search": "Cerca specie…",
     "no_matches": "Nessuna specie corrisponde. Prova con meno lettere.",
     "search_failed": "Impossibile cercare le specie. Modifica la ricerca per riprovare.",

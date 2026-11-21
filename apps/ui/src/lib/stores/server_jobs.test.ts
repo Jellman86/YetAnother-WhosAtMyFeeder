@@ -191,3 +191,51 @@ describe('ServerJobsStore', () => {
         expect(merged[0]).toMatchObject({ id: 'backfill:weather:da620f73', current: 52, total: 94, startedAt: 1 });
     });
 });
+
+describe('ServerJobsStore browser-only work', () => {
+    it('keeps only the rows that follow no server job', () => {
+        const store = new ServerJobsStore();
+        store.ingest({
+            captured_at: '2026-11-16T10:00:00Z',
+            items: [
+                { id: 'video:evt-1', event_id: 'evt-1', kind: 'video_analysis', source: 'maintenance', status: 'running', phase: 'processing', current: 1, total: 15, unit: 'frames', visibility: 'prominent' },
+                { id: 'backfill:detections:b1', kind: 'backfill', source: 'owner', status: 'running', phase: 'processing', current: 3, total: 9, unit: 'detections', visibility: 'prominent' }
+            ],
+            lanes: []
+        });
+        const local = (id: string, kind: string, serverJobId?: string) => ({ id, kind, title: kind, status: 'running' as const, current: 0, total: 0, startedAt: 1, updatedAt: 1, source: 'sse' as const, serverJobId });
+        const only = store.browserOnlyActive([
+            local('reclassify:evt-1', 'reclassify', 'video:evt-1'),
+            local('backfill:detections:b1', 'backfill', 'backfill:detections:b1'),
+            local('model-download:x', 'model_download')
+        ]);
+        expect(only.map((job) => job.id)).toEqual(['model-download:x']);
+    });
+});
+
+describe('ServerJobsStore browser-owned work, by the server job a row mirrors', () => {
+    const local = (id: string, kind: string, serverJobId?: string) => ({
+        id, kind, title: kind, status: 'running' as const, current: 0, total: 0, startedAt: 1, updatedAt: 1, source: 'sse' as const,
+        ...(serverJobId ? { serverJobId } : {})
+    });
+
+    it('does not count a row that mirrors a server job, even when the capped list leaves that job out', () => {
+        const store = new ServerJobsStore();
+        const listed = Array.from({ length: 100 }, (_, index) => ({
+            id: `reclassify:evt-${index}`, event_id: `evt-${index}`, kind: 'reclassify', source: 'manual',
+            status: 'queued' as const, phase: 'waiting', current: 0, total: 0, unit: 'frames', visibility: 'prominent' as const
+        }));
+        store.ingest({ captured_at: 't', items: listed, lanes: [{ kind: 'reclassify', queued: 151, running: 0 }] } as never);
+        const only = store.browserOnlyActive([
+            local('reclassify:evt-150', 'reclassify', 'reclassify:evt-150'),
+            local('model-download:large', 'model_download')
+        ]);
+        expect(only.map((job) => job.id)).toEqual(['model-download:large']);
+    });
+
+    it('counts a snapshot reclassification, which runs outside the video queue and has no server job', () => {
+        const store = new ServerJobsStore();
+        store.ingest({ captured_at: 't', items: [], lanes: [] });
+        expect(store.browserOnlyActive([local('reclassify:evt-9', 'reclassify')]).map((job) => job.id)).toEqual(['reclassify:evt-9']);
+    });
+});

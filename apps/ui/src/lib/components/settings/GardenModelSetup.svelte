@@ -7,6 +7,7 @@
      */
     import { _ } from 'svelte-i18n';
     import { installGardenModel, installGardenMotion } from '../../api/garden';
+    import { GARDEN_CHECK_MODEL, modelActivityStore } from '../../stores/model_activity.svelte';
     import { settingsStore } from '../../stores/settings.svelte';
     import {
         formatModelSize,
@@ -44,6 +45,9 @@
         downloading = row.role;
         rowErrors = { ...rowErrors, [row.role]: undefined };
         rowDone = { ...rowDone, [row.role]: false };
+        // The check model's download is work a waiting Garden record states too.
+        const checkModel = row.install.kind !== 'motion' && row.install.variant === '4.0.3a';
+        if (checkModel) modelActivityStore.hint(GARDEN_CHECK_MODEL, 'downloading');
         try {
             if (row.install.kind === 'motion') service.motion = await installGardenMotion();
             else service.identification = await installGardenModel(row.install.variant);
@@ -57,6 +61,7 @@
             };
         } finally {
             downloading = null;
+            if (checkModel) modelActivityStore.hint(GARDEN_CHECK_MODEL, null);
         }
         await service.refresh();
     }
@@ -94,34 +99,34 @@
     <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_models_help', { default: 'Garden uses its own models, separate from your bird model. A download only adds a verified file. It saves no settings and starts no checks.' })}</p>
 
     {#if !savedEnabled}
-        <p class="rounded-xl border border-dashed border-line-soft p-3 text-sm text-slate-600 dark:text-slate-300" role="status" data-garden-models-apply>
-            {$_('settings.beta.garden_models_apply', { default: 'Choose Apply Settings to switch Garden on. Model status and downloads then appear here.' })}
+        <p class="text-sm text-slate-600 dark:text-slate-300" role="status" data-garden-models-apply>
+            {$_('settings.beta.garden_models_apply', { default: 'Save changes to switch Garden on. Model status and downloads then appear here.' })}
         </p>
     {:else}
         {#if service.loading && !identification && !service.motion}
             <p class="text-sm text-slate-600 dark:text-slate-400" role="status">{$_('settings.beta.garden_models_loading', { default: 'Checking Garden models…' })}</p>
         {:else}
             {#if loadError !== null}
-                <p class="rounded-xl border border-line-soft p-3 text-sm" role="alert">{loadError}</p>
+                <p class="text-sm" role="alert">{loadError}</p>
             {/if}
             {#if identification?.error}
-                <p class="rounded-xl border border-line-soft p-3 text-sm" role="alert">{identification.error}</p>
+                <p class="text-sm" role="alert">{identification.error}</p>
             {:else if identification && !identification.catalogue_ready}
-                <p class="rounded-xl border border-line-soft p-3 text-sm" role="alert">{$_('garden.catalogue_unavailable', { default: 'Garden species data is unavailable. Check the application startup diagnostics.' })}</p>
+                <p class="text-sm" role="alert">{$_('garden.catalogue_unavailable', { default: 'Garden species data is unavailable. Check the application startup diagnostics.' })}</p>
             {/if}
 
-            <ul class="divide-y divide-line-soft rounded-xl border border-line-soft">
+            <ul class="divide-y divide-line-soft">
                 {#each rows as row (row.role)}
                     {@const busyHere = downloading === row.role}
                     <li class="space-y-2 p-3" data-garden-model={row.role} aria-labelledby={`garden-model-${row.role}`}>
                         <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
                             <div class="min-w-0 flex-1">
-                                <p id={`garden-model-${row.role}`} class="break-words text-sm font-semibold text-slate-800 dark:text-slate-100">{modelName(row.role)}</p>
-                                <p class="break-words text-xs text-slate-600 dark:text-slate-400">{modelSource(row.role)}{#if row.sizeBytes !== null}{' · '}{formatModelSize(row.sizeBytes)}{/if}</p>
+                                <p id={`garden-model-${row.role}`} class="wrap-break-word text-sm font-semibold text-slate-800 dark:text-slate-100">{modelName(row.role)}</p>
+                                <p class="wrap-break-word text-xs text-slate-600 dark:text-slate-400">{modelSource(row.role)}{#if row.sizeBytes !== null}{' · '}{formatModelSize(row.sizeBytes)}{/if}</p>
                             </div>
                             <p class="flex max-w-full items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200" data-garden-model-state>
                                 {#if row.state === 'missing' && row.requirement === 'required'}<span class="attention-dot" aria-hidden="true"></span>{/if}
-                                <span class="min-w-0 break-words">
+                                <span class="min-w-0 wrap-break-word">
                                     {row.requirement === 'required'
                                         ? $_('settings.beta.garden_model_required', { default: 'Required' })
                                         : $_('settings.beta.garden_model_optional', { default: 'Optional' })}

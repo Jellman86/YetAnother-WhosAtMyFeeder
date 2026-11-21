@@ -1,10 +1,19 @@
 {
-  "audio_history": "Gespeicherte BirdNET-Go-Erkennungen und reine Audioaktivität durchsuchen.",
-  "about": "Version, Changelog, Mitwirkende und Support-Links.",
-  "dashboard": "Live-Erkennungen, jüngste Aktivität und Futterstellen-Status auf einen Blick.",
+  "audio_history": "Rufe, die BirdNET-Go gehört hat, nach Art und Quelle.",
+  "about": "Was diese Futterstelle erfasst hat, wie YA-WAMF arbeitet und was es speichert und sendet.",
+  "dashboard": "Die letzten 24 Stunden an Ihrer Futterstelle und alles, was auf Sie wartet.",
   "events": "Jeden klassifizierten Besuch durchsuchen, filtern und verwalten.",
   "add_observation": "Ein eigenes Foto oder Video klassifizieren, die Hinweise prüfen und zum Verlauf hinzufügen.",
-  "notifications": "Benachrichtigungen, Erinnerungen und aktive Hintergrundaufgaben.",
-  "settings": "Verbindungen, Klassifizierung, Integrationen und Personalisierung.",
-  "species": "Bestenliste, Gesamtzahlen und Taxonomie-Details für die gesehenen Vögel."
+  "notifications": "Besuche, Hinweise und Hintergrundarbeiten, neueste zuerst.",
+  "species": "Welche Vögel am häufigsten kommen, wie oft und wann.",
+  "health": "Ob YA-WAMF funktioniert, was der Rechner gerade tut und was passiert ist.",
+  "settings_section": {
+    "cameras": "Woher Ereignisse kommen: Frigate, sein MQTT-Broker und die beobachteten Kameras.",
+    "identification": "Wie sicher ein Name sein muss, die Modelle, die Vögel finden und bestimmen, mit ihrer Hardware, und Funktionen, die noch Beta sind.",
+    "alerts": "Wann Sie von einem Besuch erfahren, und über welche Kanäle.",
+    "sharing": "Der Standort Ihrer Futterstelle und wer diese Installation öffnen kann, dann die anderen Dienste, aus denen YA-WAMF liest oder an die es meldet, KI-Beschreibungen und Telemetrie.",
+    "storage": "Was aufbewahrt wird und wie lange, eine Sicherung dieser Einstellungen und die Aufgaben, die den Verlauf reparieren oder ergänzen.",
+    "display": "Wie YA-WAMF aussieht und Vögel benennt, dazu Kontrast, eine Leseschrift, Bewegung und vorgelesene Aktualisierungen."
+  },
+  "model_evaluation": "Wie oft jedes installierte Modell einen Vogel richtig benennt und wie schnell."
 }

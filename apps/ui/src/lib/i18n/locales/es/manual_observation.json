@@ -36,8 +36,8 @@
   "errors": {
     "load": "No se pudo cargar el estado del análisis.",
     "type": "Elige un archivo JPEG, PNG, WebP, MP4, MOV o WebM.",
-    "image_size": "Elige una imagen de 25 MB como máximo.",
-    "video_size": "Elige un vídeo de 250 MB como máximo.",
+    "image_size": "Elige una imagen de 25 MB como máximo.",
+    "video_size": "Elige un vídeo de 250 MB como máximo.",
     "upload": "No se pudo subir el archivo.",
     "retry": "No se pudo reiniciar el análisis.",
     "save": "No se pudo guardar la observación."
@@ -47,7 +47,7 @@
     "help": "Usa el archivo original siempre que sea posible. YA-WAMF lo conservará y elegirá la mejor entrada para clasificar.",
     "change": "Elegir otro archivo",
     "drop": "Suelta el archivo aquí o elige uno",
-    "formats": "JPEG, PNG, WebP hasta 25 MB · MP4, MOV, WebM hasta 250 MB / 3 minutos",
+    "formats": "JPEG, PNG, WebP hasta 25 MB · MP4, MOV, WebM hasta 250 MB / 3 minutos",
     "uploading": "Protegiendo el original…",
     "analyse": "Subir y analizar"
   },
@@ -56,7 +56,7 @@
     "video": "Vídeo",
     "image": "Foto",
     "title": "Buscando la mejor evidencia",
-    "body": "El clasificador de producción compara fotogramas y recortes. Puedes salir de esta página; el borrador se restaurará al volver.",
+    "body": "YA-WAMF está comparando los fotogramas y los recortes de aves que encontró. Puedes salir de esta página; tu borrador volverá cuando regreses.",
     "progress": "Progreso del análisis",
     "failed_title": "Análisis detenido de forma segura",
     "failed_body": "El archivo original sigue guardado. Vuelve a intentarlo cuando el modelo esté disponible.",

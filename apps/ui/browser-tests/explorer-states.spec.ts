@@ -194,6 +194,17 @@ test('selection is a pressed toggle named by what it picks, shown by a ring and 
     const card = page.locator('[data-detection-card]').first();
     await expect(card.locator('[data-detection-card-check]')).toHaveAttribute('data-detection-card-check', 'unselected');
 
+    // While selecting, a screen reader still hears the time and score on the photograph, and a
+    // click on either reading goes to the card.
+    const score = card.locator('button:has([data-detection-score])');
+    await expect(score).toBeVisible();
+    expect(await score.evaluate(node => node.closest('[inert]') === null)).toBe(true);
+    expect(await card.ariaSnapshot()).toMatch(/button "[^"]*\d+%/);
+    await score.click({ force: true });
+    await expect(first).toHaveAttribute('aria-pressed', 'true');
+    await score.click({ force: true });
+    await expect(first).toHaveAttribute('aria-pressed', 'false');
+
     await first.click();
     await expect(first).toHaveAttribute('aria-pressed', 'true');
     await expect(card.locator('[data-detection-card-check]')).toHaveAttribute('data-detection-card-check', 'selected');
@@ -239,14 +250,14 @@ for (const [label, enlarge] of [
     });
 }
 
-test('an empty Garden view points to Review, Dismissed, not the retired Garden page', async ({ page }) => {
+test('an empty Garden view points to Garden status, Dismissed, not the retired Garden page', async ({ page }) => {
     const errors = await openExplorer(page, {}, '&garden=1');
     await expect(page.locator('[data-explorer-visit="v0"] [data-detection-card]')).toBeVisible();
     const option = page.locator('[data-explorer-subjects-option="garden"]');
     if (!(await option.isVisible())) await page.locator('[data-explorer-filter-toggle]').click();
     await option.click();
     const empty = page.locator('[data-explorer-garden-empty]');
-    await expect(empty).toContainText('Dismissed captures are under Review, Dismissed.');
+    await expect(empty).toContainText('Dismissed captures are under Garden status, Dismissed.');
     await expect(empty).not.toContainText('Garden page');
     expect(errors).toEqual([]);
 });

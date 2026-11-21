@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
+import { openMoreOptions } from './settings-page-mock';
 
-// A realistic Detection tab: an Intel host with CPU, GPU and NPU routes, the
+// A realistic Models tab: an Intel host with CPU, GPU and NPU routes, the
 // registry's recommended lineup, both accurate bird finders and the fast
 // fallback. Each test owns its counters, so saves and reads can be asserted.
 
@@ -94,13 +95,21 @@ export type RangeMock = {
 };
 
 export type DetectionMockOptions = {
+    /** The tab to open; the range filter is in Detection, everything else these tests touch in Models. */
+    tab?: 'detection' | 'models';
     range?: RangeMock;
     finderExecution?: Record<string, unknown>;
     savedFinder?: 'yolox_tiny' | 'rfdetr_nano';
     rfdetrInstalled?: boolean;
     saveFails?: boolean;
+    /** Fields merged into every classifier status answer, e.g. a fallback reason the runtime reports. */
+    statusExtra?: Record<string, unknown>;
     savedProvider?: string;
     savedFinderProvider?: string;
+    /** The last device check the backend reports for the bird finder. */
+    finderDeviceCheck?: Record<string, unknown>;
+    /** RF-DETR's passing devices on this host, fastest first; the default is GPU, NPU, CPU. */
+    rfdetrEvidence?: string[];
 };
 
 export type DetectionMockState = {
@@ -112,7 +121,7 @@ export type DetectionMockState = {
     savedFinderProvider: string;
 };
 
-function classifierStatus(state: DetectionMockState, rfdetrInstalled: boolean, execution?: Record<string, unknown>) {
+function classifierStatus(state: DetectionMockState, rfdetrInstalled: boolean, execution?: Record<string, unknown>, deviceCheck?: Record<string, unknown>) {
     const rfdetrChosen = state.savedFinder === 'rfdetr_nano';
     const finderInUse = rfdetrChosen && rfdetrInstalled ? RFDETR : YOLOX;
     return {
@@ -129,7 +138,7 @@ function classifierStatus(state: DetectionMockState, rfdetrInstalled: boolean, e
         host_device_eligibility: { verified_providers: ['cpu', 'intel_cpu', 'intel_npu'], generated_at: '2026-10-20T09:12:00Z' },
         personalized_rerank_enabled: false, personalization_feedback_rows: 4, personalization_min_feedback_tags: 20,
         crop_detector: {
-            last_execution: execution,
+            last_execution: execution, device_check: deviceCheck,
             model_id: finderInUse, chosen_model_id: rfdetrChosen ? RFDETR : YOLOX, selected_tier: 'accurate',
             resolved_tier: 'accurate', installed: true, healthy: true, enabled_for_runtime: true,
             reason: rfdetrChosen && !rfdetrInstalled ? 'fallback_default_accurate' : 'ready'
@@ -188,7 +197,7 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
             return route.fulfill({ json: options.range?.preview ?? { available: false, window_days: 90, recently_seen: [], model_out_of_range_total: null, examples: [] } });
         }
         if (path === '/api/range-filter/skips') return route.fulfill({ json: { items: options.range?.skips ?? [] } });
-        if (path === '/api/classifier/status') return route.fulfill({ json: classifierStatus(state, rfdetrInstalled, options.finderExecution) });
+        if (path === '/api/classifier/status') return route.fulfill({ json: { ...classifierStatus(state, rfdetrInstalled, options.finderExecution, options.finderDeviceCheck), ...(options.statusExtra ?? {}) } });
         if (path === '/api/models/available') return route.fulfill({ json: availableModels });
         if (path === '/api/models/installed') {
             return route.fulfill({ json: [
@@ -197,7 +206,8 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
                 // No current evidence for YOLOX-Tiny; RF-DETR passed on the Intel GPU.
                 installed(YOLOX, { validated_inference_providers: [], provider_preference_order: [] }),
                 ...(rfdetrInstalled ? [installed(RFDETR, {
-                    validated_inference_providers: ['cpu', 'intel_gpu', 'intel_npu'], provider_preference_order: ['intel_gpu', 'intel_npu', 'cpu']
+                    validated_inference_providers: options.rfdetrEvidence ?? ['cpu', 'intel_gpu', 'intel_npu'],
+                    provider_preference_order: options.rfdetrEvidence ?? ['intel_gpu', 'intel_npu', 'cpu']
                 })] : [])
             ] });
         }
@@ -207,9 +217,17 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    const mobileNavigation = page.getByRole('combobox', { name: 'Settings', exact: true });
-    await expect(mobileNavigation.or(page.getByRole('link', { name: 'Detection', exact: true }))).toBeVisible();
-    if (await mobileNavigation.isVisible()) await mobileNavigation.selectOption('detection');
-    else await page.getByRole('link', { name: 'Detection', exact: true }).click();
+    const mobileNavigation = page.getByRole('combobox', { name: 'Settings section', exact: true });
+    // The first open compiles the page and its tab on the dev server, which is slow under load.
+    // Detection and Models are both parts of Identifying birds.
+    const tab = options.tab ?? 'models';
+    const sectionName = 'Identifying birds';
+    await expect(mobileNavigation.or(page.getByRole('link', { name: sectionName, exact: true }))).toBeVisible({ timeout: 15_000 });
+    if (await mobileNavigation.isVisible()) await mobileNavigation.selectOption('identification');
+    else await page.getByRole('link', { name: sectionName, exact: true }).click();
+    // Blocked species, the range filter, video checks and Hardware are under the section's More options.
+    await openMoreOptions(page);
+    if (tab === 'detection') return state;
+    await expect(page.getByRole('heading', { name: 'Hardware', exact: true })).toBeVisible();
     return state;
 }

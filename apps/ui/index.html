@@ -18,9 +18,23 @@
           if (isDark) {
             document.documentElement.classList.add('dark');
           }
+          // Accessibility chosen on this device (accessibility-device.svelte.ts holds the same
+          // entry), applied before the first paint so the page never shows another look first.
+          let device = {};
+          try {
+            const parsed = JSON.parse(localStorage.getItem('accessibility_device') || '{}');
+            if (parsed && typeof parsed === 'object') device = parsed;
+          } catch {
+            device = {};
+          }
+          const root = document.documentElement;
+          const highContrast = device.highContrast === true;
+          if (highContrast) root.classList.add('high-contrast', 'dark');
+          if (device.dyslexiaFont === true) root.classList.add('font-dyslexic');
+          if (device.reducedMotion === true) root.classList.add('reduced-motion');
           const themeMeta = document.querySelector('meta[name="theme-color"]');
           if (themeMeta) {
-            themeMeta.setAttribute('content', isDark ? '#030712' : '#f8fafc');
+            themeMeta.setAttribute('content', highContrast ? '#000000' : isDark ? '#030712' : '#f8fafc');
           }
         } catch {
           // Ignore startup theme-read failures and continue with defaults.

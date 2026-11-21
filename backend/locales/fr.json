@@ -25,6 +25,7 @@
       "frigate_auth_failed": "Échec de l'authentification Frigate - vérifiez le jeton d'authentification",
       "frigate_error": "Frigate a renvoyé une erreur : {status_code}",
       "connection_failed": "Échec de la connexion à Frigate sur {url}",
+      "frigate_unreachable": "Impossible de joindre Frigate. Réessayez dans un instant.",
       "snapshot_not_found": "Instantané non trouvé",
       "thumbnail_not_found": "Miniature non trouvée",
       "clip_not_found": "Clip non trouvé",
@@ -47,7 +48,8 @@
       "wildlife_model_unavailable": "Modèle de faune non disponible. Veuillez d'abord le télécharger.",
       "reclassification_failed": "Échec de la reclassification",
       "video_analysis_paused": "L’analyse vidéo est temporairement suspendue après plusieurs échecs d’inférence. Réessayez plus tard.",
-      "video_analysis_capacity": "L’analyse vidéo a atteint sa capacité maximale. Réessayez une fois les tâches en cours terminées."
+      "video_analysis_capacity": "L’analyse vidéo a atteint sa capacité maximale. Réessayez une fois les tâches en cours terminées.",
+      "identification_changed": "Cette visite a été modifiée ailleurs. Elle indique maintenant {species}."
     },
     "species": {
       "unknown_bird": "Oiseau Inconnu",
@@ -89,8 +91,11 @@
       "not_enabled": "Notifications par email non activées",
       "recipient_not_configured": "Email du destinataire non configuré",
       "smtp_incomplete": "Configuration SMTP incomplète",
-      "send_failed": "Échec de l'envoi de l'email de test",
-      "send_error": "Échec de l'envoi de l'email de test : {error}",
+      "send_failed": "Le serveur de messagerie n'a pas accepté l'e-mail de test. Vérifiez l'hôte SMTP, le port, le nom d'utilisateur et le mot de passe, puis relancez le test.",
+      "send_failed_oauth": "{provider} n'a pas accepté l'e-mail de test. Reconnectez le compte, puis relancez le test.",
+      "send_timeout": "Le serveur de messagerie a mis trop de temps à répondre. Vérifiez l'hôte SMTP et le port, puis relancez le test.",
+      "send_timeout_oauth": "{provider} a mis trop de temps à répondre. Patientez un instant, puis relancez le test.",
+      "prepare_failed": "YA-WAMF n'a pas pu préparer l'e-mail de test. Ouvrez État, puis relancez le test.",
       "invalid_state": "État OAuth invalide. Veuillez réessayer.",
       "state_expired": "L’état OAuth a expiré. Veuillez réessayer.",
       "email_missing": "Le fournisseur n'a pas renvoyé l'adresse e-mail."

@@ -25,6 +25,7 @@
       "frigate_auth_failed": "Autenticazione Frigate fallita - controlla il token di autenticazione",
       "frigate_error": "Frigate ha restituito errore: {status_code}",
       "connection_failed": "Impossibile connettersi a Frigate su {url}",
+      "frigate_unreachable": "Impossibile raggiungere Frigate. Riprova tra poco.",
       "snapshot_not_found": "Snapshot non trovato",
       "thumbnail_not_found": "Miniatura non trovata",
       "clip_not_found": "Clip non trovata",
@@ -47,7 +48,8 @@
       "wildlife_model_unavailable": "Modello fauna selvatica non disponibile. Si prega di scaricarlo prima.",
       "reclassification_failed": "Riclassificazione fallita",
       "video_analysis_paused": "L’analisi video è temporaneamente sospesa dopo ripetuti errori di inferenza. Riprova più tardi.",
-      "video_analysis_capacity": "L’analisi video ha raggiunto la capacità massima. Riprova al termine dei processi attuali."
+      "video_analysis_capacity": "L’analisi video ha raggiunto la capacità massima. Riprova al termine dei processi attuali.",
+      "identification_changed": "Questa visita è stata modificata altrove. Ora indica {species}."
     },
     "species": {
       "unknown_bird": "Uccello Sconosciuto",
@@ -89,8 +91,11 @@
       "not_enabled": "Notifiche email non abilitate",
       "recipient_not_configured": "Email destinatario non configurata",
       "smtp_incomplete": "Configurazione SMTP incompleta",
-      "send_failed": "Impossibile inviare email di test",
-      "send_error": "Impossibile inviare email di test: {error}",
+      "send_failed": "Il server di posta non ha accettato l'email di prova. Controlla host SMTP, porta, nome utente e password, poi riprova.",
+      "send_failed_oauth": "{provider} non ha accettato l'email di prova. Ricollega l'account, poi riprova.",
+      "send_timeout": "Il server di posta ha impiegato troppo tempo a rispondere. Controlla host SMTP e porta, poi riprova.",
+      "send_timeout_oauth": "{provider} ha impiegato troppo tempo a rispondere. Attendi un momento, poi riprova.",
+      "prepare_failed": "YA-WAMF non è riuscito a preparare l'email di prova. Apri Stato, poi riprova.",
       "invalid_state": "Stato OAuth non valido. Riprova.",
       "state_expired": "Stato OAuth scaduto. Riprova.",
       "email_missing": "Indirizzo email non restituito dal provider."

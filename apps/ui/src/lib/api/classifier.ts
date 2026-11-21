@@ -1,45 +1,96 @@
-import { API_BASE, apiFetch, fetchWithAbort, handleResponse } from './core';
+import { API_BASE, apiFetch, apiFetchJson, fetchWithAbort, handleResponse, mapGuarded, requestScope, type Guarded } from './core';
 import type { components, paths } from './generated/openapi';
+import { subscribeSettingsUpdates } from './settings';
+import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
 
 export type ClassifierStatus = components['schemas']['ClassifierStatusResponse'];
 
-export async function fetchClassifierStatus(): Promise<ClassifierStatus> {
-    const response = await apiFetch(`${API_BASE}/classifier/status`);
-    return handleResponse<ClassifierStatus>(response);
+/** Timed out after 10 s, body included, so Settings › Models is never left waiting on a stalled read. */
+function requestClassifierStatus(signal?: AbortSignal): Guarded<ClassifierStatus> {
+    return apiFetchJson<ClassifierStatus>(`${API_BASE}/classifier/status`, { timeoutMs: 10_000, signal });
 }
 
+// The Dashboard's accelerator warning and About's summary and pipeline each show this reading.
+const sharedClassifierStatus = createSharedRead(() => requestClassifierStatus(), { shareForMs: STATUS_SHARE_MS, scope: () => requestScope() });
+
+/**
+ * A fresh reading, for a view that has just changed the model or must not show an older one. It
+ * also becomes the shared reading, so a view opened straight after shows the same.
+ */
+export function fetchClassifierStatus(signal?: AbortSignal): Guarded<ClassifierStatus> {
+    const direct = sharedClassifierStatus.begin();
+    return mapGuarded(requestClassifierStatus(signal), (status) => {
+        direct.settle(status);
+        return status;
+    });
+}
+
+/** The model or the runtime may have changed (a model action, a settings save): read it again. */
+export function invalidateClassifierStatus(): void {
+    sharedClassifierStatus.invalidate();
+}
+
+// A save from this tab can change the model or the runtime; another tab's arrives as `settings_updated`.
+subscribeSettingsUpdates(() => invalidateClassifierStatus());
+
+/** Runs a model action and drops the shared reading after it, whatever the outcome. */
+async function changingModels<T>(action: () => Promise<T>): Promise<T> {
+    try {
+        return await action();
+    } finally {
+        invalidateClassifierStatus();
+    }
+}
+
+/** What names birds right now, for a view that shows it; views mounting together share one request. */
+export function readClassifierStatus(): Promise<ClassifierStatus> {
+    return sharedClassifierStatus.read();
+}
+
+/** The small CPU model: it runs on any machine, so it is where setup starts on a Raspberry Pi. */
+const RECOMMENDED_SETUP_MODEL_ID = 'mobilenet_v2_birds';
+
+/** Every model the setup step can offer: the catalogue, then installed models it does not list. */
+export function setupModelOptions(available: ModelMetadata[], installed: InstalledModel[]): ModelMetadata[] {
+    const listed = new Set(available.map((model) => model.id));
+    const unlisted = installed.flatMap((model) => (model.metadata && !listed.has(model.id) ? [model.metadata] : []));
+    return [...available, ...unlisted];
+}
+
+/**
+ * The model the setup step opens on. It is always one the list can show: an id with no option
+ * would leave the select blank and Continue disabled with nothing to explain it.
+ */
 export function selectSetupModelId(
     status: ClassifierStatus,
     available: ModelMetadata[],
     installed: InstalledModel[]
 ): string {
-    const installedIds = new Set(installed.map((model) => model.id));
-    const effectiveModelId = status.effective_model_id ?? '';
-    if (effectiveModelId && installedIds.has(effectiveModelId)) return effectiveModelId;
-
-    const activeInstalled = installed.find((model) => model.is_active && model.ready !== false);
-    if (activeInstalled) return activeInstalled.id;
-
-    if (status.image_flavor === 'rpi' && installedIds.has('mobilenet_v2_birds')) {
-        return 'mobilenet_v2_birds';
-    }
-
-    const firstInstalled = installed.find((model) => model.ready !== false);
-    if (firstInstalled) return firstInstalled.id;
-
-    const preferredAvailable = status.image_flavor === 'rpi'
-        ? available.find((model) => model.id === 'mobilenet_v2_birds')
-        : undefined;
-    return preferredAvailable?.id ?? status.active_model_id ?? available[0]?.id ?? '';
+    const options = setupModelOptions(available, installed);
+    const selectable = new Set(options.map((model) => model.id));
+    const usable = installed.filter((model) => selectable.has(model.id));
+    const candidates = [
+        usable.find((model) => model.id === (status.effective_model_id ?? ''))?.id,
+        usable.find((model) => model.is_active && model.ready !== false)?.id,
+        status.image_flavor === 'rpi' ? usable.find((model) => model.id === RECOMMENDED_SETUP_MODEL_ID)?.id : undefined,
+        usable.find((model) => model.ready !== false)?.id,
+        status.image_flavor === 'rpi' ? RECOMMENDED_SETUP_MODEL_ID : undefined,
+        status.active_model_id ?? undefined,
+        RECOMMENDED_SETUP_MODEL_ID,
+        options[0]?.id
+    ];
+    return candidates.find((id): id is string => Boolean(id) && selectable.has(id as string)) ?? '';
 }
 
 export type DownloadModelResult = paths['/api/classifier/download']['post']['response'];
 
 export async function downloadDefaultModel(): Promise<DownloadModelResult> {
-    const response = await apiFetch(`${API_BASE}/classifier/download`, {
-        method: 'POST',
+    return changingModels(async () => {
+        const response = await apiFetch(`${API_BASE}/classifier/download`, {
+            method: 'POST',
+        });
+        return handleResponse<DownloadModelResult>(response);
     });
-    return handleResponse<DownloadModelResult>(response);
 }
 
 export type ReclassifyResult = paths['/api/events/{event_id}/reclassify']['post']['response'];
@@ -63,12 +114,46 @@ export async function reclassifyDetection(eventId: string, strategy: 'snapshot' 
     return handleResponse<ReclassifyResult>(response);
 }
 
-export async function updateDetectionSpecies(eventId: string, displayName: string): Promise<UpdateDetectionResult> {
+/** What a detection reads now, when a decision was taken on an identification that has since changed. */
+export type CurrentIdentification = components['schemas']['CurrentIdentification'];
+/** The 409 body of PATCH /api/events/{event_id}, as the API declares it. */
+type IdentificationChangedResponse = components['schemas']['IdentificationChangedResponse'];
+
+/** The server refused a decision because the visit was changed elsewhere after it was shown. */
+export class IdentificationChangedError extends Error {
+    readonly status = 409;
+    readonly current: CurrentIdentification;
+
+    constructor(message: string, current: CurrentIdentification) {
+        super(message);
+        this.name = 'IdentificationChangedError';
+        this.current = current;
+    }
+}
+
+function isIdentificationChanged(payload: unknown): payload is IdentificationChangedResponse {
+    if (typeof payload !== 'object' || payload === null || !('detail' in payload)) return false;
+    const detail = (payload as { detail: unknown }).detail;
+    return typeof detail === 'object' && detail !== null && (detail as { code?: unknown }).code === 'identification_changed';
+}
+
+/**
+ * Sets a detection's species. `shownCategoryName` is the identification the owner was looking at:
+ * given, the server applies the change only while the detection still carries it, and otherwise
+ * refuses with what it says now (IdentificationChangedError).
+ */
+export async function updateDetectionSpecies(eventId: string, displayName: string, shownCategoryName?: string | null): Promise<UpdateDetectionResult> {
+    const body: components['schemas']['UpdateDetectionRequest'] = { display_name: displayName };
+    if (shownCategoryName) body.expected_category_name = shownCategoryName;
     const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(eventId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ display_name: displayName }),
+        body: JSON.stringify(body),
     });
+    if (response.status === 409) {
+        const payload: unknown = await response.clone().json().catch(() => null);
+        if (isIdentificationChanged(payload)) throw new IdentificationChangedError(payload.detail.message, payload.detail.current);
+    }
     return handleResponse<UpdateDetectionResult>(response);
 }
 
@@ -83,13 +168,6 @@ export async function bulkUpdateDetectionSpecies(eventIds: string[], displayName
 
 export type ModelMetadata = components['schemas']['ModelMetadata'];
 
-export interface ModelMetadataSummary {
-    tierLabel: string;
-    taxonomyScopeLabel: string;
-    advancedStateLabel: string;
-    statusLabel: string;
-    labels: string[];
-}
 
 const MODEL_TIER_PRIORITY: Record<string, number> = {
     cpu_only: 0,
@@ -122,58 +200,34 @@ export function getVisibleTieredModelLineup(
 // Model categorization for the Model Manager UI.
 //
 // Splits the tiered lineup into groups that match how a user actually picks
-// a model: "what's fastest on my hardware?" / "what's most accurate if I
-// don't mind waiting?" / "what's a one-click fallback?". The harness
-// validation status (registry intel_gpu support) is the primary signal.
+// a model: "what is small and quick?" / "what is fastest on my hardware?" /
+// "what is most accurate if I don't mind waiting?". Whether a model ships
+// with the app is a fact about this install (InstalledModel.bundled), never
+// a group name, so no group claims a model is built in.
 // ---------------------------------------------------------------------------
 
 export type ModelCategory =
+    | 'compact'
     | 'igpu_recommended'
     | 'cpu_high_accuracy'
     | 'cpu_standard'
-    | 'cpu_alternative'
-    | 'bundled';
+    | 'cpu_alternative';
 
-export interface ModelCategoryInfo {
-    label: string;
-    hint: string;
-    icon: string;
-}
-
-export const MODEL_CATEGORY_INFO: Record<ModelCategory, ModelCategoryInfo> = {
-    igpu_recommended: {
-        label: 'Fast on Intel GPU',
-        hint: 'Validated on Intel iGPU: sub-second inference with confirmed-good predictions.',
-        icon: '🚀',
-    },
-    cpu_high_accuracy: {
-        label: 'Highest accuracy',
-        hint: 'The broadest, most accurate option. Runtime speed depends on the provider validated on this hardware.',
-        icon: '🎯',
-    },
-    cpu_standard: {
-        label: 'Balanced',
-        hint: 'A practical balance of accuracy, latency, and memory use.',
-        icon: '⚖️',
-    },
-    cpu_alternative: {
-        label: 'Architectural alternatives',
-        hint: 'Experimental options for accuracy comparison via the model-evaluation harness.',
-        icon: '🧪',
-    },
-    bundled: {
-        label: 'Built-in fallback',
-        hint: 'TFLite model bundled with the app. Always available without download.',
-        icon: '📦',
-    },
+/** Each group's heading, as an i18n key with its English text. */
+export const MODEL_CATEGORY_LABEL: Record<ModelCategory, { key: string; fallback: string }> = {
+    compact: { key: 'settings.models.group.compact', fallback: 'Small and quick' },
+    cpu_standard: { key: 'settings.models.group.cpu_standard', fallback: 'Balanced' },
+    igpu_recommended: { key: 'settings.models.group.igpu_recommended', fallback: 'Fast on Intel graphics' },
+    cpu_high_accuracy: { key: 'settings.models.group.cpu_high_accuracy', fallback: 'Most accurate' },
+    cpu_alternative: { key: 'settings.models.group.cpu_alternative', fallback: 'Experimental' },
 };
 
 const CATEGORY_DISPLAY_ORDER: ModelCategory[] = [
-    'igpu_recommended',
+    'compact',
     'cpu_standard',
+    'igpu_recommended',
     'cpu_high_accuracy',
     'cpu_alternative',
-    'bundled',
 ];
 
 export function categorizeModel(model: ModelMetadata): ModelCategory {
@@ -182,9 +236,8 @@ export function categorizeModel(model: ModelMetadata): ModelCategory {
     const accuracy = (model.accuracy_tier || '').toLowerCase();
     const runtime = (model.runtime || '').toLowerCase();
 
-    // The bundled-fallback path: TFLite-only legacy model that ships in the
-    // image as a guaranteed-installable fallback.
-    if (tier === 'cpu_only' || runtime === 'tflite') return 'bundled';
+    // The small TFLite model that runs on any CPU.
+    if (tier === 'cpu_only' || runtime === 'tflite') return 'compact';
 
     // Registry declares intel_gpu support → harness-validated for iGPU.
     if (providers.includes('intel_gpu')) return 'igpu_recommended';
@@ -203,7 +256,6 @@ export function categorizeModel(model: ModelMetadata): ModelCategory {
 
 export interface ModelCategoryGroup {
     category: ModelCategory;
-    info: ModelCategoryInfo;
     models: ModelMetadata[];
 }
 
@@ -222,48 +274,14 @@ export function groupTieredModelLineup(
     for (const cat of CATEGORY_DISPLAY_ORDER) buckets.set(cat, []);
     for (const m of visible) {
         const cat = categorizeModel(m);
-        buckets.get(cat)!.push(m);
+        buckets.get(cat)?.push(m);
     }
     return CATEGORY_DISPLAY_ORDER
         .map((category) => ({
             category,
-            info: MODEL_CATEGORY_INFO[category],
             models: buckets.get(category) || [],
         }))
         .filter((group) => group.models.length > 0);
-}
-
-function formatModelMetadataLabel(value: string): string {
-    return value
-        .split(/[_-]+/g)
-        .filter(Boolean)
-        .map((segment) => {
-            const lower = segment.toLowerCase();
-            if (lower === 'cpu') return 'CPU';
-            if (lower === 'cuda') return 'CUDA';
-            if (lower === 'onnx') return 'ONNX';
-            if (lower === 'tflite') return 'TFLite';
-            if (lower === 'intel') return 'Intel';
-            return segment.slice(0, 1).toUpperCase() + segment.slice(1).toLowerCase();
-        })
-        .join(' ');
-}
-
-export function summarizeModelMetadata(metadata?: ModelMetadata | null): ModelMetadataSummary | null {
-    if (!metadata) return null;
-
-    const tierLabel = formatModelMetadataLabel(metadata.tier);
-    const taxonomyScopeLabel = formatModelMetadataLabel(metadata.taxonomy_scope);
-    const advancedStateLabel = metadata.advanced_only ? 'Advanced only' : 'Standard';
-    const statusLabel = formatModelMetadataLabel(metadata.status ?? 'stable');
-
-    return {
-        tierLabel,
-        taxonomyScopeLabel,
-        advancedStateLabel,
-        statusLabel,
-        labels: [tierLabel, taxonomyScopeLabel, advancedStateLabel, statusLabel],
-    };
 }
 
 export type InstalledModel = components['schemas']['InstalledModel'];
@@ -291,10 +309,23 @@ export async function fetchInstalledModels(): Promise<InstalledModel[]> {
 export type ModelActionResult = paths['/api/models/{model_id}/download']['post']['response'];
 
 export async function downloadModel(modelId: string): Promise<ModelActionResult> {
-    const response = await apiFetch(`${API_BASE}/models/${modelId}/download`, {
-        method: 'POST',
+    return changingModels(async () => {
+        const response = await apiFetch(`${API_BASE}/models/${modelId}/download`, {
+            method: 'POST',
+        });
+        return handleResponse<ModelActionResult>(response);
     });
-    return handleResponse<ModelActionResult>(response);
+}
+
+export type ModelActivity = components['schemas']['ModelActivityResponse']['activity'];
+
+/** Downloads and hardware checks the server has in progress, whichever page or tab started them. */
+export async function fetchModelActivity(): Promise<ModelActivity> {
+    const response = await apiFetch(`${API_BASE}/models/activity`, { timeoutMs: 10_000 });
+    // Read as untrusted: an older server, or a proxy's error page, has no `activity` to give.
+    const body: unknown = await handleResponse<unknown>(response);
+    const activity = body && typeof body === 'object' && 'activity' in body ? body.activity : null;
+    return activity && typeof activity === 'object' ? (activity as ModelActivity) : {};
 }
 
 export async function fetchDownloadStatus(modelId: string): Promise<DownloadProgress | null> {
@@ -305,22 +336,26 @@ export async function fetchDownloadStatus(modelId: string): Promise<DownloadProg
 }
 
 export async function activateModel(modelId: string): Promise<ModelActionResult> {
-    const response = await apiFetch(`${API_BASE}/models/${modelId}/activate`, {
-        method: 'POST',
+    return changingModels(async () => {
+        const response = await apiFetch(`${API_BASE}/models/${modelId}/activate`, {
+            method: 'POST',
+        });
+        return handleResponse<ModelActionResult>(response);
     });
-    return handleResponse<ModelActionResult>(response);
 }
 
 export type ModelDeleteResult = components['schemas']['ModelDeleteResponse'];
 
 export async function deleteModel(modelId: string): Promise<ModelDeleteResult> {
-    // Region variants are addressed as `family/region`, so each segment is
-    // encoded separately and the separating slash is preserved.
-    const path = modelId.split('/').map(encodeURIComponent).join('/');
-    const response = await apiFetch(`${API_BASE}/models/${path}`, {
-        method: 'DELETE',
+    return changingModels(async () => {
+        // Region variants are addressed as `family/region`, so each segment is
+        // encoded separately and the separating slash is preserved.
+        const path = modelId.split('/').map(encodeURIComponent).join('/');
+        const response = await apiFetch(`${API_BASE}/models/${path}`, {
+            method: 'DELETE',
+        });
+        return handleResponse<ModelDeleteResult>(response);
     });
-    return handleResponse<ModelDeleteResult>(response);
 }
 
 export type ModelValidateResult = components['schemas']['ModelValidateResponse'];
@@ -332,11 +367,16 @@ export type ModelValidateResult = components['schemas']['ModelValidateResponse']
  * the previously active model.
  */
 export async function validateModel(modelId: string): Promise<ModelValidateResult> {
-    const response = await apiFetch(`${API_BASE}/models/${encodeURIComponent(modelId)}/validate`, {
-        method: 'POST',
+    return changingModels(async () => {
+        const response = await apiFetch(`${API_BASE}/models/${encodeURIComponent(modelId)}/validate`, {
+            method: 'POST',
+        });
+        return handleResponse<ModelValidateResult>(response);
     });
-    return handleResponse<ModelValidateResult>(response);
 }
+
+/** Several model calls of up to 30 s each on the server, with room to spare. */
+const ANALYSIS_TIMEOUT_MS = 180_000;
 
 export async function analyzeDetection(
     eventId: string,
@@ -348,7 +388,8 @@ export async function analyzeDetection(
     return fetchWithAbort<{ analysis: string; analysis_timestamp: string }>(
         `analyze-${eventId}`,
         url,
-        { method: 'POST' }
+        // The model can take a while, but not for ever: a stalled answer gives way to a retry.
+        { method: 'POST', timeoutMs: ANALYSIS_TIMEOUT_MS }
     );
 }
 
@@ -370,10 +411,4 @@ export async function sendDetectionConversationMessage(eventId: string, message:
         body: JSON.stringify({ message })
     });
     return handleResponse<ConversationTurn[]>(response);
-}
-
-export type ProviderValidationStatus = components['schemas']['ProviderValidationStatus'];
-
-export async function fetchProviderValidationStatus(): Promise<ProviderValidationStatus> {
-    return handleResponse<ProviderValidationStatus>(await apiFetch(`${API_BASE}/classifier/provider-validation`));
 }

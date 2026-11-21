@@ -54,7 +54,7 @@
 </script>
 
 {#snippet placeholder(size: string, icon: string)}
-    <span class="flex {size} items-center justify-center bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-600" aria-hidden="true">
+    <span class="flex {size} items-center justify-center bg-surface-raised text-subtle" aria-hidden="true">
         <svg class={icon} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
@@ -63,7 +63,7 @@
 
 {#snippet thumbnail()}
     <!-- The bird preview's size and frame, so the photo column reads as one. -->
-    <span class="block h-9 w-9 overflow-hidden rounded-lg border-2 border-white bg-slate-100 dark:border-slate-900 dark:bg-slate-800">
+    <span class="block h-9 w-9 overflow-hidden rounded-lg border-2 border-surface bg-surface-raised">
         {#if photo}
             <GardenPhotoPreview {capture} src={photo.src} cropped={photo.cropped} {fill} aspect={1} onerror={() => markFailed(photo.src)} />
         {:else if listed}
@@ -94,7 +94,7 @@
         {#if popout.openIndex === 0}
             <HoverPopoutPanel {popout} data-garden-capture-preview-panel={photo ? (photo.cropped ? 'crop' : 'snapshot') : 'unavailable'}>
                 <!-- A saved crop is already framed on the animal, so it fills the box as a bird's photo does. -->
-                <div class="h-32 w-full bg-slate-100 dark:bg-slate-800" data-garden-capture-preview-image>
+                <div class="h-32 w-full bg-surface-raised" data-garden-capture-preview-image>
                     {#if photo}
                         <GardenPhotoPreview
                             {capture}
@@ -111,18 +111,18 @@
                 </div>
                 <div class="space-y-1 p-3">
                     <div class="flex items-baseline justify-between gap-2">
-                        <p class="truncate font-display text-sm font-bold text-slate-950 dark:text-white">{text.title}</p>
+                        <p class="truncate font-display text-sm font-bold text-strong">{text.title}</p>
                         {#if score !== null}
                             <span class="shrink-0 text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(view.score)]}">{score}%</span>
                         {/if}
                     </div>
                     {#if scientific && scientific !== text.title}
-                        <p class="truncate text-2xs italic text-slate-500 dark:text-slate-400">{scientific}</p>
+                        <p class="truncate text-2xs italic text-muted">{scientific}</p>
                     {/if}
-                    <p class="text-2xs font-medium {view.review ? 'text-attention-800 dark:text-attention-300' : 'text-slate-600 dark:text-slate-300'}" data-garden-capture-preview-state>
+                    <p class="text-2xs font-medium {view.review ? 'text-status-attention' : 'text-muted'}" data-garden-capture-preview-state>
                         {text.state}
                     </p>
-                    <p class="text-2xs text-slate-500 dark:text-slate-400">
+                    <p class="text-2xs text-muted">
                         {formatTime(capture.observed_at)} &middot; {capture.camera}
                     </p>
                 </div>

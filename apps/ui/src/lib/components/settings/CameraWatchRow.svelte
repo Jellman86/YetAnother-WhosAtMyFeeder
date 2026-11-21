@@ -8,6 +8,7 @@
     import type { Snippet } from 'svelte';
     import { _ } from 'svelte-i18n';
     import type { CameraRole, CameraWatchBlock, CameraWatchMode, CameraWatchRow } from '../../utils/camera-watch';
+    import SettingsToggle from './_primitives/SettingsToggle.svelte';
 
     interface Props {
         row: CameraWatchRow;
@@ -53,7 +54,7 @@
             case 'camera_list_unread':
                 return $_('settings.cameras.blocked_camera_list_unread', { default: 'Every camera watches for birds. Sync cameras from Frigate before turning birds off for one camera.' });
             case 'garden_off':
-                return $_('settings.cameras.garden_beta_hint', { default: 'To watch for Garden animals as well, turn on Garden animals in Settings → Beta features.' });
+                return $_('settings.cameras.garden_beta_hint', { default: 'To watch for Garden animals as well, turn on Garden animals in Settings → Identifying birds.' });
         }
     }
 
@@ -61,134 +62,102 @@
     const roleHelp = $derived(row.role === 'nest'
         ? $_('settings.cameras.role_nest_help', { default: 'Nest box cam: collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed.' })
         : $_('settings.cameras.role_feeder_help', { default: 'Feeder cam: every Frigate event is treated as a fresh visit (default).' }));
-
-    // min-w-0 lets an option's words wrap inside a narrow column at large text sizes instead of
-    // pushing past the row's edge.
-    const choiceClass = 'relative flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 py-1 text-center text-xs font-semibold transition-colors';
-
-    function stateClass(checked: boolean, blocked: boolean): string {
-        if (checked) return 'bg-brand-700 text-white';
-        if (blocked) return 'cursor-not-allowed text-slate-500 line-through decoration-slate-400 dark:text-slate-400';
-        return 'cursor-pointer text-slate-700 hover:bg-surface-raised dark:text-slate-200';
-    }
 </script>
 
-<li
-    class="space-y-3 break-words rounded-xl border p-3 {row.presence === 'missing' ? 'border-attention-500/50 bg-attention-500/10' : 'border-line-soft bg-surface-raised/40'}"
-    data-camera-watch={camera}
->
-    <div class="flex flex-wrap items-start justify-between gap-2">
-        <div class="min-w-0 flex-1 basis-24 pt-2">
-            <p class="break-all text-sm font-bold text-slate-900 dark:text-white">{camera}</p>
+<!-- One compact row per camera: its name, then a select for each choice that belongs to it. A choice
+     that cannot be made is a disabled option, with the reason in words under the row. -->
+<!-- A camera is a settings row: its name (and preview) on the left, its choices in the control
+     column, so every camera's selects line up on one edge. -->
+<li class="space-y-3 py-4 first:pt-0 last:pb-0 wrap-break-word" data-camera-watch={camera}>
+    <div class="space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0">
+        <div class="min-w-0">
+            <p class="break-all text-base font-semibold text-slate-900 dark:text-white">{camera}</p>
             {#if row.presence === 'missing'}
-                <p class="mt-1 flex items-center gap-1.5 text-xs font-semibold text-attention-800 dark:text-attention-200" data-camera-missing>
-                    <span class="h-2 w-2 shrink-0 rounded-full bg-attention-500" aria-hidden="true"></span>
+                <p class="mt-0.5 flex items-center gap-1.5 text-sm text-attention-800 dark:text-attention-200" data-camera-missing>
+                    <span class="attention-dot" aria-hidden="true"></span>
                     {$_('settings.cameras.not_found', { default: 'Not found in Frigate' })}
                 </p>
-                <p class="mt-0.5 text-xs text-slate-700 dark:text-slate-300">
+                <p class="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
                     {$_('settings.cameras.not_found_help', { default: 'Frigate does not list this camera now. Its choices are kept until you change them; choose Off to remove it.' })}
                 </p>
+            {:else}
+                <!-- A link-styled action, so it never reads as a label; the chevron turns while the preview shows. -->
+                <button
+                    type="button"
+                    class="focus-ring inline-flex min-h-11 max-w-full flex-wrap items-center gap-x-1 rounded-sm text-sm font-medium text-brand-700 underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-slate-600 disabled:no-underline dark:text-brand-300 dark:disabled:text-slate-400"
+                    aria-expanded={previewOpen}
+                    aria-describedby={previewUnavailableId}
+                    disabled={!!previewUnavailableId}
+                    onclick={onpreview}
+                >
+                    {previewOpen
+                        ? $_('settings.cameras.preview_hide', { default: 'Hide preview' })
+                        : $_('settings.cameras.preview_show', { default: 'Preview' })}<span class="sr-only"> {camera}</span>
+                    <svg class="h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none {previewOpen ? 'rotate-90' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18" /></svg>
+                </button>
             {/if}
         </div>
-        {#if row.presence !== 'missing'}
-            <button
-                type="button"
-                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-white hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-brand-300"
-                aria-label={$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}
-                aria-expanded={previewOpen}
-                aria-describedby={previewUnavailableId}
-                disabled={!!previewUnavailableId}
-                onclick={onpreview}
-            >
-                <svg class="h-4 w-4 transition-transform {previewOpen ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
-        {/if}
+        <!-- Each choice's word sits beside its select, and above it when enlarged text leaves no room. -->
+        <div class="min-w-0 space-y-2">
+            <label class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600 dark:text-slate-400">
+                <span class="w-24 max-w-full shrink-0" aria-hidden="true">{$_('settings.cameras.watch_for_label', { default: 'Watch for' })}</span>
+                <select
+                    class="select-base min-h-11 min-w-0 flex-1 basis-40"
+                    aria-label={$_('settings.cameras.watch_for', { default: '{camera}: watch for', values: { camera } })}
+                    aria-describedby={blockReasons.length > 0 ? `${uid}-reason` : undefined}
+                    value={row.mode}
+                    onchange={(event) => onmode((event.currentTarget as HTMLSelectElement).value as CameraWatchMode)}
+                    data-camera-watch-select
+                >
+                    {#each modeOptions as option (option.value)}
+                        <option value={option.value} disabled={!!row.blocked[option.value]}>{option.label}</option>
+                    {/each}
+                </select>
+            </label>
+            {#if watchesBirds}
+                <label class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600 dark:text-slate-400" data-camera-role>
+                    <span class="w-24 max-w-full shrink-0" aria-hidden="true">{$_('settings.cameras.role_label', { default: 'Role' })}</span>
+                    <select
+                        class="select-base min-h-11 min-w-0 flex-1 basis-40"
+                        aria-label={$_('settings.cameras.role_group', { default: '{camera}: bird role', values: { camera } })}
+                        aria-describedby="{uid}-role-help"
+                        value={row.role ?? 'feeder'}
+                        onchange={(event) => onrole((event.currentTarget as HTMLSelectElement).value as CameraRole)}
+                    >
+                        {#each roleOptions as option (option.value)}
+                            <option value={option.value}>{option.label}</option>
+                        {/each}
+                    </select>
+                </label>
+            {/if}
+        </div>
     </div>
 
-    <div class="space-y-1.5">
-        <p class="eyebrow" aria-hidden="true">{$_('settings.cameras.watch_for_label', { default: 'Watch for' })}</p>
-        <div
-            role="radiogroup"
-            aria-label={$_('settings.cameras.watch_for', { default: '{camera}: watch for', values: { camera } })}
-            aria-describedby={blockReasons.length > 0 ? `${uid}-reason` : undefined}
-            class="grid grid-cols-2 gap-1 rounded-lg border border-line bg-surface p-1 {gardenEnabled ? 'sm:grid-cols-4' : ''}"
-        >
-            {#each modeOptions as option (option.value)}
-                {@const checked = row.mode === option.value}
-                {@const blocked = !!row.blocked[option.value]}
-                <label class="{choiceClass} {stateClass(checked, blocked)} focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-1 dark:focus-within:ring-offset-slate-900">
-                    <input
-                        class="sr-only"
-                        type="radio"
-                        name="{uid}-mode"
-                        value={option.value}
-                        {checked}
-                        disabled={blocked}
-                        onchange={() => onmode(option.value)}
-                    />
-                    {#if checked}
-                        <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 7" /></svg>
-                    {/if}
-                    <span class="min-w-0 break-words">{option.label}</span>
-                </label>
+    {#if blockReasons.length > 0}
+        <div id="{uid}-reason" class="space-y-0.5 text-sm text-slate-600 dark:text-slate-400" data-camera-watch-reason>
+            {#each blockReasons as reason (reason)}
+                <p>{reason}</p>
             {/each}
         </div>
-        {#if blockReasons.length > 0}
-            <div id="{uid}-reason" class="space-y-0.5 text-xs text-slate-700 dark:text-slate-300" data-camera-watch-reason>
-                {#each blockReasons as reason (reason)}
-                    <p>{reason}</p>
-                {/each}
-            </div>
-        {/if}
-    </div>
-
+    {/if}
     {#if watchesBirds}
-        <div class="space-y-1.5 border-t border-line-soft pt-3" data-camera-role>
-            <p class="eyebrow" aria-hidden="true">{$_('settings.cameras.role_label', { default: 'Role' })}</p>
-            <div
-                role="radiogroup"
-                aria-label={$_('settings.cameras.role_group', { default: '{camera}: bird role', values: { camera } })}
-                aria-describedby="{uid}-role-help"
-                class="grid grid-cols-2 gap-1 rounded-lg border border-line bg-surface p-1"
-            >
-                {#each roleOptions as option (option.value)}
-                    {@const checked = row.role === option.value}
-                    <label class="{choiceClass} {stateClass(checked, false)} focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-1 dark:focus-within:ring-offset-slate-900">
-                        <input
-                            class="sr-only"
-                            type="radio"
-                            name="{uid}-role"
-                            value={option.value}
-                            {checked}
-                            onchange={() => onrole(option.value)}
-                        />
-                        {#if checked}
-                            <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 7" /></svg>
-                        {/if}
-                        <span class="min-w-0 break-words">{option.label}</span>
-                    </label>
-                {/each}
-            </div>
-            <p id="{uid}-role-help" class="text-xs text-slate-600 dark:text-slate-400">{roleHelp}</p>
-        </div>
+        <p id="{uid}-role-help" class="text-sm text-slate-600 dark:text-slate-400" class:sr-only={row.role !== 'nest'}>{roleHelp}</p>
     {/if}
 
     {#if watchesGarden}
-        <div class="space-y-1 border-t border-line-soft pt-3" data-camera-motion>
-            <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-1 focus-within:ring-2 focus-within:ring-brand-500">
-                <input
-                    type="checkbox"
-                    class="h-5 w-5 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                    checked={row.collectsMotion}
-                    aria-label={$_('settings.beta.garden_motion_toggle', { default: 'Collect motion review photos on {camera}', values: { camera } })}
-                    aria-describedby="{uid}-motion-help"
-                    onchange={(event) => onmotion(event.currentTarget.checked)}
-                />
-                <span class="min-w-0 break-words text-sm font-semibold text-slate-900 dark:text-white">{$_('garden.motion_toggle', { default: 'Collect motion review photos' })}</span>
-            </label>
-            <p id="{uid}-motion-help" class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_camera_help', { default: 'Optional CPU scans of retained motion footage. Needs the motion detector under Garden models; bird detection keeps its current settings.' })}</p>
+        <div class="flex min-h-11 items-center justify-between gap-3" data-camera-motion>
+            <div class="min-w-0">
+                <!-- The name starts with the words on screen; the camera is added for a screen reader. -->
+                <span id="{uid}-motion-label" class="block text-sm font-medium text-slate-900 dark:text-white">{$_('garden.motion_toggle', { default: 'Collect motion review photos' })}<span class="sr-only"> ({camera})</span></span>
+                <span id="{uid}-motion-help" class="block text-sm text-slate-600 dark:text-slate-400">{$_('garden.motion_camera_help', { default: 'Optional CPU scans of retained motion footage. Needs the motion detector under Garden models; bird detection keeps its current settings.' })}</span>
+            </div>
+            <SettingsToggle
+                checked={row.collectsMotion}
+                labelledBy="{uid}-motion-label"
+                describedBy="{uid}-motion-help"
+                srLabel={$_('settings.beta.garden_motion_toggle', { default: 'Collect motion review photos on {camera}', values: { camera } })}
+                onchange={onmotion}
+            />
         </div>
     {/if}
 

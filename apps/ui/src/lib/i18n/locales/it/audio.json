@@ -1,22 +1,27 @@
 {
   "chart": {
     "heard": "Ascoltate",
-    "daily_title": "Attività nel tempo",
-    "daily_sub": "Rilevamenti BirdNET-Go ascoltati al giorno",
-    "hourly_title": "Ora del giorno",
-    "species_title": "Distribuzione delle specie",
-    "empty": "Nessuna attività in questo periodo."
+    "daily_title": "Canti uditi nel tempo",
+    "heatmap_title": "Canti uditi per ora e giorno della settimana",
+    "species_title": "Composizione delle specie",
+    "empty": "Nessun canto udito in questo periodo.",
+    "other_species": "Altre specie",
+    "unavailable": "Non disponibile finché la cronologia non può essere letta.",
+    "col_day": "Giorno",
+    "col_calls": "Canti",
+    "col_species": "Specie"
   },
   "stat": {
-    "heard": "Ascoltate",
-    "heard_sub": "Rilevamenti BirdNET visualizzati",
+    "heard": "Canti uditi",
+    "heard_sub": "Rilevamenti BirdNET-Go in questo periodo",
     "species": "Specie",
-    "species_sub": "Specie identificate dall'audio",
-    "peak_hour": "Ora di punta",
-    "peak_hour_sub": "{count, plural, one {# rilevamento} other {# rilevamenti}}",
+    "species_sub": "Sentite in questo periodo",
+    "busiest_hour": "Ora più attiva",
     "no_activity": "Nessuna attività per ora",
     "sources": "Fonti",
-    "sources_sub": "Microfoni o flussi"
+    "sources_sub": "Microfoni o flussi",
+    "not_available": "Non disponibile",
+    "no_calls": "Nessun canto in questo periodo"
   },
   "filter": {
     "window": "Periodo",
@@ -28,7 +33,9 @@
     "species": "Specie",
     "source": "Fonte",
     "min_confidence": "Confidenza minima",
-    "changed": "Filtri modificati. Applica per aggiornare l’elenco."
+    "changed": "Filtri modificati. Applica per aggiornare l’elenco.",
+    "species_placeholder": "Qualsiasi specie",
+    "source_placeholder": "Qualsiasi fonte"
   },
   "top_species": "Specie più ascoltate",
   "card": {
@@ -38,13 +45,16 @@
   },
   "history": {
     "title": "Cronologia rilevamenti",
-    "sub": "Rilevamenti BirdNET-Go salvati, separati dalle visite visive.",
+    "sub": "Ogni richiamo segnalato da BirdNET-Go, separato dalle visite delle telecamere.",
     "empty": "Nessun rilevamento BirdNET corrisponde a questi filtri.",
     "showing": "Visualizzati {from}-{to} di {total}",
-    "hide": "Nascondi localmente",
+    "hide": "Nascondi in YA-WAMF",
     "undo": "Annulla",
     "hidden_message": "Rilevamento audio nascosto.",
-    "local_only": "Nascondere rimuove una voce dalla cronologia YA-WAMF e dalle future corrispondenze audio. BirdNET-Go resta invariato; le eliminazioni non vengono sincronizzate automaticamente."
+    "local_only": "Nascondere rimuove una voce dalla cronologia YA-WAMF e dalle future corrispondenze audio. BirdNET-Go resta invariato; le eliminazioni non vengono sincronizzate automaticamente.",
+    "read_failed": "Non è stato possibile leggere la cronologia audio da YA-WAMF, quindi niente in questa pagina è una misura.",
+    "read_failed_next": "Riprova. Se continua a non riuscire, apri Stato per vedere se il backend segnala un guasto.",
+    "stale": "L’ultimo aggiornamento non è riuscito, quindi questa è la lettura delle {at}."
   },
   "table": {
     "sound": "Suono",
@@ -62,5 +72,13 @@
     "empty": "Ancora nessuna fonte."
   },
   "not_shared_title": "L'audio non è condiviso pubblicamente",
-  "not_shared_body": "Il proprietario di questa istanza ha disattivato l'audio per i visitatori."
+  "not_shared_body": "Il proprietario di questa istanza ha disattivato l'audio per gli ospiti.",
+  "summary_title": "Questo periodo",
+  "calls_heard": "{count, plural, one {# canto udito} other {# canti uditi}}",
+  "heatmap": {
+    "grid_label": "Canti uditi per ora e giorno della settimana. Usa le frecce per leggere una fascia.",
+    "per_hour": "canti uditi per fascia oraria",
+    "read_failed": "Non è stato possibile leggere i canti uditi per ora e giorno della settimana, quindi questa griglia e l’ora più attiva non sono mostrate. Tutto il resto della pagina è stato letto."
+  },
+  "side_label": "Specie più udite e sorgenti"
 }

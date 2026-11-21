@@ -1,3 +1,27 @@
 {
-  "stack_trace": "Seguimiento de pila:"
+  "stack_trace": "Seguimiento de pila:",
+  "server_failure": "Algo en el servidor detuvo esta solicitud. Inténtalo de nuevo; si sigue ocurriendo, abre Estado para ver qué falla.",
+  "connection": {
+    "service_mqtt": "Broker MQTT",
+    "host_not_found": "{service}: no se encontró el nombre de host de {address}. Comprueba la dirección.",
+    "refused": "{service}: nada respondió en {address}. Comprueba que está en marcha y que el puerto es correcto.",
+    "timeout": "{service}: {address} no respondió a tiempo. Comprueba la dirección y que este equipo puede alcanzarla.",
+    "not_authorised": "{service}: se rechazó el nombre de usuario o la contraseña. Compruébalos, o desactiva la autenticación si acepta clientes anónimos.",
+    "unreachable": "{service}: no se pudo conectar con {address}. Comprueba la dirección y el puerto.",
+    "unreachable_url": "{service}: no se pudo conectar con {address}. Comprueba la dirección, el esquema (http o https) y el puerto."
+  },
+  "delivery": {
+    "not_configured_discord": "{channel} aún no está configurado. Introduce la URL del webhook y vuelve a probar.",
+    "not_configured_pushover": "{channel} aún no está configurado. Introduce la clave de usuario y el token de la API y vuelve a probar.",
+    "not_configured_telegram": "{channel} aún no está configurado. Introduce el token del bot y el ID del chat y vuelve a probar.",
+    "no_answer_address": "{channel} no respondió. Comprueba la URL del webhook y vuelve a probar.",
+    "no_answer_network": "{channel} no respondió. Comprueba que YA-WAMF puede acceder a internet y vuelve a probar.",
+    "timeout": "{channel} tardó demasiado en responder. Espera un momento y vuelve a probar.",
+    "refused_discord": "{channel} rechazó el mensaje. Comprueba la URL del webhook y vuelve a probar.",
+    "refused_pushover": "{channel} rechazó el mensaje. Comprueba la clave de usuario y el token de la API y vuelve a probar.",
+    "refused_telegram": "{channel} rechazó el mensaje. Comprueba el token del bot y el ID del chat y vuelve a probar.",
+    "unexpected_reply": "Algo respondió en lugar de {channel}. Comprueba si hay un proxy o una página de inicio de sesión entre YA-WAMF e internet y vuelve a probar.",
+    "rate_limited": "{channel} está limitando los mensajes por ahora. Espera un minuto y vuelve a probar.",
+    "provider_error": "{channel} informó de un problema por su parte. Espera unos minutos y vuelve a probar."
+  }
 }

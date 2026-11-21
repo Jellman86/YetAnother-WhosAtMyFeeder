@@ -32,6 +32,7 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             weather_precipitation FLOAT,
             weather_rain FLOAT,
             weather_snowfall FLOAT,
+            illuminance_lux FLOAT,
             scientific_name TEXT,
             common_name TEXT,
             taxa_id INTEGER,
@@ -761,8 +762,7 @@ async def test_delete_methods_report_exact_row_changes():
         row = await repo.get_by_frigate_event("evt_delete")
         assert row is not None
 
-        assert await repo.delete_by_id(row.id) is True
-        assert await repo.delete_by_id(row.id) is False
+        assert await repo.delete_by_frigate_event("evt_delete") is True
         assert await repo.delete_by_frigate_event("evt_delete") is False
 
 

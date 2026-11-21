@@ -1,7 +1,8 @@
 import { test, expect, type Page } from '@playwright/test';
+import { openMoreOptions } from './settings-page-mock';
 
 // The compatibility check can move classification onto a newly validated
-// accelerator. The Detection page must then show the provider the workers
+// accelerator. The Models tab must then show the provider the workers
 // actually run on, read back from the backend, without reloading the settings
 // form and discarding edits the owner has not saved.
 const cpuStatus = {
@@ -32,14 +33,18 @@ const matrix = {
     }
 };
 
-async function selectSettingsSection(page: Page, name: 'Connection' | 'Detection') {
-    const mobileNavigation = page.getByRole('combobox', { name: 'Settings', exact: true });
-    await expect(mobileNavigation.or(page.getByRole('link', { name: 'Detection', exact: true }))).toBeVisible();
+async function selectSettingsSection(page: Page, name: 'Cameras & connection' | 'Identifying birds') {
+    const mobileNavigation = page.getByRole('combobox', { name: 'Settings section', exact: true });
+    await expect(mobileNavigation.or(page.getByRole('link', { name: 'Identifying birds', exact: true }))).toBeVisible();
     if (await mobileNavigation.isVisible()) {
         await mobileNavigation.selectOption({ label: name });
     } else {
         await page.getByRole('link', { name, exact: true }).click();
     }
+    if (name !== 'Identifying birds') return;
+    // Hardware is under the section's More options: the provider on its surface, the runtime report folded inside it.
+    await openMoreOptions(page);
+    await expect(page.getByRole('heading', { name: 'Hardware', exact: true })).toBeVisible();
 }
 
 async function openDetectionWithCompatibilityRun(
@@ -101,84 +106,118 @@ async function openDetectionWithCompatibilityRun(
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    await selectSettingsSection(page, 'Detection');
+    await selectSettingsSection(page, 'Identifying birds');
     return counters;
 }
 
+/** A status push carrying a new model revision, as the live stream delivers one in the app. */
+async function pushModelRevision(page: Page, revision: string) {
+    await page.evaluate((modelRevision) => {
+        const store = (window as unknown as { __systemStatus: { ingest(snapshot: unknown): void; snapshot: { revision: number } | null } }).__systemStatus;
+        store.ingest({
+            revision: (store.snapshot?.revision ?? 0) + 1,
+            generated_at: new Date().toISOString(),
+            startup_instance_id: 'fixture',
+            version: 'fixture',
+            overall: { state: 'ok', cause: 'ok', subsystem: null },
+            subsystems: [],
+            jobs_summary: { running: 0, queued: 0, progress: null },
+            jobs: { captured_at: new Date().toISOString(), items: [], lanes: [] },
+            analysis: { pending: 0, active: 0, circuit_open: false },
+            model: { state: 'ok', cause: 'ready', revision: modelRevision },
+            connections: {
+                mqtt: { state: 'connected', server: 'mqtt', port: 1883 },
+                frigate: { state: 'reachable', url: 'http://frigate:5000' },
+                generated_at: new Date().toISOString()
+            },
+            diagnostics_revision: 0,
+            incident_revision: 'fixture',
+            health_revision: 'fixture'
+        });
+    }, revision);
+}
+
+// The status line at the top of Models names the device the workers report.
 function runtimeCell(page: Page) {
-    return page.getByRole('status').filter({ hasText: 'Runtime' }).first();
+    return page.locator('[data-identification-status]');
 }
 
 test('the live runtime is re-read after a compatibility check without losing unsaved edits', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }));
-    const slider = page.locator('#confidence-threshold-slider');
-    await expect(slider).toHaveValue('0.6');
-    await slider.fill('0.75');
-    await expect(runtimeCell(page)).toContainText('CPU (ONNX Runtime)');
+    // An unsaved edit on the same tab, which a runtime refresh must not undo.
+    const slider = page.locator('#bird-model-region-override');
+    await expect(slider).toHaveValue('auto');
+    await slider.selectOption('eu');
+    await expect(runtimeCell(page)).toContainText(' on CPU');
     const settingsReadsBeforeRun = counters.settingsReads;
 
-    await page.getByRole('button', { name: 'Run compatibility check', exact: true }).first().click();
+    await page.getByRole('button', { name: 'Check devices for every installed model', exact: true }).first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('All devices match the CPU baseline.', { timeout: 15_000 });
     await expect.poll(() => counters.statusReadsAfterRun).toBeGreaterThan(0);
-    await expect(runtimeCell(page)).toContainText('Intel NPU (OpenVINO)');
-    await expect(runtimeCell(page)).not.toContainText('CPU (ONNX Runtime)');
+    await expect(runtimeCell(page)).toContainText(' on Intel NPU');
+    await expect(runtimeCell(page)).not.toContainText(' on CPU');
 
     await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
-    await expect(slider).toHaveValue('0.75');
+    await expect(slider).toHaveValue('eu');
     expect(counters.settingsReads).toBe(settingsReadsBeforeRun);
     expect(errors).toEqual([]);
 });
 
 test('a failed runtime refresh is said in words rather than leaving the old provider unexplained', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 503, json: { detail: 'Classifier unavailable' } }));
-    const slider = page.locator('#confidence-threshold-slider');
-    await slider.fill('0.75');
-    await page.getByRole('button', { name: 'Run compatibility check', exact: true }).first().click();
+    // An unsaved edit on the same tab, which a runtime refresh must not undo.
+    const slider = page.locator('#bird-model-region-override');
+    await slider.selectOption('eu');
+    await page.getByRole('button', { name: 'Check devices for every installed model', exact: true }).first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('All devices match the CPU baseline.', { timeout: 15_000 });
     await expect.poll(() => counters.statusReadsAfterRun).toBeGreaterThan(0);
     await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
     await expect(page.getByRole('alert').filter({ hasText: 'could not read the runtime' })).toBeVisible();
     await expect(runtimeCell(page)).not.toContainText('Intel NPU');
-    await expect(slider).toHaveValue('0.75');
+    await expect(slider).toHaveValue('eu');
 });
 
 test('a recommendation does not replace the provider reported by the worker', async ({ page }) => {
     await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: cpuStatus }));
-    await page.getByRole('button', { name: 'Run compatibility check', exact: true }).click();
+    await page.getByRole('button', { name: 'Check devices for every installed model', exact: true }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('All devices match the CPU baseline.', { timeout: 15_000 });
     await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
-    await expect(runtimeCell(page)).toContainText('CPU (ONNX Runtime)');
+    await expect(runtimeCell(page)).toContainText(' on CPU');
     await expect(runtimeCell(page)).not.toContainText('Intel NPU');
 });
 
 test('refreshing Models reads the runtime without reloading unsaved settings', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }));
-    const slider = page.locator('#confidence-threshold-slider');
-    await slider.fill('0.75');
+    // An unsaved edit on the same tab, which a runtime refresh must not undo.
+    const slider = page.locator('#bird-model-region-override');
+    await slider.selectOption('eu');
     const settingsReads = counters.settingsReads;
     counters.runFinished = true;
     await page.getByRole('button', { name: 'Refresh', exact: true }).last().click();
-    await expect(runtimeCell(page)).toContainText('Intel NPU (OpenVINO)', { timeout: 3_000 });
-    await expect(slider).toHaveValue('0.75');
+    await expect(runtimeCell(page)).toContainText(' on Intel NPU', { timeout: 3_000 });
+    await expect(slider).toHaveValue('eu');
     expect(counters.settingsReads).toBe(settingsReads);
 });
 
-test('a runtime change after returning to Detection refreshes without another check', async ({ page }) => {
+test('a runtime change after returning to Models refreshes without another check', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }));
-    const slider = page.locator('#confidence-threshold-slider');
-    await slider.fill('0.75');
-    await page.getByRole('link', { name: 'Connection', exact: true }).click();
-    await page.getByRole('link', { name: 'Detection', exact: true }).click();
-    await expect(runtimeCell(page)).toContainText('CPU (ONNX Runtime)');
+    // An unsaved edit on the same tab, which a runtime refresh must not undo.
+    const slider = page.locator('#bird-model-region-override');
+    await slider.selectOption('eu');
+    await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
+    await page.getByRole('link', { name: 'Identifying birds', exact: true }).click();
+    await expect(runtimeCell(page)).toContainText(' on CPU');
     const settingsReads = counters.settingsReads;
     counters.runFinished = true;
-    await expect(runtimeCell(page)).toContainText('Intel NPU (OpenVINO)', { timeout: 9_000 });
-    await expect(slider).toHaveValue('0.75');
+    // The server announces a runtime change as a new model revision in the pushed status.
+    await pushModelRevision(page, 'after-reload');
+    await expect(runtimeCell(page)).toContainText(' on Intel NPU', { timeout: 5_000 });
+    await expect(slider).toHaveValue('eu');
     expect(counters.settingsReads).toBe(settingsReads);
 });
 
@@ -193,11 +232,11 @@ async function refreshRuntimeFromModels(
     counters.savedProvider = serverProvider;
     counters.runFinished = true;
     await page.getByRole('button', { name: 'Refresh', exact: true }).last().click();
-    await expect(runtimeCell(page)).toContainText('Intel NPU (OpenVINO)', { timeout: 3_000 });
+    await expect(runtimeCell(page)).toContainText(' on Intel NPU', { timeout: 3_000 });
 }
 
 async function applySettings(page: Page, counters: { saves: Record<string, unknown>[] }) {
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => counters.saves.length).toBe(1);
     return counters.saves[0];
 }
@@ -205,19 +244,20 @@ async function applySettings(page: Page, counters: { saves: Record<string, unkno
 test('a provider saved on the server replaces the loaded one in the form and in the next save', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }), 'cpu');
     const provider = page.locator('#inference-provider');
-    const slider = page.locator('#confidence-threshold-slider');
+    // An unsaved edit on the same tab, which a runtime refresh must not undo.
+    const slider = page.locator('#bird-model-region-override');
     await expect(provider).toHaveValue('cpu');
-    await slider.fill('0.75');
+    await slider.selectOption('eu');
     const settingsReads = counters.settingsReads;
 
     await refreshRuntimeFromModels(page, counters, 'intel_npu');
     await expect(provider).toHaveValue('intel_npu');
-    await expect(slider).toHaveValue('0.75');
+    await expect(slider).toHaveValue('eu');
     expect(counters.settingsReads).toBe(settingsReads);
 
     const saved = await applySettings(page, counters);
     expect(saved.inference_provider).toBe('intel_npu');
-    expect(saved.classification_threshold).toBe(0.75);
+    expect(saved.bird_model_region_override).toBe('eu');
 });
 
 for (const { loaded, chosen } of [{ loaded: 'cpu', chosen: 'auto' }, { loaded: 'auto', chosen: 'cpu' }]) {
@@ -254,27 +294,29 @@ test('Auto chosen after a legacy provider was replaced on the server is saved', 
 test('an Auto preference stays Auto while the worker runs on the NPU', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }), 'auto');
     const provider = page.locator('#inference-provider');
-    const slider = page.locator('#confidence-threshold-slider');
-    await slider.fill('0.75');
+    // An unsaved edit on the same tab, which a runtime refresh must not undo.
+    const slider = page.locator('#bird-model-region-override');
+    await slider.selectOption('eu');
 
     await refreshRuntimeFromModels(page, counters, 'auto');
     await expect(provider).toHaveValue('auto');
 
     const saved = await applySettings(page, counters);
     expect(saved.inference_provider).toBe('auto');
-    expect(saved.classification_threshold).toBe(0.75);
+    expect(saved.bird_model_region_override).toBe('eu');
 });
 
 test('the recording delay survives navigation and saves with its selected source', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: cpuStatus }));
-    await selectSettingsSection(page, 'Connection');
+    await selectSettingsSection(page, 'Cameras & connection');
     await expect(page.locator('#recording-frame-delay')).toHaveCount(0);
+    await openMoreOptions(page);
     await page.locator('#classification-image-source').selectOption('recording_snapshot');
     const input = page.getByRole('spinbutton', { name: 'Initial identification delay (seconds)' });
     await expect(input).toHaveValue('12');
     await input.fill('45');
-    await selectSettingsSection(page, 'Detection');
-    await selectSettingsSection(page, 'Connection');
+    await selectSettingsSection(page, 'Identifying birds');
+    await selectSettingsSection(page, 'Cameras & connection');
     await expect(input).toHaveValue('45');
     const saved = await applySettings(page, counters);
     expect(saved.recording_frame_delay_seconds).toBe(45);
@@ -289,10 +331,12 @@ test('the recording delay survives navigation and saves with its selected source
 
 test('an empty recording delay is explained without sending a settings write', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: cpuStatus }));
-    await selectSettingsSection(page, 'Connection');
+    await selectSettingsSection(page, 'Cameras & connection');
+    await openMoreOptions(page);
     await page.locator('#classification-image-source').selectOption('recording_snapshot');
     await page.locator('#recording-frame-delay').fill('');
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Enter a recording-frame delay between 1 and 120 seconds.' })).toBeVisible();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await expect(page.locator('#recording-frame-delay')).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.locator('[data-field-error="recording_frame_delay_seconds"]')).toHaveText('Enter a value from 1 to 120.');
     expect(counters.saves).toEqual([]);
 });

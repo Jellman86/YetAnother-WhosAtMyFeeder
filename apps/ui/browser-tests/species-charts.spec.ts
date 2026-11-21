@@ -34,9 +34,12 @@ const captures = (count: number) => Array.from({ length: count }, (_, index) => 
 }));
 
 let capturedImage: string | null;
+// Set by a test that wants every wall picture to fail, as a missing showcase file would.
+let showcaseFails = false;
 test.beforeEach(async ({ page }) => {
     capturedImage = null;
     wallCaptures = [];
+    showcaseFails = false;
     await page.route(url => url.pathname.startsWith('/api/'), async route => {
         const url = new URL(route.request().url());
         const path = url.pathname;
@@ -68,7 +71,8 @@ test.beforeEach(async ({ page }) => {
         } else if (path === '/api/events') {
             await route.fulfill({ json: wallCaptures });
         } else if (path.startsWith('/api/about/showcase/') && path.endsWith('.jpg')) {
-            await route.fulfill({ contentType: 'image/svg+xml', body: pixel });
+            if (showcaseFails && Number(path.match(/wall-(\d+)/)?.[1] ?? -1) % 3 === 0) await route.fulfill({ status: 404, contentType: 'text/plain', body: 'gone' });
+            else await route.fulfill({ contentType: 'image/svg+xml', body: pixel });
         } else if (path.includes('/species/') && path.endsWith('/info')) {
             await route.fulfill({ json: {} });
         } else {
@@ -79,18 +83,20 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('trend, composition and heatmap render and respond to controls', async ({ page }, testInfo) => {
-    const trend = page.locator('canvas[aria-label^="Detections over time"]');
+    const trend = page.locator('canvas[aria-label^="Captures over time"]');
     const donut = page.locator('canvas[aria-label="Species composition"]');
     await expect(trend).toBeVisible();
     await expect(donut).toBeVisible();
     await expect.poll(() => trend.evaluate(node => Boolean((node as HTMLCanvasElement & { __chartjs?: unknown }).__chartjs))).toBe(true);
+    // A chart below the fold is drawn when it comes near the viewport, not at load.
+    await donut.scrollIntoViewIfNeeded();
     await expect.poll(() => donut.evaluate(node => Boolean((node as HTMLCanvasElement & { __chartjs?: unknown }).__chartjs))).toBe(true);
     await expect.poll(() => trend.evaluate(node => {
         const chart = (node as HTMLCanvasElement & { __chartjs?: { data: { datasets: unknown[] } } }).__chartjs;
         return chart?.data.datasets.length;
     })).toBe(4);
     await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ }).getByRole('gridcell')).toHaveCount(168);
-    await expect(page.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 detections. Busiest slot', exact: true })).toBeVisible();
+    await expect(page.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 captures. Busiest slot', exact: true })).toBeVisible();
 
     await page.getByRole('group', { name: 'Species composition' }).getByRole('button', { name: 'Hide Robin' }).focus();
     await page.keyboard.press('Enter');
@@ -99,6 +105,8 @@ test('trend, composition and heatmap render and respond to controls', async ({ p
 
     await page.getByRole('button', { name: 'Toggle theme' }).click();
     await expect(page.getByRole('group', { name: 'Species composition' }).getByRole('button', { name: 'Hide Robin' })).toHaveAttribute('aria-pressed', 'true');
+    // The theme control is at the top of the page; the recoloured chart is drawn once it is near again.
+    await donut.scrollIntoViewIfNeeded();
     await expect.poll(() => donut.evaluate(node => (node as HTMLCanvasElement & { __chartjs?: { getDataVisibility(index: number): boolean } }).__chartjs?.getDataVisibility(0))).toBe(true);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('species-charts.png'), fullPage: true });
@@ -111,7 +119,7 @@ test('AI analysis receives a PNG capture of the chart', async ({ page }) => {
 });
 
 test('weather overlays and reduced motion preserve an understandable trend', async ({ page }) => {
-    const trend = page.locator('canvas[aria-label^="Detections over time"]');
+    const trend = page.locator('canvas[aria-label^="Captures over time"]');
     await expect(trend).toBeVisible();
     await page.getByText('Weather overlays', { exact: true }).click();
     await page.getByRole('button', { name: 'Temperature' }).click();
@@ -152,13 +160,13 @@ test('weather overlays and reduced motion preserve an understandable trend', asy
 
 test('heatmap keyboard reading starts at the peak and follows grid navigation', async ({ page }) => {
     const grid = page.getByRole('grid', { name: /Activity by weekday and hour/ });
-    const peak = grid.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 detections. Busiest slot', exact: true });
+    const peak = grid.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 captures. Busiest slot', exact: true });
     await page.keyboard.press('Tab');
     await grid.focus();
     await expect(grid).toBeFocused();
     await expect.poll(() => grid.getAttribute('aria-activedescendant')).toBe(await peak.getAttribute('id'));
     const tooltip = page.locator('[data-heatmap-tooltip]');
-    await expect(tooltip).toContainText('12 detections');
+    await expect(tooltip).toContainText('12 captures');
     for (const [key, slot] of [['ArrowRight', 'Mon 09:00'], ['ArrowLeft', 'Mon 08:00'], ['ArrowDown', 'Tue 08:00'], ['Home', 'Tue 00:00'], ['End', 'Tue 23:00'], ['ArrowUp', 'Mon 23:00']] as const) {
         await page.keyboard.press(key);
         await expect(tooltip).toContainText(slot);
@@ -172,19 +180,19 @@ test('heatmap keyboard reading starts at the peak and follows grid navigation', 
 
 test('heatmap pointer and touch reading show the selected slot and dismiss cleanly', async ({ page, isMobile }) => {
     const grid = page.getByRole('grid', { name: /Activity by weekday and hour/ });
-    const peak = grid.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 detections. Busiest slot', exact: true });
+    const peak = grid.getByRole('gridcell', { name: 'Mon 08:00 to 09:00: 12 captures. Busiest slot', exact: true });
     const tooltip = page.locator('[data-heatmap-tooltip]');
     if (isMobile) {
         await peak.tap();
-        await expect(tooltip).toContainText('12 detections');
+        await expect(tooltip).toContainText('12 captures');
         await peak.tap();
         await expect(tooltip).toHaveCount(0);
-        await grid.getByRole('gridcell', { name: 'Sat 17:00 to 18:00: 5 detections', exact: true }).tap();
-        await expect(tooltip).toContainText('5 detections');
+        await grid.getByRole('gridcell', { name: 'Sat 17:00 to 18:00: 5 captures', exact: true }).tap();
+        await expect(tooltip).toContainText('5 captures');
         await page.getByRole('button', { name: 'Toggle theme' }).tap();
     } else {
         await peak.hover();
-        await expect(tooltip).toContainText('12 detections');
+        await expect(tooltip).toContainText('12 captures');
         await page.getByRole('button', { name: 'Toggle theme' }).hover();
     }
     await expect(tooltip).toHaveCount(0);
@@ -301,7 +309,7 @@ async function rainPixels(canvas: Locator): Promise<number[][] | null> {
 
 test('the trend chart keeps its set height on a wide screen', async ({ page }) => {
     await page.setViewportSize({ width: 2560, height: 1440 });
-    const trend = page.locator('canvas[aria-label^="Detections over time"]');
+    const trend = page.locator('canvas[aria-label^="Captures over time"]');
     await expect(trend).toBeVisible();
     await expect.poll(() => trend.evaluate(node => Boolean((node as HTMLCanvasElement & { __chartjs?: unknown }).__chartjs))).toBe(true);
     // Chart.js sizes the canvas to its box; a box that grows with the canvas balloons to half the width.
@@ -411,4 +419,76 @@ test('a bird kept from the Species page is not offered again while its reload fa
     await expect.poll(() => reloads).toBeGreaterThanOrEqual(1);
     await expect(page.locator('[data-spotlight-kept-bird]')).toHaveCount(0);
     expect(keeps).toEqual(['POST']);
+});
+
+test('a wall picture that fails keeps its cell, so nothing on the wall moves', async ({ page }) => {
+    const positions = () => page.locator('[data-capture-wall-tile]').evaluateAll(nodes => nodes.map(node => {
+        const box = node.getBoundingClientRect();
+        return `${node.getAttribute('data-capture-wall-tile')} ${Math.round(box.x)},${Math.round(box.y)} ${Math.round(box.width)}x${Math.round(box.height)}`;
+    }));
+    wallCaptures = captures(36);
+    await page.reload();
+    await expect(page.locator('[data-capture-wall-tile]').first()).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    const loaded = await positions();
+
+    // Every third picture is missing, as when Frigate has expired some snapshots.
+    showcaseFails = true;
+    await page.reload();
+    await expect(page.locator('[data-capture-wall-tile]').first()).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-capture-wall-missing]').first()).toBeVisible();
+    expect(await positions()).toEqual(loaded);
+
+    // A missing picture is a neutral cell that names the bird, never a broken image.
+    const missing = page.locator('[data-capture-wall-tile]:has([data-capture-wall-missing])');
+    expect(await missing.count()).toBeGreaterThan(0);
+    await expect(missing.first().locator('[data-capture-wall-missing]')).toHaveText(/Robin|Dunnock|Wren/);
+    const broken = await page.locator('[data-capture-wall-grid] img').evaluateAll(images => images.filter(image =>
+        image instanceof HTMLImageElement && image.complete && image.naturalWidth === 0 && getComputedStyle(image).visibility !== 'hidden'
+    ).length);
+    expect(broken).toBe(0);
+});
+
+test('the chart says from which day its counts come from daily totals, and nothing when none do', async ({ page }) => {
+    // The default fixture counts stored captures only.
+    await expect(page.locator('canvas[aria-label^="Captures over time"]')).toBeVisible();
+    await expect(page.locator('[data-daily-totals-note]')).toHaveCount(0);
+
+    await page.route('**/api/stats/detections/timeline?*', route => route.fulfill({ json: {
+        span: 'all', bucket: 'day', points, total_count: 54, window_start: start, window_end: end,
+        daily_totals: { totals_through: '2026-09-03', complete_from: '2026-09-02', partial: true },
+    } }));
+    await page.reload();
+    const note = page.locator('[data-daily-totals-note]');
+    await expect(note).toBeVisible();
+    await expect(note).toHaveText(
+        /^Counts before 4 Sept?( 2026)? come from daily totals; photos and clips from those days are no longer stored\. Totals before 2 Sept?( 2026)? were counted after some older captures had already been removed, so they can be lower than what visited\.$/
+    );
+    // The note belongs to the chart it describes.
+    await expect(page.getByRole('figure', { name: 'Captures over time' }).locator('[data-daily-totals-note]')).toHaveCount(1);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('the hour and weekday heatmap says sealed days have no time of day rather than that nothing was seen', async ({ page }) => {
+    await page.route('**/api/stats/detections/timeline?*', route => route.fulfill({ json: {
+        span: 'all', bucket: 'day', points, total_count: 54, window_start: start, window_end: end,
+        daily_totals: { totals_through: '2026-09-03', complete_from: null, partial: false },
+    } }));
+    await page.route('**/api/stats/detections/activity-heatmap?*', route => route.fulfill({ json: {
+        span: 'all', window_start: start, window_end: end, total_count: 0, max_cell_count: 0, cells: [],
+    } }));
+    await page.reload();
+    await expect(page.locator('[data-heatmap-empty]')).toHaveText(
+        'These days come from daily totals, which keep the count of captures but not the time of day.'
+    );
+
+    await page.route('**/api/stats/detections/activity-heatmap?*', route => route.fulfill({ json: {
+        span: 'all', window_start: start, window_end: end, total_count: 12, max_cell_count: 12,
+        cells: [{ day_of_week: 1, hour: 8, count: 12 }],
+    } }));
+    await page.reload();
+    await expect(page.locator('[data-heatmap-stored-only]')).toHaveText(
+        'Hour and weekday count stored captures only: a daily total has no time of day.'
+    );
 });

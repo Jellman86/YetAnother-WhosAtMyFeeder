@@ -12,14 +12,32 @@ import re
 import aiofiles
 import httpx
 import structlog
+from collections.abc import Awaitable
+from datetime import datetime, timezone
 from typing import Optional
 from app.config import settings
+from app.models.garden_motion import MOTION_RECORDING_BYTE_LIMIT
+from app.services.frigate_readiness import (
+    FRIGATE_NOT_READY,
+    NOT_READY_CONNECTION,
+    NOT_READY_SERVER_ERROR,
+    NOT_READY_TIMEOUT,
+    FrigateReadinessGate,
+)
+from app.services.service_connections import frigate_reachability
+from app.utils.diagnostic_redaction import safe_connection_error
 
 log = structlog.get_logger()
+
+READINESS_CHECK_TIMEOUT_SECONDS = 5.0
 
 
 class FrigateEventsFetchError(RuntimeError):
     """Frigate did not return a confirmed, usable event-history response."""
+
+
+class MotionRecordingTooLarge(ValueError):
+    """The recording is larger than a motion scan may download; retrying the same window cannot help."""
 
 
 class FrigateClient:
@@ -33,6 +51,7 @@ class FrigateClient:
 
     def __init__(self):
         self._client: Optional[httpx.AsyncClient] = None
+        self.readiness = FrigateReadinessGate(self._answers_readiness_check)
 
     def _get_client(self) -> httpx.AsyncClient:
         """Get or create the shared HTTP client."""
@@ -65,7 +84,7 @@ class FrigateClient:
         """
         url = f"{self.base_url}/{path.lstrip('/')}"
         client = self._get_client()
-        return await client.get(url, params=params, headers=self._get_headers(), timeout=timeout)
+        return await self._recorded(client.get(url, params=params, headers=self._get_headers(), timeout=timeout))
 
     async def post(self, path: str, json: Optional[dict] = None, timeout: float = 30.0) -> httpx.Response:
         """Make a POST request to Frigate API.
@@ -80,7 +99,30 @@ class FrigateClient:
         """
         url = f"{self.base_url}/{path.lstrip('/')}"
         client = self._get_client()
-        return await client.post(url, json=json, headers=self._get_headers(), timeout=timeout)
+        return await self._recorded(client.post(url, json=json, headers=self._get_headers(), timeout=timeout))
+
+    @staticmethod
+    async def _recorded(request: Awaitable[httpx.Response]) -> httpx.Response:
+        """Note whether Frigate answered, so Health reports what the last request saw."""
+        try:
+            response = await request
+        except httpx.TimeoutException:
+            frigate_reachability.record_failure("timeout", datetime.now(timezone.utc))
+            raise
+        except httpx.RequestError:
+            frigate_reachability.record_failure("connection", datetime.now(timezone.utc))
+            raise
+        frigate_reachability.record_response(response.status_code, datetime.now(timezone.utc))
+        return response
+
+    async def _answers_readiness_check(self) -> bool:
+        """Whether Frigate's API is up. A refused token is still an answer: that is a
+        configuration fault for Health to report, not Frigate starting."""
+        try:
+            response = await self.get("api/version", timeout=READINESS_CHECK_TIMEOUT_SECONDS)
+        except httpx.HTTPError:
+            return False
+        return response.status_code < 500
 
     async def get_version(self) -> Optional[str]:
         """Get Frigate version string."""
@@ -89,7 +131,7 @@ class FrigateClient:
             if resp.status_code == 200:
                 return resp.text.strip().strip('"')
         except Exception as e:
-            log.error("Failed to get Frigate version", error=str(e))
+            log.error("Failed to get Frigate version", error=safe_connection_error(e))
         return None
 
     async def get_snapshot(self, event_id: str, crop: bool = True, quality: int = 95) -> Optional[bytes]:
@@ -120,7 +162,8 @@ class FrigateClient:
             if resp.status_code == 200:
                 return resp.content, None
             if resp.status_code == 404:
-                log.warning("Failed to fetch snapshot", event_id=event_id, status=resp.status_code)
+                # Frigate announces objects it later discards; the caller decides what a missing one means.
+                log.debug("Snapshot not found", event_id=event_id)
                 return None, "snapshot_not_found"
             log.warning("Failed to fetch snapshot", event_id=event_id, status=resp.status_code)
             return None, f"snapshot_http_{resp.status_code}"
@@ -128,10 +171,10 @@ class FrigateClient:
             log.warning("Snapshot fetch timed out", event_id=event_id)
             return None, "snapshot_timeout"
         except httpx.RequestError as e:
-            log.error("Error fetching snapshot", event_id=event_id, error=str(e))
+            log.error("Error fetching snapshot", event_id=event_id, error=safe_connection_error(e))
             return None, "snapshot_request_error"
         except Exception as e:
-            log.error("Error fetching snapshot", event_id=event_id, error=str(e))
+            log.error("Error fetching snapshot", event_id=event_id, error=safe_connection_error(e))
             return None, "snapshot_unknown_error"
 
     async def get_clean_snapshot_with_error(
@@ -153,10 +196,10 @@ class FrigateClient:
             log.warning("Clean snapshot fetch timed out", event_id=event_id)
             return None, "clean_snapshot_timeout"
         except httpx.RequestError as e:
-            log.error("Error fetching clean snapshot", event_id=event_id, error=str(e))
+            log.error("Error fetching clean snapshot", event_id=event_id, error=safe_connection_error(e))
             return None, "clean_snapshot_request_error"
         except Exception as e:
-            log.error("Error fetching clean snapshot", event_id=event_id, error=str(e))
+            log.error("Error fetching clean snapshot", event_id=event_id, error=safe_connection_error(e))
             return None, "clean_snapshot_unknown_error"
 
     async def get_clip_with_error(self, event_id: str, timeout: float = 20.0) -> tuple[Optional[bytes], Optional[str]]:
@@ -185,10 +228,10 @@ class FrigateClient:
             log.warning("Clip fetch timed out", event_id=event_id)
             return None, "clip_timeout"
         except httpx.RequestError as e:
-            log.error("Error fetching clip", event_id=event_id, error=str(e))
+            log.error("Error fetching clip", event_id=event_id, error=safe_connection_error(e))
             return None, "clip_request_error"
         except Exception as e:
-            log.error("Unexpected error fetching clip", event_id=event_id, error=str(e))
+            log.error("Unexpected error fetching clip", event_id=event_id, error=safe_connection_error(e))
             return None, "clip_unknown_error"
 
     async def download_clip_to_file(
@@ -228,10 +271,10 @@ class FrigateClient:
             log.warning("Clip fetch timed out", event_id=event_id)
             return False, "clip_timeout"
         except httpx.RequestError as e:
-            log.error("Error fetching clip", event_id=event_id, error=str(e))
+            log.error("Error fetching clip", event_id=event_id, error=safe_connection_error(e))
             return False, "clip_request_error"
         except Exception as e:
-            log.error("Unexpected error fetching clip", event_id=event_id, error=str(e))
+            log.error("Unexpected error fetching clip", event_id=event_id, error=safe_connection_error(e))
             return False, "clip_unknown_error"
 
     async def get_clip(self, event_id: str) -> Optional[bytes]:
@@ -269,14 +312,14 @@ class FrigateClient:
             log.warning("Recording clip fetch timed out", camera=camera, after=after, before=before)
             return None, "clip_timeout"
         except httpx.RequestError as e:
-            log.error("Error fetching recording clip", camera=camera, error=str(e))
+            log.error("Error fetching recording clip", camera=camera, error=safe_connection_error(e))
             return None, "clip_request_error"
         except Exception as e:
-            log.error("Unexpected error fetching recording clip", camera=camera, error=str(e))
+            log.error("Unexpected error fetching recording clip", camera=camera, error=safe_connection_error(e))
             return None, "clip_unknown_error"
 
     async def download_motion_recording(
-        self, camera: str, start: float, end: float, destination: Path, *, byte_limit: int = 16 * 1024 * 1024
+        self, camera: str, start: float, end: float, destination: Path, *, byte_limit: int = MOTION_RECORDING_BYTE_LIMIT
     ) -> None:
         if (
             not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", camera)
@@ -295,7 +338,7 @@ class FrigateClient:
                 async for chunk in response.aiter_bytes(256 * 1024):
                     size += len(chunk)
                     if size > byte_limit:
-                        raise ValueError("Motion recording exceeds its byte limit")
+                        raise MotionRecordingTooLarge("Motion recording exceeds its byte limit")
                     await output.write(chunk)
             if size == 0:
                 raise ValueError("Motion recording is empty")
@@ -359,7 +402,7 @@ class FrigateClient:
             if resp.status_code == 200:
                 return resp.content
         except Exception as e:
-            log.error("Error fetching thumbnail", event_id=event_id, error=str(e))
+            log.error("Error fetching thumbnail", event_id=event_id, error=safe_connection_error(e))
         return None
 
     async def get_event(self, event_id: str) -> Optional[dict]:
@@ -369,31 +412,51 @@ class FrigateClient:
             if resp.status_code == 200:
                 return resp.json()
         except Exception as e:
-            log.error("Error fetching event", event_id=event_id, error=str(e))
+            log.error("Error fetching event", event_id=event_id, error=safe_connection_error(e))
         return None
 
     async def get_event_with_error(self, event_id: str, timeout: float = 10.0) -> tuple[Optional[dict], Optional[str]]:
-        """Fetch event details with explicit error reason."""
+        """Fetch event details with explicit error reason.
+
+        While Frigate as a whole is not answering (starting, or unreachable) the read is
+        not sent and `frigate_not_ready` is returned: one condition, reported once by the
+        readiness gate rather than once per event. Callers treat it like any transient
+        failure and ask again.
+        """
+        if not await self.readiness.admit():
+            self.readiness.note_deferred()
+            return None, FRIGATE_NOT_READY
         try:
             resp = await self.get(f"api/events/{event_id}", timeout=timeout)
             if resp.status_code == 200:
+                self.readiness.note_answered()
                 return resp.json(), None
             if resp.status_code == 404:
+                self.readiness.note_answered()
                 # Expected once Frigate's retention passes the event by, and
                 # permanent when it does. The caller decides whether a given
                 # sighting is worth reporting; see `frigate_event_absence`.
                 log.debug("Event not found", event_id=event_id)
                 return None, "event_not_found"
+            if resp.status_code >= 500 and await self.readiness.failure_is_not_ready(NOT_READY_SERVER_ERROR):
+                self.readiness.note_deferred()
+                return None, FRIGATE_NOT_READY
             log.warning("Failed to fetch event", event_id=event_id, status=resp.status_code)
             return None, f"event_http_{resp.status_code}"
         except httpx.TimeoutException:
+            if await self.readiness.failure_is_not_ready(NOT_READY_TIMEOUT):
+                self.readiness.note_deferred()
+                return None, FRIGATE_NOT_READY
             log.warning("Event fetch timed out", event_id=event_id)
             return None, "event_timeout"
         except httpx.RequestError as e:
-            log.error("Error fetching event", event_id=event_id, error=str(e))
+            if await self.readiness.failure_is_not_ready(NOT_READY_CONNECTION):
+                self.readiness.note_deferred()
+                return None, FRIGATE_NOT_READY
+            log.error("Error fetching event", event_id=event_id, error=safe_connection_error(e))
             return None, "event_request_error"
         except Exception as e:
-            log.error("Unexpected error fetching event", event_id=event_id, error=str(e))
+            log.error("Unexpected error fetching event", event_id=event_id, error=safe_connection_error(e))
             return None, "event_unknown_error"
 
     async def set_sublabel(self, event_id: str, sublabel: str, *, score: float | None = None) -> bool:
@@ -417,7 +480,7 @@ class FrigateClient:
             resp = await self.post(f"api/events/{event_id}/sub_label", json=payload, timeout=10.0)
             return resp.status_code == 200
         except Exception as e:
-            log.error("Failed to set sublabel", event_id=event_id, error=str(e))
+            log.error("Failed to set sublabel", event_id=event_id, error=safe_connection_error(e))
             return False
 
     async def get_config(self) -> Optional[dict]:
@@ -427,7 +490,7 @@ class FrigateClient:
             if resp.status_code == 200:
                 return resp.json()
         except Exception as e:
-            log.error("Error fetching Frigate config", error=str(e))
+            log.error("Error fetching Frigate config", error=safe_connection_error(e))
         return None
 
     def get_camera_recording_clip_url(self, camera: str, after: int, before: int) -> str:

@@ -1,22 +1,27 @@
 {
   "chart": {
     "heard": "Oídas",
-    "daily_title": "Actividad a lo largo del tiempo",
-    "daily_sub": "Detecciones de BirdNET-Go oídas por día",
-    "hourly_title": "Hora del día",
-    "species_title": "Distribución de especies",
-    "empty": "No hay actividad en este período."
+    "daily_title": "Cantos oídos a lo largo del tiempo",
+    "heatmap_title": "Cantos oídos por hora y día de la semana",
+    "species_title": "Composición de especies",
+    "empty": "No se oyeron cantos en este período.",
+    "other_species": "Otras especies",
+    "unavailable": "No disponible mientras no se pueda leer el historial.",
+    "col_day": "Día",
+    "col_calls": "Cantos",
+    "col_species": "Especie"
   },
   "stat": {
-    "heard": "Oídas",
-    "heard_sub": "Detecciones de BirdNET mostradas",
+    "heard": "Cantos oídos",
+    "heard_sub": "Detecciones de BirdNET-Go en este periodo",
     "species": "Especies",
-    "species_sub": "Especies identificadas por audio",
-    "peak_hour": "Hora de mayor actividad",
-    "peak_hour_sub": "{count, plural, one {# detección} other {# detecciones}}",
+    "species_sub": "Oídas en este periodo",
+    "busiest_hour": "Hora de más actividad",
     "no_activity": "Aún no hay actividad",
     "sources": "Fuentes",
-    "sources_sub": "Micrófonos o transmisiones"
+    "sources_sub": "Micrófonos o transmisiones",
+    "not_available": "No disponible",
+    "no_calls": "Sin cantos en este periodo"
   },
   "filter": {
     "window": "Período",
@@ -28,7 +33,9 @@
     "species": "Especie",
     "source": "Fuente",
     "min_confidence": "Confianza mínima",
-    "changed": "Filtros cambiados. Aplique para actualizar la lista."
+    "changed": "Filtros cambiados. Aplique para actualizar la lista.",
+    "species_placeholder": "Cualquier especie",
+    "source_placeholder": "Cualquier fuente"
   },
   "top_species": "Especies más oídas",
   "card": {
@@ -38,13 +45,16 @@
   },
   "history": {
     "title": "Historial de detecciones",
-    "sub": "Detecciones persistentes de BirdNET-Go, separadas de las visitas visuales.",
+    "sub": "Cada canto que BirdNET-Go ha registrado, separado de las visitas de cámara.",
     "empty": "Ninguna detección de BirdNET coincide con estos filtros.",
     "showing": "Mostrando {from}-{to} de {total}",
-    "hide": "Ocultar localmente",
+    "hide": "Ocultar en YA-WAMF",
     "undo": "Deshacer",
     "hidden_message": "Detección de audio oculta.",
-    "local_only": "Ocultar elimina la entrada del historial de YA-WAMF y de futuras coincidencias de audio. BirdNET-Go no cambia; sus eliminaciones no se sincronizan automáticamente."
+    "local_only": "Ocultar elimina la entrada del historial de YA-WAMF y de futuras coincidencias de audio. BirdNET-Go no cambia; sus eliminaciones no se sincronizan automáticamente.",
+    "read_failed": "No se pudo leer el historial de audio de YA-WAMF, así que nada en esta página es una medición.",
+    "read_failed_next": "Inténtalo de nuevo. Si sigue fallando, abre Estado para ver si el backend informa de un fallo.",
+    "stale": "La última actualización falló, así que esta es la lectura de las {at}."
   },
   "table": {
     "sound": "Sonido",
@@ -62,5 +72,13 @@
     "empty": "Aún no hay fuentes."
   },
   "not_shared_title": "El audio no se comparte públicamente",
-  "not_shared_body": "El propietario de esta instancia ha desactivado el audio para visitantes."
+  "not_shared_body": "El propietario de esta instancia ha desactivado el audio para invitados.",
+  "summary_title": "Este periodo",
+  "calls_heard": "{count, plural, one {# canto oído} other {# cantos oídos}}",
+  "heatmap": {
+    "grid_label": "Cantos oídos por hora y día de la semana. Usa las flechas para leer una franja.",
+    "per_hour": "cantos oídos por franja de una hora",
+    "read_failed": "No se pudieron leer los cantos oídos por hora y día de la semana, así que no se muestran esta cuadrícula ni la hora de más actividad. El resto de la página sí se leyó."
+  },
+  "side_label": "Especies más oídas y fuentes"
 }

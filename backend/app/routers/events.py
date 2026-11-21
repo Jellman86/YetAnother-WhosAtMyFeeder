@@ -1,9 +1,10 @@
 import asyncio
 import time
 import unicodedata
-from fastapi import APIRouter, HTTPException, Query, Request, Depends
+from collections.abc import Collection
+from fastapi import APIRouter, HTTPException, Query, Request, Response, Depends
 from typing import List, Optional, Literal
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, date, timedelta, timezone, tzinfo
 from pydantic import BaseModel, Field
 import structlog
 from PIL import Image
@@ -16,6 +17,7 @@ from app.config import settings
 from app.services.classifier_service import get_classifier
 from app.services.frigate_client import frigate_client
 from app.services.frigate_event_absence import frigate_event_absence
+from app.services.frigate_event_check import EventAvailability, classify_event_check
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.media_cache import media_cache
 from app.services.archive_service import archive_service, retry_due_at
@@ -41,11 +43,11 @@ from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.public_access import (
-    effective_public_events_days,
     public_events_cutoff,
-    public_utc_day,
     public_events_window,
 )
+from app.utils.calendar_day import CalendarDay, calendar_window, clamp_window, local_date
+from app.utils.timezone import calendar_timezone
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.canonical_species import (
     hidden_species_exact_labels,
@@ -131,6 +133,40 @@ def _enforce_max_date_range(start_date: Optional[date], end_date: Optional[date]
             status_code=400,
             detail=f"Date range must not exceed {MAX_FILTER_DATE_RANGE_DAYS} days",
         )
+
+
+_LAST_INSTANT = timedelta(microseconds=1)
+CALENDAR_DAY_HELP = (
+    "an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC"
+)
+NEXT_OFFSET_HEADER = "X-Next-Offset"
+
+
+def requested_calendar_window(
+    start_day: CalendarDay | None, end_day: CalendarDay | None, zone: tzinfo
+) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Naive-UTC bounds for the calendar days a request names, on the viewer's clock."""
+    return calendar_window(start_day, end_day, now=utc_naive_now().replace(tzinfo=timezone.utc), zone=zone)
+
+
+def visible_history_window(
+    auth: AuthContext, start: Optional[datetime], end: Optional[datetime], zone: tzinfo
+) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Narrow a naive-UTC window to what this viewer may see, then bound its length.
+
+    A guest's allowance is intersected with the request after the zone is resolved, so no
+    date, keyword or ``X-Timezone`` can widen it.
+    """
+    if not auth.is_owner and settings.public_access.enabled:
+        floor, ceiling = public_events_window()
+        start, end = clamp_window(
+            start,
+            end,
+            floor=floor.replace(tzinfo=None),
+            ceiling=None if ceiling is None else ceiling.replace(tzinfo=None) - _LAST_INSTANT,
+        )
+    _enforce_max_date_range(local_date(start, zone=zone), local_date(end, zone=zone))
+    return start, end
 
 
 def parse_species_filter(species: Optional[str]) -> tuple[Optional[str], Optional[int]]:
@@ -237,27 +273,41 @@ def _get_active_model_id_for_feedback() -> str:
     return configured_model or "unknown"
 
 
-async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
+async def cached_media_flags(event_id: str) -> dict[str, bool]:
+    from app.services.archive_service import archive_service
+
+    cached_snapshot = media_cache.has_snapshot(event_id)
+    cached_clip = media_cache.has_clip(event_id) or media_cache.has_recording_clip(event_id)
+    return {
+        "has_clip": bool(cached_clip or await archive_service.video_path(event_id)),
+        "has_snapshot": bool(cached_snapshot or await archive_service.snapshot_path(event_id)),
+    }
+
+
+async def local_media_availability(event_ids: list[str]) -> dict[str, EventAvailability]:
+    """What this server holds for each event, without asking Frigate, and saying it did not ask."""
+    return {
+        event_id: {
+            "has_frigate_event": False,
+            "frigate_event_check": "not_checked",
+            **await cached_media_flags(event_id),
+        }
+        for event_id in event_ids
+    }
+
+
+async def batch_check_clips(event_ids: list[str]) -> dict[str, EventAvailability]:
     """
     Check Frigate event/media availability for multiple events.
-    Returns a dict mapping event_id -> availability flags.
+    Returns a dict mapping event_id -> availability flags, with what Frigate
+    answered: only `not_found` means the event is gone upstream.
     """
     if not event_ids:
         return {}
 
     semaphore = asyncio.Semaphore(CLIP_CHECK_CONCURRENCY)
 
-    async def cached_media_flags(event_id: str) -> dict[str, bool]:
-        from app.services.archive_service import archive_service
-
-        cached_snapshot = media_cache.has_snapshot(event_id)
-        cached_clip = media_cache.has_clip(event_id) or media_cache.has_recording_clip(event_id)
-        return {
-            "has_clip": bool(cached_clip or await archive_service.video_path(event_id)),
-            "has_snapshot": bool(cached_snapshot or await archive_service.snapshot_path(event_id)),
-        }
-
-    async def check(event_id: str) -> tuple[str, dict[str, bool]]:
+    async def check(event_id: str) -> tuple[str, EventAvailability]:
         async with semaphore:
             if event_id.startswith("manual_"):
                 from app.services.manual_observation_service import manual_observation_service
@@ -266,6 +316,7 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
                 media = await manual_observation_service.path_for_event(event_id, preview=False)
                 return event_id, {
                     "has_frigate_event": False,
+                    "frigate_event_check": "not_checked",
                     "has_clip": bool(media and media.suffix.lower() in {".mp4", ".mov", ".webm"}),
                     "has_snapshot": bool(snapshot),
                 }
@@ -286,12 +337,16 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
                         )
                     return event_id, {
                         "has_frigate_event": False,
+                        "frigate_event_check": classify_event_check(
+                            None, error, frigate_client.readiness.not_ready_cause
+                        ),
                         "has_clip": cached_flags["has_clip"],
                         "has_snapshot": cached_flags["has_snapshot"],
                     }
                 frigate_event_absence.record_present(event_id)
                 return event_id, {
                     "has_frigate_event": True,
+                    "frigate_event_check": "found",
                     "has_clip": bool(event_data.get("has_clip", False)) or cached_flags["has_clip"],
                     "has_snapshot": bool(event_data.get("has_snapshot", True)) or cached_flags["has_snapshot"],
                 }
@@ -299,6 +354,7 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
                 cached_flags = await cached_media_flags(event_id)
                 return event_id, {
                     "has_frigate_event": False,
+                    "frigate_event_check": "failed",
                     "has_clip": cached_flags["has_clip"],
                     "has_snapshot": cached_flags["has_snapshot"],
                 }
@@ -344,6 +400,7 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "weather_precipitation": detection.weather_precipitation,
         "weather_rain": detection.weather_rain,
         "weather_snowfall": detection.weather_snowfall,
+        "illuminance_lux": getattr(detection, "illuminance_lux", None),
         "scientific_name": public_species["scientific_name"],
         "common_name": public_species["common_name"],
         "taxa_id": public_species["taxa_id"],
@@ -579,6 +636,7 @@ _LIST_FIELDS = {
     "has_clip",
     "has_snapshot",
     "has_frigate_event",
+    "frigate_event_check",
     "audio_species",
     "audio_score",
     "audio_confirmed",
@@ -621,16 +679,27 @@ def _filter_event_fields(event: dict, fields: set[str] | None) -> dict:
                 "a partial event projection plus required navigation fields."
             ),
             "model": List[DetectionResponse] | List[DetectionListItemResponse],
+            "headers": {
+                NEXT_OFFSET_HEADER: {
+                    "description": "The `offset` of the next page. Present only while more events match.",
+                    "schema": {"type": "integer", "minimum": 1},
+                }
+            },
         }
     },
 )
 @guest_rate_limit()
 async def get_events(
     request: Request,
+    response: Response,
     limit: int = Query(default=50, ge=1, le=500, description="Number of events to return"),
-    offset: int = Query(default=0, ge=0, description="Number of events to skip"),
-    start_date: Optional[date] = Query(default=None, description="Filter events from this date (inclusive)"),
-    end_date: Optional[date] = Query(default=None, description="Filter events until this date (inclusive)"),
+    offset: int = Query(
+        default=0,
+        ge=0,
+        description=f"Number of events to skip. While more events match, the response carries {NEXT_OFFSET_HEADER}.",
+    ),
+    start_date: Optional[CalendarDay] = Query(default=None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
+    end_date: Optional[CalendarDay] = Query(default=None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     event_id: Optional[str] = Query(default=None, max_length=255, description="Filter by exact Frigate event ID"),
@@ -659,20 +728,13 @@ async def get_events(
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
 
+    zone = calendar_timezone(request)
+    start_datetime, end_datetime = visible_history_window(
+        auth, *requested_calendar_window(start_date, end_date, zone), zone
+    )
+
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
-        # Restrict historical data for guests
-        today = public_utc_day()
-        max_days = effective_public_events_days()
-        if max_days > 0:
-            cutoff_date = today - timedelta(days=max_days)
-            if start_date is None or start_date < cutoff_date:
-                start_date = cutoff_date
-        else:
-            # Only show today's data
-            start_date = today
-            end_date = today
-
         # Limit result count for guests
         limit = min(limit, 50)
 
@@ -687,20 +749,16 @@ async def get_events(
         if hide_camera_names:
             camera = None
 
-    _enforce_max_date_range(start_date, end_date)
     species_ids = await bird_taxon_members(taxon) if taxon else None
 
     async with get_db() as db:
         repo = DetectionRepository(db)
 
-        # Convert dates to datetime for filtering
-        start_datetime = datetime.combine(start_date, datetime.min.time()) if start_date else None
-        end_datetime = datetime.combine(end_date, datetime.max.time()) if end_date else None
-
         species_name, taxa_id = parse_species_filter(species)
         species_name, species_aliases = resolve_species_display_filter_aliases(species_name, taxa_id)
+        # One row past the page says whether another page exists, without a second count query.
         events = await repo.get_all(
-            limit=limit,
+            limit=limit + 1,
             offset=offset,
             start_date=start_datetime,
             end_date=end_datetime,
@@ -719,12 +777,24 @@ async def get_events(
             species_ids=species_ids,
         )
 
+    if len(events) > limit:
+        events = events[:limit]
+        response.headers[NEXT_OFFSET_HEADER] = str(offset + limit)
     return await present_events(events, request, auth, fields)
 
 
 async def present_events(
-    events: list[StoredDetection], request: Request, auth: AuthContext, fields: str | None = None
+    events: list[StoredDetection],
+    request: Request,
+    auth: AuthContext,
+    fields: str | None = None,
+    *,
+    ask_frigate_about: Collection[str] | None = None,
 ) -> list[DetectionResponse] | list[dict[str, object]]:
+    """Present stored events; ``ask_frigate_about`` limits the Frigate checks to those ids.
+
+    The rest report the media this server holds and ``frigate_event_check: not_checked``.
+    """
     scope = PresentationScope(language=get_user_language(request), is_owner=auth.is_owner)
     event_ids = [event.frigate_event for event in events]
     async with get_db() as db:
@@ -737,7 +807,14 @@ async def present_events(
     # busy page block everything else needing the database, which is what an
     # owner experienced as the whole interface being slow (#300). The rows are
     # already read, so the connection is given back first.
-    clip_availability = await batch_check_clips(event_ids)
+    if ask_frigate_about is None:
+        clip_availability = await batch_check_clips(event_ids)
+    else:
+        asked = [event_id for event_id in dict.fromkeys(event_ids) if event_id in ask_frigate_about]
+        clip_availability = {
+            **await local_media_availability([event_id for event_id in event_ids if event_id not in asked]),
+            **await batch_check_clips(asked),
+        }
 
     async with get_db() as db:
         response_events = await present_detections(
@@ -921,8 +998,8 @@ async def get_review_queue(
 @guest_rate_limit()
 async def get_events_count(
     request: Request,
-    start_date: Optional[date] = Query(default=None, description="Filter events from this date (inclusive)"),
-    end_date: Optional[date] = Query(default=None, description="Filter events until this date (inclusive)"),
+    start_date: Optional[CalendarDay] = Query(default=None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
+    end_date: Optional[CalendarDay] = Query(default=None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     favorites: bool = Query(default=False, description="Only count favorited detections"),
@@ -941,17 +1018,12 @@ async def get_events_count(
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
+    zone = calendar_timezone(request)
+    start_datetime, end_datetime = visible_history_window(
+        auth, *requested_calendar_window(start_date, end_date, zone), zone
+    )
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
-        today = public_utc_day()
-        max_days = effective_public_events_days()
-        if max_days > 0:
-            cutoff_date = today - timedelta(days=max_days)
-            if start_date is None or start_date < cutoff_date:
-                start_date = cutoff_date
-        else:
-            start_date = today
-            end_date = today
         include_hidden = False
         only_hidden = False
         if not settings.public_access.show_audio:
@@ -959,14 +1031,11 @@ async def get_events_count(
         if hide_camera_names:
             camera = None
 
-    _enforce_max_date_range(start_date, end_date)
     species_ids = await bird_taxon_members(taxon) if taxon else None
 
     async with get_db() as db:
         repo = DetectionRepository(db)
 
-        start_datetime = datetime.combine(start_date, datetime.min.time()) if start_date else None
-        end_datetime = datetime.combine(end_date, datetime.max.time()) if end_date else None
         species_name, taxa_id = parse_species_filter(species)
         species_name, species_aliases = resolve_species_display_filter_aliases(species_name, taxa_id)
 
@@ -1189,6 +1258,39 @@ class UpdateDetectionRequest(BaseModel):
     """Request to manually update a detection's species."""
 
     display_name: str = Field(..., min_length=1, description="New species name")
+    expected_category_name: Optional[str] = Field(
+        None,
+        min_length=1,
+        description=(
+            "The stored identification (category_name) the owner was shown. When given, the update "
+            "applies only while the detection still carries it; otherwise the answer is 409 with what "
+            "the detection says now."
+        ),
+    )
+
+
+class CurrentIdentification(BaseModel):
+    """What a detection's identification reads now."""
+
+    display_name: str
+    category_name: str
+    scientific_name: Optional[str] = None
+    common_name: Optional[str] = None
+    manual_tagged: bool
+
+
+class IdentificationChangedDetail(BaseModel):
+    """Why a decision was refused: the identification changed after it was shown."""
+
+    code: Literal["identification_changed"]
+    message: str = Field(..., description="Plain-language reason, in the request's language")
+    current: CurrentIdentification
+
+
+class IdentificationChangedResponse(BaseModel):
+    """409 body of PATCH /api/events/{event_id} when `expected_category_name` no longer holds."""
+
+    detail: IdentificationChangedDetail
 
 
 class BulkManualTagRequest(BaseModel):
@@ -1331,6 +1433,37 @@ async def _prefetch_manual_tag_taxonomy(
     return taxonomy
 
 
+def _shown_identification_stands(detection, expected_category_name: str | None) -> bool:
+    """Whether the detection still carries the identification the owner was shown."""
+    if expected_category_name is None:
+        return True
+    return (detection.category_name or "").strip().lower() == expected_category_name.strip().lower()
+
+
+async def _identification_changed(repo: DetectionRepository, event_id: str, lang: str) -> HTTPException:
+    """409 for a decision taken on an identification that has since changed elsewhere.
+
+    It says, in words and as data, what the detection reads now, so the page can show it
+    instead of the snapshot the owner acted on.
+    """
+    current = await repo.get_by_frigate_event(event_id)
+    if current is None:
+        return HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
+    species = current.display_name or current.category_name or ""
+    detail = IdentificationChangedDetail(
+        code="identification_changed",
+        message=i18n_service.translate("errors.events.identification_changed", lang, species=species),
+        current=CurrentIdentification(
+            display_name=current.display_name,
+            category_name=current.category_name,
+            scientific_name=current.scientific_name,
+            common_name=current.common_name,
+            manual_tagged=bool(current.manual_tagged),
+        ),
+    )
+    return HTTPException(status_code=409, detail=detail.model_dump())
+
+
 async def _apply_manual_tag_update(
     *,
     db,
@@ -1339,6 +1472,7 @@ async def _apply_manual_tag_update(
     requested_species: str,
     lang: str,
     prefetched_taxonomy: dict,
+    expected_category_name: str | None = None,
 ) -> dict:
     old_species = detection.display_name
     old_category_name = detection.category_name
@@ -1355,7 +1489,11 @@ async def _apply_manual_tag_update(
     )
 
     async def confirm_existing_species() -> dict:
-        await repo.confirm_manual_species_tag(frigate_event=event_id)
+        if not await repo.confirm_manual_species_tag(
+            frigate_event=event_id, expected_category_name=expected_category_name
+        ):
+            await db.rollback()
+            raise await _identification_changed(repo, event_id, lang)
         await db.commit()
 
         refreshed_detection = await repo.get_by_frigate_event(event_id)
@@ -1483,7 +1621,8 @@ async def _apply_manual_tag_update(
                 "Could not resolve corrected species identity", error=safe_error_message(exc), event_id=event_id
             )
 
-    await repo.apply_manual_species_tag(
+    written = await repo.apply_manual_species_tag(
+        expected_category_name=expected_category_name,
         frigate_event=event_id,
         display_name=stored_display_name,
         category_name=stored_category_name,
@@ -1495,6 +1634,9 @@ async def _apply_manual_tag_update(
         audio_score=audio_score,
         species_id=corrected_species_id,
     )
+    if not written:
+        await db.rollback()
+        raise await _identification_changed(repo, event_id, lang)
 
     model_id = _get_active_model_id_for_feedback()
     predicted_label = (old_category_name or old_species or "").strip()
@@ -1969,7 +2111,16 @@ async def bulk_delete_events(body: BulkDeleteRequest, auth: AuthContext = Depend
     )
 
 
-@router.patch("/events/{event_id}", response_model=ManualTagResponse)
+@router.patch(
+    "/events/{event_id}",
+    response_model=ManualTagResponse,
+    responses={
+        409: {
+            "model": IdentificationChangedResponse,
+            "description": "The identification named in `expected_category_name` changed elsewhere; nothing was written.",
+        }
+    },
+)
 async def update_event(
     event_id: str, update_request: UpdateDetectionRequest, request: Request, auth: AuthContext = Depends(require_owner)
 ):
@@ -1985,6 +2136,10 @@ async def update_event(
 
         if not detection:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
+        # A quick refusal before any taxonomy or audio work; the conditional write in the
+        # repository closes the window between this read and the write.
+        if not _shown_identification_stands(detection, update_request.expected_category_name):
+            raise await _identification_changed(repo, event_id, lang)
 
         result = await _apply_manual_tag_update(
             db=db,
@@ -1993,6 +2148,7 @@ async def update_event(
             requested_species=update_request.display_name,
             lang=lang,
             prefetched_taxonomy=prefetched_taxonomy,
+            expected_category_name=update_request.expected_category_name,
         )
     result["photo_changed"] = await _photo_follows_species(result, update_request.display_name)
     return result

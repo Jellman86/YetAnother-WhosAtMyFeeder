@@ -2,89 +2,57 @@
     import { _ } from "svelte-i18n";
     import { toAppPath } from "../../app/url-base";
     import { setupWizardStore } from "../../stores/setup_wizard.svelte";
+    import { SETTINGS_SECTION_ORDER, settingsSectionPath, type SettingsSection } from "../../settings/settings-route";
+    import SettingsSearch, { type SettingsSearchLanding } from "./SettingsSearch.svelte";
 
-    type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health' | 'enrichment'
-        | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations' | 'beta';
-
-    interface SettingsTabItem {
-        id: SettingsTab;
+    interface SettingsSectionItem {
+        id: SettingsSection;
         label: string;
-        iconPath: string;
-    }
-
-    interface SettingsTabGroup {
-        id: 'pipeline' | 'intelligence' | 'operations' | 'interface';
-        label: string;
-        tabs: SettingsTabItem[];
     }
 
     interface Props {
-        activeTab: string;
-        ontabchange: (tab: SettingsTab) => void;
-        debugUiEnabled?: boolean;
+        activeSection: SettingsSection;
+        onsectionchange: (section: SettingsSection) => void;
+        /** Opens the setting a search result names; the search is left out without it. */
+        onsearch?: (anchor: string) => Promise<SettingsSearchLanding>;
+        /** Sections holding unsaved changes; each is marked in the list with a worded dot. */
+        unsavedSections?: readonly SettingsSection[];
+        /** Sections holding a value the last save refused; each needs a fix before saving again. */
+        refusedSections?: readonly SettingsSection[];
+        /** The id of the element the skip link moves focus to. */
+        contentId: string;
     }
 
-    let { activeTab, ontabchange, debugUiEnabled = false }: Props = $props();
+    let { activeSection, onsectionchange, onsearch, unsavedSections = [], refusedSections = [], contentId }: Props = $props();
 
-    const groups = $derived<SettingsTabGroup[]>([
-        {
-            id: "pipeline",
-            label: $_("settings.tabs.groups.pipeline", { default: "Feeder pipeline" }),
-            tabs: [
-                { id: "connection", label: $_("settings.tabs.connection"), iconPath: "M13.5 6H18a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-4.5M10.5 18H6a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3h4.5M8 12h8" },
-                { id: "detection", label: $_("settings.tabs.detection"), iconPath: "M12 3v3m0 12v3M3 12h3m12 0h3M7.05 7.05l2.12 2.12m5.66 5.66 2.12 2.12m0-9.9-2.12 2.12m-5.66 5.66-2.12 2.12M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" }
-            ]
-        },
-        {
-            id: "intelligence",
-            label: $_("settings.tabs.groups.intelligence", { default: "Intelligence & sharing" }),
-            tabs: [
-                { id: "integrations", label: $_("settings.tabs.integrations"), iconPath: "M8 3v4m8-4v4M6 7h12v3a6 6 0 0 1-6 6v5m-3 0h6" },
-                { id: "enrichment", label: $_("settings.tabs.enrichment"), iconPath: "m12 3 1.4 4.1 4.1 1.4-4.1 1.4L12 14l-1.4-4.1-4.1-1.4 4.1-1.4L12 3Zm6.5 11 .7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7.7-2.1Z" },
-                { id: "ai", label: $_("settings.tabs.ai", { default: "AI" }), iconPath: "M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3m12-6h3m-3 6h3M7 7h10v10H7V7Zm3 3h4v4h-4v-4Z" },
-                { id: "notifications", label: $_("settings.tabs.notifications"), iconPath: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" }
-            ]
-        },
-        {
-            id: "operations",
-            label: $_("settings.tabs.groups.operations", { default: "Operations" }),
-            tabs: [
-                { id: "health", label: $_("settings.tabs.health"), iconPath: "M3 12h4l2-5 4 10 2-5h6M12 21C7 18 4 14.5 4 10a4 4 0 0 1 7-2.65A4 4 0 0 1 18 10c0 .7-.08 1.36-.24 2" },
-                { id: "security", label: $_("settings.tabs.security"), iconPath: "m12 3 7 3v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6l7-3Zm-3 9 2 2 4-4" },
-                { id: "beta", label: $_("settings.tabs.beta", { default: "Beta features" }), iconPath: "M10 2v7.31L4.53 18.4A2.4 2.4 0 0 0 6.6 22h10.8a2.4 2.4 0 0 0 2.07-3.6L14 9.31V2M8.5 2h7M7 16h10" },
-                { id: "data", label: $_("settings.tabs.data"), iconPath: "M19 6c0 1.66-3.13 3-7 3S5 7.66 5 6s3.13-3 7-3 7 1.34 7 3Zm0 0v6c0 1.66-3.13 3-7 3s-7-1.34-7-3V6m14 6v6c0 1.66-3.13 3-7 3s-7-1.34-7-3v-6" },
-                ...(debugUiEnabled
-                    ? [{ id: "debug" as const, label: $_("settings.tabs.debug"), iconPath: "M9 3h6m-5 0v5l-5 9a2 2 0 0 0 1.74 3h10.52A2 2 0 0 0 19 17l-5-9V3m-6 11h8" }]
-                    : [])
-            ]
-        },
-        {
-            id: "interface",
-            label: $_("settings.tabs.groups.interface", { default: "Interface" }),
-            tabs: [
-                { id: "appearance", label: $_("settings.tabs.appearance"), iconPath: "M12 3v2m0 14v2M3 12h2m14 0h2M5.64 5.64l1.42 1.42m9.88 9.88 1.42 1.42m0-12.72-1.42 1.42M7.06 16.94l-1.42 1.42M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" },
-                { id: "accessibility", label: $_("settings.tabs.accessibility"), iconPath: "M12 6a2 2 0 1 0 0-4 2 2 0 0 0 0 4ZM4 9h16m-8 0v12m0-7-4 7m4-7 4 7" }
-            ]
-        }
-    ]);
+    // Six sections, one per task an owner comes here to do, so they need no grouping.
+    const sections = $derived<SettingsSectionItem[]>(
+        SETTINGS_SECTION_ORDER.map((id) => ({ id, label: $_(`settings.sections.${id}`) }))
+    );
 
-    function settingsHref(tab: SettingsTab): string {
-        return toAppPath(`/settings/${tab}`);
+    const unsavedLabel = $derived($_("settings.tabs.unsaved", { default: "unsaved" }));
+    const refusedLabel = $derived($_("settings.tabs.refused", { default: "needs a fix" }));
+
+    // The phone picker is a native list, so each section's state is said in words after its name.
+    function optionText(section: SettingsSectionItem): string {
+        if (refusedSections.includes(section.id)) return `${section.label} (${refusedLabel})`;
+        if (unsavedSections.includes(section.id)) return `${section.label} (${unsavedLabel})`;
+        return section.label;
     }
 
-    function handleLinkClick(event: MouseEvent, tab: SettingsTab): void {
-        if (
-            event.button !== 0
-            || event.metaKey
-            || event.ctrlKey
-            || event.shiftKey
-            || event.altKey
-        ) {
-            return;
-        }
+    function sectionHref(section: SettingsSection): string {
+        return toAppPath(settingsSectionPath(section));
+    }
 
+    function handleLinkClick(event: MouseEvent, section: SettingsSection): void {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
-        if (tab !== activeTab) ontabchange(tab);
+        if (section !== activeSection) onsectionchange(section);
+    }
+
+    function skipToContent(event: MouseEvent): void {
+        event.preventDefault();
+        document.getElementById(contentId)?.focus();
     }
 
     function openSetupWizard(): void {
@@ -92,86 +60,80 @@
     }
 </script>
 
-<div class="rounded-2xl border border-line-soft bg-surface p-3 md:hidden">
-    <label for="settings-tab-select" class="mb-1.5 block px-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.title')}</label>
-    <select
-        id="settings-tab-select"
-        value={activeTab}
-        onchange={(e) => ontabchange((e.currentTarget as HTMLSelectElement).value as SettingsTab)}
-        class="select-base w-full"
-    >
-        {#each groups as group}
-            <optgroup label={group.label}>
-                {#each group.tabs as tab}
-                    <option value={tab.id}>{tab.label}</option>
-                {/each}
-            </optgroup>
-        {/each}
-    </select>
-    <button
-        type="button"
-        data-setup-wizard-action
-        class="btn btn-secondary mt-2 w-full justify-start"
-        onclick={openSetupWizard}
-        aria-haspopup="dialog"
-    >
-        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2m-4 0a2 2 0 0 0 2 2 2 2 0 0 0 2-2m-4 7 2 2 4-4" />
-        </svg>
-        <span>{$_('nav.setup_wizard')}</span>
+<a
+    href="#{contentId}"
+    onclick={skipToContent}
+    class="sr-only focus:not-sr-only focus:absolute focus:z-40 focus:rounded-lg focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-accent-ink focus:ring-2 focus:ring-focus"
+    data-settings-skip-link
+>{$_('settings.tabs.skip_to_content', { default: 'Skip to the settings' })}</a>
+
+<!-- First in the navigation at every width: above the rail on a wide screen, above the section
+     list on a phone. One box, so "/" always has one place to go. -->
+{#if onsearch}
+    <div class="mb-4">
+        <SettingsSearch onchoose={onsearch} {activeSection} />
+    </div>
+{/if}
+
+<!-- Phones, narrow windows and enlarged text: one select that names the current section, and the wizard beside it. -->
+<div class="flex flex-wrap items-end gap-3 @2xl:hidden" data-settings-compact-navigation>
+    <!-- Wide enough for the longest section name in every language; the wizard wraps below it on a phone. -->
+    <div class="min-w-0 flex-1 basis-64">
+        <label for="settings-tab-select" class="mb-1.5 block text-sm font-semibold text-ink">{$_('settings.tabs.section_label', { default: 'Settings section' })}</label>
+        <select
+            id="settings-tab-select"
+            value={activeSection}
+            onchange={(e) => onsectionchange((e.currentTarget as HTMLSelectElement).value as SettingsSection)}
+            class="select-base w-full"
+        >
+            {#each sections as section (section.id)}
+                <option value={section.id}>{optionText(section)}</option>
+            {/each}
+        </select>
+    </div>
+    <button type="button" data-setup-wizard-action class="btn btn-secondary min-h-11 px-4" onclick={openSetupWizard} aria-haspopup="dialog">
+        {$_('nav.setup_wizard')}
     </button>
 </div>
 
-<nav
-    data-settings-navigation
-    class="hidden w-full overflow-hidden rounded-2xl border border-line-soft bg-surface md:block"
-    aria-label={$_('settings.title')}
->
-    <div class="grid grid-cols-2 xl:grid-cols-4">
-        {#each groups as group}
-            <div class="min-w-0 border-line-soft p-3 xl:p-4
-                        {group.id === 'intelligence' ? 'border-l' : ''}
-                        {group.id === 'operations' ? 'border-t xl:border-l xl:border-t-0' : ''}
-                        {group.id === 'interface' ? 'border-l border-t xl:border-t-0' : ''}">
-                <h2 class="eyebrow px-2 pb-2">
-                    {group.label}
-                </h2>
-                <div class="space-y-0.5">
-                    {#each group.tabs as tab}
-                        <a
-                            href={settingsHref(tab.id)}
-                            onclick={(event) => handleLinkClick(event, tab.id)}
-                            aria-current={activeTab === tab.id ? 'page' : undefined}
-                            class="group flex min-h-11 items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950
-                                   {activeTab === tab.id
-                                ? 'bg-brand-50 text-slate-900 dark:bg-brand-950/60 dark:text-white'
-                                : 'text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}"
-                            title={tab.label}
-                        >
-                            <svg data-active-indicator class="h-4 w-4 shrink-0 {activeTab === tab.id ? 'text-brand-600 dark:text-brand-400' : 'opacity-80'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d={tab.iconPath} />
-                            </svg>
-                            <span class="min-w-0 flex-1">{tab.label}</span>
-                        </a>
-                    {/each}
-                    {#if group.id === 'operations'}
-                        <div class="mt-1 border-t border-line-soft pt-1">
-                            <button
-                                type="button"
-                                data-setup-wizard-action
-                                class="group flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-semibold text-slate-600 transition-colors hover:bg-surface-raised hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:text-slate-400 dark:hover:text-white dark:focus-visible:ring-offset-slate-950"
-                                onclick={openSetupWizard}
-                                aria-haspopup="dialog"
-                            >
-                                <svg class="h-4 w-4 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2m-4 0a2 2 0 0 0 2 2 2 2 0 0 0 2-2m-4 7 2 2 4-4" />
-                                </svg>
-                                <span class="min-w-0 flex-1">{$_('nav.setup_wizard')}</span>
-                            </button>
-                        </div>
-                    {/if}
-                </div>
-            </div>
-        {/each}
+<!-- The word beside a section's name is visible; this says the same to a screen reader without
+     changing the link's name. -->
+<span id="settings-tab-unsaved-note" class="sr-only">{$_('settings.tabs.unsaved_note', { default: 'Has unsaved changes' })}</span>
+<span id="settings-tab-refused-note" class="sr-only">{$_('settings.tabs.refused_note', { default: 'Has a value the last save refused' })}</span>
+
+<!-- Room for it (42rem, so it scales with the text): a compact rail beside the settings, so they start at the top of the page. -->
+<nav data-settings-navigation class="hidden @2xl:block" aria-label={$_('settings.tabs.navigation_label', { default: 'Settings sections' })}>
+    <div class="space-y-5">
+        <ul class="space-y-0.5">
+            {#each sections as section (section.id)}
+                {@const current = activeSection === section.id}
+                <li>
+                    <a
+                        href={sectionHref(section.id)}
+                        onclick={(event) => handleLinkClick(event, section.id)}
+                        aria-current={current ? 'page' : undefined}
+                        aria-describedby={refusedSections.includes(section.id) ? 'settings-tab-refused-note' : unsavedSections.includes(section.id) ? 'settings-tab-unsaved-note' : undefined}
+                        class="sidebar-nav flex-wrap {current ? 'sidebar-nav-active' : 'sidebar-nav-inactive'}"
+                    >
+                        <!-- The name keeps its own width, so at a larger text size or in the reading font
+                             the status drops to a second line rather than being written over it. -->
+                        <span class="flex-auto wrap-break-word">{section.label}</span>
+                        {#if refusedSections.includes(section.id)}
+                            <span class="text-xs font-semibold text-status-fail" aria-hidden="true" data-tab-refused>{refusedLabel}</span>
+                        {:else if unsavedSections.includes(section.id)}
+                            <span class="flex items-center gap-1 text-xs font-semibold text-muted" aria-hidden="true" data-tab-unsaved>
+                                <span class="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true"></span>
+                                {unsavedLabel}
+                            </span>
+                        {/if}
+                    </a>
+                </li>
+            {/each}
+        </ul>
+        <div class="border-t border-line-soft px-1 pt-4">
+            <button type="button" data-setup-wizard-action class="btn btn-secondary min-h-11 w-full px-4" onclick={openSetupWizard} aria-haspopup="dialog">
+                {$_('nav.setup_wizard')}
+            </button>
+        </div>
     </div>
 </nav>

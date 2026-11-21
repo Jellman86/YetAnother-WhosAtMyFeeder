@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import eventsPageSource from './Events.svelte?raw';
 import filtersSource from '../components/ExplorerFilters.svelte?raw';
+import sheetSource from '../components/ui/FilterSheet.svelte?raw';
 import rowSource from '../components/DetectionRow.svelte?raw';
 import storeSource from '../stores/explorer_filters.svelte.ts?raw';
 import previewSource from '../components/DetectionPreview.svelte?raw';
@@ -14,16 +15,22 @@ describe('collapsing the Explorer filter rail', () => {
         expect(eventsPageSource).toContain("'lg:grid-cols-[16rem_minmax(0,1fr)]'");
     });
 
-    it('sits in the header toolbar beside the view switch and Multi-select', () => {
-        // Inside the rail, the toolbar controls wrapped vertically down a 14rem
-        // column while Multi-select sat alone in the header: three ways of
-        // acting on the same list in two places and two styles. One row now.
-        const railToggleAt = eventsPageSource.indexOf('data-explorer-rail-toggle');
-        const viewToggleAt = eventsPageSource.indexOf('data-explorer-view-toggle');
-        const multiSelectAt = eventsPageSource.indexOf('common.multi_select');
+    it('sits in the header row on a desktop with the other page controls, each written once', () => {
+        // One row on a desktop. On a narrower screen the page places the same controls, without a
+        // second copy: the view switch beside the Filters button, the rest opened with the filters.
+        const header = eventsPageSource.slice(eventsPageSource.indexOf('data-explorer-controls'));
+        const railToggleAt = header.indexOf('data-explorer-rail-toggle');
+        const viewAt = header.indexOf('{@render viewSwitch()}');
+        const multiSelectAt = header.indexOf('{@render multiSelectToggle()}');
+        expect(header.indexOf('{@render heardToggle()}')).toBeGreaterThan(-1);
         expect(railToggleAt).toBeGreaterThan(-1);
-        expect(viewToggleAt).toBeGreaterThan(railToggleAt);
-        expect(multiSelectAt).toBeGreaterThan(viewToggleAt);
+        expect(viewAt).toBeGreaterThan(railToggleAt);
+        expect(multiSelectAt).toBeGreaterThan(viewAt);
+        expect(eventsPageSource.match(/data-explorer-view-toggle/g)).toHaveLength(1);
+        expect(eventsPageSource.match(/data-explorer-heard-toggle/g)).toHaveLength(1);
+        expect(eventsPageSource).toContain('beside={wideExplorer.current ? undefined : viewSwitch}');
+        expect(filtersSource).toContain('{@render beside()}');
+        expect(filtersSource).toContain('{@render controls()}');
         expect(filtersSource).not.toContain('data-explorer-rail-toggle');
         expect(filtersSource).not.toContain('data-explorer-view-toggle');
     });
@@ -45,7 +52,27 @@ describe('collapsing the Explorer filter rail', () => {
         // controls no longer publish contradictory expanded states for one
         // region when the rail is collapsed and the panel is open.
         expect(filtersSource).not.toContain('aria-controls="explorer-facets"\n            aria-expanded={!collapsed}');
-        expect(filtersSource).toMatch(/aria-controls="explorer-facets"[\s\S]{0,200}data-explorer-filter-toggle/);
+        expect(filtersSource).toMatch(/aria-expanded=\{panelOpen\}\s+aria-haspopup="dialog"[\s\S]{0,200}data-explorer-filter-toggle/);
+    });
+
+    it('opens the filters as the shared modal pattern wherever the rail is not standing', () => {
+        // A toggled block let focus walk out into the page behind it, ignored Escape and left
+        // focus nowhere on closing.
+        expect(filtersSource).toContain("const rail = $derived(wide.current && !collapsed);");
+        expect(filtersSource).toContain('const sheetOpen = $derived(panelOpen && !rail);');
+        // The shared sheet: portalled, a named modal dialog under the shared header, focus held and
+        // the page's scroll locked while it is open.
+        const sheet = filtersSource.slice(filtersSource.indexOf('{:else if sheetOpen}'));
+        expect(sheet).toContain('<FilterSheet');
+        expect(sheet).toContain("closeData={{ 'data-explorer-sheet-close': true }}");
+        expect(sheetSource).toContain('use:portal');
+        expect(sheetSource).toMatch(/role="dialog"\s+aria-modal="true"\s+aria-labelledby=\{titleId\}/);
+        expect(sheetSource).toContain('<DialogHeader {title} {titleId}');
+        expect(sheetSource).toContain('const release = trapFocus(sheet);');
+        expect(sheetSource).toContain('const unlock = lockDocumentScroll();');
+        // The filters are written once and drawn in whichever of the two holds them.
+        expect(filtersSource.match(/\{@render facets\(\)\}/g)).toHaveLength(2);
+        expect(filtersSource.match(/data-explorer-date-facet/g)).toHaveLength(1);
     });
 
     it('does not fold the rail away while leaving the facets on screen', () => {
@@ -88,7 +115,7 @@ describe('the Explorer list row preview', () => {
         expect(previewSource).toContain('<HoverPopoutPanel {popout} {index} data-detection-preview-panel>');
         expect(panelSource).toContain('use:portal');
         expect(popoutSource).toContain('getBoundingClientRect()');
-        expect(panelSource).toMatch(/class="fixed z-\[70\]/);
+        expect(panelSource).toMatch(/class="fixed z-70/);
         expect(eventsPageSource).toContain('overflow-hidden rounded-2xl');
     });
 

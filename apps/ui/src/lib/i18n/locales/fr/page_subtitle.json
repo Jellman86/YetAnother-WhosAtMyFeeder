@@ -1,10 +1,19 @@
 {
-  "audio_history": "Parcourez les détections BirdNET-Go enregistrées et l’activité audio seule.",
-  "about": "Version, journal des modifications, contributeurs et liens de support.",
-  "dashboard": "Détections en direct, activité récente et état de la mangeoire en un coup d'œil.",
+  "audio_history": "Les chants entendus par BirdNET-Go, par espèce et par source.",
+  "about": "Ce que cette mangeoire a enregistré, comment YA-WAMF fonctionne, et ce qu’il conserve et envoie.",
+  "dashboard": "Les dernières 24 heures à votre mangeoire, et ce qui attend votre décision.",
   "events": "Parcourez, filtrez et gérez chaque visite classifiée.",
   "add_observation": "Classez votre photo ou vidéo, vérifiez les indices et ajoutez-la à votre historique.",
-  "notifications": "Alertes, rappels et tâches d'arrière-plan actives.",
-  "settings": "Connexions, classification, intégrations et personnalisation.",
-  "species": "Classement, totaux et détails taxonomiques des oiseaux observés."
+  "notifications": "Visites, alertes et tâches de fond, les plus récentes d’abord.",
+  "species": "Quels oiseaux viennent le plus, à quelle fréquence et quand.",
+  "health": "Si YA-WAMF fonctionne, ce que fait la machine et ce qui s’est passé.",
+  "settings_section": {
+    "cameras": "D’où viennent les événements : Frigate, son broker MQTT et les caméras surveillées.",
+    "identification": "Le degré de certitude requis pour nommer, les modèles qui trouvent et nomment les oiseaux avec leur matériel, et les fonctions encore en bêta.",
+    "alerts": "Quand vous êtes prévenu d’une visite, et par quels canaux.",
+    "sharing": "L’emplacement de votre mangeoire et qui peut ouvrir cette installation, puis les autres services que YA-WAMF lit ou alimente, les descriptions par IA et la télémétrie.",
+    "storage": "Ce qui est conservé et combien de temps, une sauvegarde de ces réglages et les tâches qui réparent ou complètent l’historique.",
+    "display": "L’apparence de YA-WAMF et la façon dont il nomme les oiseaux, ainsi que contraste, police de lecture, animations et annonces vocales."
+  },
+  "model_evaluation": "À quelle fréquence chaque modèle installé nomme correctement un oiseau, et à quelle vitesse."
 }

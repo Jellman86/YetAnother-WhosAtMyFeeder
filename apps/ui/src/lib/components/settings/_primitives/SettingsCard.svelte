@@ -1,59 +1,86 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
+    import { useDisclosure } from '../../../settings/disclosures.svelte';
+    import { markInsideCard } from '../../ui/surface';
+    import { provideSubheadingLevel } from './heading-level';
 
     interface Props {
         title: string;
         description?: string;
-        // Optional vector/brand icon rendered in the leading tile. Structural
-        // emoji are intentionally unsupported so card hierarchy stays stable
-        // across operating systems and locales.
-        iconSnippet?: Snippet;
-        // Trailing controls rendered next to the header (e.g. "Test connection",
-        // "Clear history").  Kept in the header so every card has the same
-        // top-level affordance position.
+        // Trailing controls beside the heading, such as the switch for the whole section.
         actions?: Snippet;
-        // When true the leading icon tile is tinted teal to give a card a light
-        // brand accent. Off by default (slate tile). The header itself stays plain
-        // either way — no gradient band.
-        accent?: boolean;
+        /**
+         * Sections that start closed: the heading becomes a button that shows the body.
+         * The id names the body for aria-controls.
+         */
+        collapsible?: boolean;
+        /** Whether a collapsible section starts open, until someone opens or closes it. */
+        openByDefault?: boolean;
+        id?: string;
+        /** The heading's id, so a switch in the header can be named by the section's own title. */
+        titleId?: string;
+        /** A card inside a section's More options, under its heading: one level down. */
+        nested?: boolean;
+        /** A card on a page that has no section heading above it (Health): directly under the page title. */
+        underPageTitle?: boolean;
         children: Snippet;
     }
 
-    let { title, description, iconSnippet, actions, accent = false, children }: Props = $props();
+    let { title, description, actions, collapsible = false, openByDefault = false, id, titleId, nested = false, underPageTitle = false, children }: Props = $props();
+
+    const uid = $props.id();
+    markInsideCard();
+    // The page is h1, the open section h2, a group h3, and a group under More options h4. A
+    // subheading inside the card is one below the card's own.
+    const tag = $derived(underPageTitle ? 'h2' : nested ? 'h4' : 'h3');
+    provideSubheadingLevel(() => (underPageTitle ? 3 : nested ? 5 : 4));
+    const headingId = $derived(titleId ?? `${id ?? uid}-title`);
+
+    // With an id, the Settings page holds the open state, so it survives leaving the tab and the
+    // page can open the section that holds a refused field.
+    const disclosure = useDisclosure(() => ({ id, openByDefault }));
+    const open = $derived(disclosure.open);
+    const bodyId = $derived(`${id ?? uid}-body`);
+    const showBody = $derived(!collapsible || open);
 </script>
 
-<section class="card-base overflow-hidden">
-    <header class="flex items-start justify-between gap-4 px-6 md:px-8 pt-6 md:pt-8 pb-6">
-        <div class="flex items-start gap-3 min-w-0">
-            {#if iconSnippet}
-                <div
-                    class="flex items-center justify-center w-10 h-10 rounded-2xl flex-shrink-0
-                           {accent
-                               ? 'bg-brand-500/15 text-brand-700 dark:bg-brand-400/15 dark:text-brand-300'
-                               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}"
-                >
-                    {@render iconSnippet()}
-                </div>
-            {/if}
-            <div class="min-w-0">
-                <h3 class="font-display text-xl font-bold text-slate-900 dark:text-white">
+<!-- A group is a display-face heading over one raised card of rows: no icon, no band, nothing boxed inside.
+     The actions sit beside the heading while it keeps at least 12rem, and wrap under it when not;
+     The heading starts on the card's own left edge, as the section's name and status do;
+     the header's right inset matches the card's, so a section switch ends where row switches do. -->
+<section class="space-y-3" {id} aria-labelledby={headingId} data-settings-section>
+    <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 pr-4 md:pr-6">
+        <div class="min-w-0 flex-1 basis-48">
+            <svelte:element this={tag} id={headingId} class="font-display font-semibold text-strong {nested ? 'text-lg' : 'text-xl'}">
+                {#if collapsible}
+                    <button
+                        type="button"
+                        class="focus-ring flex min-h-11 max-w-full items-center gap-2 rounded-lg text-left"
+                        aria-expanded={open}
+                        aria-controls={bodyId}
+                        onclick={() => disclosure.toggle()}
+                    >
+                        <span class="min-w-0 wrap-break-word">{title}</span>
+                        <svg class="h-4 w-4 shrink-0 text-slate-600 transition-transform motion-reduce:transition-none dark:text-slate-400 {open ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                    </button>
+                {:else}
                     {title}
-                </h3>
-                {#if description}
-                    <p class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                        {description}
-                    </p>
                 {/if}
-            </div>
+            </svelte:element>
+            {#if description}
+                <p class="mt-1 max-w-prose text-sm leading-relaxed text-muted">{description}</p>
+            {/if}
         </div>
         {#if actions}
-            <div class="flex-shrink-0">
+            <div class="flex min-h-11 max-w-full shrink-0 items-center">
                 {@render actions()}
             </div>
         {/if}
     </header>
 
-    <div class="space-y-4 px-6 md:px-8 pb-6 md:pb-8">
-        {@render children()}
-    </div>
+    {#if showBody}
+        <div id={bodyId} class="card-base settings-section-body" data-settings-section-body>
+            {@render children()}
+        </div>
+    {/if}
 </section>

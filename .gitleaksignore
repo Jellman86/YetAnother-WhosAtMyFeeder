@@ -4,3 +4,5 @@ ad3a30dec268fc72a9ce335fbd9fcf7b1f783478:docs/api.md:curl-auth-header:35
 ad3a30dec268fc72a9ce335fbd9fcf7b1f783478:docs/api.md:curl-auth-header:50
 4276d22719ceb29aa89425a590d87660eec64cb4:docs/api.md:curl-auth-header:27
 2e9f9545c642094807b71d90cee5713aa1acfe6c:backend/scripts/debug_mqtt.py:generic-api-key:8
+70219eb1968bf92f93ea5514d01f01b6163ecb38:backend/tests/test_jobs_router.py:generic-api-key:182
+70219eb1968bf92f93ea5514d01f01b6163ecb38:backend/tests/test_jobs_router.py:generic-api-key:185

@@ -1,3 +1,27 @@
 {
-  "stack_trace": "Trace de pile :"
+  "stack_trace": "Trace de pile :",
+  "server_failure": "Quelque chose sur le serveur a interrompu cette requête. Réessayez ; si cela continue, ouvrez la page État pour voir ce qui ne va pas.",
+  "connection": {
+    "service_mqtt": "Broker MQTT",
+    "host_not_found": "{service} : le nom d’hôte dans {address} est introuvable. Vérifiez l’adresse.",
+    "refused": "{service} : rien n’a répondu à {address}. Vérifiez que le service fonctionne et que le port est correct.",
+    "timeout": "{service} : pas de réponse de {address} dans le délai. Vérifiez l’adresse et que cette machine peut l’atteindre.",
+    "not_authorised": "{service} : le nom d’utilisateur ou le mot de passe a été refusé. Vérifiez-les, ou désactivez l’authentification si les clients anonymes sont acceptés.",
+    "unreachable": "{service} : connexion à {address} impossible. Vérifiez l’adresse et le port.",
+    "unreachable_url": "{service} : connexion à {address} impossible. Vérifiez l’adresse, le schéma (http ou https) et le port."
+  },
+  "delivery": {
+    "not_configured_discord": "{channel} n’est pas encore configuré. Saisissez l’URL du webhook, puis relancez le test.",
+    "not_configured_pushover": "{channel} n’est pas encore configuré. Saisissez la clé utilisateur et le jeton d’API, puis relancez le test.",
+    "not_configured_telegram": "{channel} n’est pas encore configuré. Saisissez le jeton du bot et l’ID de la discussion, puis relancez le test.",
+    "no_answer_address": "{channel} n’a pas répondu. Vérifiez l’URL du webhook, puis relancez le test.",
+    "no_answer_network": "{channel} n’a pas répondu. Vérifiez que YA-WAMF peut accéder à Internet, puis relancez le test.",
+    "timeout": "{channel} a mis trop de temps à répondre. Patientez un instant, puis relancez le test.",
+    "refused_discord": "{channel} a refusé le message. Vérifiez l’URL du webhook, puis relancez le test.",
+    "refused_pushover": "{channel} a refusé le message. Vérifiez la clé utilisateur et le jeton d’API, puis relancez le test.",
+    "refused_telegram": "{channel} a refusé le message. Vérifiez le jeton du bot et l’ID de la discussion, puis relancez le test.",
+    "unexpected_reply": "Autre chose a répondu à la place de {channel}. Vérifiez qu’aucun proxy ni aucune page de connexion ne se trouve entre YA-WAMF et Internet, puis relancez le test.",
+    "rate_limited": "{channel} limite les messages pour le moment. Patientez une minute, puis relancez le test.",
+    "provider_error": "{channel} a signalé un problème de son côté. Patientez quelques minutes, puis relancez le test."
+  }
 }

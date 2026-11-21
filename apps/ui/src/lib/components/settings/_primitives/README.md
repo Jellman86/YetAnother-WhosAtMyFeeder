@@ -21,17 +21,20 @@ keyboard focus can show.
 | A `<select>` dropdown | `SettingsSelect` |
 | A grid of mutually-exclusive option tiles or cards | `SettingsSegmented` |
 | A compact single choice inside a list row, with options that can be unavailable (camera Off / Birds / Garden animals / Both) | Native radios in a `role="radiogroup"`, as `CameraWatchRow` does: `sr-only` inputs in `min-h-11` labels with `focus-within:ring`, a check mark on the chosen option and a worded reason linked by `aria-describedby` for a disabled one |
-| A text / number / url / password / email field | `SettingsInput` |
+| A name for a few rows inside a card (a channel, "Garden animals") | `SettingsSubheading`; its level follows the card it sits in |
+| A text / number / url / password / email field | `SettingsInput`; pass `field` (the saved setting's API name) so a refused save marks it and shows the reason under it |
 | A multi-line text field (mono for JSON / templates, sans otherwise) | `SettingsTextarea` |
 | Hide power-user knobs behind "Advanced" — collapsed by default, persists per-browser | `AdvancedSection` |
-| The page itself: title, refresh, status banner, sticky save bar | `SettingsPage` |
+| The page itself: load failure with retry, and the save bar (count, tabs, Discard changes, Save changes, refused fields) | `SettingsPage` |
+| A refused value's reason under a hand-built input | `FieldRefusal`, with the input's `aria-invalid` and `aria-describedby` set from the same refusal |
 
 ## Conventions baked into the primitives
 
 - **One card chrome**: `card-base rounded-3xl p-6 md:p-8 backdrop-blur-md`. Don't reintroduce per-tab coloured icon tiles — the leading tile is monochrome by design.
 - **One inner row chrome**: `rounded-2xl p-4 bg-slate-50 dark:bg-slate-900/50` with a 1px border.
 - **One accent colour**: teal. Status colours (amber, red, emerald) signal warning / danger / success only — they aren't decoration.
-- **One typography ramp**: card h3 (lg/xl, font-black), row label (sm, font-bold), row description (text-[11px]). Don't add a fourth.
+- **One typography ramp**: the open section's `h2` (`text-2xl`, bold, kept in view by `SettingsPage`), a card's `h3` (`text-xl`, display face, semibold; `h4` at `text-lg` when `nested` under More options), a `SettingsSubheading` inside a card (reading face, semibold, one level below its card), the row label (`text-base`, semibold) and the row description (`text-sm`, muted, regular). Values, links and statuses are regular. Don't add another step, and don't write a heading tag by hand: `settings-reading-hierarchy.layout.test.ts` fails on one.
+- **Every row and card is findable**: give a `SettingsRow` a static `labelId`, a `SettingsSlider` its `id` and a `SettingsCard` an `id`, and add the entry to `src/lib/settings/settings-search-index.ts`. The index test names what is missing.
 - **One focus ring**: `focus:ring-2 focus:ring-teal-400`.
 - **Selects draw their own box**: `SettingsSelect` uses `appearance-none`, `min-h-11` and a decorative chevron, because desktop WebKit's native menu list discards padding and height (a 22px control). Below `sm` it uses `pl-2 pr-5` with the chevron at `right-1.5`, so a 320px screen at 200% text still shows part of the value; from `sm` up it uses `pl-4 pr-8`. The option picker stays native.
 

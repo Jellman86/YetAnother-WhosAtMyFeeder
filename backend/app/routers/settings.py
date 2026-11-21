@@ -7,12 +7,20 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model, field_validator
+from pydantic import BaseModel, Field, ValidationError, create_model, field_validator
 import structlog
 
-from app.utils.diagnostic_redaction import safe_error_message
+from app.utils.diagnostic_redaction import redact_address, safe_connection_error, safe_error_message
+from app.services.connection_failure import classify_connection_failure, connection_failure_payload
 from app.services.settings_update import apply_update, prepare_update, run_settings_writer
+from app.services.visit_grouping import MAX_VISIT_GAP_SECONDS, MIN_VISIT_GAP_SECONDS
 from app.services.cache_stats_measurements import CacheStatsMeasurements
+from app.services.analysis_status import (
+    BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+    BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
+    AnalysisStatusResponse,
+    build_analysis_status,
+)
 from app.config import CONFIG_PATH, Settings as AppSettings, settings
 from app.config_loader import migrate_imported_media_controls
 from app.auth import (
@@ -27,13 +35,17 @@ from app.repositories.detection_repository import DetectionRepository
 from app.services.canonical_identity_repair_service import canonical_identity_repair_service
 from app.services.telemetry_service import collect_runtime_telemetry_payload, telemetry_service
 from app.services.notification_service import notification_service
+from app.services.notifications.delivery_failure import delivery_failure_payload
 from app.services.garden_domestic_birds import DomesticBirdKey, normalize_domestic_birds
 from app.services.notification_links import instance_base, notification_link
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.birdweather_service import birdweather_service
+from app.services.ha_weather import IlluminanceMissingReason
 from app.services.inaturalist_service import inaturalist_service
 from app.services.frigate_client import frigate_client
 from app.services.timezone_repair_service import timezone_repair_service
+from app.services.maintenance_run_history import latest_maintenance_runs, record_maintenance_run
+from app.services.history_retention import RetentionPaused, delete_aged_captures
 from app.services.media_cache import media_cache
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.services.media_integrity_scan import MEDIA_INTEGRITY_SCAN_KIND, evaluate_media_presence
@@ -70,8 +82,6 @@ def _validated_birdnet_base_url(value: str | None) -> str:
 log = structlog.get_logger()
 PURGE_CHECK_CONCURRENCY = 8
 BATCH_ANALYSIS_CHECK_CONCURRENCY = 8
-BATCH_ANALYSIS_MAX_QUEUE_PER_RUN = 50
-BATCH_ANALYSIS_MAX_SCAN_PER_RUN = 200
 BATCH_ANALYSIS_RETRY_AFTER_SECONDS = 120
 AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE = "Password is required when enabling authentication"
 CONFIG_BACKUP_FORMAT = "yawamf.config.backup"
@@ -166,6 +176,30 @@ async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
     return canonical_identity_repair_service.get_status()
 
 
+class MaintenanceLastRun(BaseModel):
+    kind: Literal["taxonomy", "timezone_scan", "timezone_repair", "analyze_unknowns", "detections", "weather"]
+    status: str = Field(description="completed or failed; a backfill job can also report running or cancelled")
+    started_at: Optional[str] = Field(
+        None, description="When it started, where recorded (a running backfill has no finish yet)"
+    )
+    finished_at: Optional[str] = None
+    checked: Optional[int] = Field(None, description="Records the run looked at")
+    changed: Optional[int] = Field(None, description="Records it changed, found or queued")
+    unchecked: Optional[int] = Field(
+        None, description="Records it looked at but could not check, e.g. Frigate did not answer; not an all-clear"
+    )
+
+
+class MaintenanceLastRunsResponse(BaseModel):
+    runs: list[MaintenanceLastRun]
+
+
+@router.get("/maintenance/last-runs", response_model=MaintenanceLastRunsResponse)
+async def get_maintenance_last_runs(auth: AuthContext = Depends(require_owner)):
+    """The newest recorded run of each Maintenance job, so the tab can say when it last ran. Owner only."""
+    return {"runs": await latest_maintenance_runs()}
+
+
 @router.post("/maintenance/taxonomy/sync", response_model=TaxonomySyncStartResponse)
 async def start_taxonomy_sync(background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
     """Start the background process to normalize all detection names. Owner only."""
@@ -181,7 +215,17 @@ async def start_taxonomy_sync(background_tasks: BackgroundTasks, auth: AuthConte
 
     async def _run_with_slot() -> None:
         try:
-            await canonical_identity_repair_service.run()
+            summary = await canonical_identity_repair_service.run()
+        except Exception:
+            await record_maintenance_run("taxonomy", status="failed")
+            raise
+        else:
+            await record_maintenance_run(
+                "taxonomy",
+                status="completed",
+                checked=int(summary.get("processed") or 0),
+                changed=int(summary.get("updated") or 0),
+            )
         finally:
             await maintenance_coordinator.release(holder_id)
 
@@ -254,17 +298,17 @@ async def test_birdnet_reachability(
             resp = await http_client.get(base_url, timeout=10.0)  # lgtm[py/full-ssrf]
         return ActionStatusResponse(
             status="ok",
-            message=f"BirdNET-Go answered (HTTP {resp.status_code}) at {base_url}.",
+            message=f"BirdNET-Go answered (HTTP {resp.status_code}) at {redact_address(base_url)}.",
         )
     except httpx.TimeoutException:
         return JSONResponse(
             status_code=504,
-            content={"status": "error", "message": f"BirdNET-Go timed out at {base_url}."},
+            content=connection_failure_payload("timeout", service="birdnet", address=base_url),
         )
     except httpx.RequestError as e:
         return JSONResponse(
             status_code=502,
-            content={"status": "error", "message": f"Could not reach BirdNET-Go at {base_url} ({type(e).__name__})."},
+            content=connection_failure_payload(classify_connection_failure(e), service="birdnet", address=base_url),
         )
 
 
@@ -294,27 +338,21 @@ async def test_mqtt_publish(
     password = (supplied_password or settings.frigate.mqtt_password) if use_auth else None
 
     try:
-        success = await mqtt_service.test_connection(
+        cause = await mqtt_service.diagnose_connection(
             server=server,
             port=port,
             username=username,
             password=password,
         )
-        if success:
-            return ActionStatusResponse(status="ok", message="Test message published to 'yawamf/test'")
-        else:
-            return JSONResponse(
-                status_code=502, content={"status": "error", "message": "Failed to publish MQTT message. Check logs."}
-            )
     except Exception as exc:
         log.error("MQTT Test Publish Failed", error_type=type(exc).__name__)
-        return JSONResponse(
-            status_code=502,
-            content={
-                "status": "error",
-                "message": "Could not connect to the MQTT broker. Check the host, port, and credentials.",
-            },
-        )
+        cause = classify_connection_failure(exc)
+    if cause is None:
+        return ActionStatusResponse(status="ok", message="Test message published to 'yawamf/test'")
+    return JSONResponse(
+        status_code=502,
+        content=connection_failure_payload(cause, service="mqtt", address=f"{server}:{port}"),
+    )
 
 
 class NotificationTestRequest(BaseModel):
@@ -428,40 +466,6 @@ class AnalyzeUnknownsResponse(BaseModel):
     retry_after_seconds: Optional[int] = None
 
 
-class AnalysisStatusResponse(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    status: Optional[str] = None
-    pending: int
-    active: int
-    circuit_open: bool
-    open_until: Optional[str] = None
-    failure_count: Optional[int] = None
-    pending_capacity: Optional[int] = None
-    pending_available: Optional[int] = None
-    max_concurrent_configured: Optional[int] = None
-    max_concurrent_effective: Optional[int] = None
-    mqtt_pressure_level: Optional[str] = None
-    throttled_for_mqtt_pressure: Optional[bool] = None
-    throttled_for_live_pressure: Optional[bool] = None
-    maintenance_starvation_relief_active: Optional[bool] = None
-    live_pressure_active: Optional[bool] = None
-    live_in_flight: Optional[int] = None
-    live_queued: Optional[int] = None
-    mqtt_in_flight: Optional[int] = None
-    mqtt_in_flight_capacity: Optional[int] = None
-    oldest_maintenance_pending_age_seconds: Optional[float] = None
-    pending_maintenance: Optional[int] = None
-    active_maintenance: Optional[int] = None
-    queue_limit: Optional[int] = None
-    scan_limit: Optional[int] = None
-    scan_truncated: Optional[bool] = None
-    remaining_candidates: Optional[int] = None
-    maintenance_state: Optional[str] = None
-    maintenance_status_message: Optional[str] = None
-    maintenance_seconds_since_progress: Optional[float] = None
-
-
 class CacheStatsResponse(BaseModel):
     snapshot_count: int
     snapshot_size_bytes: int
@@ -553,7 +557,7 @@ async def test_notification(
 
     try:
         if request.platform == "discord":
-            await notification_service._send_discord(
+            result = await notification_service.deliver_discord(
                 common_name,
                 confidence,
                 camera,
@@ -567,7 +571,7 @@ async def test_notification(
             )
 
         elif request.platform == "pushover":
-            await notification_service._send_pushover(
+            result = await notification_service.deliver_pushover(
                 common_name,
                 confidence,
                 camera,
@@ -582,7 +586,7 @@ async def test_notification(
             )
 
         elif request.platform == "telegram":
-            await notification_service._send_telegram(
+            result = await notification_service.deliver_telegram(
                 common_name,
                 confidence,
                 camera,
@@ -600,11 +604,16 @@ async def test_notification(
             return JSONResponse(
                 status_code=400, content={"status": "error", "message": f"Unknown platform: {request.platform}"}
             )
-
-        return ActionStatusResponse(status="ok", message=f"Test notification sent to {request.platform}")
     except Exception as e:
-        log.error("Notification test failed", error=safe_error_message(e))
-        return JSONResponse(status_code=502, content={"status": "error", "message": str(e)})
+        log.error("Notification test failed", error=safe_connection_error(e))
+        return JSONResponse(status_code=502, content={"status": "error", "message": safe_connection_error(e)})
+
+    # Only a message the channel accepted is a pass: a send that failed says why, never "sent".
+    if not result.sent:
+        failure = delivery_failure_payload(request.platform, result)
+        log.warning("Notification test not delivered", platform=request.platform, cause=failure["cause"])
+        return JSONResponse(status_code=400 if failure["cause"] == "not_configured" else 502, content=failure)
+    return ActionStatusResponse(status="ok", message=f"Test notification sent to {request.platform}")
 
 
 class BirdWeatherTestRequest(BaseModel):
@@ -644,12 +653,31 @@ class HaWeatherTestRequest(BaseModel):
     base_url: Optional[str] = None
     access_token: Optional[str] = None
     weather_entity: Optional[str] = None
+    illuminance_entity: Optional[str] = None
+    scope: Literal["all", "weather", "illuminance"] = Field(
+        "all", description="Read everything configured, or only the weather or only the illuminance entity"
+    )
+
+
+class HaIlluminanceTestReading(BaseModel):
+    """The light level the configured sensor would add to a detection right now."""
+
+    entity_id: str
+    status: Literal["ok", "error"]
+    lux: Optional[float] = Field(None, description="Measured illuminance in lx; null when there is no reading")
+    reason: Optional[IlluminanceMissingReason] = Field(None, description="Why there is no reading")
 
 
 class HaWeatherTestResponse(BaseModel):
-    status: Literal["ok", "error"]
+    status: Literal["ok", "error"] = Field(description="ok only when every configured part answered")
     message: str
     readings: dict[str, Any] = Field(default_factory=dict)
+    weather: Literal["ok", "error", "not_configured"] = Field(
+        "not_configured", description="Outcome of the weather entity and sensor overrides alone"
+    )
+    illuminance: Optional[HaIlluminanceTestReading] = Field(
+        None, description="Outcome of the illuminance entity; null when none is configured"
+    )
 
 
 @router.post("/settings/ha-weather/test", response_model=HaWeatherTestResponse)
@@ -663,43 +691,67 @@ async def test_ha_weather(
     token = request.access_token if request.access_token not in (None, "", "***REDACTED***") else None
     token = token or settings.ha_weather.access_token or ""
     weather_entity = (request.weather_entity or settings.ha_weather.weather_entity or "").strip() or None
+    override_entities = settings.ha_weather.override_entities()
+    illuminance_entity = (request.illuminance_entity or settings.ha_weather.illuminance_entity or "").strip() or None
+    if request.scope == "weather":
+        illuminance_entity = None
+    elif request.scope == "illuminance":
+        weather_entity, override_entities = None, {}
     if not base_url or not token:
         return JSONResponse(
             status_code=400,
             content={"status": "error", "message": "A base URL and access token are required.", "readings": {}},
         )
 
-    override_entities = settings.ha_weather.override_entities()
-    if not weather_entity and not override_entities:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "status": "error",
-                "message": "Nothing to read yet: set a weather entity (e.g. weather.home) or at least one sensor override.",
-                "readings": {},
-            },
+    weather_configured = bool(weather_entity or override_entities)
+    if not weather_configured and not illuminance_entity:
+        nothing_to_read = (
+            "Nothing to read yet: set an illuminance entity (e.g. sensor.feeder_illuminance)."
+            if request.scope == "illuminance"
+            else "Nothing to read yet: set a weather entity (e.g. weather.home), a sensor override or an illuminance entity."
         )
+        return JSONResponse(status_code=400, content={"status": "error", "message": nothing_to_read, "readings": {}})
 
     source = HomeAssistantWeatherSource(
         base_url=base_url,
         access_token=token,
         weather_entity=weather_entity,
         override_entities=override_entities,
+        illuminance_entity=illuminance_entity,
     )
-    readings = await source.get_current_weather()
-    if not readings:
-        return JSONResponse(
-            status_code=502,
-            content={
-                "status": "error",
-                "message": "No readings came back. Check the URL, the token, and the entity ids.",
-                "readings": {},
-            },
+    measured, light = await source.read_current()
+    readings = {key: value for key, value in measured.items() if key != "illuminance_lux"}
+    no_readings = "No readings came back. Check the URL, the token, and the entity ids."
+    if weather_configured and not readings and illuminance_entity is None:
+        return JSONResponse(status_code=502, content={"status": "error", "message": no_readings, "readings": {}})
+
+    illuminance = (
+        HaIlluminanceTestReading(
+            entity_id=illuminance_entity,
+            status="ok" if light.lux is not None else "error",
+            lux=light.lux,
+            reason=light.reason,
         )
+        if illuminance_entity is not None and light is not None
+        else None
+    )
+    weather_outcome: Literal["ok", "error", "not_configured"] = (
+        "not_configured" if not weather_configured else "ok" if readings else "error"
+    )
+    if weather_outcome == "ok":
+        message = f"{len(readings)} reading(s) received from Home Assistant."
+    elif weather_outcome == "error":
+        message = no_readings
+    elif request.scope == "illuminance":
+        message = "Illuminance entity read."
+    else:
+        message = "No weather entity or sensor override is set, so weather still comes from the forecast."
     return HaWeatherTestResponse(
-        status="ok",
-        message=f"{len(readings)} reading(s) received from Home Assistant.",
+        status="error" if weather_outcome == "error" or (illuminance and illuminance.status == "error") else "ok",
+        message=message,
         readings=readings,
+        weather=weather_outcome,
+        illuminance=illuminance,
     )
 
 
@@ -1064,6 +1116,9 @@ class SettingsUpdate(BaseModel):
     ha_weather_precipitation_entity: Optional[str] = Field(None, description="Sensor overriding precipitation")
     ha_weather_rain_entity: Optional[str] = Field(None, description="Sensor overriding rainfall")
     ha_weather_snowfall_entity: Optional[str] = Field(None, description="Sensor overriding snowfall")
+    ha_weather_illuminance_entity: Optional[str] = Field(
+        None, description="Illuminance sensor (lx) recorded with each detection"
+    )
     # eBird settings
     ebird_enabled: Optional[bool] = Field(False, description="Enable eBird enrichment")
     ebird_api_key: Optional[str] = Field(None, description="eBird API key")
@@ -1235,6 +1290,12 @@ class SettingsUpdate(BaseModel):
     appearance_explorer_view: Optional[ExplorerView] = None
     appearance_font_theme: Optional[str] = None
     appearance_color_theme: Optional[str] = None
+    visit_gap_seconds: Optional[int] = Field(
+        None,
+        ge=MIN_VISIT_GAP_SECONDS,
+        le=MAX_VISIT_GAP_SECONDS,
+        description="Captures of one species on one camera no more than this many seconds apart count as one visit",
+    )
 
     @field_validator("location_weather_unit_system")
     @classmethod
@@ -1653,6 +1714,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "ha_weather_precipitation_entity": settings.ha_weather.precipitation_entity,
         "ha_weather_rain_entity": settings.ha_weather.rain_entity,
         "ha_weather_snowfall_entity": settings.ha_weather.snowfall_entity,
+        "ha_weather_illuminance_entity": settings.ha_weather.illuminance_entity,
         # eBird settings
         "ebird_enabled": ebird_active,
         "ebird_api_key": "***REDACTED***" if settings.ebird.api_key else None,
@@ -1752,6 +1814,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "appearance_explorer_view": settings.appearance.explorer_view,
         "appearance_font_theme": settings.appearance.font_theme,
         "appearance_color_theme": settings.appearance.color_theme,
+        "visit_gap_seconds": settings.visits.gap_seconds,
         # Authentication
         "auth_enabled": settings.auth.enabled,
         "auth_username": settings.auth.username,
@@ -1913,9 +1976,18 @@ async def preview_timezone_repair(auth: AuthContext = Depends(require_owner)):
     if not acquired:
         raise HTTPException(status_code=409, detail=_maintenance_busy_message())
     try:
-        return await timezone_repair_service.preview()
+        preview = await timezone_repair_service.preview()
     finally:
         await maintenance_coordinator.release(holder_id)
+    summary = preview.get("summary") or {}
+    await record_maintenance_run(
+        "timezone_scan",
+        status="completed",
+        checked=int(summary.get("scanned_count") or 0),
+        changed=int(summary.get("repair_candidate_count") or 0),
+        unchecked=int(summary.get("lookup_error_count") or 0),
+    )
+    return preview
 
 
 @router.post("/maintenance/timezone-repair/apply", response_model=TimezoneRepairApplyResponse)
@@ -1931,9 +2003,17 @@ async def apply_timezone_repair(
     if not acquired:
         raise HTTPException(status_code=409, detail=_maintenance_busy_message())
     try:
-        return await timezone_repair_service.apply(confirm=True)
+        result = await timezone_repair_service.apply(confirm=True)
     finally:
         await maintenance_coordinator.release(holder_id)
+    repaired = int(result.get("repaired_count") or 0)
+    await record_maintenance_run(
+        "timezone_repair",
+        status="completed",
+        checked=repaired + int(result.get("skipped_count") or 0),
+        changed=repaired,
+    )
+    return result
 
 
 @router.post("/maintenance/cleanup", response_model=CleanupResponse)
@@ -1946,11 +2026,19 @@ async def run_cleanup(auth: AuthContext = Depends(require_owner)):
 
     async with get_db() as db:
         repo = DetectionRepository(db)
-        deleted_count = await repo.delete_older_than(
-            cutoff, preserve_favorites=True, species_floor=settings.media_cache.per_species_minimum
-        )
-        # The same pass the scheduled cleanup runs: "Purge Old Records" is documented as running
-        # it now, and old BirdNET-Go audio used to survive until the next automatic run.
+        # The same pass the scheduled cleanup runs, through the same sealing delete (#949):
+        # "Purge Old Records" is documented as running it now.
+        try:
+            deleted_count = await delete_aged_captures(
+                db,
+                cutoff,
+                now=datetime.now(timezone.utc),
+                species_floor=settings.media_cache.per_species_minimum,
+                source="manual_cleanup",
+            )
+        except RetentionPaused as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        # Old BirdNET-Go audio used to survive until the next automatic run.
         audio_deleted_count = await repo.delete_audio_detections_older_than(cutoff)
 
     log.info(
@@ -2460,6 +2548,10 @@ async def _run_analyze_unknowns() -> dict:
         skipped_outside_retention=skipped_outside_retention,
         precheck_errors=precheck_errors,
     )
+    if not precheck_outage:
+        await record_maintenance_run(
+            "analyze_unknowns", status="completed", checked=processed_candidates, changed=accepted
+        )
     return {
         "status": "deferred" if precheck_outage else "queued",
         **({"reason": "frigate_unavailable"} if precheck_outage else {}),
@@ -2518,11 +2610,7 @@ async def get_analysis_status(response: Response, auth: AuthContext = Depends(re
     """Get status of auto video classification queue. Owner only."""
     response.headers["Cache-Control"] = "no-store, max-age=0"
     response.headers["Pragma"] = "no-cache"
-    return {
-        **auto_video_classifier.get_status(),
-        "queue_limit": BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
-        "scan_limit": BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
-    }
+    return build_analysis_status()
 
 
 # =============================================================================

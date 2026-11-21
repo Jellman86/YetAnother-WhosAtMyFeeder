@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { openDetectionSettings, type RangeMock } from './detection-settings-mock';
 
-// The range filter card in Settings → Detection (#696): every state names what the filter is
+// The range filter card in Settings → Identifying birds (#696): every state names what the filter is
 // doing in words, never claims to filter when it is not, and points at the one next step.
 
 const card = (page: Page) => page.locator('[data-range-filter]');
@@ -15,7 +15,7 @@ const ready = {
 };
 
 async function open(page: Page, range: RangeMock) {
-    const state = await openDetectionSettings(page, { range });
+    const state = await openDetectionSettings(page, { range, tab: 'detection' });
     await expect(card(page)).toBeVisible();
     await card(page).scrollIntoViewIfNeeded();
     return state;
@@ -52,16 +52,22 @@ test('before it is switched on, the preview shows what would be set aside and th
     const preview = card(page).locator('[data-range-filter-preview]');
     await expect(preview).toContainText('Recorded here in the last 90 days');
     await expect(preview.locator('[data-range-filter-preview-seen]')).toContainText('Eurasian Blackbird');
-    await expect(preview.locator('[data-range-filter-preview-seen]')).toContainText('6 detections');
+    await expect(preview.locator('[data-range-filter-preview-seen]')).toContainText('6 captures');
     await expect(preview.locator('[data-range-filter-preview-total]')).toContainText('The current model can name 803 species');
     await expect(preview).toContainText('Northern Cardinal');
+    // The rules sit behind a plain disclosure, closed at first.
+    const how = card(page).getByRole('button', { name: 'How the range filter decides' });
+    await expect(how).toHaveAttribute('aria-expanded', 'false');
+    await expect(card(page)).not.toContainText('its next answer that has been recorded');
+    await how.click();
+    await expect(how).toHaveAttribute('aria-expanded', 'true');
     await expect(card(page)).toContainText('its next answer that has been recorded');
 
-    const toggle = card(page).getByRole('switch', { name: 'Check new detections against your region' });
+    const toggle = card(page).getByRole('switch', { name: 'Check new visits against your region' });
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-checked', 'true');
-    await expect(card(page).locator('[data-range-filter-unsaved]')).toHaveText('Apply settings to turn the filter on.');
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await expect(card(page).locator('[data-range-filter-unsaved]')).toHaveText('Save changes to turn the filter on.');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => state.saves.length).toBe(1);
     expect(state.saves[0].range_filter_enabled).toBe(true);
     expect(state.saves[0].range_filter_region_level).toBe('county');
@@ -71,14 +77,14 @@ test('with no location the switch is disabled with the reason and a way to set o
     await open(page, { status: { reason: 'needs_location', location_precision: 'none' } });
 
     await expect(panel(page)).toContainText('Off: needs your location.');
-    const toggle = card(page).getByRole('switch', { name: 'Check new detections against your region' });
+    const toggle = card(page).getByRole('switch', { name: 'Check new visits against your region' });
     await expect(toggle).toHaveAttribute('aria-disabled', 'true');
     await expect(card(page)).toContainText('Set a location first.');
     await expect(card(page).locator('[data-range-filter-facts]')).toHaveCount(0);
     await card(page).getByRole('button', { name: 'Set location' }).click();
-    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/integrations');
+    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/sharing');
     // With an automatic location the coordinates are hidden, so the Manual choice that reveals them takes focus.
-    await expect(page.locator('#location-lat').or(page.locator('#setting-location-mode + div button[aria-pressed="false"]'))).toBeFocused();
+    await expect(page.locator('#location-lat').or(page.locator('#setting-location-mode + div input[type="radio"]:not(:checked)'))).toBeFocused();
 });
 
 test('without an eBird key it names the missing key and that BirdNET-Go alone never filters', async ({ page }) => {
@@ -87,11 +93,12 @@ test('without an eBird key it names the missing key and that BirdNET-Go alone ne
     await expect(panel(page)).toContainText('Not filtering');
     await expect(panel(page)).toContainText('Add an eBird API key to use range filtering.');
     await expect(panel(page)).toContainText('on its own it filters nothing');
-    await expect(panel(page)).toHaveClass(/attention/);
+    // Work that needs a person is marked by the kit's amber dot beside the words, not a tinted box.
+    await expect(panel(page).locator('[data-range-filter-chip] .attention-dot')).toHaveCount(1);
     await card(page).getByRole('button', { name: 'Add eBird key' }).click();
-    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/integrations');
+    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/sharing');
     // eBird is off in this fixture, so its switch, the step that reveals the key field, takes focus.
-    await expect(page.locator('[aria-labelledby="setting-ebird-enabled"]')).toBeFocused();
+    await expect(page.getByRole('switch', { name: 'eBird' })).toBeFocused();
 });
 
 test('an approximate location says a state list is used, and a country alone says so too', async ({ page }) => {
@@ -164,8 +171,8 @@ test('detections set aside are listed with a way to the activity log and to reco
     await expect(skips).toContainText('Turdus merula');
     await expect(skips).toContainText('91% confidence');
     await expect(skips).toContainText('record it by hand');
-    await skips.getByRole('button', { name: 'Open the activity log' }).click();
-    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/health');
+    await skips.getByRole('button', { name: 'Open Health' }).click();
+    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/system-health');
 });
 
 test('with nothing set aside the list says so', async ({ page }) => {

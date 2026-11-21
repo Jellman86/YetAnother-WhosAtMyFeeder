@@ -103,7 +103,7 @@ describe('review queue walk-through', () => {
     });
 
     it('uses the record naming preferences for each current queue item', () => {
-        expect(modalSource).toMatch(/getBirdNames\(current,\s*settingsStore.displayCommonNames,\s*settingsStore.scientificNamePrimary\)/);
+        expect(modalSource).toMatch(/\$birdNames\(current,\s*settingsStore.displayCommonNames,\s*settingsStore.scientificNamePrimary\)/);
         expect(modalSource).toContain('{#if naming.secondary}');
         expect(modalSource).toContain('{naming.secondary}');
     });
@@ -122,7 +122,7 @@ describe('review queue walk-through', () => {
         // The one copy already used for this, which names the loss and offers hiding instead.
         expect(modalSource).toContain('actions.confirm_delete');
         // Destructive work is not styled like the neutral way out beside it.
-        expect(modalSource).toContain('text-red-600');
+        expect(modalSource).toContain('text-red-700');
         expect(dashboardSource).toContain('ondelete={deleteFromQueue}');
         expect(dashboardSource).toContain('async function deleteFromQueue');
     });
@@ -149,8 +149,10 @@ describe('review queue walk-through', () => {
     it('says why the item needs a person in words, under one heading, with species as hairline rows', () => {
         const reason = modalSource.match(/<p[^>]*data-review-reason[^>]*>([\s\S]*?)<\/p>/)?.[1];
         expect(reason).toContain('bg-attention-500');
-        expect(reason).toContain('dashboard.review_session.threshold_note');
-        expect(reason).toContain('dashboard.review_session.new_species_note');
+        // Each visit states its own reason, from the rule the Dashboard card uses for the same visit.
+        expect(reason).toContain('$_(reasonNote.key');
+        expect(modalSource).toContain('reviewReasonFor(current, reasons)');
+        expect(modalSource).not.toContain("?? 'low_score'");
         expect(modalSource).not.toContain('dashboard.review_session.what_is_it');
         // Rows inside a list are split by hairlines, not nested cards (layout-patterns §6).
         expect(modalSource).toMatch(/<ul\s+class="[^"]*divide-y[^"]*"\s+aria-labelledby="review-species-choices"/);
@@ -165,20 +167,20 @@ describe('review queue walk-through', () => {
     });
 
     it('closes from a labelled icon button and shows progress on every screen size', () => {
-        expect(modalSource).toContain("aria-label={$_('common.close', { default: 'Close' })}");
+        expect(modalSource).toContain('<DialogCloseButton class="ml-auto" onclick={onclose} />');
         expect(modalSource).toContain('absolute inset-x-0 -bottom-px h-0.5');
         expect(modalSource).not.toContain('hidden h-1.5 w-32');
     });
 
     it('fills a phone like the detection record and floats as the same dialog from sm up', () => {
         const dialog = modalSource.match(/<div\s+bind:this=\{dialogEl\}[\s\S]*?class="([^"]*)"/)?.[1] ?? '';
-        expect(dialog).toContain('max-h-[100dvh]');
+        expect(dialog).toContain('max-h-dvh');
         expect(dialog).toContain('rounded-none');
         expect(dialog).toContain('sm:max-h-[92vh]');
         expect(dialog).toContain('sm:rounded-2xl');
         expect(dialog).toContain('max-w-5xl');
         expect(dialog).toContain('bg-surface');
-        expect(modalSource).toContain('bg-slate-950/70 p-0 backdrop-blur-sm sm:p-4');
+        expect(modalSource).toContain('bg-slate-950/70 p-0 backdrop-blur-xs sm:p-4');
     });
 
     it('states the position beside the title in one header row', () => {
@@ -198,7 +200,7 @@ describe('review queue walk-through', () => {
 
     it('keeps one repeated Identify quiet until its row is pointed at or focused', () => {
         const identify = modalSource.match(/<span class="([^"]*)">\s*\{\$_\('dashboard\.field_log\.identify'/)?.[1] ?? '';
-        expect(identify).toContain('text-slate-500');
+        expect(identify).toContain('text-slate-600');
         expect(identify).toContain('group-hover:text-brand-700');
         expect(identify).toContain('group-focus-visible:text-brand-700');
     });

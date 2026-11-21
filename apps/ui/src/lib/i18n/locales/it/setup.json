@@ -8,11 +8,20 @@
   "status": {
     "ok": "Configurato",
     "attention": "Richiede attenzione",
-    "optional": "Facoltativo"
+    "optional": "Facoltativo",
+    "no_password": "Nessuna password",
+    "connected": "Connesso",
+    "unreachable": "Non raggiungibile",
+    "model_missing": "Da scaricare",
+    "model_failed": "Impossibile caricare",
+    "model_loading": "In caricamento",
+    "model_ready": "Pronto",
+    "model_running": "In funzione",
+    "model_chosen": "Scelto"
   },
   "account": {
     "title": "Account amministratore e accesso",
-    "already": "L’autenticazione è già configurata. Gestiscila in Impostazioni → Sicurezza.",
+    "already": "L’autenticazione è già configurata. Gestiscila in Impostazioni → Condivisione e integrazioni.",
     "description": "Proteggi la dashboard con una password del proprietario, oppure usala senza autenticazione su una rete fidata."
   },
   "connection": {
@@ -23,7 +32,6 @@
     "mqtt_username": "Nome utente",
     "mqtt_password": "Parola d’accesso",
     "mqtt_password_saved": "La password salvata verrà mantenuta finché non ne inserisci una nuova.",
-    "continue_hint": "Le impostazioni sono salvate. Puoi continuare e correggere la connessione in seguito, ma i rilevamenti non arriveranno finché Frigate non sarà raggiungibile.",
     "description": "YA-WAMF legge i rilevamenti da Frigate tramite MQTT e scarica le istantanee dalla sua API. Indica gli indirizzi di entrambi, poi esegui il test.",
     "frigate_auth_hint": "Se il tuo Frigate richiede l’accesso, imposta FRIGATE_AUTH_TOKEN nell’ambiente con cui si avvia YA-WAMF, riavvialo e prova di nuovo.",
     "frigate_auth_link": "Variabili d’ambiente",
@@ -33,7 +41,12 @@
     "mqtt_port": "Porta",
     "mqtt_server": "Broker MQTT",
     "save_test": "Salva e testa la connessione",
-    "frigate_ok": "Connesso a Frigate {version}"
+    "frigate_ok": "Connesso a Frigate {version}",
+    "blocked": "Salva e prova la connessione per continuare, oppure scegli «Configura più tardi».",
+    "later": "Configura più tardi",
+    "later_note": "Non hai Frigate o il broker a portata di mano? Scegli «Configura più tardi». Finché entrambi non sono collegati in Impostazioni → Telecamere e connessione, non arrivano visite, non si possono recuperare foto o clip e il passaggio delle telecamere non può elencare le tue telecamere.",
+    "check_frigate": "API di Frigate",
+    "check_mqtt": "Broker MQTT"
   },
   "cameras": {
     "title": "Telecamere e rilevamento",
@@ -42,6 +55,8 @@
     "gates_link": "Guida alla regolazione →",
     "list": "Telecamere (separate da virgole)",
     "list_unread": "Non è stato possibile leggere l’elenco delle telecamere di Frigate, quindi questi nomi non possono essere controllati. Un nome che non corrisponde esattamente non vedrà mai un uccello. Lascia vuoto per sorvegliare tutte le telecamere.",
+    "list_timed_out": "Frigate non ha risposto entro {seconds} secondi, quindi questi nomi non possono essere verificati. Un nome che non corrisponde esattamente non vede mai un uccello. Lascia vuoto per osservare tutte le telecamere.",
+    "reading": "Richiesta delle telecamere a Frigate, per un massimo di {seconds} secondi. Puoi continuare senza aspettare: le telecamere già salvate restano come sono.",
     "not_in_frigate": "Frigate non ha una telecamera con questo nome, quindi non vedrà mai un uccello.",
     "offline": "Nessuna anteprima",
     "pick": "Telecamere da sorvegliare",
@@ -50,8 +65,8 @@
     "watching_some": "{count, plural, one {# telecamera sorvegliata.} other {# telecamere sorvegliate.}} Le altre telecamere vengono ignorate."
   },
   "model": {
-    "title": "Modello di classificazione e hardware",
-    "description": "YA-WAMF include un’alternativa leggera per CPU. Scegli un modello, scaricalo qui se necessario, quindi convalida il percorso esatto dell’immagine e dell’hardware prima di continuare.",
+    "title": "Modello e hardware",
+    "description": "Scegli il modello che identifica gli uccelli. Scaricalo qui se questa installazione non lo ha, poi verifica che funzioni su questo computer prima di continuare.",
     "download_required": "Scarica e verifica qui questo modello prima di convalidarlo su questo hardware.",
     "download_timeout": "Il download sta richiedendo più tempo del previsto. Controlla la connessione e riprova.",
     "validation_timeout": "La convalida hardware ha superato 30 minuti. Potrebbe essere ancora in corso in Diagnostica; controllane lo stato prima di avviare un’altra esecuzione.",
@@ -59,7 +74,6 @@
     "detected": "Acceleratori rilevati",
     "no_results": "Nessun modello installato è stato valutato.",
     "provider_hint": "Vengono mostrati solo i provider disponibili in questa immagine, su questo host e per il modello selezionato.",
-    "results_hint": "I dettagli completi per dispositivo su compilazione, latenza e accuratezza sono in Impostazioni → Debug → Strumento di valutazione dei modelli. La scheda Debug compare quando l’interfaccia di debug è attiva (SYSTEM__DEBUG_UI_ENABLED=true).",
     "revalidate": "Ripeti la convalida",
     "row_ok": "Funziona",
     "row_warn": "Da verificare",
@@ -71,10 +85,10 @@
     "validation_success": "Convalida hardware completata correttamente.",
     "verified": "Provider convalidati: {list}",
     "location_title": "Posizione della mangiatoia",
-    "location_hint": "La verifica o il proseguimento salva prima queste coordinate, le stesse di Impostazioni → Integrazioni → Posizione. Questo modello non usa la data né un raggio di precisione.",
+    "location_hint": "La verifica o il proseguimento salva prima queste coordinate, le stesse di Impostazioni → Condivisione e integrazioni → Posizione. Questo modello non usa la data né un raggio di precisione.",
     "location_incomplete": "Inserisci latitudine e longitudine, oppure lascia vuoti entrambi i campi.",
     "location_empty": "La posizione non verrà usata: questo modello identifica gli uccelli anche senza.",
-    "ram_note": "Circa {ram} MB di RAM consigliati.",
+    "ram_note": "Circa {ram} MB di RAM consigliati.",
     "phase_starting": "Avvio del controllo…",
     "phase_preparing": "Preparazione del controllo…",
     "phase_sweep": "Controllo di questo modello su ogni dispositivo…",
@@ -87,9 +101,16 @@
     "provider_replaced": "{previous} non ha superato la verifica per questo modello, quindi è stato selezionato {provider}.",
     "no_passing_provider": "Questo modello non ha superato il controllo. Esamina i risultati e riprova prima di continuare.",
     "readiness_retry": "La verifica è terminata, ma non è stato possibile aggiornare lo stato del modello. Nuovo tentativo in corso; puoi uscire e tornare più tardi.",
-    "best_provider": "Miglior provider verificato: {provider}, {ms} ms per immagine",
+    "best_provider": "Miglior provider verificato: {provider}, {ms} ms per immagine",
     "best_provider_without_timing": "Miglior provider verificato: {provider}",
-    "failed_providers": "Non riusciti: {providers}"
+    "failed_providers": "Non riusciti: {providers}",
+    "blocked_downloading": "Potrai continuare al termine del download.",
+    "blocked_no_model": "Scegli un modello per continuare, oppure salta questo passaggio per mantenere il modello in uso ora.",
+    "blocked_download": "Scarica questo modello per continuare, oppure salta questo passaggio per mantenere il modello in uso ora.",
+    "blocked_check": "Verifica questo modello su questo hardware per continuare, oppure salta questo passaggio per mantenere il modello in uso ora.",
+    "blocked_location": "Inserisci latitudine e longitudine della mangiatoia per continuare, oppure lascia entrambe vuote.",
+    "blocked_provider": "Questo host non dispone del dispositivo scelto. Scegline un altro, o Automatico, per continuare.",
+    "download_needed": "download necessario"
   },
   "quality": {
     "title": "Migliori istantanee disponibili",
@@ -106,7 +127,7 @@
     "note_bw": "Segnalazioni alle stazioni della comunità. Aggiungi un token stazione in Impostazioni.",
     "note_ebird": "Avvistamenti vicini, mappe e un filtro di areale facoltativo. Aggiungi una chiave API in Impostazioni.",
     "note_inat": "Invii verificati dal proprietario. Collega il tuo account in Impostazioni.",
-    "notifications_note": "I canali di notifica si configurano in Impostazioni → Notifiche. Home Assistant si installa e si configura esternamente; consulta la guida all’integrazione."
+    "notifications_note": "I canali di notifica si configurano in Impostazioni → Avvisi. Home Assistant si installa e si configura esternamente; consulta la guida all’integrazione."
   },
   "history": {
     "title": "Importa rilevamenti esistenti",
@@ -115,7 +136,6 @@
     "enable_help": "I rilevamenti vengono aggiornati solo se la classificazione migliora; audio e meteo salvati restano intatti.",
     "range": "Intervallo cronologia",
     "import_continue": "Importa e continua",
-    "continue_without": "Continua senza importare",
     "job_title": "Importazione cronologia",
     "job_starting": "Analisi della cronologia Frigate",
     "audio_note": "La cronologia Frigate ripristina rilevamenti visivi e istantanee, ma non può ricreare l’audio BirdNET-Go non salvato."
@@ -139,12 +159,19 @@
       "model_wrong_kind": "È selezionato un rilevatore di ritaglio come classificatore",
       "model_retired": "Il classificatore salvato è stato ritirato",
       "model_fallback": "Alternativa inclusa",
+      "model_missing": "{model} non è su questa installazione, quindi ancora nulla identifica gli uccelli.",
+      "model_missing_bundled": "Il modello incluso non è su questa installazione, quindi ancora nulla identifica gli uccelli.",
+      "model_failed": "{model} è installato ma non è stato possibile caricarlo, quindi nulla identifica gli uccelli.",
+      "model_failed_bundled": "Il modello incluso è installato ma non è stato possibile caricarlo, quindi nulla identifica gli uccelli.",
+      "model_bundled": "Modello incluso",
       "quality_best": "Migliori istantanee disponibili",
       "quality_standard": "Istantanee standard",
       "integrations_needs": "Da configurare: {integrations}",
       "integrations_configured": "Configurato: {integrations}",
       "integrations_birdnet_listening": "BirdNET-Go è in ascolto tramite MQTT, senza URL per controllarlo",
-      "integrations_none": "Nessuna attivata"
+      "integrations_none": "Nessuna attivata",
+      "frigate": "Frigate",
+      "connection_unreachable": "Non raggiungibile: {items}. Controlla gli indirizzi e che entrambi siano in esecuzione."
     },
     "description": "Ecco lo stato di ogni sezione. Aprine una per modificarla; il resto non viene toccato.",
     "done": "Fatto",
@@ -155,8 +182,8 @@
   "skip": "Salta la configurazione",
   "skip_failed": "Impossibile saltare: il server non è raggiungibile.",
   "skip_confirm_title": "Saltare la configurazione e aprire l'app?",
-  "skip_confirm_body_no_account": "L'app funzionerà senza password finché non ne imposti una in Impostazioni → Sicurezza. Tutto ciò che copre questa procedura può essere configurato in seguito, e puoi rieseguirla in qualsiasi momento da Impostazioni → Procedura guidata.",
-  "skip_confirm_body": "Tutto ciò che copre questa procedura può essere configurato in seguito, e puoi rieseguirla in qualsiasi momento da Impostazioni → Procedura guidata.",
+  "skip_confirm_body_no_account": "L'app funzionerà senza password finché non ne imposti una in Impostazioni → Condivisione e integrazioni. Tutto ciò che copre questa procedura può essere configurato in seguito, e puoi rieseguirla in qualsiasi momento da Impostazioni → Configurazione guidata.",
+  "skip_confirm_body": "Tutto ciò che copre questa procedura può essere configurato in seguito, e puoi rieseguirla in qualsiasi momento da Impostazioni → Configurazione guidata.",
   "skip_confirm_action": "Salta e apri l'app",
   "back": "Indietro",
   "continue": "Continua",
@@ -170,14 +197,16 @@
     "cover_cameras": "Scegli le telecamere",
     "cover_connect": "Collega Frigate e MQTT",
     "cover_integrations": "Attiva le integrazioni",
-    "cover_model": "Convalida il modello sul tuo hardware",
-    "description": "Mettiamo online la tua mangiatoia. Bastano pochi minuti, le scelte facoltative si possono saltare e puoi rieseguire la procedura in qualsiasi momento dalla navigazione delle Impostazioni.",
+    "cover_model": "Verificare che il modello funzioni su questa macchina",
+    "description": "Bastano pochi minuti. Le scelte facoltative si possono saltare e puoi ripetere la configurazione in qualsiasi momento dalle Impostazioni.",
     "start": "Inizia",
-    "title": "Benvenuto in YA-WAMF"
+    "title": "Configura YA-WAMF",
+    "covers": "La configurazione ti chiederà di:"
   },
   "working": "In corso…",
   "skip_step": "Salta passaggio",
   "step_list": "Passaggi di configurazione",
+  "progress": "Avanzamento della configurazione",
   "step_names": {
     "welcome": "Benvenuto",
     "account": "Account",
@@ -186,8 +215,15 @@
     "model": "Modello",
     "quality": "Istantanee",
     "integrations": "Integrazioni",
-    "history": "Cronologia",
-    "telemetry": "Statistiche d’uso",
+    "history": "Extra",
     "review": "Riepilogo"
+  },
+  "blocked": {
+    "loading": "Potrai continuare quando le impostazioni attuali saranno caricate.",
+    "load_failed": "Non è stato possibile caricare le impostazioni attuali, quindi qui non si può salvare nulla. Usa «Riprova a caricare le impostazioni» qui sopra."
+  },
+  "extras": {
+    "title": "Extra facoltativi",
+    "description": "Due scelte prima di finire. Entrambe sono disattivate finché non le attivi, ed entrambe si possono cambiare in seguito nelle Impostazioni."
   }
 }

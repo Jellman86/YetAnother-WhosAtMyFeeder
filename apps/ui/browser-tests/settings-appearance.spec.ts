@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
-import { openSettings, unsavedChanges as unsaved, type FixtureSettings } from './settings-page-mock';
+import { openMoreOptions, openSettings, saveBar as unsaved, type FixtureSettings } from './settings-page-mock';
 
-// Settings → Appearance holds its choices in the one Settings draft and loads its tab body on
+// Settings → Display holds its choices in the one Settings draft and loads its tab body on
 // first use. The saved choices must load into the tab, an edit must survive leaving the tab, and
 // Apply must send the Appearance fields with the rest of the form.
 
@@ -21,27 +21,31 @@ test('Appearance loads on first open, shows the saved choices and saves edits wi
     const harness = await openSettings(page, SAVED_APPEARANCE);
     expect(harness.moduleRequests('AppearanceSettings.svelte')).toBe(0);
 
-    await page.getByRole('link', { name: 'Appearance' }).click();
+    await page.getByRole('link', { name: 'Display', exact: true }).click();
+    // Dates, names and the Explorer layout are under Display's More options.
+    await openMoreOptions(page);
     await expect(page.locator('#date-format-select')).toHaveValue('ymd');
     expect(harness.moduleRequests('AppearanceSettings.svelte')).toBe(1);
     await expect(page.locator('#time-format-select')).toHaveValue('12h');
     await expect(page.locator('#explorer-view-select')).toHaveValue('list');
-    await expect(page.getByRole('button', { name: 'Select Hobbyist naming style' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('radiogroup', { name: /Bird naming style/ }).getByRole('radio', { name: /^Scientific name first/ })).toBeChecked();
     await expect(unsaved(page)).toHaveCount(0);
 
     await page.locator('#time-format-select').selectOption('24h');
-    await page.getByRole('button', { name: /Advanced options/ }).click();
-    await page.getByRole('button', { name: 'Blue Tit', exact: true }).click();
+    await page.getByRole('button', { name: /advanced options/i }).click();
+    await page.getByRole('radiogroup', { name: /Colou?r accent/i }).getByRole('radio', { name: /^Blue Tit/ }).check();
     await expect(unsaved(page)).toBeVisible();
 
     // Leaving the tab unmounts its body; the draft is the page's, so the edit is still there.
-    await page.getByRole('link', { name: 'Connection' }).click();
+    await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toBeVisible();
     await expect(unsaved(page)).toBeVisible();
-    await page.getByRole('link', { name: 'Appearance' }).click();
+    await page.getByRole('link', { name: 'Display', exact: true }).click();
+    // Dates, names and the Explorer layout are under Display's More options.
+    await openMoreOptions(page);
     await expect(page.locator('#time-format-select')).toHaveValue('24h');
 
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => harness.writes.length).toBe(1);
     expect(harness.writes[0]).toMatchObject({
         ...SAVED_APPEARANCE,
@@ -55,14 +59,16 @@ test('Appearance loads on first open, shows the saved choices and saves edits wi
 
 test('switching the naming style back to the saved one leaves nothing to apply', async ({ page }) => {
     await openSettings(page, SAVED_APPEARANCE);
-    await page.getByRole('link', { name: 'Appearance' }).click();
-    const scientific = page.getByRole('button', { name: 'Select Strictly Scientific naming style' });
-    const hobbyist = page.getByRole('button', { name: 'Select Hobbyist naming style' });
-    await expect(hobbyist).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('link', { name: 'Display', exact: true }).click();
+    // Dates, names and the Explorer layout are under Display's More options.
+    await openMoreOptions(page);
+    const scientific = page.getByRole('radiogroup', { name: /Bird naming style/ }).getByRole('radio', { name: /^Strictly scientific/i });
+    const hobbyist = page.getByRole('radiogroup', { name: /Bird naming style/ }).getByRole('radio', { name: /^Scientific name first/ });
+    await expect(hobbyist).toBeChecked();
 
-    await scientific.click();
-    await expect(scientific).toHaveAttribute('aria-pressed', 'true');
+    await scientific.check();
+    await expect(scientific).toBeChecked();
     await expect(unsaved(page)).toBeVisible();
-    await hobbyist.click();
+    await hobbyist.check();
     await expect(unsaved(page)).toHaveCount(0);
 });

@@ -31,7 +31,7 @@ test('app headers fit 320px with 200% text after desktop resize', async ({ page 
     await expect(refresh).toBeVisible();
     await page.setViewportSize({ width: 320, height: 900 });
     await page.evaluate(() => document.documentElement.style.fontSize = '200%');
-    const menu = page.getByRole('button', { name: 'Toggle menu', exact: true });
+    const menu = page.getByRole('button', { name: 'Menu', exact: true });
     await expect(menu).toBeVisible();
     await expect.poll(() => page.locator('#main-content').evaluate(node => {
         const bounds = node.getBoundingClientRect();
@@ -132,7 +132,7 @@ test('each owner page has one h1, named as its navigation item, and a tab title 
     expect(await headingOnes(page)).toEqual(['Last 24 hours']);
     await expect(page.locator('main > header').getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
     await expect(page).toHaveTitle('Dashboard · YA-WAMF');
-    await expect(page.locator('[data-status-tile="alerts"]')).toHaveCount(1);
+    await expect(page.locator('[data-status-row="alerts"]')).toHaveCount(1);
 });
 
 test('a visitor gets one named h1 per page and no guess about notifications', async ({ page }) => {
@@ -143,8 +143,8 @@ test('a visitor gets one named h1 per page and no guess about notifications', as
     expect(await headingOnes(page)).toEqual(['Explorer']);
     // None of the owner's page controls appear for a visitor.
     await expect(page.locator('main > header button')).toHaveCount(0);
-    await expect(page.locator('[data-status-tile="live"]')).toHaveCount(1);
-    await expect(page.locator('[data-status-tile="alerts"]')).toHaveCount(0);
+    await expect(page.locator('[data-status-row="feed"]')).toHaveCount(1);
+    await expect(page.locator('[data-status-row="alerts"]')).toHaveCount(0);
 
     await page.goto('/');
     await expect(page.locator('[data-dashboard-day-bar]')).toBeVisible();
@@ -172,7 +172,7 @@ test('the phone drawer is out of the tab order when closed and modal when open',
     await page.goto('/events');
     await expect(page.getByRole('heading', { level: 1, name: 'Explorer' })).toBeVisible();
 
-    const menu = page.getByRole('button', { name: 'Toggle menu', exact: true });
+    const menu = page.getByRole('button', { name: 'Menu', exact: true });
     const drawer = page.locator('#app-sidebar');
     await expect(menu).toHaveAttribute('aria-expanded', 'false');
     await expect(menu).toHaveAttribute('aria-controls', 'app-sidebar');
@@ -203,4 +203,64 @@ test('the phone drawer is out of the tab order when closed and modal when open',
     await expect(drawer).toHaveJSProperty('inert', true);
     await expect(menu).toBeFocused();
     await expect.poll(() => drawer.evaluate(node => node.getBoundingClientRect().right <= 0)).toBe(true);
+});
+
+test('a camera frame that fails to load says so and gives the next step, clear of the camera chip on a phone', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockShell(page, 'owner');
+    await page.goto('/events');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'Camera status' }).click();
+    const viewer = page.getByRole('dialog', { name: 'Live camera viewer' });
+    const message = viewer.getByText('This frame could not be loaded', { exact: true });
+    await expect(message).toBeVisible();
+    await expect(viewer.locator('[data-camera-frame-help]')).toHaveText(
+        'Retry asks Frigate for the frame again. If it keeps failing, Health shows whether Frigate is answering.'
+    );
+    const retry = viewer.getByRole('button', { name: 'Retry', exact: true });
+    await expect(retry).toBeVisible();
+    // With no picture to lie over, the camera's name comes first and the message below it,
+    // and the whole message, Retry included, stays inside the frame.
+    const helpText = viewer.locator('[data-camera-frame-help]');
+    const [chip, text, button, frame] = await Promise.all([
+        viewer.getByText('patio', { exact: true }).boundingBox(),
+        message.boundingBox(),
+        retry.boundingBox(),
+        viewer.locator('[data-camera-frame="message"]').boundingBox()
+    ]);
+    if (!chip || !text || !button || !frame) throw new Error('The camera viewer did not lay out');
+    expect(text.y).toBeGreaterThanOrEqual(chip.y + chip.height);
+    expect(button.y).toBeGreaterThanOrEqual(text.y + text.height - 1);
+    expect(button.y + button.height).toBeLessThanOrEqual(frame.y + frame.height + 1);
+    await expect(helpText).toBeInViewport({ ratio: 0.99 });
+
+    // At 200% text the message is taller than a 16:9 frame at this width, and can be taller than
+    // the screen. The box is as tall as its words, nothing is covered, and Retry follows the
+    // sentence that names the failure, so it is visible and inside the dialog without scrolling.
+    await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+    await expect(retry).toBeVisible();
+    await expect(retry).toBeInViewport({ ratio: 0.99 });
+    const [dialog, largeChip, largeText, largeButton, largeHelp] = await Promise.all([
+        viewer.boundingBox(),
+        viewer.getByText('patio', { exact: true }).boundingBox(),
+        message.boundingBox(),
+        retry.boundingBox(),
+        helpText.boundingBox()
+    ]);
+    if (!dialog || !largeChip || !largeText || !largeButton || !largeHelp) throw new Error('The camera viewer did not lay out at 200% text');
+    expect(largeText.y).toBeGreaterThanOrEqual(largeChip.y + largeChip.height);
+    // The camera's name and state stop short of the close button.
+    const [chipBox, closeBox] = await Promise.all([viewer.locator('[aria-live="polite"]').first().boundingBox(), viewer.getByRole('button', { name: 'Close', exact: true }).boundingBox()]);
+    if (!chipBox || !closeBox) throw new Error('The camera chip or the close button is missing');
+    expect(chipBox.x + chipBox.width).toBeLessThanOrEqual(closeBox.x);
+    const chipWords = await viewer.locator('[aria-live="polite"]').first().locator('span').evaluateAll((spans) => Math.max(...spans.map((span) => span.getBoundingClientRect().right)));
+    expect(chipWords).toBeLessThanOrEqual(closeBox.x);
+    expect(largeButton.y).toBeGreaterThanOrEqual(largeText.y + largeText.height - 1);
+    expect(largeButton.y + largeButton.height).toBeLessThanOrEqual(dialog.y + dialog.height + 1);
+    expect(dialog.y + dialog.height).toBeLessThanOrEqual(844);
+    expect(largeHelp.y).toBeGreaterThanOrEqual(largeButton.y + largeButton.height - 1);
+    // The explanation is never clipped: what does not fit is reached by scrolling the dialog.
+    await helpText.scrollIntoViewIfNeeded();
+    await expect(helpText).toBeInViewport({ ratio: 0.99 });
+    await retry.click({ trial: true });
 });

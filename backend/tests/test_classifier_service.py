@@ -1027,6 +1027,37 @@ async def test_classifier_status_distinguishes_configured_and_effective_model_id
 
 
 @pytest.mark.asyncio
+async def test_classifier_status_names_the_effective_model_and_says_whether_its_file_exists(tmp_path):
+    # Settings shows the model by the name its card carries, and must not call a model in use
+    # when its weights are not on disk (the fallback path names a file that may be absent).
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+
+    present = tmp_path / "model.tflite"
+    present.write_bytes(b"weights")
+    spec = {"model_id": "mobilenet_v2_birds", "supported_inference_providers": ["cpu"]}
+
+    with patch.object(service, "_resolve_active_bird_model_spec", return_value={**spec, "model_path": str(present)}):
+        status = service.get_status()
+    assert status["effective_model_name"] == "MobileNet V2 (Fast)"
+    assert status["active_model_installed"] is True
+
+    missing = tmp_path / "absent" / "model.tflite"
+    with patch.object(service, "_resolve_active_bird_model_spec", return_value={**spec, "model_path": str(missing)}):
+        status = service.get_status()
+    assert status["active_model_installed"] is False
+
+    with patch.object(
+        service,
+        "_resolve_active_bird_model_spec",
+        return_value={"model_id": "not-in-registry", "model_path": str(present)},
+    ):
+        status = service.get_status()
+    assert status["effective_model_name"] is None
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_status_reads_never_detect_acceleration_capabilities():
     caps = {
         "ort_available": False,

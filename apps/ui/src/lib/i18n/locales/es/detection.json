@@ -63,7 +63,7 @@
   "audio_context_empty": "No hay detecciones de audio cercanas",
   "audio_context_suppressed": "Se detectó audio cercano, pero en un micrófono que no está asignado a esta cámara. Cambia la asignación de sensores en Ajustes para incluirlo.",
   "common_name_override": "Nombre común",
-  "common_name_override_edit": "Editar nombre",
+  "common_name_override_edit": "Cambiar el nombre común",
   "common_name_override_reset": "Usar nombre del proveedor",
   "common_name_override_saved": "Nombre común actualizado",
   "common_name_override_cleared": "Nombre común del proveedor restaurado",
@@ -75,10 +75,19 @@
   "weather_precip": "Precip",
   "weather_rain": "Lluvia",
   "weather_snow": "Nieve",
+  "weather_light": "Luz",
   "weather_icy": "Helado",
   "id": "ID de detección",
   "open_in_frigate": "Abrir en Frigate",
   "open_in_frigate_gone": "Ya no está en Frigate",
+  "upstream_check": {
+    "gone": "Frigate ya no tiene este evento ni sus archivos.",
+    "unreachable": "YA-WAMF no pudo conectar con Frigate, así que no se sabe si Frigate aún tiene este evento. Compruebe que Frigate está en marcha y vuelva a abrir este registro.",
+    "timed_out": "Frigate no respondió a tiempo, así que no se sabe si aún tiene este evento. Vuelva a abrir este registro en un momento. Si se repite, compruebe la carga de Frigate.",
+    "unauthorized": "Frigate rechazó las credenciales de YA-WAMF, así que no se sabe si aún tiene este evento. Compruebe FRIGATE_AUTH_TOKEN en el entorno con el que arranca YA-WAMF, reinícielo y vuelva a abrir este registro.",
+    "failed": "Frigate respondió con un error, así que no se sabe si aún tiene este evento. Revise el registro de Frigate y vuelva a abrir este registro.",
+    "not_checked": "Aún no se ha consultado a Frigate sobre este evento. Vuelva a abrir este registro para comprobarlo."
+  },
   "upstream_missing": {
     "title": "Falta en Frigate",
     "card_label": "Falta en origen",
@@ -149,8 +158,8 @@
   "video_analysis": {
     "queued": "Análisis de vídeo en cola",
     "preparing": "Preparando el análisis de vídeo",
-    "title": "Análisis de Video Profundo",
-    "match": "{score}% de Coincidencia",
+    "title": "Análisis de video",
+    "match": "{score}% de coincidencia",
     "verified_desc": "Respaldado por observaciones a lo largo del vídeo.",
     "in_progress": "Análisis de video en curso…",
     "failed_title": "Falló el análisis de video",
@@ -163,7 +172,8 @@
       "no_results": "El análisis de video no devolvió resultados.",
       "event_missing": "Evento no encontrado en Frigate.",
       "unknown": "Falló el análisis de video. Se usa análisis de instantánea.",
-      "clip_not_retained": "El clip ya no está retenido en Frigate (fuera de la ventana de retención)."
+      "clip_not_retained": "El clip ya no está retenido en Frigate (fuera de la ventana de retención).",
+      "event_missing_media_cached": "Frigate ya no tiene este evento, pero YA-WAMF conserva sus archivos multimedia."
     },
     "error_details": {
       "why": "Por qué puede ocurrir esto",
@@ -193,7 +203,9 @@
         "unknown_1": "Ocurrió un error inesperado en la recuperación de medios o el procesamiento de video.",
         "unknown_2": "El estado del evento cambió mientras el análisis estaba en progreso.",
         "video_timeout_large_clip": "El procesamiento del clip tardó más que el tiempo de espera configurado.",
-        "video_timeout_resource": "Los recursos de GPU/CPU estaban saturados durante la inferencia."
+        "video_timeout_resource": "Los recursos de GPU/CPU estaban saturados durante la inferencia.",
+        "event_missing_media_cached": "YA-WAMF ya había guardado los archivos de esta captura, así que aún se pueden reproducir aunque Frigate ya no tenga el evento.",
+        "event_missing_media_cached_retention": "Puede que Frigate haya eliminado el evento al agotarse su retención, mientras YA-WAMF conservó la instantánea o el clip de la visita completa."
       },
       "checks_items": {
         "api_health": "Verificar el endpoint de salud de la API de Frigate y la configuración de autenticación.",
@@ -213,7 +225,9 @@
         "retention_settings": "Revisar la configuración de retención de Frigate y el estado del almacenamiento.",
         "retry_manual": "Reintentar la reclasificación manual después de que el servicio se estabilice.",
         "retry_snapshot": "Intentar la reclasificación manual de snapshot o video más tarde.",
-        "video_timeout_setting": "Aumentar el tiempo de espera del análisis de video o reducir los frames muestreados."
+        "video_timeout_setting": "Aumentar el tiempo de espera del análisis de video o reducir los frames muestreados.",
+        "use_cached_media": "Usa la instantánea o el clip que tiene YA-WAMF. Si se reproduce, no hay que hacer nada.",
+        "frigate_retention_if_unexpected": "Si ocurrió antes de lo que esperabas, revisa cuánto tiempo conserva Frigate los eventos."
       }
     },
     "fallback_title": "Resultado a partir de instantánea",
@@ -226,11 +240,11 @@
     "frigate_fallback_title": "Resultado de Frigate",
     "frigate_fallback_desc": "El análisis local de la imagen no cumplió la política, por lo que YA-WAMF conservó la etiqueta de especie de confianza de Frigate.",
     "gated_title": "El vídeo encontró una coincidencia: confirma para aplicarla",
-    "gated_desc": "La promoción automática se retuvo porque la puntuación del vídeo está por debajo de tu umbral mínimo de confianza. Reclasifica para aplicar este resultado o baja el umbral en Ajustes → Detección.",
+    "gated_desc": "La promoción automática se retuvo porque la puntuación del vídeo está por debajo de tu umbral mínimo de confianza. Reclasifica para aplicar este resultado o baja el umbral en Ajustes → Identificar aves.",
     "gated_action": "Reclasificar",
     "evidence": {
       "title": "Evidencia de esta ejecución",
-      "summary": "Se decodificaron {processed} de {sampled} fotogramas muestreados. Cada fotograma necesitaba al menos un {threshold} % de confianza para votar.",
+      "summary": "Se decodificaron {processed} de {sampled} fotogramas muestreados. Cada fotograma necesitaba al menos un {threshold} % de confianza para votar.",
       "confident_short": "fiables",
       "required": "Se necesitaban {required} momentos fiables y coincidentes de esta fuente.",
       "top_candidates": "Candidatos más recurrentes",
@@ -247,7 +261,11 @@
     "snapshot_subtitle": "Usando la mejor instantánea disponible",
     "finalizing": "Finalizando resultado",
     "finalizing_subtitle": "Aplicando la mejor coincidencia",
-    "closing_soon": "Se cerrará pronto"
+    "closing_soon": "Se cerrará pronto",
+    "announce_started": "Analizando {species}",
+    "announce_finished": "Análisis terminado para {species}",
+    "announce_started_count": "{count, plural, one {Analizando # visita} other {Analizando # visitas}}",
+    "announce_finished_count": "{count, plural, one {Análisis terminado para # visita} other {Análisis terminado para # visitas}}"
   },
   "reclassification": {
     "unchanged_reason_non_bird": "El modelo identificó algo que no es un ave, por lo que se conservó la identificación anterior.",
@@ -285,17 +303,17 @@
     "unchanged_reason_out_of_range": "El modelo nombró una especie que eBird nunca ha registrado en tu región, así que se mantuvo la identificación existente."
   },
   "ai": {
-    "insight": "Perspectiva del Naturalista IA",
-    "ask": "Preguntar al Naturalista IA",
+    "insight": "Perspectiva del naturalista IA",
+    "ask": "Preguntar al naturalista IA",
     "analyzing": "Analizando comportamiento…",
     "regenerating": "Regenerando…",
-    "regenerate": "Regenerar Análisis",
-    "error": "Error: {message}",
+    "regenerate": "Regenerar análisis",
+    "error": "La IA no devolvió ningún análisis. Revisa el proveedor y la clave en Ajustes y vuelve a intentarlo.",
     "conversation_title": "Conversación",
     "conversation_loading": "Cargando conversación…",
     "conversation_empty": "Todavía no hay conversación. Haz una pregunta de seguimiento a la IA.",
     "conversation_placeholder": "Haz una pregunta de seguimiento…",
-    "conversation_error": "La conversación falló. Inténtalo de nuevo.",
+    "conversation_error": "La IA no respondió. Revisa el proveedor y la clave en Ajustes → Compartir e integraciones y vuelve a preguntar.",
     "assistant": "Asistente",
     "user": "Tú",
     "send": "Enviar",
@@ -406,14 +424,14 @@
   "archive_retry": "Reintentar",
   "unfavorite_confirm": "¿Quitar el favorito? Su foto y clip archivados ({size}) se eliminan con él. La visita sigue en el historial.",
   "unfavorite_button": "Quitar de favoritos",
-  "confidence_hint": "Confianza de la identificación: {score} %.",
+  "confidence_hint": "Confianza de la identificación: {score} %.",
   "captured_at_hint": "Capturado el {date} a las {time}.",
   "audio_evidence_hint": "Se oyó un canto de ave coincidente cerca de esta captura.",
   "audio_clip_aria": "Clip de audio de BirdNET-Go de la detección coincidente",
   "audio_pause": "Pausar clip de audio",
   "audio_play": "Reproducir clip de audio",
   "audio_seek_spectrogram_aria": "Haz clic para saltar a ese punto del clip de audio",
-  "audio_spectrogram_unavailable": "Espectrograma no disponible para esta coincidencia",
+  "audio_spectrogram_unavailable": "No hay espectrograma de este canto. Aun así se puede reproducir.",
   "manual_upload": "Añadido desde un archivo subido",
   "search_species": "Buscar especie",
   "species_updated": "Especie actualizada",
@@ -423,7 +441,7 @@
     "again": "Volver a analizar",
     "detector_unavailable": "Instala un detector de recortes para encontrar más aves.",
     "reviewed_other_frame": "Se conservan las aves revisadas en otro fotograma. Este fotograma no puede sustituirlas.",
-    "scene_unavailable": "El fotograma completo de esta fotografía no está disponible.",
+    "scene_unavailable": "No se pueden buscar más aves: no se conservó el fotograma completo de esta fotografía.",
     "other_running": "Se está analizando otro fotograma de esta captura. Inténtalo de nuevo cuando termine.",
     "media_changed": "El fotograma cambió durante el análisis. Inténtalo de nuevo con el actual.",
     "interrupted": "El análisis se interrumpió. Puedes volver a intentarlo.",
@@ -448,7 +466,7 @@
     "queued_behind": "Esperando para revisar todo el fotograma. {count, plural, one {# búsqueda delante.} other {# búsquedas delante.}}",
     "progress_label": "Progreso de la búsqueda",
     "progress_waiting": "Esperando para empezar",
-    "elapsed": "{seconds} s",
+    "elapsed": "{seconds} s",
     "action_waiting": "Esperando…",
     "action_scanning": "Buscando…",
     "incomplete": "{count, plural, =0 {No se confirmó ningún ave en esta imagen.} one {Al menos un ave confirmada en esta imagen.} other {Al menos # aves confirmadas en esta imagen.}} {regions, plural, one {Otra posible ave no se contó.} other {Otras # posibles aves no se contaron.}}",
@@ -473,7 +491,6 @@
     "recording": "Identificado a partir del ave seguida por Frigate en el fotograma de la grabación",
     "snapshot": "Identificado a partir del ave seguida por Frigate en la captura",
     "crop": "Identificado a partir de un recorte del ave",
-    "unknown": "No se registró la fuente de la identificación",
     "original": "Identificación original"
   },
   "frame_scan": {
@@ -491,8 +508,36 @@
   },
   "identified_by_owner": "Identificado por el propietario",
   "moved_to_garden": "Movida al jardín. El registro de ave está oculto; vuelve a mostrarlo desde Ocultas para restaurarlo.",
-  "move_to_garden_failed": "No se pudo mover este registro al jardín: {message}",
+  "move_to_garden_failed": "No se pudo mover este registro a Jardín. Inténtalo de nuevo; si sigue fallando, abre Estado.",
   "domestic_bird_declared": "Es un ave de tipo {bird}, un ave doméstica que tienes. Muévela al jardín para registrarla como animal del jardín. Este registro de ave se oculta, no se borra.",
   "move_to_garden": "Mover al jardín",
-  "range_fallback": "Filtro de área: el modelo dijo primero {original} ({score} %), que eBird nunca ha registrado en {region}, así que se mantuvo su siguiente respuesta dentro del área."
+  "range_fallback": "Filtro de área: el modelo dijo primero {original} ({score} %), que eBird nunca ha registrado en {region}, así que se mantuvo su siguiente respuesta dentro del área.",
+  "audio_context_all": "Todos los cantos oídos en torno a esta visita",
+  "record_label": "Registro de detección",
+  "more_actions": "Más acciones",
+  "reference_read_more_on": "Leer más en {source}",
+  "reference_read_more": "Leer más",
+  "reference_source": "Fuente: {source}",
+  "reference_conservation": "Estado de conservación: {status}",
+  "archive_failed_both": "No se pudo guardar la copia propia de la foto y el clip de este favorito.",
+  "archive_failed_photo": "No se pudo guardar la copia propia de la foto de este favorito.",
+  "archive_failed_clip": "No se pudo guardar la copia propia del clip de este favorito.",
+  "archive_cause": {
+    "frigate_unreachable": "No se pudo contactar con Frigate. Comprueba que Frigate está en marcha y su dirección en Ajustes → Cámaras y conexión.",
+    "frigate_timeout": "Frigate no respondió a tiempo. Comprueba que Frigate está en marcha y no está sobrecargado.",
+    "frigate_refused": "Frigate rechazó la solicitud de YA-WAMF. Comprueba el acceso a Frigate en Ajustes → Cámaras y conexión.",
+    "frigate_error": "Frigate respondió con un error propio. Revisa sus registros.",
+    "clip_cut_short": "La descarga del clip se interrumpió.",
+    "disk_full": "El disco de la carpeta de datos está lleno. Libera espacio.",
+    "disk_error": "No se pudo escribir en la carpeta de datos. Comprueba que existe y que YA-WAMF puede escribir en ella.",
+    "unknown": "No se registró la causa."
+  },
+  "archive_retry_scheduled": "YA-WAMF lo volverá a intentar solo a las {at}. La visita se queda en tu historial en cualquier caso.",
+  "archive_retry_spent": "YA-WAMF ha dejado de intentarlo solo. La visita se queda en tu historial en cualquier caso.",
+  "archive_retry_now": "Reintentar ahora",
+  "audio_match_evidence": "El canto coincidente",
+  "archive_retry_due": "YA-WAMF lo volverá a intentar solo en breve. La visita se queda en tu historial en cualquier caso.",
+  "archive_checking": "Comprobando qué guardó la copia propia de este favorito…",
+  "archive_unchecked": "La copia propia de este favorito informó de un problema, pero no se pudo comprobar qué guardó.",
+  "archive_check_again": "Comprobar de nuevo"
 }

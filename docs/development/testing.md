@@ -8,7 +8,7 @@ their total usage still depends on how often you push and build.
 
 ## Normal gate
 
-Use Python 3.12 and Node.js 22, matching CI. Install the locked/project dependencies
+Use Python 3.13 and Node.js 22, matching CI. Install the locked/project dependencies
 first. From the repository root:
 
 ```bash
@@ -41,6 +41,14 @@ or imports `app.main`. Every other test then runs against a suite database migra
 once, within ten minutes. Coverage from both lanes is combined into one report.
 A printed pass summary does not excuse a teardown hang or a failed coverage report.
 
+Install `backend/requirements-dev.txt` as well as the runtime requirements.
+`backend/pytest.ini` gives each test a 120-second timeout using a watchdog thread,
+so a blocked event loop also fails. Faulthandler dumps every Python thread after
+110 seconds; the timeout then prints the stacks and stops the test process.
+These diagnostics apply to direct local `pytest` commands and both gate lanes.
+The gate prints each test's name before running it, including async tests whose
+suspended coroutine does not appear in a Python thread stack.
+
 A test that needs an empty schema at head takes the `migrated_history_db` fixture,
 a private copy of the suite database taken right after migration, instead of
 running Alembic again. Tests about a migration itself still run the real chain.
@@ -67,9 +75,37 @@ They now run before merge, not just during deployment.
 
 ## Browser regressions
 
-Pull requests run the complete Chromium fixture suite in CI. Failed runs retain
-screenshots and traces for seven days. The same command works locally:
-`npm run test:browser -- --project=chromium` from `apps/ui`.
+Pull requests run the complete Chromium fixture suite in CI, split into two halves
+that run side by side with Playwright's `--shard`. Failed runs retain screenshots
+and traces for seven days, one artifact per half. The same command works locally,
+whole or in halves: `npm run test:browser -- --project=chromium` from `apps/ui`, or
+add `--shard=1/2` and `--shard=2/2`.
+
+### Production bundle
+
+The fixture suite above runs on the Vite dev server, which loads every module separately, so
+it cannot see how the production build splits code. A second Chromium check serves the built
+bundle from `dist` with `vite preview` and replays the same API fixtures. It checks that:
+- every page and Settings tab draws its own content;
+- every chunk the build emitted loads;
+- the German locale works;
+- charts, the map and a record's markdown analysis draw from their lazily loaded code;
+- no script fails and the console stays free of errors.
+
+It runs in CI as **Production bundle (Chromium)**, on one worker, in well under a minute.
+Locally, from `apps/ui`:
+
+```bash
+npm run build
+npm run test:browser:production
+```
+
+The frontend job also runs `npm run check:cache`. It builds twice with the same metadata, adding
+one line to the About page between the builds, and fails unless only About's chunk and the entry
+are renamed. Browsers then keep every other file cached across a release that changes one page.
+The build itself fails in two cases (`vite.config.ts`):
+- a page needs more than 10 scripts before it draws;
+- a chunk imports the entry's code, which would deadlock start-up.
 
 For the wider local matrix:
 
@@ -162,7 +198,7 @@ and cover cancellation, bounded escalation and replacement blocked by failed
 cleanup. A killed child must have an exit code before its capacity is reused.
 The real signal-handler case is POSIX-only; portable lifecycle cases still run
 on other platforms. Process waiting follows Python's
-[asyncio subprocess contract](https://docs.python.org/3.12/library/asyncio-subprocess.html).
+[asyncio subprocess contract](https://docs.python.org/3.13/library/asyncio-subprocess.html).
 
 Use the [backfill replay recipe](../reviews/2026-09-23-backfill-test-hardening.md#repeatable-real-model-replay)
 with an already installed model and a retained bird crop. Run one accelerator
@@ -214,13 +250,13 @@ from a single pass. Review every failure, even when another repeat passes.
 ### Native Windows validation
 
 Install `requirements-base.txt`, `requirements-provider-cuda.txt` and
-`requirements-dev.txt` into an isolated Python 3.12 virtual environment. The base
+`requirements-dev.txt` into an isolated Python 3.13 virtual environment. The base
 requirements include Windows timezone data, because Windows has no system IANA
 database. Run worker lifecycle tests before the installed-model CUDA gate.
 
 Windows workers use bounded binary stdin reads in a thread so heartbeats continue
 while waiting for requests. The parent launches the base interpreter directly
-with [CPython's virtual environment launcher hint](https://github.com/python/cpython/blob/3.12/Modules/getpath.py), retaining the environment's
+with [CPython's virtual environment launcher hint](https://github.com/python/cpython/blob/3.13/Modules/getpath.py), retaining the environment's
 packages and ownership of the actual worker process. Runtime discovery probes,
 model validation and hardware/regression gates use the same launch helper.
 Cancelled crop validation kills and reaps its child before returning, including

@@ -49,14 +49,23 @@ describe('visit captures read as part of their visit', () => {
         expect(visitCapturesSource).toContain('if (!open) return;');
     });
 
-    it('opens a field log visit from its time, onto the same thread and columns', () => {
-        // The time is the visit's handle; the captures are children of the row, not a block below it.
+    it('opens a field log visit from one control per row, onto the same thread and columns', () => {
+        // Round 4: the time and the count both toggled the same list, two tab stops for one action.
+        // The time is text now; the count opens the captures, named "Show N captures".
         expect(fieldLogSource).toContain('<FieldLogVisitRow');
         expect(fieldLogSource).not.toContain('VisitCaptures');
-        expect(visitRowSource).toContain('data-field-log-time-toggle');
-        expect(visitRowSource).toContain('aria-expanded={expanded}');
-        expect(visitRowSource).toContain('aria-controls={listId}');
-        expect(visitRowSource).toMatch(/data-field-log-time-toggle[\s\S]*min-h-11|min-h-11[\s\S]*data-field-log-time-toggle/);
+        expect(visitRowSource).not.toContain('data-field-log-time-toggle');
+        for (const toggle of ['data-field-log-captures-phone', 'data-field-log-captures-toggle']) {
+            const at = visitRowSource.indexOf(toggle);
+            const control = visitRowSource.slice(visitRowSource.lastIndexOf('<button', at), at + toggle.length);
+            expect(control, toggle).toContain('aria-expanded={expanded}');
+            expect(control, toggle).toContain('aria-controls={listId}');
+            expect(control, toggle).toContain("visits.show_captures");
+            expect(control, toggle).toContain('min-h-11');
+        }
+        // One shows where the log is narrow, the other where it is wide, never both.
+        expect(visitRowSource).toMatch(/log-wide:hidden"[\s\S]{0,900}data-field-log-captures-phone/);
+        expect(visitRowSource).toMatch(/log-wide:inline-flex[\s\S]{0,1200}data-field-log-captures-toggle/);
         // One column template: a capture's time, node and score sit under its visit's.
         expect(visitRowSource).toContain('col-span-full grid grid-cols-subgrid');
         expect(fieldLogSource).toContain('{grid}');
@@ -78,7 +87,7 @@ describe('visit captures read as part of their visit', () => {
 
     it('keeps confirmed scores on the semantic success scale in the field log', () => {
         expect(fieldLogSource + visitRowSource).not.toContain('emerald');
-        expect(visitRowSource).toContain('text-success-700 dark:text-success-300');
+        expect(visitRowSource).toContain('text-status-ok');
     });
 
     it('loads in the shape of real rows, states failure, and never animates under reduced motion', () => {
@@ -92,6 +101,6 @@ describe('visit captures read as part of their visit', () => {
     it('closes Explorer cards and rows as a footer, without stretching neighbouring cards open', () => {
         expect(eventsSource).toContain('<VisitCaptures floating');
         expect(eventsSource.match(/<VisitCaptures /g)?.length).toBe(2);
-        expect(eventsSource).toContain('[&>[data-detection-row]]:border-b-0');
+        expect(eventsSource).toContain('*:data-detection-row:border-b-0');
     });
 });

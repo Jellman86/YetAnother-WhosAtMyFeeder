@@ -25,7 +25,11 @@ from tests import process_globals
 from tests.model_fixture_support import group_model_cases
 from tests.pure_lane import PURE_ONLY_SESSION, is_pure_test
 
+# pytester runs a test session inside a test, for checks on the suite's own fixtures.
+pytest_plugins = ("pytester",)
+
 BACKEND_DIR = Path(__file__).parent.parent.resolve()
+_REAL_SQLITE_CONNECT = sqlite3.connect
 
 _suite_dir: Path | None = None
 _history_template: Path | None = None
@@ -222,6 +226,47 @@ def restore_session_revocation_state():
 
 
 @pytest.fixture(autouse=True)
+def isolate_service_connections(monkeypatch):
+    """Health must never reach for a real Frigate from a test, nor carry one test's failed
+    request into another test's verdict."""
+    from app.services import service_connections
+    from app.services.connection_tracking import MqttConnectionTracker
+    from app.services.mqtt_service import mqtt_service
+
+    async def no_probe(_now):
+        return None
+
+    monkeypatch.setattr(service_connections, "_refresh_frigate_reading", no_probe)
+    monkeypatch.setattr(mqtt_service, "connection", MqttConnectionTracker())
+    service_connections.frigate_reachability.reset()
+
+    from app.services.frigate_client import frigate_client
+    from app.services.frigate_readiness import FrigateReadinessGate
+
+    async def frigate_answers() -> bool:
+        return True
+
+    monkeypatch.setattr(frigate_client, "readiness", FrigateReadinessGate(frigate_answers))
+    yield
+    service_connections.frigate_reachability.reset()
+
+
+@pytest.fixture(autouse=True)
+def isolate_system_status(monkeypatch):
+    """The status snapshot is read for real in tests, except Frigate's camera stats, and every test
+    gets a fresh collector and an unpublished service, so no cache or revision carries over."""
+    from app.services import system_status_readings
+    from tests.status_isolation import fresh_system_status_state
+
+    async def frigate_does_not_answer():
+        raise ConnectionError("Frigate is not reachable from tests")
+
+    monkeypatch.setattr(system_status_readings, "read_camera_health", frigate_does_not_answer)
+    fresh_system_status_state(monkeypatch)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def disable_rate_limiting():
     """Disable rate limiting for all tests by default."""
     from app.ratelimit import limiter
@@ -241,6 +286,23 @@ def restore_media_storage_availability():
     available = media_cache._available
     yield
     media_cache._available = available
+
+
+@pytest.fixture(autouse=True)
+def forget_sealed_daily_totals():
+    """A test that seals a day in the shared history (cleanup) or records a capture Frigate lost must
+    not change what every later test counts: a sealed day is read from its totals only, and a lost
+    capture counts with its live day."""
+    shared_history = os.environ["DB_PATH"]
+    yield
+    # The real connect, captured at import: some tests replace sqlite3.connect to prove they do no I/O,
+    # and monkeypatch is undone only after this teardown.
+    with closing(_REAL_SQLITE_CONNECT(shared_history, timeout=10)) as db:
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        for table in ("species_daily_totals", "daily_totals_days", "lost_captures"):
+            if table in tables:
+                db.execute(f"DELETE FROM {table}")
+        db.commit()
 
 
 @pytest.fixture(autouse=True)

@@ -1,19 +1,14 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
-    import { locationTogglePresentation } from '../../settings/location-toggle';
     import SecretInput from './_primitives/SecretInput.svelte';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
-    import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
-    import Map from '../Map.svelte';
-    import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
-    import { reverseGeocode } from '../../api/geocoding';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
     import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
-    import { testBirdNET, testBirdWeather, testHaWeather, testMQTTPublish, checkBirdNetReachability } from '../../api/maintenance';
+    import { testBirdWeather } from '../../api/maintenance';
     import type { WeatherUnitSystem } from '../../utils/weather-units';
     import {
         ebirdRadiusFromDisplayValue,
@@ -22,31 +17,8 @@
     } from '../../utils/ebird-radius';
 
     let {
-        birdnetEnabled = $bindable(true),
-        birdnetUrl = $bindable(''),
-        birdnetExternalUrl = $bindable(''),
-        audioTopic = $bindable('birdnet/text'),
-        audioBufferHours = $bindable(24),
-        audioCorrelationWindowSeconds = $bindable(300),
-        cameraAudioMapping = $bindable<Record<string, string>>({}),
-        birdnetSourceOptions = [],
-        loadingBirdnetSources = false,
-        birdnetSourcesError = null,
-        availableCameras = [],
         birdweatherEnabled = $bindable(false),
         birdweatherStationToken = $bindable(''),
-        haWeatherEnabled = $bindable(false),
-        haWeatherBaseUrl = $bindable(''),
-        haWeatherAccessToken = $bindable(''),
-        haWeatherAccessTokenSaved = $bindable(false),
-        haWeatherEntity = $bindable(''),
-        haWeatherTemperatureEntity = $bindable(''),
-        haWeatherWindSpeedEntity = $bindable(''),
-        haWeatherWindDirectionEntity = $bindable(''),
-        haWeatherCloudCoverEntity = $bindable(''),
-        haWeatherPrecipitationEntity = $bindable(''),
-        haWeatherRainEntity = $bindable(''),
-        haWeatherSnowfallEntity = $bindable(''),
         ebirdEnabled = $bindable(false),
         ebirdApiKey = $bindable(''),
         ebirdApiKeySaved = $bindable(false),
@@ -64,12 +36,8 @@
         inaturalistDefaultLon = $bindable<number | null>(null),
         inaturalistDefaultPlace = $bindable(''),
         inaturalistConnectedUser = $bindable(null),
-        locationAuto = $bindable(true),
-        locationLat = $bindable<number | null>(null),
-        locationLon = $bindable<number | null>(null),
-        locationState = $bindable(''),
-        locationCountry = $bindable(''),
-        locationWeatherUnitSystem = $bindable<'metric' | 'imperial' | 'british'>('metric'),
+        locationLat = null,
+        locationLon = null,
         prepareInaturalistOAuth,
         initiateInaturalistOAuth,
         disconnectInaturalistOAuth,
@@ -78,37 +46,8 @@
         birdweatherStationTokenSaved = $bindable(false),
         onActionFeedback = (_type: 'success' | 'error', _text: string) => {}
     }: {
-        birdnetEnabled: boolean;
-        birdnetUrl: string;
-        birdnetExternalUrl: string;
-        audioTopic: string;
-        audioBufferHours: number;
-        audioCorrelationWindowSeconds: number;
-        cameraAudioMapping: Record<string, string>;
-        birdnetSourceOptions: Array<{
-            source_name: string;
-            mapping_value?: string;
-            last_seen: string;
-            sample_source_id?: string | null;
-            seen_count?: number;
-        }>;
-        loadingBirdnetSources: boolean;
-        birdnetSourcesError: string | null;
-        availableCameras: string[];
         birdweatherEnabled: boolean;
         birdweatherStationToken: string;
-        haWeatherEnabled: boolean;
-        haWeatherBaseUrl: string;
-        haWeatherAccessToken: string;
-        haWeatherAccessTokenSaved: boolean;
-        haWeatherEntity: string;
-        haWeatherTemperatureEntity: string;
-        haWeatherWindSpeedEntity: string;
-        haWeatherWindDirectionEntity: string;
-        haWeatherCloudCoverEntity: string;
-        haWeatherPrecipitationEntity: string;
-        haWeatherRainEntity: string;
-        haWeatherSnowfallEntity: string;
         ebirdEnabled: boolean;
         ebirdApiKey: string;
         ebirdApiKeySaved: boolean;
@@ -126,12 +65,8 @@
         inaturalistDefaultLon: number | null;
         inaturalistDefaultPlace: string;
         inaturalistConnectedUser: string | null;
-        locationAuto: boolean;
         locationLat: number | null;
         locationLon: number | null;
-        locationState: string;
-        locationCountry: string;
-        locationWeatherUnitSystem: 'metric' | 'imperial' | 'british';
         prepareInaturalistOAuth: () => Promise<void>;
         initiateInaturalistOAuth: () => Promise<{ authorization_url: string }>;
         disconnectInaturalistOAuth: () => Promise<{ status: string }>;
@@ -176,7 +111,6 @@
         ebirdDefaultRadiusKm = storedKm;
     }
 
-    let inatDefaultsTouched = $state(false);
     let inatConnecting = $state(false);
     let inatRefreshing = $state(false);
     let inatDisconnecting = $state(false);
@@ -194,42 +128,12 @@
     // Connection tests use the shared DiagnosticDialog + runSequentialDiagnostic
     // (see docs/standards/diagnostics-and-dialogs.md). Each stage runs a real check
     // and reports its own outcome, so the progress a user sees is always honest.
-    let bnTestOpen = $state(false);
-    let bnRunning = $state(false);
-    let bnStages = $state<DiagnosticStage[]>([]);
-    let bnResult = $state<DiagnosticResult | null>(null);
-    let bnRunId = $state(0);
 
     let bwTestOpen = $state(false);
     let bwRunning = $state(false);
     let bwStages = $state<DiagnosticStage[]>([]);
     let bwResult = $state<DiagnosticResult | null>(null);
     let bwRunId = $state(0);
-
-    let hawTestOpen = $state(false);
-    let hawRunning = $state(false);
-    let hawStages = $state<DiagnosticStage[]>([]);
-    let hawResult = $state<DiagnosticResult | null>(null);
-    let hawRunId = $state(0);
-
-    async function runBirdNetDiagnostic(): Promise<void> {
-        bnTestOpen = true;
-        bnRunning = true;
-        bnResult = null;
-        bnRunId += 1;
-        // Reachability first (does BirdNET-Go actually answer?), then the MQTT
-        // transport detections travel on, then our own ingest pipeline. The
-        // reachability stage only runs when a URL is configured — BirdNET-Go is
-        // otherwise reached purely over MQTT, so we don't fabricate a check.
-        const steps = [];
-        if (birdnetUrl.trim()) {
-            steps.push({ id: 'reachable', label: $_('settings.integrations.birdnet.stage_reachable', { default: 'BirdNET-Go reachable' }), run: () => checkBirdNetReachability(birdnetUrl.trim()) });
-        }
-        steps.push({ id: 'mqtt', label: $_('settings.integrations.birdnet.stage_mqtt', { default: 'MQTT broker publish' }), run: testMQTTPublish });
-        steps.push({ id: 'pipeline', label: $_('settings.integrations.birdnet.stage_pipeline', { default: 'Detection pipeline (mock detection)' }), run: testBirdNET });
-        bnResult = await runSequentialDiagnostic(steps, (stages) => (bnStages = stages));
-        bnRunning = false;
-    }
 
     async function runBirdWeatherDiagnostic(): Promise<void> {
         bwTestOpen = true;
@@ -243,31 +147,6 @@
             (stages) => (bwStages = stages)
         );
         bwRunning = false;
-    }
-
-    async function runHaWeatherDiagnostic(): Promise<void> {
-        hawTestOpen = true;
-        hawRunning = true;
-        hawResult = null;
-        hawRunId += 1;
-        hawResult = await runSequentialDiagnostic(
-            [
-                {
-                    id: 'readings',
-                    label: $_('settings.integrations.ha_weather.stage_fetch', { default: 'Live readings from Home Assistant' }),
-                    run: async () => {
-                        const result = await testHaWeather({
-                            baseUrl: haWeatherBaseUrl || undefined,
-                            accessToken: haWeatherAccessToken || undefined,
-                            weatherEntity: haWeatherEntity || undefined
-                        });
-                        return { status: result.status, message: result.message };
-                    }
-                }
-            ],
-            (stages) => (hawStages = stages)
-        );
-        hawRunning = false;
     }
 
     async function connectInaturalist(): Promise<void> {
@@ -300,24 +179,11 @@
         }
     }
 
-    $effect(() => {
-        if (inatDefaultsTouched) return;
-        if (inaturalistDefaultLat === null && locationLat !== null && locationLat !== undefined) {
-            inaturalistDefaultLat = locationLat;
-        }
-        if (inaturalistDefaultLon === null && locationLon !== null && locationLon !== undefined) {
-            inaturalistDefaultLon = locationLon;
-        }
-    });
+    // An empty iNaturalist default follows the feeder location when an observation is sent, so the
+    // fields show that location as their placeholder rather than copying it into the draft.
+    const inatLatPlaceholder = $derived(typeof locationLat === 'number' ? String(locationLat) : undefined);
+    const inatLonPlaceholder = $derived(typeof locationLon === 'number' ? String(locationLon) : undefined);
 
-    $effect(() => {
-        if (ebirdApiKeySaved && ebirdApiKey) ebirdApiKeySaved = false;
-    });
-
-    $effect(() => {
-        if (birdweatherStationTokenSaved && birdweatherStationToken) birdweatherStationTokenSaved = false;
-        if (haWeatherAccessTokenSaved && haWeatherAccessToken) haWeatherAccessTokenSaved = false;
-    });
 
     $effect(() => {
         if (ebirdExportEverything) {
@@ -340,383 +206,22 @@
         }
     }
 
-    let locationToggle = $derived(locationTogglePresentation(locationAuto));
-    let mapPoint = $derived<[number, number] | null>(
-        typeof locationLat === 'number' && typeof locationLon === 'number' && Number.isFinite(locationLat) && Number.isFinite(locationLon)
-            ? [locationLat, locationLon]
-            : null
-    );
-
-    let geocodeLoading = $state(false);
-    let geocodePlace = $state<string | null>(null);
-    let geocodeError = $state<string | null>(null);
-    let geocodeKey = $state<string | null>(null);
-
-    $effect(() => {
-        if (!mapPoint) {
-            geocodePlace = null;
-            geocodeError = null;
-            geocodeKey = null;
-            return;
-        }
-        const [lat, lon] = mapPoint;
-        const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
-        if (key === geocodeKey) return;
-        geocodeKey = key;
-        geocodeLoading = true;
-        geocodeError = null;
-        reverseGeocode(lat, lon)
-            .then((result) => {
-                if (geocodeKey !== key) return;
-                geocodePlace = result.place_guess
-                    || [result.state, result.country].filter(Boolean).join(', ')
-                    || null;
-                if (result.state) locationState = result.state;
-                if (result.country) locationCountry = result.country;
-                if (!inaturalistDefaultPlace && result.place_guess) {
-                    inaturalistDefaultPlace = result.place_guess;
-                }
-            })
-            .catch((error) => {
-                if (geocodeKey !== key) return;
-                geocodeError = error instanceof Error ? error.message : 'Lookup failed';
-            })
-            .finally(() => {
-                if (geocodeKey === key) geocodeLoading = false;
-            });
-    });
-    let birdnetMappingOptions = $derived.by(() => {
-        const seen = new Set<string>();
-        return birdnetSourceOptions
-            .flatMap((source) => {
-                const value = (source.mapping_value || source.source_name || '').trim();
-                if (!value) return [];
-                const key = value.toLocaleLowerCase();
-                if (seen.has(key)) return [];
-                seen.add(key);
-                return [{
-                    value,
-                    label: source.source_name && source.source_name !== value
-                        ? `${source.source_name} (${value})`
-                        : value,
-                    sampleSourceId: source.sample_source_id
-                }];
-            });
-    });
-
-    function formatRelativeTime(raw: string | null | undefined): string {
-        if (!raw) return '';
-        const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
-        const ts = Date.parse(normalized);
-        if (Number.isNaN(ts)) return raw;
-        const diffSec = Math.max(0, (Date.now() - ts) / 1000);
-        if (diffSec < 5) return 'just now';
-        if (diffSec < 60) return `${Math.floor(diffSec)}s ago`;
-        if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
-        if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
-        if (diffSec < 86400 * 7) return `${Math.floor(diffSec / 86400)}d ago`;
-        return new Date(ts).toLocaleDateString();
-    }
-
-    function mappingTokensFor(camera: string): string[] {
-        return (cameraAudioMapping[camera] || '')
-            .split(/[,\n;|]+/)
-            .map((token) => token.trim())
-            .filter(Boolean);
-    }
-
-    function setCameraAudioMapping(camera: string, tokens: string[]) {
-        cameraAudioMapping = {
-            ...cameraAudioMapping,
-            [camera]: tokens.join(', ')
-        };
-    }
-
-    function addCameraAudioSource(camera: string, value: string) {
-        const nextSource = value.trim();
-        if (!nextSource) return;
-
-        const existing = mappingTokensFor(camera);
-        const nextKey = nextSource.toLocaleLowerCase();
-        if (existing.some((token) => token.toLocaleLowerCase() === nextKey)) return;
-
-        setCameraAudioMapping(camera, [...existing, nextSource]);
-    }
-
-    function removeCameraAudioSourceToken(camera: string, index: number) {
-        setCameraAudioMapping(
-            camera,
-            mappingTokensFor(camera).filter((_, tokenIndex) => tokenIndex !== index)
-        );
-    }
-
     const buttonPrimaryClass = 'btn btn-primary min-h-11 px-4 py-3';
     const buttonSecondaryClass = 'btn btn-secondary min-h-11 px-6 py-3';
 </script>
 
-{#snippet birdnetIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h2M6 8v8M10 5v14M14 8v8M18 10v4M22 12h-2" /></svg>
-{/snippet}
-{#snippet inatIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.52-4.48 10-10 10Z" /><path d="M2 21c0-3 1.85-5.36 5.08-6" /></svg>
-{/snippet}
-{#snippet ebirdIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
-{/snippet}
-{#snippet birdweatherIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6-1.6A3.5 3.5 0 0 0 6 19Z" /></svg>
-{/snippet}
-{#snippet locationIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10Z" /><circle cx="12" cy="11" r="2" /></svg>
-{/snippet}
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-    <SettingsCard accent iconSnippet={birdnetIcon} title={$_('settings.integrations.birdnet.title')}>
-        <SettingsRow
-            labelId="setting-birdnet-enabled"
-            label={$_('settings.integrations.birdnet.title')}
-            description={$_('settings.integrations.birdnet.toggle_label')}
-        >
-            <SettingsToggle
-                checked={birdnetEnabled}
-                labelledBy="setting-birdnet-enabled"
-                srLabel={$_('settings.integrations.birdnet.title')}
-                onchange={(v) => (birdnetEnabled = v)}
-            />
-        </SettingsRow>
-
-        {#if birdnetEnabled}
-        <SettingsRow
-            labelId="setting-birdnet-url"
-            label={$_('settings.integrations.birdnet.internal_url_label', { default: 'BirdNET-Go internal URL' })}
-            description={$_('settings.integrations.birdnet.internal_url_help', { default: 'Backend-only URL used to fetch spectrograms, such as the Docker network address. Leave empty to disable spectrogram backgrounds.' })}
-            layout="stacked"
-        >
-            <SettingsInput
-                id="birdnet-url"
-                type="text"
-                value={birdnetUrl}
-                placeholder="http://birdnet-go:8080"
-                ariaLabel={$_('settings.integrations.birdnet.internal_url_label', { default: 'BirdNET-Go internal URL' })}
-                oninput={(v) => (birdnetUrl = v)}
-            />
-        </SettingsRow>
-
-        <SettingsRow
-            labelId="setting-birdnet-external-url"
-            label={$_('settings.integrations.birdnet.external_url_label', { default: 'BirdNET-Go browser URL' })}
-            description={$_('settings.integrations.birdnet.external_url_help', { default: 'Public HTTPS URL opened by dashboard links. Falls back to the internal URL when empty.' })}
-            layout="stacked"
-        >
-            <SettingsInput
-                id="birdnet-external-url"
-                type="text"
-                value={birdnetExternalUrl}
-                placeholder="https://birdnet.example.com"
-                ariaLabel={$_('settings.integrations.birdnet.external_url_label', { default: 'BirdNET-Go browser URL' })}
-                oninput={(v) => (birdnetExternalUrl = v)}
-            />
-        </SettingsRow>
-
-        <SettingsRow
-            labelId="setting-audio-topic"
-            label={$_('settings.integrations.birdnet.mqtt_topic')}
-            layout="stacked"
-        >
-            <SettingsInput
-                id="audio-topic"
-                type="text"
-                value={audioTopic}
-                placeholder={$_('settings.integrations.birdnet.mqtt_topic_placeholder')}
-                ariaLabel={$_('settings.integrations.birdnet.mqtt_topic_label')}
-                oninput={(v) => (audioTopic = v)}
-            />
-        </SettingsRow>
-
-        <button
-            type="button"
-            onclick={runBirdNetDiagnostic}
-            disabled={bnRunning}
-            aria-label={$_('settings.integrations.birdnet.test_button')}
-            class="w-full {buttonPrimaryClass}"
-        >
-            {bnRunning ? $_('settings.integrations.birdnet.test_loading') : $_('settings.integrations.birdnet.test_button')}
-        </button>
-
-        <AdvancedSection
-            id="integrations-birdnet-advanced"
-            title={$_('settings.integrations.birdnet.advanced_title', { default: 'Audio buffer & sensor mapping' })}
-        >
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <SettingsRow
-                    labelId="setting-audio-buffer"
-                    label={$_('settings.integrations.birdnet.audio_buffer_hours')}
-                    description={$_('settings.integrations.birdnet.audio_buffer_help')}
-                    layout="stacked"
-                >
-                    <SettingsInput
-                        id="audio-buffer"
-                        type="number"
-                        min={1}
-                        max={168}
-                        value={audioBufferHours}
-                        ariaLabel={$_('settings.integrations.birdnet.audio_buffer_label')}
-                        oninput={(v) => (audioBufferHours = Number(v) || 0)}
-                    />
-                </SettingsRow>
-                <SettingsRow
-                    labelId="setting-correlation-window"
-                    label={$_('settings.integrations.birdnet.match_window_seconds')}
-                    description={$_('settings.integrations.birdnet.match_window_help')}
-                    layout="stacked"
-                >
-                    <SettingsInput
-                        id="correlation-window"
-                        type="number"
-                        min={5}
-                        max={3600}
-                        value={audioCorrelationWindowSeconds}
-                        ariaLabel={$_('settings.integrations.birdnet.match_window_label')}
-                        oninput={(v) => (audioCorrelationWindowSeconds = Number(v) || 0)}
-                    />
-                </SettingsRow>
-            </div>
-
-            <SettingsRow
-                labelId="setting-sensor-mapping"
-                label={$_('settings.integrations.birdnet.sensor_mapping_title')}
-                description={availableCameras.length === 0
-                    ? $_('settings.integrations.birdnet.sensor_mapping_empty')
-                    : $_('settings.integrations.birdnet.sensor_mapping_help')}
-                layout="stacked"
-            >
-                <div class="divide-y divide-slate-200/70 dark:divide-slate-700/60" role="group">
-                    {#each availableCameras as camera}
-                        <div class="py-3 first:pt-0 space-y-2">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">{camera}</span>
-                                {#if mappingTokensFor(camera).length > 0}
-                                    <span class="text-xs font-bold text-slate-400">{mappingTokensFor(camera).length} mapped</span>
-                                {/if}
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <input
-                                    type="text"
-                                    list="birdnet-source-options"
-                                    bind:value={cameraAudioMapping[camera]}
-                                    placeholder={$_('settings.integrations.birdnet.sensor_id_placeholder')}
-                                    aria-label={$_('settings.integrations.birdnet.sensor_id_label', { values: { camera } })}
-                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 outline-none"
-                                />
-                                <select
-                                    aria-label={$_('settings.integrations.birdnet.add_detected_source_label', { values: { camera } })}
-                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50"
-                                    disabled={birdnetMappingOptions.length === 0}
-                                    onchange={(event) => {
-                                        const select = event.currentTarget;
-                                        addCameraAudioSource(camera, select.value);
-                                        select.value = '';
-                                    }}
-                                >
-                                    <option value="">{$_('settings.integrations.birdnet.add_detected_source')}</option>
-                                    {#each birdnetMappingOptions as source}
-                                        <option value={source.value}>
-                                            {source.label}{source.sampleSourceId ? ` - ${source.sampleSourceId}` : ''}
-                                        </option>
-                                    {/each}
-                                </select>
-                            </div>
-                            {#if mappingTokensFor(camera).length > 0}
-                                <div
-                                    class="flex flex-wrap gap-1.5"
-                                    aria-label={$_('settings.integrations.birdnet.source_token_list_label', { values: { camera } })}
-                                >
-                                    {#each mappingTokensFor(camera) as sourceToken, sourceTokenIndex}
-                                        <span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-brand-200 dark:border-brand-800/80 bg-brand-50 dark:bg-brand-950/40 px-2.5 py-1 text-xs font-mono font-bold text-brand-700 dark:text-brand-200">
-                                            <span class="break-all">{sourceToken}</span>
-                                            <button
-                                                type="button"
-                                                class="shrink-0 rounded-full text-brand-600 hover:text-rose-600 dark:text-brand-300 dark:hover:text-rose-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                                                aria-label={$_('settings.integrations.birdnet.source_token_remove', { values: { source: sourceToken, camera } })}
-                                                onclick={() => removeCameraAudioSourceToken(camera, sourceTokenIndex)}
-                                            >
-                                                &times;
-                                            </button>
-                                        </span>
-                                    {/each}
-                                </div>
-                            {/if}
-                        </div>
-                    {/each}
-                    <datalist id="birdnet-source-options">
-                        {#each birdnetMappingOptions as source}
-                            <option value={source.value}></option>
-                        {/each}
-                    </datalist>
-
-                    <div class="pt-3">
-                        <div class="flex items-center justify-between mb-1.5">
-                            <div class="text-xs font-bold uppercase tracking-widest text-slate-500">
-                                {$_('settings.integrations.birdnet.source_discovery_title')}
-                            </div>
-                            {#if !loadingBirdnetSources && !birdnetSourcesError && birdnetSourceOptions.length > 0 && availableCameras.length > 0}
-                                <div class="text-xs font-bold uppercase tracking-wider text-slate-400">click to add</div>
-                            {/if}
-                        </div>
-                        {#if loadingBirdnetSources}
-                            <p class="text-xs text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_loading')}</p>
-                        {:else if birdnetSourcesError}
-                            <p class="text-xs text-rose-500 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_error')}</p>
-                        {:else if birdnetSourceOptions.length === 0}
-                            <p class="text-xs text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_empty')}</p>
-                        {:else}
-                            <ul class="max-h-56 overflow-y-auto">
-                                {#each birdnetSourceOptions.slice(0, 12) as source, sourceIndex}
-                                    {@const fade = Math.max(0.45, 1 - sourceIndex * 0.06)}
-                                    {@const sourceValue = source.mapping_value || source.source_name}
-                                    <li>
-                                        <button
-                                            type="button"
-                                            class="group w-full flex items-center gap-2 px-2 py-1.5 text-left rounded-md hover:bg-brand-50 dark:hover:bg-brand-950/40 active:bg-brand-100 dark:active:bg-brand-950/60 focus:outline-none focus-visible:bg-brand-50 dark:focus-visible:bg-brand-950/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                                            style="opacity: {fade};"
-                                            onclick={() => {
-                                                if (availableCameras.length > 0) {
-                                                    addCameraAudioSource(availableCameras[0], sourceValue);
-                                                }
-                                            }}
-                                            disabled={availableCameras.length === 0}
-                                            title={availableCameras[0]
-                                                ? `${sourceValue} · last seen ${source.last_seen} · click to add to ${availableCameras[0]}`
-                                                : sourceValue}
-                                        >
-                                            <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-400 group-hover:bg-brand-700 group-hover:text-white group-disabled:group-hover:bg-slate-200/70 transition-colors text-xs font-bold leading-none" aria-hidden="true">+</span>
-                                            <span class="min-w-0 flex-1 text-xs font-mono font-bold text-slate-800 dark:text-slate-100 break-all leading-tight">{sourceValue}</span>
-                                            <span class="shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>
-                                        </button>
-                                    </li>
-                                {/each}
-                            </ul>
-                        {/if}
-                    </div>
-                </div>
-            </SettingsRow>
-        </AdvancedSection>
-        {/if}
-    </SettingsCard>
-
-    <SettingsCard accent iconSnippet={inatIcon} title={$_('settings.integrations.inaturalist.title')}>
-        <SettingsRow
-            labelId="setting-inat-enabled"
-            label={$_('settings.integrations.inaturalist.title')}
-            description={$_('settings.integrations.inaturalist.toggle_label')}
-        >
+<div class="space-y-8">
+    <SettingsCard id="settings-group-integrations-inaturalist" nested title={$_('settings.integrations.inaturalist.title')} description={$_('settings.integrations.inaturalist.toggle_label')} titleId="integration-inaturalist-title">
+        <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
+        {#snippet actions()}
             <SettingsToggle
                 checked={inaturalistEnabled}
-                labelledBy="setting-inat-enabled"
+                labelledBy="integration-inaturalist-title"
                 srLabel={$_('settings.integrations.inaturalist.title')}
                 onchange={(v) => (inaturalistEnabled = v)}
             />
-        </SettingsRow>
+        {/snippet}
 
         {#if inaturalistEnabled}
         <SettingsRow
@@ -750,9 +255,9 @@
             />
         </SettingsRow>
 
-        <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 p-4 space-y-3">
-            <p class="text-xs text-slate-700 dark:text-slate-200">{$_('settings.integrations.inaturalist.oauth_desc')}</p>
-            <p class="text-xs text-slate-500 font-semibold">{$_('settings.integrations.inaturalist.app_owner_note')}</p>
+        <div class="border-t border-line-soft pt-4 space-y-3">
+            <p class="text-xs text-ink">{$_('settings.integrations.inaturalist.oauth_desc')}</p>
+            <p class="text-xs font-semibold text-muted">{$_('settings.integrations.inaturalist.app_owner_note')}</p>
             <div class="flex flex-wrap gap-2">
                 <button
                     type="button"
@@ -784,8 +289,8 @@
                 </button>
             </div>
             {#if inaturalistConnectedUser}
-                <div class="flex items-center justify-between gap-2 p-3 bg-accent-50 dark:bg-accent-900/20 rounded-xl">
-                    <span class="text-sm text-success-700 dark:text-success-300">{$_('settings.integrations.inaturalist.connected', { values: { user: inaturalistConnectedUser } })}</span>
+                <div class="flex items-center justify-between gap-2 rounded-xl bg-status-ok-soft p-3">
+                    <span class="text-sm text-status-ok">{$_('settings.integrations.inaturalist.connected', { values: { user: inaturalistConnectedUser } })}</span>
                     <button
                         type="button"
                         onclick={async () => {
@@ -802,7 +307,7 @@
                         }}
                         aria-label={$_('settings.integrations.inaturalist.disconnect_label')}
                         disabled={inatDisconnecting}
-                        class="text-xs text-rose-600 dark:text-rose-400 hover:underline"
+                        class="text-xs text-status-fail hover:underline"
                     >
                         {inatDisconnecting ? $_('common.testing') : $_('settings.integrations.inaturalist.disconnect')}
                     </button>
@@ -814,7 +319,7 @@
             id="integrations-inat-advanced"
             title={$_('settings.integrations.inaturalist.advanced_title', { default: 'Default location' })}
         >
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="space-y-4">
                 <SettingsRow
                     labelId="setting-inat-lat"
                     label={$_('settings.integrations.inaturalist.default_latitude')}
@@ -822,11 +327,13 @@
                 >
                     <SettingsInput
                         id="inat-lat"
+                        field="inaturalist_default_latitude"
                         type="number"
                         step={0.0001}
                         value={inaturalistDefaultLat ?? ''}
                         ariaLabel={$_('settings.integrations.inaturalist.default_latitude_label')}
-                        oninput={(v) => { inatDefaultsTouched = true; inaturalistDefaultLat = v === '' ? null : Number(v); }}
+                        placeholder={inatLatPlaceholder}
+                        oninput={(v) => { inaturalistDefaultLat = v === '' ? null : Number(v); }}
                     />
                 </SettingsRow>
                 <SettingsRow
@@ -836,11 +343,13 @@
                 >
                     <SettingsInput
                         id="inat-lon"
+                        field="inaturalist_default_longitude"
                         type="number"
                         step={0.0001}
                         value={inaturalistDefaultLon ?? ''}
                         ariaLabel={$_('settings.integrations.inaturalist.default_longitude_label')}
-                        oninput={(v) => { inatDefaultsTouched = true; inaturalistDefaultLon = v === '' ? null : Number(v); }}
+                        placeholder={inatLonPlaceholder}
+                        oninput={(v) => { inaturalistDefaultLon = v === '' ? null : Number(v); }}
                     />
                 </SettingsRow>
             </div>
@@ -851,30 +360,28 @@
             >
                 <SettingsInput
                     id="inat-place"
+                    field="inaturalist_default_place_guess"
                     type="text"
                     value={inaturalistDefaultPlace}
                     placeholder={$_('settings.integrations.inaturalist.default_place_guess_placeholder')}
                     ariaLabel={$_('settings.integrations.inaturalist.default_place_guess_label')}
-                    oninput={(v) => { inatDefaultsTouched = true; inaturalistDefaultPlace = v; }}
+                    oninput={(v) => { inaturalistDefaultPlace = v; }}
                 />
             </SettingsRow>
         </AdvancedSection>
         {/if}
     </SettingsCard>
 
-    <SettingsCard accent iconSnippet={ebirdIcon} title={$_('settings.integrations.ebird.title')}>
-        <SettingsRow
-            labelId="setting-ebird-enabled"
-            label={$_('settings.integrations.ebird.title')}
-            description={$_('settings.integrations.ebird.toggle_label')}
-        >
+    <SettingsCard id="settings-group-integrations-ebird" nested title={$_('settings.integrations.ebird.title')} description={$_('settings.integrations.ebird.toggle_label')} titleId="integration-ebird-title">
+        <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
+        {#snippet actions()}
             <SettingsToggle
                 checked={ebirdEnabled}
-                labelledBy="setting-ebird-enabled"
+                labelledBy="integration-ebird-title"
                 srLabel={$_('settings.integrations.ebird.title')}
                 onchange={(v) => (ebirdEnabled = v)}
             />
-        </SettingsRow>
+        {/snippet}
 
         {#if ebirdEnabled}
         <SettingsRow
@@ -906,7 +413,7 @@
             />
         </SettingsRow>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="space-y-4">
             <SettingsRow
                 labelId="setting-ebird-export-from"
                 label={$_('settings.integrations.ebird.export_from')}
@@ -918,7 +425,7 @@
                     bind:value={ebirdExportFrom}
                     disabled={ebirdExportEverything}
                     aria-label={$_('settings.integrations.ebird.export_from_label')}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="input-base w-full disabled:cursor-not-allowed disabled:opacity-50"
                 />
             </SettingsRow>
             <SettingsRow
@@ -932,13 +439,13 @@
                     bind:value={ebirdExportTo}
                     disabled={ebirdExportEverything}
                     aria-label={$_('settings.integrations.ebird.export_to_label')}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="input-base w-full disabled:cursor-not-allowed disabled:opacity-50"
                 />
             </SettingsRow>
         </div>
-        <p class="text-xs text-slate-400 font-bold italic">{$_('settings.integrations.ebird.export_range_help')}</p>
+        <p class="text-xs text-muted">{$_('settings.integrations.ebird.export_range_help')}</p>
         {#if ebirdExportRangeError}
-            <p class="text-xs text-rose-500 font-bold">{ebirdExportRangeError}</p>
+            <p class="text-xs text-status-fail">{ebirdExportRangeError}</p>
         {/if}
         <button
             type="button"
@@ -957,17 +464,17 @@
                 }
             }}
             disabled={exportingEbirdCsv || !!ebirdExportRangeError}
-            class="w-full {buttonPrimaryClass}"
+            class="w-full sm:w-auto {buttonPrimaryClass}"
         >
             {exportingEbirdCsv ? $_('common.testing') : $_('settings.integrations.ebird.export_csv')}
         </button>
-        <p class="text-xs text-slate-400 font-bold italic text-center">{$_('settings.integrations.ebird.export_csv_desc')}</p>
+        <p class="text-center text-xs text-muted">{$_('settings.integrations.ebird.export_csv_desc')}</p>
 
         <AdvancedSection
             id="integrations-ebird-advanced"
             title={$_('settings.integrations.ebird.advanced_title', { default: 'Hotspot search defaults' })}
         >
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="space-y-4">
                 <SettingsRow
                     labelId="setting-ebird-radius"
                     label={$_('settings.integrations.ebird.radius', {
@@ -978,6 +485,7 @@
                 >
                     <SettingsInput
                         id="ebird-radius"
+                        field="ebird_default_radius_km"
                         type="number"
                         min={ebirdRadiusBounds.min}
                         max={ebirdRadiusBounds.max}
@@ -995,6 +503,7 @@
                 >
                     <SettingsInput
                         id="ebird-days"
+                        field="ebird_default_days_back"
                         type="number"
                         min={1}
                         max={30}
@@ -1010,6 +519,7 @@
                 >
                     <SettingsInput
                         id="ebird-max-results"
+                        field="ebird_max_results"
                         type="number"
                         min={1}
                         max={200}
@@ -1025,6 +535,7 @@
                 >
                     <SettingsInput
                         id="ebird-locale"
+                        field="ebird_locale"
                         type="text"
                         value={ebirdLocale}
                         ariaLabel={$_('settings.integrations.ebird.locale')}
@@ -1036,19 +547,16 @@
         {/if}
     </SettingsCard>
 
-    <SettingsCard accent iconSnippet={birdweatherIcon} title={$_('settings.integrations.birdweather.title')}>
-        <SettingsRow
-            labelId="setting-birdweather-enabled"
-            label={$_('settings.integrations.birdweather.title')}
-            description={$_('settings.integrations.birdweather.toggle_label')}
-        >
+    <SettingsCard id="settings-group-integrations-birdweather" nested title={$_('settings.integrations.birdweather.title')} description={$_('settings.integrations.birdweather.toggle_label')} titleId="integration-birdweather-title">
+        <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
+        {#snippet actions()}
             <SettingsToggle
                 checked={birdweatherEnabled}
-                labelledBy="setting-birdweather-enabled"
+                labelledBy="integration-birdweather-title"
                 srLabel={$_('settings.integrations.birdweather.title')}
                 onchange={(v) => (birdweatherEnabled = v)}
             />
-        </SettingsRow>
+        {/snippet}
 
         {#if birdweatherEnabled}
         <SettingsRow
@@ -1072,247 +580,13 @@
             onclick={runBirdWeatherDiagnostic}
             disabled={bwRunning || (!birdweatherStationToken && !birdweatherStationTokenSaved)}
             aria-label={$_('settings.integrations.birdweather.test_button')}
-            class="w-full {buttonPrimaryClass}"
+            class="w-full sm:w-auto {buttonPrimaryClass}"
         >
             {bwRunning ? $_('settings.integrations.birdweather.test_loading') : $_('settings.integrations.birdweather.test_button')}
         </button>
         {/if}
     </SettingsCard>
-
-    <SettingsCard accent iconSnippet={birdweatherIcon} title={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })}>
-        <SettingsRow
-            labelId="setting-ha-weather-enabled"
-            label={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })}
-            description={$_('settings.integrations.ha_weather.toggle_label', { default: 'Record the weather from your own sensors instead of the forecast API. A sensor that cannot answer reads as unknown, never as a forecast.' })}
-        >
-            <SettingsToggle
-                checked={haWeatherEnabled}
-                labelledBy="setting-ha-weather-enabled"
-                srLabel={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })}
-                onchange={(v) => (haWeatherEnabled = v)}
-            />
-        </SettingsRow>
-
-        {#if haWeatherEnabled}
-        <SettingsRow
-            labelId="setting-ha-weather-url"
-            label={$_('settings.integrations.ha_weather.base_url', { default: 'Home Assistant URL' })}
-            description={$_('settings.integrations.ha_weather.base_url_desc', { default: 'The address this server can reach, e.g. http://homeassistant.local:8123' })}
-            layout="stacked"
-        >
-            <SettingsInput
-                id="ha-weather-url"
-                type="text"
-                value={haWeatherBaseUrl}
-                ariaLabel={$_('settings.integrations.ha_weather.base_url', { default: 'Home Assistant URL' })}
-                oninput={(v) => (haWeatherBaseUrl = v)}
-            />
-        </SettingsRow>
-        <SettingsRow
-            labelId="setting-ha-weather-token"
-            label={$_('settings.integrations.ha_weather.token', { default: 'Long-lived access token' })}
-            description={$_('settings.integrations.ha_weather.token_desc', { default: 'Created in Home Assistant under your profile, Security, Long-lived access tokens.' })}
-            layout="stacked"
-        >
-            <SecretInput
-                id="ha-weather-token"
-                value={haWeatherAccessToken}
-                saved={haWeatherAccessTokenSaved}
-                emptyPlaceholder={$_('settings.integrations.ha_weather.token_placeholder', { default: 'Paste a long-lived access token' })}
-                ariaLabel={$_('settings.integrations.ha_weather.token', { default: 'Long-lived access token' })}
-                oninput={(v) => (haWeatherAccessToken = v)}
-            />
-        </SettingsRow>
-        <SettingsRow
-            labelId="setting-ha-weather-entity"
-            label={$_('settings.integrations.ha_weather.entity', { default: 'Weather entity' })}
-            description={$_('settings.integrations.ha_weather.entity_desc', { default: 'The general source, e.g. weather.home. Leave empty to rely on sensor overrides alone.' })}
-            layout="stacked"
-        >
-            <SettingsInput
-                id="ha-weather-entity"
-                type="text"
-                value={haWeatherEntity}
-                ariaLabel={$_('settings.integrations.ha_weather.entity', { default: 'Weather entity' })}
-                oninput={(v) => (haWeatherEntity = v)}
-            />
-        </SettingsRow>
-
-        <AdvancedSection
-            title={$_('settings.integrations.ha_weather.overrides', { default: 'Per-reading sensor overrides' })}
-            description={$_('settings.integrations.ha_weather.overrides_desc', { default: 'A sensor named here outranks the weather entity for its one reading. When it cannot answer, that reading is unknown.' })}
-        >
-            <div class="space-y-3">
-                {#each [
-                    { id: 'temperature', label: $_('settings.integrations.ha_weather.override_temperature', { default: 'Temperature sensor' }), get: () => haWeatherTemperatureEntity, set: (v: string) => (haWeatherTemperatureEntity = v) },
-                    { id: 'wind-speed', label: $_('settings.integrations.ha_weather.override_wind_speed', { default: 'Wind speed sensor' }), get: () => haWeatherWindSpeedEntity, set: (v: string) => (haWeatherWindSpeedEntity = v) },
-                    { id: 'wind-direction', label: $_('settings.integrations.ha_weather.override_wind_direction', { default: 'Wind direction sensor' }), get: () => haWeatherWindDirectionEntity, set: (v: string) => (haWeatherWindDirectionEntity = v) },
-                    { id: 'cloud-cover', label: $_('settings.integrations.ha_weather.override_cloud_cover', { default: 'Cloud cover sensor' }), get: () => haWeatherCloudCoverEntity, set: (v: string) => (haWeatherCloudCoverEntity = v) },
-                    { id: 'precipitation', label: $_('settings.integrations.ha_weather.override_precipitation', { default: 'Precipitation sensor' }), get: () => haWeatherPrecipitationEntity, set: (v: string) => (haWeatherPrecipitationEntity = v) },
-                    { id: 'rain', label: $_('settings.integrations.ha_weather.override_rain', { default: 'Rain sensor' }), get: () => haWeatherRainEntity, set: (v: string) => (haWeatherRainEntity = v) },
-                    { id: 'snowfall', label: $_('settings.integrations.ha_weather.override_snowfall', { default: 'Snowfall sensor' }), get: () => haWeatherSnowfallEntity, set: (v: string) => (haWeatherSnowfallEntity = v) }
-                ] as override (override.id)}
-                    <SettingsRow labelId={'setting-ha-weather-' + override.id} label={override.label} layout="stacked">
-                        <SettingsInput
-                            id={'ha-weather-' + override.id}
-                            type="text"
-                            value={override.get()}
-                            ariaLabel={override.label}
-                            oninput={override.set}
-                        />
-                    </SettingsRow>
-                {/each}
-            </div>
-        </AdvancedSection>
-
-        <button
-            type="button"
-            onclick={runHaWeatherDiagnostic}
-            disabled={hawRunning || !haWeatherBaseUrl || (!haWeatherAccessToken && !haWeatherAccessTokenSaved)}
-            aria-label={$_('settings.integrations.ha_weather.test_button', { default: 'Fetch a live reading' })}
-            class="w-full {buttonPrimaryClass}"
-        >
-            {hawRunning ? $_('settings.integrations.ha_weather.test_loading', { default: 'Fetching…' }) : $_('settings.integrations.ha_weather.test_button', { default: 'Fetch a live reading' })}
-        </button>
-        {/if}
-    </SettingsCard>
-
-    <div class="md:col-span-2">
-        <SettingsCard
-            accent
-            iconSnippet={locationIcon}
-            title={$_('settings.location.title')}
-            description={$_('settings.location.desc')}
-        >
-            <SettingsRow
-                labelId="setting-location-mode"
-                label={$_('settings.location.mode_title', { default: 'Location source' })}
-                description={$_('settings.location.mode_help', { default: 'Auto-detect uses your IP/timezone. Manual lets you pin exact coordinates for weather, eBird hotspots, and observation submissions.' })}
-                layout="stacked"
-            >
-                <SettingsSegmented
-                    value={locationAuto ? 'auto' : 'manual'}
-                    layout="card"
-                    columns={2}
-                    ariaLabelTemplate={(label) => $_('settings.location.mode_select', { default: 'Use {mode}', values: { mode: label } })}
-                    onchange={(v) => (locationAuto = v === 'auto')}
-                    options={[
-                        {
-                            value: 'auto',
-                            label: $_('settings.location.mode_auto', { default: 'Auto-detect' }),
-                            sub: $_('settings.location.mode_auto_sub', { default: 'Resolved from your network' })
-                        },
-                        {
-                            value: 'manual',
-                            label: $_('settings.location.mode_manual', { default: 'Manual entry' }),
-                            sub: $_('settings.location.mode_manual_sub', { default: 'Pin exact latitude and longitude' })
-                        }
-                    ]}
-                />
-            </SettingsRow>
-
-            {#if !locationAuto}
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2">
-                    <SettingsRow
-                        labelId="setting-location-lat"
-                        label={$_('settings.location.latitude')}
-                        layout="stacked"
-                    >
-                        <SettingsInput
-                            id="location-lat"
-                            type="number"
-                            value={locationLat ?? ''}
-                            ariaLabel={$_('settings.location.latitude')}
-                            oninput={(v) => (locationLat = v === '' ? null : Number(v))}
-                        />
-                    </SettingsRow>
-                    <SettingsRow
-                        labelId="setting-location-lon"
-                        label={$_('settings.location.longitude')}
-                        layout="stacked"
-                    >
-                        <SettingsInput
-                            id="location-lon"
-                            type="number"
-                            value={locationLon ?? ''}
-                            ariaLabel={$_('settings.location.longitude')}
-                            oninput={(v) => (locationLon = v === '' ? null : Number(v))}
-                        />
-                    </SettingsRow>
-                </div>
-            {/if}
-
-            {#if mapPoint}
-                <div class="rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/60 px-3 py-2 flex items-center gap-2 text-xs">
-                    <span class="text-xs font-bold uppercase tracking-widest text-slate-400 shrink-0">{$_('settings.location.resolved_label', { default: 'Resolved' })}</span>
-                    {#if geocodeLoading}
-                        <span class="text-slate-400 italic font-bold">{$_('settings.location.resolving', { default: 'Looking up…' })}</span>
-                    {:else if geocodeError}
-                        <span class="text-rose-500 font-bold">{$_('settings.location.resolve_error', { default: 'Lookup failed' })}</span>
-                    {:else if geocodePlace}
-                        <span class="font-bold text-slate-700 dark:text-slate-200 truncate">{geocodePlace}</span>
-                    {:else}
-                        <span class="text-slate-400 italic font-bold">{$_('settings.location.resolve_empty', { default: 'No place name available for these coordinates' })}</span>
-                    {/if}
-                </div>
-            {/if}
-
-            <SettingsRow
-                labelId="setting-location-map"
-                label={$_('settings.location.map_title', { default: 'Map preview' })}
-                description={mapPoint
-                    ? $_('settings.location.map_help', { default: 'Showing the location currently configured for weather, hotspots, and observations.' })
-                    : $_('settings.location.map_empty', { default: 'No coordinates configured yet. Set a latitude and longitude (or enable auto-detect) to see the map.' })}
-                layout="stacked"
-            >
-                <div class="h-64 w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
-                    {#if mapPoint}
-                        {#key `${mapPoint[0]},${mapPoint[1]}`}
-                            <Map userLocation={mapPoint} center={mapPoint} zoom={11} />
-                        {/key}
-                    {:else}
-                        <div class="w-full h-full flex items-center justify-center bg-slate-50 dark:bg-slate-900/40 text-xs font-bold text-slate-400 italic">
-                            {$_('settings.location.map_empty', { default: 'No coordinates configured yet.' })}
-                        </div>
-                    {/if}
-                </div>
-            </SettingsRow>
-
-            <SettingsRow
-                labelId="setting-weather-units"
-                label={$_('settings.location.weather_unit_system')}
-                description={$_('settings.location.weather_unit_system_desc')}
-                layout="stacked"
-            >
-                <SettingsSelect
-                    id="weather-unit-system"
-                    value={locationWeatherUnitSystem}
-                    ariaLabel={$_('settings.location.weather_unit_system')}
-                    options={[
-                        { value: 'metric', label: $_('settings.location.metric') },
-                        { value: 'imperial', label: $_('settings.location.imperial') },
-                        { value: 'british', label: $_('settings.location.british') }
-                    ]}
-                    onchange={(v) => (locationWeatherUnitSystem = v as 'metric' | 'imperial' | 'british')}
-                />
-            </SettingsRow>
-        </SettingsCard>
-    </div>
 </div>
-
-{#if bnTestOpen}
-    <DiagnosticDialog
-        title={$_('settings.integrations.birdnet.test_title', { default: 'BirdNET-Go connection test' })}
-        subtitle={$_('settings.integrations.birdnet.test_subtitle', { default: 'Confirms BirdNET-Go is reachable, the MQTT broker accepts a publish, and a mock detection flows through the pipeline.' })}
-        stages={bnStages}
-        busy={bnRunning}
-        result={bnResult}
-        runId={bnRunId}
-        retryLabel={$_('settings.integrations.birdnet.test_button')}
-        onClose={() => (bnTestOpen = false)}
-        onRetry={runBirdNetDiagnostic}
-    />
-{/if}
 
 {#if bwTestOpen}
     <DiagnosticDialog
@@ -1325,19 +599,5 @@
         retryLabel={$_('settings.integrations.birdweather.test_button')}
         onClose={() => (bwTestOpen = false)}
         onRetry={runBirdWeatherDiagnostic}
-    />
-{/if}
-
-{#if hawTestOpen}
-    <DiagnosticDialog
-        title={$_('settings.integrations.ha_weather.test_title', { default: 'Home Assistant weather test' })}
-        subtitle={$_('settings.integrations.ha_weather.test_subtitle', { default: 'Fetches the current readings your detections would record.' })}
-        stages={hawStages}
-        busy={hawRunning}
-        result={hawResult}
-        runId={hawRunId}
-        retryLabel={$_('settings.integrations.ha_weather.test_button', { default: 'Fetch a live reading' })}
-        onClose={() => (hawTestOpen = false)}
-        onRetry={runHaWeatherDiagnostic}
     />
 {/if}

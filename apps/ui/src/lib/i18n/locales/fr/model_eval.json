@@ -1,8 +1,196 @@
 {
-  "col_best_provider": "Meilleur fournisseur validé",
-  "col_median_inference": "Inférence médiane",
+  "checks": {
+    "body": "Chaque fournisseur est comparé au CPU sur les mêmes photos d'oiseaux.",
+    "cell": {
+      "did_not_load": "Non chargé",
+      "differs": "{photos, plural, one {Diffère : identique sur {same} de # photo} other {Diffère : identique sur {same} des # photos}}",
+      "differs_boxes": "{photos, plural, one {Diffère : même cadre sur {same} de # photo} other {Diffère : mêmes cadres sur {same} des # photos}}",
+      "not_tested": "Non testé",
+      "ran": "Exécuté",
+      "reference": "Référence, {photos, plural, one {# photo} other {# photos}}",
+      "reference_plain": "Référence",
+      "same": "{photos, plural, one {Identique sur # photo} other {Identique sur les # photos}}",
+      "same_boxes": "{photos, plural, one {Même cadre sur # photo} other {Mêmes cadres sur les # photos}}",
+      "unusable_output": "Sortie inutilisable"
+    },
+    "finder": "Détecteur d'oiseaux",
+    "row": {
+      "activation_failed": "Il n'a pas pu être chargé, donc aucun fournisseur n'a été vérifié. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Identifier les oiseaux.",
+      "provider_sweep_failed": "La vérification a échoué avant qu'un fournisseur ne donne un résultat. Relancez-la ; si elle échoue encore, la cause figure dans les journaux du conteneur.",
+      "unknown": "Il n'a pas été vérifié, pour une raison que cette page ne sait pas nommer. La cause figure dans les journaux du conteneur."
+    },
+    "title": "Vérifications des fournisseurs"
+  },
+  "col_best_provider": "Fournisseur le plus rapide ayant réussi",
+  "col_median_inference": "Temps habituel par photo",
   "col_model": "Modèle",
-  "col_validated_providers": "Fournisseurs validés",
-  "compat_only_body": "Cette exécution a vérifié que chaque fournisseur se charge, produit une sortie finie et concorde avec la référence CPU. La précision n’a pas été mesurée, aucun chiffre de précision n’est donc affiché. Lancez une évaluation pour mesurer la précision.",
-  "compat_only_title": "Vérification de compatibilité uniquement"
+  "col_validated_providers": "Fournisseurs ayant réussi",
+  "compat_only_body": "Cette vérification a confirmé quels fournisseurs chargent chaque modèle et donnent les mêmes réponses que le CPU. Elle n'a pas mesuré la précision, donc aucun chiffre de précision n'est affiché. Lancez une évaluation pour la mesurer.",
+  "compat_only_title": "Vérification des fournisseurs seulement",
+  "confirm_delete": {
+    "confirm": "Supprimer l'évaluation",
+    "message": "Les résultats et les fichiers de l'évaluation du {when} sont supprimés du serveur. Cette action est irréversible.",
+    "title": "Supprimer cette évaluation ?"
+  },
+  "confirm_download": {
+    "cancel": "Retour",
+    "confirm": "Télécharger et lancer",
+    "title": "{count, plural, one {Télécharger # modèle ?} other {Télécharger # modèles ?}}",
+    "title_unknown": "Télécharger les modèles manquants ?"
+  },
+  "confirm_stop": {
+    "cancel": "Laisser tourner",
+    "confirm": "Arrêter l'évaluation",
+    "message": "Les modèles déjà testés conservent leurs résultats, et le modèle que vous utilisez actuellement est remis en place.",
+    "title": "Arrêter l'évaluation ?"
+  },
+  "how": {
+    "checks": "Lors des vérifications des fournisseurs, chaque modèle s'exécute sur tous les fournisseurs que cette installation peut utiliser, chacun dans son propre processus pour qu'un plantage n'arrête pas YA-WAMF. Un détecteur d'oiseaux est comparé sur l'emplacement de son cadre.",
+    "col": {
+      "average_time": "Le temps moyen pour nommer une photo.",
+      "can_name": "Le nombre d'espèces de test pour lesquelles le modèle a une réponse.",
+      "common": "La part de premières propositions justes pour les oiseaux de mangeoire très répandus.",
+      "first_guess": "La part des photos où la première proposition était la bonne espèce.",
+      "local": "La part de premières propositions justes pour les oiseaux signalés près de votre position.",
+      "provider": "Le fournisseur sur lequel le modèle s'est exécuté.",
+      "slow_time": "Le temps que 19 photos sur 20 n'ont pas dépassé.",
+      "top_three": "La part où la bonne espèce figurait parmi les trois premières propositions."
+    },
+    "columns_title": "Ce que signifient les colonnes",
+    "cost": "Pendant l'évaluation, YA-WAMF charge chaque modèle à tour de rôle, donc les détections en direct peuvent être plus lentes. Le modèle que vous utilisez actuellement est remis en place à la fin. La récupération des photos nécessite un accès à Internet.",
+    "limit": "Les photos ne viennent pas de votre mangeoire. Servez-vous des chiffres pour comparer les modèles entre eux, pas pour prédire la précision de l'un d'eux à votre mangeoire.",
+    "photos": "Les photos viennent d'iNaturalist et de Wikimedia Commons : des oiseaux courants des mangeoires et des oiseaux signalés près de votre position enregistrée.",
+    "title": "Comment ça marche"
+  },
+  "page_title": "Évaluation des modèles",
+  "problem": {
+    "cause": {
+      "already_running": "Une autre évaluation est déjà en cours. Attendez qu'elle se termine ou arrêtez-la d'abord.",
+      "gone": "Elle n'est plus sur le serveur. Actualisez la page pour voir ce qui s'y trouve.",
+      "refused": "YA-WAMF a refusé la demande. Actualisez la page et réessayez ; si elle est encore refusée, la cause figure dans les journaux du conteneur.",
+      "server_fault": "YA-WAMF a rencontré une erreur en traitant la demande. Réessayez ; si l'échec persiste, consultez les journaux du conteneur.",
+      "signed_out": "Votre session a expiré ou n'est pas celle du propriétaire. Reconnectez-vous, puis réessayez.",
+      "unreachable": "YA-WAMF n'a pas répondu. Vérifiez qu'il fonctionne et que cet appareil peut le joindre, puis réessayez."
+    },
+    "stale": "Ce qui est affiché ci-dessous n'est peut-être plus à jour.",
+    "what": {
+      "delete": "L'évaluation n'a pas été supprimée.",
+      "download": "Le fichier n'a pas été téléchargé.",
+      "history": "Les évaluations précédentes n'ont pas pu être lues.",
+      "results": "Les résultats de cette évaluation n'ont pas pu être lus.",
+      "start": "L'évaluation n'a pas démarré.",
+      "stop": "L'évaluation n'a pas été arrêtée."
+    }
+  },
+  "progress": {
+    "count": "{done} sur {total}",
+    "label": "Progression de l'évaluation",
+    "phase": {
+      "building_panel": "Choix des oiseaux de test",
+      "device_sweep": "Vérification des fournisseurs",
+      "downloading_models": "Téléchargement des modèles",
+      "evaluating": "Test des modèles",
+      "fetching_images": "Récupération des photos",
+      "starting": "Démarrage",
+      "working": "En cours"
+    }
+  },
+  "results": {
+    "can_name": "{known} sur {total}",
+    "capped": "Seules les 20 évaluations les plus récentes sont listées.",
+    "choose": "Évaluation",
+    "col_average_time": "Temps moyen",
+    "col_can_name": "Espèces qu'il sait nommer",
+    "col_common": "Oiseaux courants des mangeoires",
+    "col_first_guess": "Première proposition juste",
+    "col_local": "Oiseaux près de chez vous",
+    "col_provider": "Exécuté sur",
+    "col_slow_time": "Photos lentes",
+    "col_top_three": "Dans les trois premières",
+    "columns_hint": "Chaque colonne est expliquée dans « Comment ça marche ».",
+    "delete": "Supprimer cette évaluation",
+    "delete_blocked": "Arrêtez-la avant de la supprimer.",
+    "duration": "{minutes, plural, one {# minute} other {# minutes}}",
+    "empty": "Aucune évaluation n'a encore été lancée. Lancez-en une ci-dessus et ses résultats apparaîtront ici.",
+    "file": {
+      "each_photo": "Résultat de chaque photo",
+      "mix_ups": "Confusions",
+      "provider_checks": "Vérifications des fournisseurs",
+      "speed": "Détail des temps",
+      "summary": "Résumé"
+    },
+    "file_download": "Télécharger {label} ({file})",
+    "files": "Télécharger les résultats",
+    "folder": "Dossier sur le serveur :",
+    "loading": "Lecture des résultats",
+    "loading_list": "Lecture des évaluations précédentes",
+    "no_models": "Aucun modèle n'a été testé dans cette évaluation.",
+    "not_measured": "Non mesuré",
+    "option_running": "{when}, en cours",
+    "option_stopped": "{when}, arrêtée avant la fin",
+    "photos": "{count, plural, one {# photo} other {# photos}}",
+    "region": "Région {region}",
+    "species": "{count, plural, one {# espèce} other {# espèces}}",
+    "still_running": "Cette évaluation est encore en cours. Les résultats apparaissent ici à mesure que chaque modèle se termine.",
+    "stopped_early": "Cette évaluation s'est arrêtée avant la fin, il peut donc manquer des modèles.",
+    "title": "Résultats",
+    "under_a_minute": "Moins d'une minute",
+    "vocabulary_note": "Les parts ne comptent que les espèces qu'un modèle sait nommer."
+  },
+  "skipped": {
+    "activation_failed": "Ses fichiers sont absents ou incomplets. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Identifier les oiseaux.",
+    "other": "Il a été ignoré pour une raison que cette page ne sait pas nommer. La cause figure dans les journaux du conteneur.",
+    "reload_failed": "Il n'a pas pu être chargé. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Identifier les oiseaux ; si cela ne suffit pas, la cause figure dans les journaux du conteneur.",
+    "title": "Modèles non testés"
+  },
+  "start": {
+    "action": "Lancer l'évaluation",
+    "all_models_desc": "Vérifie aussi que chaque modèle donne les mêmes réponses sur votre puce graphique ou votre NPU que sur le CPU. Les modèles non installés sont d'abord téléchargés et restent installés. C'est beaucoup plus long.",
+    "all_models_label": "Vérifier chaque modèle sur chaque fournisseur",
+    "download_none": "Tous les modèles sont déjà installés, rien n'est donc téléchargé.",
+    "download_note": "Le téléchargement peut prendre un moment, selon votre connexion. Les modèles téléchargés restent sur le disque jusqu'à ce que vous supprimiez leurs fichiers dans Paramètres → Identifier les oiseaux.",
+    "download_reading": "Calcul de la taille du téléchargement…",
+    "download_size": "{count, plural, one {# modèle n'est pas encore installé : un téléchargement d'environ {size}.} other {# modèles ne sont pas encore installés : un téléchargement d'environ {size}.}}",
+    "download_size_partial": "{count, plural, one {# modèle n'est pas encore installé.} other {# modèles ne sont pas encore installés.}} {unknown, plural, one {La taille de # d'entre eux n'est pas connue ;} other {La taille de # d'entre eux n'est pas connue ;}} les autres représentent un téléchargement d'environ {size}.",
+    "download_size_unknown": "{count, plural, one {# modèle n'est pas encore installé. Sa taille n'est pas connue.} other {# modèles ne sont pas encore installés. Leur taille n'est pas connue.}}",
+    "download_unknown": "La taille du téléchargement n'a pas pu être calculée. Les modèles non installés sont tout de même téléchargés.",
+    "each_photo_desc": "Ajoute un fichier avec les cinq meilleures propositions pour chaque photo, pour examiner des erreurs précises. Il se télécharge avec les autres résultats.",
+    "each_photo_label": "Conserver le résultat de chaque photo",
+    "options_hide": "Masquer les options de l'évaluation",
+    "options_show": "Afficher les options de l'évaluation",
+    "running": "Évaluation en cours",
+    "running_reason": "Une seule évaluation s'exécute à la fois. Arrêtez celle-ci pour en lancer une autre.",
+    "stop": "Arrêter l'évaluation",
+    "title": "Lancer une évaluation",
+    "what": "Chaque modèle installé nomme des photos de référence d’espèces connues, pour comparer à quelle fréquence chacun a raison et à quelle vitesse."
+  },
+  "stopped": {
+    "finder_needs_provider_check": "Un détecteur d'oiseaux ne peut être vérifié que par fournisseur. Lancez la vérification depuis Paramètres → Identifier les oiseaux.",
+    "models_not_ready": "Un modèle choisi pour cette vérification n'est pas installé et prêt. Vérifiez-le dans Paramètres → Identifier les oiseaux, puis relancez.",
+    "network": "Une requête vers iNaturalist ou Wikimedia Commons a échoué. Vérifiez la connexion à Internet, puis relancez.",
+    "no_models": "Aucun modèle d'oiseaux n'est installé et prêt. Installez-en un dans Paramètres → Identifier les oiseaux, puis relancez.",
+    "no_test_birds": "La liste des oiseaux de test n'a pas pu être établie, car iNaturalist n'a pas répondu. Vérifiez la connexion à Internet, puis relancez.",
+    "no_test_photos": "Aucune photo de test n'a pu être récupérée depuis iNaturalist ou Wikimedia Commons. Vérifiez la connexion à Internet, puis relancez.",
+    "unexpected": "Elle s'est arrêtée sur une erreur que cette page ne sait pas nommer. Relancez-la ; si elle s'arrête encore, la cause figure dans les journaux du conteneur."
+  },
+  "warning": {
+    "high_abstention": "N'a donné aucune espèce pour {share} % des photos. Il ne couvre peut-être pas ces oiseaux, ou son installation est incomplète. Vérifiez le modèle dans Paramètres → Identifier les oiseaux.",
+    "incomplete_install": "Ses fichiers sont incomplets. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Identifier les oiseaux.",
+    "inference_health_unhealthy": "Des erreurs ou des dépassements de délai se sont produits pendant l'exécution. Cherchez la cause dans les journaux du conteneur.",
+    "latency_drift_high": "Bien plus lent qu'à son chargement : {measured, number} ms par photo contre {loaded, number} ms. Le fournisseur utilisé est peut-être défaillant. Réglez le fournisseur d'inférence sur CPU dans Paramètres → Identifier les oiseaux et relancez une évaluation.",
+    "latency_drift_high_plain": "Bien plus lent qu'à son chargement. Le fournisseur utilisé est peut-être défaillant. Réglez le fournisseur d'inférence sur CPU dans Paramètres → Identifier les oiseaux et relancez une évaluation.",
+    "low_shared_core": "A bien nommé moins de la moitié des oiseaux courants des mangeoires, ce qui indique en général une installation endommagée. Utilisez « Réparer le téléchargement » pour ce modèle dans Paramètres → Identifier les oiseaux.",
+    "partial_vocabulary": "Ne sait pas nommer {outside} des {total} espèces de test, en général parce qu'elles vivent hors de sa région. Ses parts portent sur les espèces qu'il sait nommer.",
+    "partial_vocabulary_plain": "Ne sait pas nommer certaines espèces de test, en général parce qu'elles vivent hors de sa région. Ses parts portent sur les espèces qu'il sait nommer.",
+    "provider_fallback_active": "S'est exécuté sur le CPU alors qu'un fournisseur plus rapide était demandé. La raison figure dans Diagnostics d'exécution, dans Paramètres → Identifier les oiseaux.",
+    "provider_validation_failed": "Aucun fournisseur n'a donné de réponses utilisables identiques à celles du CPU. Les vérifications des fournisseurs ci-dessous montrent chaque résultat.",
+    "provider_validation_partial": "Certains fournisseurs ont échoué ou ne sont pas disponibles ici. Les vérifications des fournisseurs ci-dessous montrent chaque résultat.",
+    "region_mismatch": "Conçu pour une autre région que celle des oiseaux près de chez vous, donc ses parts sont plus basses ici que là-bas.",
+    "severity": {
+      "critical": "À regarder",
+      "info": "Remarque",
+      "warning": "Mérite une vérification"
+    },
+    "unknown": "Signalé pour une raison que cette version de la page ne sait pas expliquer. Le détail se trouve dans le téléchargement « Résumé »."
+  }
 }

@@ -1,10 +1,19 @@
 {
-  "audio_history": "Sfoglia i rilevamenti BirdNET-Go salvati e l'attività solo audio.",
-  "about": "Versione, changelog, collaboratori e link al supporto.",
-  "dashboard": "Rilevamenti in tempo reale, attività recente e salute della mangiatoia a colpo d'occhio.",
+  "audio_history": "I richiami sentiti da BirdNET-Go, per specie e fonte.",
+  "about": "Che cosa ha registrato questa mangiatoia, come funziona YA-WAMF e che cosa conserva e invia.",
+  "dashboard": "Le ultime 24 ore alla tua mangiatoia e tutto ciò che aspetta una tua decisione.",
   "events": "Sfoglia, filtra e gestisci ogni visita classificata.",
   "add_observation": "Classifica una foto o un video, verifica gli indizi e aggiungilo alla cronologia.",
-  "notifications": "Avvisi, promemoria e job attivi in background.",
-  "settings": "Connessioni, classificazione, integrazioni e personalizzazione.",
-  "species": "Classifica, totali e dettagli tassonomici degli uccelli avvistati."
+  "notifications": "Visite, avvisi e attività in background, dalle più recenti.",
+  "species": "Quali uccelli vengono di più, quanto spesso e quando.",
+  "health": "Se YA-WAMF funziona, cosa sta facendo il computer e cosa è successo.",
+  "settings_section": {
+    "cameras": "Da dove arrivano gli eventi: Frigate, il suo broker MQTT e le telecamere da osservare.",
+    "identification": "Quanto deve essere sicuro un nome, i modelli che trovano e nominano gli uccelli con il loro hardware, e le funzioni ancora in beta.",
+    "alerts": "Quando vieni avvisato di una visita, e su quali canali.",
+    "sharing": "La posizione della tua mangiatoia e chi può aprire questa installazione, poi gli altri servizi da cui YA-WAMF legge o a cui invia dati, le descrizioni IA e la telemetria.",
+    "storage": "Cosa viene conservato e per quanto tempo, un backup di queste impostazioni e le attività che riparano o completano la cronologia.",
+    "display": "Come appare YA-WAMF e come nomina gli uccelli, oltre a contrasto, carattere di lettura, movimento e aggiornamenti letti ad alta voce."
+  },
+  "model_evaluation": "Quanto spesso ogni modello installato dà il nome giusto a un uccello, e con quale velocità."
 }

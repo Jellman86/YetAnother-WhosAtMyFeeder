@@ -84,6 +84,8 @@ _FULL_FRAME_SNAPSHOT_SOURCES = frozenset(
         "hq_candidate_full_frame",
     }
 )
+
+
 _FRIGATE_HINT_ALIGNED_SNAPSHOT_SOURCES = frozenset(
     {
         "frigate_snapshot",

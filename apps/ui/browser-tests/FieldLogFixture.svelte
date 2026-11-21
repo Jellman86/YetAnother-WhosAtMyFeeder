@@ -109,7 +109,7 @@
             audioConfirmations={null}
             slots={{ countedBirds: false, audio: false }}
             loading={phase === 'loading'}
-            connected={false}
+            feed="reconnecting"
         />
     {/if}
     <FieldLog

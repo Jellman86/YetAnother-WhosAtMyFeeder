@@ -88,9 +88,9 @@ docker compose -f docker-compose.monolith.yml up -d
 **4. Open `http://YOUR_SERVER_IP:9852`.**
 
 Complete setup, create an owner password and test the Frigate/MQTT connection. Download and
-validate a model in **Settings → Detection → Model Manager**. A compatibility pass proves that
+validate a model in **Settings → Identifying birds**. A compatibility pass proves that
 it runs and agrees with the CPU baseline; it does not measure species accuracy. Check your first
-saved visit in Explorer and **Settings → Health**.
+saved visit in Explorer and the **Health** page.
 
 If setup fails, follow [Getting Started](docs/setup/getting-started.md) or
 [Diagnostics & Logs](docs/troubleshooting/diagnostics.md). Keep authentication enabled before

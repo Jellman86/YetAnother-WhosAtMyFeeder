@@ -1,10 +1,12 @@
-import { fetchAnalysisStatus, type AnalysisStatus } from '../api/maintenance';
+import { invalidateAnalysisStatus, readAnalysisStatus, type AnalysisStatus } from '../api/maintenance';
 import { isTransientGatewayError } from '../api/error-message';
 import type { QueueTelemetryByKind } from '../jobs/pipeline';
 import { authStore } from './auth.svelte';
 import { jobDiagnosticsStore } from './job_diagnostics.svelte';
 import { jobProgressStore } from './job_progress.svelte';
 import { notificationCenter } from './notification_center.svelte';
+import { MAINTENANCE_JOBS_ROUTE } from '../settings/settings-route';
+
 
 const RECLASSIFY_PROGRESS_ID = 'reclassify:progress';
 const DEFAULT_BATCH_ANALYSIS_TITLE = 'Batch Analysis';
@@ -12,6 +14,7 @@ const DEFAULT_BATCH_ANALYSIS_COMPLETE_MESSAGE = 'Batch analysis complete';
 
 interface AnalysisQueueStatusStoreOptions {
     fetchAnalysisStatus?: () => Promise<AnalysisStatus>;
+    invalidateAnalysisStatus?: () => void;
     hasOwnerAccess?: () => boolean;
     recordError?: (input: {
         source: 'job';
@@ -64,7 +67,7 @@ function settleSyntheticBatchProgress(status: AnalysisStatus): void {
                     kind: 'reclassify_batch',
                     current: completedTotal,
                     total: completedTotal,
-                    route: '/settings/data',
+                    route: MAINTENANCE_JOBS_ROUTE,
                     open_label: existingProgressNotification.meta?.open_label
                 }
             });
@@ -79,7 +82,7 @@ function settleSyntheticBatchProgress(status: AnalysisStatus): void {
             kind: 'reclassify_batch',
             title: existingBatchJob?.title || existingProgressNotification?.title || DEFAULT_BATCH_ANALYSIS_TITLE,
             message: DEFAULT_BATCH_ANALYSIS_COMPLETE_MESSAGE,
-            route: existingBatchJob?.route || '/settings/data',
+            route: MAINTENANCE_JOBS_ROUTE,
             current: completedTotal,
             total: completedTotal,
             source: 'poll'
@@ -95,11 +98,13 @@ export class AnalysisQueueStatusStore {
     queueByKind = $state<QueueTelemetryByKind>({});
     private analysisStatusSignature = '';
     private readonly fetcher: () => Promise<AnalysisStatus>;
+    private readonly invalidateShared: () => void;
     private readonly hasOwnerAccess: () => boolean;
     private readonly recordError?: AnalysisQueueStatusStoreOptions['recordError'];
 
     constructor(options: AnalysisQueueStatusStoreOptions = {}) {
-        this.fetcher = options.fetchAnalysisStatus ?? fetchAnalysisStatus;
+        this.fetcher = options.fetchAnalysisStatus ?? readAnalysisStatus;
+        this.invalidateShared = options.invalidateAnalysisStatus ?? invalidateAnalysisStatus;
         this.hasOwnerAccess = options.hasOwnerAccess ?? (() => authStore.showSettings);
         this.recordError = options.recordError;
     }
@@ -151,8 +156,10 @@ export class AnalysisQueueStatusStore {
         };
     }
 
-    async refresh(): Promise<void> {
+    /** Reads the queue, sharing a reading taken this moment; `fresh` after the owner changed it. */
+    async refresh({ fresh = false }: { fresh?: boolean } = {}): Promise<void> {
         if (!this.hasOwnerAccess()) return;
+        if (fresh) this.invalidateShared();
         try {
             const status = await this.fetcher();
             this.ingest(status);

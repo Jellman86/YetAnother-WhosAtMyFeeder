@@ -1,10 +1,11 @@
 {
-  "boundary_title": "Algo correu mal",
-  "boundary_subtitle": "Ocorreu um erro inesperado. Tente novamente ou contacte o suporte se o problema persistir.",
+  "boundary_title": "Esta página deixou de funcionar",
+  "boundary_subtitle": "Uma parte da página encontrou um erro do qual não conseguiu recuperar. O seu histórico e as suas configurações não foram alterados. Recarregue a página; se voltar a acontecer, copie os detalhes do erro para uma issue no GitHub.",
   "show_details": "Mostrar detalhes do erro",
   "try_again": "Tentar novamente",
   "copy_details": "Copiar detalhes do erro",
   "copied": "Copiado",
   "reload_page": "Recarregar página",
-  "deploy_refresh_required": "O YA-WAMF foi atualizado enquanto este separador estava aberto. Atualize a página para carregar a versão mais recente."
+  "deploy_refresh_required": "O YA-WAMF foi atualizado enquanto este separador estava aberto. Atualize a página para carregar a versão mais recente.",
+  "update_check_unreachable": "Não foi possível abrir esta página nem contactar o YA-WAMF para verificar se há uma atualização. Verifique a ligação e, depois, atualize a página."
 }

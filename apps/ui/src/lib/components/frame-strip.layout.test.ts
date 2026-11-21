@@ -97,7 +97,10 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
 
     it('marks the photograph in place rather than staging a preview', () => {
         expect(stripSource).toContain('aria-pressed={chosen}');
-        expect(stripSource).toContain('detection.frame_chosen_badge');
+        // A check on the thumbnail's corner, not a word: "Chosen" broke mid-word in a 48px thumbnail.
+        expect(stripSource).toContain('data-frame-strip-chosen');
+        expect(stripSource).not.toContain('detection.frame_chosen_badge');
+        expect(stripSource).not.toContain('wrap-anywhere text-media');
         expect(stripSource).toContain('detection.frame_is_photograph');
         expect(stripSource).not.toContain('Preview, not saved');
         expect(stripSource).not.toContain('snapshot_save');
@@ -126,7 +129,7 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
         expect(stripSource).toContain("$_('detection.frame_strip_scroll_right', { default: 'Scroll right' })");
         // A hidden end control never catches a tap while it fades out.
         expect(stripSource).toContain("'pointer-events-none invisible opacity-0'");
-        expect(stripSource).toContain("window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'");
+        expect(stripSource).toContain("prefersReducedMotion() ? 'auto' : 'smooth'");
         for (const key of ["'ArrowLeft'", "'ArrowRight'", "'Home'", "'End'"]) {
             expect(stripSource).toContain(`key === ${key}`);
         }
@@ -137,22 +140,24 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
     });
 
     it('lifts the chosen moment like a dock item without using an active outline', () => {
-        expect(stripSource).toContain("'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50'");
-        expect(stripSource).toContain('motion-reduce:transform-none');
+        expect(stripSource).toContain("'z-10 -translate-y-1 scale-105 bg-on-media/15 opacity-100 shadow-lg shadow-media/50'");
+        expect(stripSource).toContain('motion-reduce:translate-none motion-reduce:scale-none');
         expect(stripSource).not.toContain("? 'ring-2 ring-brand-400'");
     });
 
     it('degrades a missing thumbnail to a placeholder of the same size', () => {
         expect(stripSource).toContain("import MediaImage from './MediaImage.svelte'");
-        expect(stripSource).toContain('class=\"block h-9 w-12 rounded-md bg-slate-800 object-cover\"');
+        expect(stripSource).toContain('class=\"block h-9 w-12 rounded-md bg-media-raised object-cover\"');
     });
 });
 
 describe('the record uses the strip and drops the framing toggle (#256)', () => {
-    it('mounts the strip in the media footer and hands it the grouped moments', () => {
+    it('mounts the strip in the media footer (after the identification when the record stacks) and hands it the grouped moments', () => {
         const footerStart = modalSource.indexOf('data-detection-media-footer');
-        const pickerStart = modalSource.indexOf('data-detection-inline-frame-picker', footerStart);
-        expect(pickerStart).toBeGreaterThan(footerStart);
+        expect(modalSource.indexOf('{#if !recordStacked && showInlineFramePicker}', footerStart)).toBeGreaterThan(footerStart);
+        expect(modalSource.indexOf('{@render visitStrip()}', footerStart)).toBeGreaterThan(footerStart);
+        const pickerStart = modalSource.indexOf('data-detection-inline-frame-picker', modalSource.indexOf('{#snippet visitStrip()}'));
+        expect(pickerStart).toBeGreaterThan(-1);
         const picker = modalSource.slice(pickerStart, pickerStart + 1400);
         expect(picker).toContain('<FrameStrip');
         expect(picker).toContain('moments={frameMoments}');
@@ -211,25 +216,32 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
         expect(modalSource).not.toContain('handleSaveSnapshotSelection');
     });
 
-    it('names the three identification actions by their effect, confirm first', () => {
+    it('offers one decision and its alternative, and keeps every other action behind More actions', () => {
         const start = modalSource.indexOf('data-detection-identification-actions');
         expect(start).toBeGreaterThan(-1);
-        const actions = modalSource.slice(start, modalSource.indexOf('<!-- Bottom Actions -->', start));
-        const confirm = actions.indexOf('actions.confirm_species');
-        const pick = actions.indexOf('actions.pick_species');
-        const score = actions.indexOf('detection.score_again');
+        const panel = modalSource.indexOf('data-detection-more-actions-panel', start);
+        const row = modalSource.slice(start, panel);
+        const confirm = row.indexOf('actions.confirm_species');
         expect(confirm).toBeGreaterThan(-1);
-        expect(pick).toBeGreaterThan(confirm);
-        expect(score).toBeGreaterThan(pick);
-        expect(actions).toContain('class="btn btn-primary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"');
-        expect(actions).toContain('class="btn btn-secondary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"');
-        expect(actions).toContain('class="btn btn-ghost min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto"');
+        expect(row.indexOf('actions.pick_species')).toBeGreaterThan(confirm);
+        // One primary, one secondary: each takes its label's width, so a label wraps only when it is longer than the row.
+        expect(row.match(/class="btn btn-primary /g)).toHaveLength(1);
+        expect(row.match(/class="btn btn-secondary /g)).toHaveLength(1);
+        expect(row).toContain('class="btn btn-primary min-h-11 w-full min-w-0 max-w-full px-4 text-sm sm:w-auto sm:flex-none"');
+        expect(row).not.toContain('detection.score_again');
+        const list = modalSource.slice(panel, modalSource.indexOf('</ul>', panel));
+        const order = ['detection.score_again', 'detection.common_name_override_edit', 'data-detection-hide', 'actions.delete_detection'].map((marker) => list.indexOf(marker));
+        expect(order.every((index) => index > -1)).toBe(true);
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
     });
 
     it('stacks its controls full width on a phone and lets the rail name the bird', () => {
-        expect(modalSource).toContain('class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-detection-identification-actions');
-        expect(modalSource).toContain('class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions');
-        // The hero title repeats the rail's "Identified as" while covering the bird on a phone.
-        expect(modalSource).toContain('class="hidden sm:block" data-detection-media-title');
+        expect(modalSource).toContain('class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start" data-detection-identification-actions');
+        // One action under the photograph, full width on a phone; the way back is on the photograph.
+        expect(modalSource).toContain('class="btn btn-primary btn-focus-on-dark min-h-11 gap-2 px-4 text-sm max-sm:grow"');
+        expect(modalSource).toContain('data-detection-whole-scene-back');
+        // The rail's "Identified as" names the bird, and titles the dialog; the photograph never repeats it.
+        expect(modalSource).not.toContain('data-detection-media-title');
+        expect(modalSource).toContain('<h3 id="detection-modal-title" class="font-display text-2xl font-bold text-strong">{primaryName}</h3>');
     });
 });

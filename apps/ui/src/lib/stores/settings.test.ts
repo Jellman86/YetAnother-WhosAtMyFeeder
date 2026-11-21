@@ -17,6 +17,107 @@ describe('SettingsStore', () => {
         expect(store.error).toBeNull();
     });
 
+    it('answers every reader in one page load with a single request', async () => {
+        let release!: (settings: Settings) => void;
+        const fetchSettings = vi.fn(() => new Promise<Settings>((resolve) => { release = resolve; }));
+        const store = new SettingsStore({ fetchSettings, canReadSettings: () => true });
+
+        const shell = store.load();
+        const header = store.read();
+        const page = store.read(5_000);
+        release(ownerSettings);
+        await shell;
+
+        expect(await header).toEqual(ownerSettings);
+        expect(await page).toEqual(ownerSettings);
+        expect(await store.read()).toEqual(ownerSettings);
+        expect(fetchSettings).toHaveBeenCalledOnce();
+    });
+
+    it('reads again for a reader that needs a copy fresher than the one held', async () => {
+        vi.useFakeTimers();
+        try {
+            const fetchSettings = vi.fn(async () => ownerSettings);
+            const store = new SettingsStore({ fetchSettings, canReadSettings: () => true });
+            await store.load();
+
+            vi.advanceTimersByTime(5_001);
+            await store.read(5_000);
+            expect(fetchSettings).toHaveBeenCalledTimes(2);
+
+            // A save hands the store the saved copy, which is as fresh as a read.
+            vi.advanceTimersByTime(60_000);
+            store.update(ownerSettings);
+            await store.read(5_000);
+            expect(fetchSettings).toHaveBeenCalledTimes(2);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('fails a shared read plainly when the settings cannot be read', async () => {
+        const failing = new SettingsStore({ fetchSettings: vi.fn(async () => { throw new Error('backend away'); }), canReadSettings: () => true });
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        await expect(failing.read()).rejects.toThrow('backend away');
+
+        const guest = new SettingsStore({ fetchSettings: vi.fn(async () => ownerSettings), canReadSettings: () => false });
+        await expect(guest.read()).rejects.toThrow('not available');
+        vi.restoreAllMocks();
+    });
+
+    it('rejects a fresh read whose refresh fails instead of handing back the old copy, then recovers', async () => {
+        vi.useFakeTimers();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            const newer = { cameras: ['birdcam', 'table'] } as unknown as Settings;
+            const fetchSettings = vi.fn<() => Promise<Settings>>()
+                .mockResolvedValueOnce(ownerSettings)
+                .mockRejectedValueOnce(new Error('backend away'))
+                .mockResolvedValueOnce(newer);
+            const store = new SettingsStore({ fetchSettings, canReadSettings: () => true });
+
+            expect(await store.read(5_000)).toEqual(ownerSettings);
+
+            vi.advanceTimersByTime(5_001);
+            await expect(store.read(5_000)).rejects.toThrow('backend away');
+            // A reader that only displays settings may still use the copy held, and is told its age is unknown.
+            expect(store.settings).toEqual(ownerSettings);
+            expect(store.error).toBe('backend away');
+            expect(await store.read()).toEqual(ownerSettings);
+
+            expect(await store.read(5_000)).toEqual(newer);
+            expect(store.error).toBeNull();
+            expect(fetchSettings).toHaveBeenCalledTimes(3);
+        } finally {
+            vi.useRealTimers();
+            vi.restoreAllMocks();
+        }
+    });
+
+    it('rejects a fresh read that joined a refresh which then failed', async () => {
+        vi.useFakeTimers();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            let fail!: (error: Error) => void;
+            const fetchSettings = vi.fn<() => Promise<Settings>>()
+                .mockResolvedValueOnce(ownerSettings)
+                .mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+            const store = new SettingsStore({ fetchSettings, canReadSettings: () => true });
+            await store.load();
+            vi.advanceTimersByTime(60_000);
+
+            const refresh = store.load();
+            const joined = store.read(5_000);
+            fail(new Error('backend away'));
+            await refresh;
+
+            await expect(joined).rejects.toThrow('backend away');
+        } finally {
+            vi.useRealTimers();
+            vi.restoreAllMocks();
+        }
+    });
+
     it('does not request settings for a guest session', async () => {
         const fetchSettings = vi.fn(async () => ownerSettings);
         const store = new SettingsStore({ fetchSettings, canReadSettings: () => false });
@@ -95,4 +196,34 @@ it('continues applying saved settings while owner access is valid', () => {
     const store = new SettingsStore({ canReadSettings: () => true });
     store.update(ownerSettings);
     expect(store.settings).toEqual(ownerSettings);
+});
+
+it('does not certify an old copy as fresh when one confirmed field is merged into it', async () => {
+    vi.useFakeTimers();
+    try {
+        const fresh = { cameras: ['fresh-camera'], inference_provider: 'cpu' } as unknown as Settings;
+        const fetchSettings = vi.fn(async () => fresh);
+        const store = new SettingsStore({ fetchSettings, canReadSettings: () => true });
+        await store.load();
+
+        vi.advanceTimersByTime(60_000);
+        store.patch({ inference_provider: 'intel_npu' } as Partial<Settings>);
+        expect(store.settings?.inference_provider).toBe('intel_npu');
+
+        // Every other field in the held copy is still a minute old, so an editable form reads again.
+        await store.read(5_000);
+        expect(fetchSettings).toHaveBeenCalledTimes(2);
+    } finally {
+        vi.useRealTimers();
+    }
+});
+
+it('ignores a merged field when no copy is held, or for a guest', () => {
+    const empty = new SettingsStore({ canReadSettings: () => true });
+    empty.patch({ inference_provider: 'intel_npu' } as Partial<Settings>);
+    expect(empty.settings).toBeNull();
+
+    const guest = new SettingsStore({ canReadSettings: () => false });
+    guest.patch({ inference_provider: 'intel_npu' } as Partial<Settings>);
+    expect(guest.settings).toBeNull();
 });

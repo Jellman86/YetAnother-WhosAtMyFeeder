@@ -1,4 +1,4 @@
-import { API_BASE, apiFetch, handleResponse } from './core';
+import { API_BASE, apiFetch, apiFetchJson, handleResponse, type Guarded } from './core';
 import type { components, paths } from './generated/openapi';
 import type { LeaderboardSpan } from './leaderboard';
 
@@ -11,6 +11,8 @@ export type AudioHistoryParams = paths['/api/audio/history']['get']['query'];
 export type AudioHistoryResponse = paths['/api/audio/history']['get']['response'];
 
 export type AudioSummaryResponse = paths['/api/audio/summary']['get']['response'];
+
+export type AudioActivityHeatmapResponse = paths['/api/audio/activity-heatmap']['get']['response'];
 
 export async function fetchRecentAudio(limit: number = 10, signal?: AbortSignal): Promise<AudioDetection[]> {
     const response = await apiFetch(`${API_BASE}/audio/recent?limit=${limit}`, {
@@ -45,6 +47,19 @@ export async function fetchAudioSummary(
         timeoutMs: 15_000
     });
     return handleResponse<AudioSummaryResponse>(response);
+}
+
+/** Calls heard by weekday and hour, over the same window and filters as the summary. */
+export async function fetchAudioActivityHeatmap(
+    params: Omit<AudioHistoryParams, 'limit' | 'offset'> = {},
+    signal?: AbortSignal
+): Promise<AudioActivityHeatmapResponse> {
+    const query = buildAudioHistoryParams(params);
+    const response = await apiFetch(`${API_BASE}/audio/activity-heatmap?${query.toString()}`, {
+        signal,
+        timeoutMs: 15_000
+    });
+    return handleResponse<AudioActivityHeatmapResponse>(response);
 }
 
 export type AudioSpeciesLeaderboardItem = paths['/api/audio/species']['get']['response']['species'][number];
@@ -90,9 +105,9 @@ export async function fetchEventAudioContext(
     return { detections, suppressed_by_mapping: suppressedByMapping };
 }
 
-export async function fetchAudioSources(limit: number = 20): Promise<AudioSourceOption[]> {
-    const response = await apiFetch(`${API_BASE}/audio/sources?limit=${limit}`);
-    return handleResponse<AudioSourceOption[]>(response);
+/** Timed out after 15 s, body included; `signal` cancels it when the tab that asked closes. */
+export function fetchAudioSources(limit: number = 20, signal?: AbortSignal): Guarded<AudioSourceOption[]> {
+    return apiFetchJson<AudioSourceOption[]>(`${API_BASE}/audio/sources?limit=${limit}`, { timeoutMs: 15_000, signal });
 }
 
 export async function setAudioHidden(id: number, hidden: boolean): Promise<paths['/api/audio/history/{detection_id}']['patch']['response']> {

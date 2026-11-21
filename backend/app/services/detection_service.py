@@ -16,6 +16,7 @@ from app.services.range_filter import RangeCandidate, RangeDecision, decide_rang
 from app.services.range_filter_service import range_filter_service
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.birdweather_service import birdweather_service
+from app.services.ha_weather import valid_illuminance_lux
 from app.utils.classifier_labels import normalize_classifier_label
 from app.utils.canonical_species import (
     UNKNOWN_BIRD_DISPLAY_LABEL,
@@ -621,6 +622,7 @@ class DetectionService:
         weather_precipitation: float = None,
         weather_rain: float = None,
         weather_snowfall: float = None,
+        illuminance_lux: float | None = None,
         end_time: float | None = None,
         report_to_birdweather: bool = True,
     ) -> tuple[bool, bool]:
@@ -753,6 +755,8 @@ class DetectionService:
                 weather_precipitation=weather_precipitation,
                 weather_rain=weather_rain,
                 weather_snowfall=weather_snowfall,
+                # Untrusted sensor input: anything but a finite in-range value is no reading.
+                illuminance_lux=valid_illuminance_lux(illuminance_lux),
                 scientific_name=scientific_name,
                 common_name=common_name,
                 taxa_id=taxa_id,
@@ -850,6 +854,7 @@ class DetectionService:
                             "weather_precipitation": weather_precipitation,
                             "weather_rain": weather_rain,
                             "weather_snowfall": weather_snowfall,
+                            "illuminance_lux": (persisted or detection).illuminance_lux,
                         },
                     }
                 )

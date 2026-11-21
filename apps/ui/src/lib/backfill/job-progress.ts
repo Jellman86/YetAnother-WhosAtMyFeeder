@@ -3,10 +3,13 @@ import { _ } from 'svelte-i18n';
 import type { BackfillJobStatus } from '../api/backfill';
 import { jobProgressStore } from '../stores/job_progress.svelte';
 
+import { formatTerminalBackfillMessage } from './terminal-message';
 import {
+    describeBackfillProgress,
     formatBackfillProgressSummary,
     resolveRunningBackfillMessage,
     updateScopedBackfillProgress,
+    withOutcomeNote,
     type ScopedBackfillProgress,
 } from './progress';
 
@@ -17,6 +20,36 @@ function t(key: string, fallback: string): string {
         return get(_)(key, { default: fallback });
     } catch {
         return fallback;
+    }
+}
+
+function counted(key: string, values: Record<string, number>): string {
+    return get(_)(key, { values });
+}
+
+function said(key: string, values?: Record<string, string>): string {
+    return get(_)(key, { values });
+}
+
+/** The worded summary; the plain English one only before a language has loaded. */
+function progressSummary(processed: number, total: number, updated: number, skipped: number, errors: number, added: number | undefined, finished: boolean): string {
+    try {
+        return describeBackfillProgress(counted, processed, total, updated, skipped, errors, added, finished);
+    } catch {
+        return formatBackfillProgressSummary(processed, total, updated, skipped, errors, added);
+    }
+}
+
+/**
+ * What a finished job shows. A failed one leads with the server's cause, as the live update does,
+ * so a reload does not lose why it failed; a completed one keeps any reason beyond its counts.
+ */
+export function terminalMessage(kind: BackfillKind, status: BackfillJobStatus, summary: string): string {
+    if (status.status === 'failed') return formatTerminalBackfillMessage(kind, status.message, summary);
+    try {
+        return withOutcomeNote(summary, status.message, said);
+    } catch {
+        return summary;
     }
 }
 
@@ -35,7 +68,7 @@ function settleObsoleteBackfillJobs(prefix: string, keepId?: string) {
             title: item.title,
             message: t(
                 'jobs.backfill_status_unavailable',
-                'Status unavailable after a backend restart or session change. The job may have been interrupted.'
+                'The status was lost when YA-WAMF restarted or your sign-in changed, so the job may have been interrupted. Start it again if its result is missing.'
             ),
             route: item.route,
             current: item.current,
@@ -72,19 +105,21 @@ export function syncBackfillJobProgress(
         ? normalizedTotal
         : (status.status === 'running' ? 0 : processed);
     const title = kind === 'weather'
-        ? t('jobs.kind_weather_backfill', 'Weather Backfill')
-        : t('jobs.kind_backfill', 'Detection Backfill');
+        ? t('jobs.kind_weather_backfill', 'Filling in missing weather')
+        : t('jobs.kind_backfill', 'Import of missed visits');
     const message = status.status === 'running'
         ? resolveRunningBackfillMessage(
             status,
-            formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections)
+            progressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections, false)
         )
-        : (status.message || formatBackfillProgressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections));
+        : terminalMessage(kind, status, progressSummary(processed, normalizedTotal, updated, skipped, errors, newDetections, true));
 
     if (status.status === 'completed') {
         jobProgressStore.markCompleted({
             id,
             kind: kind === 'weather' ? 'weather_backfill' : 'backfill',
+            // A backfill row carries the server's own job id, so the server's count already includes it.
+            serverJobId: id,
             title,
             message,
             route: '/settings',
@@ -99,6 +134,8 @@ export function syncBackfillJobProgress(
         jobProgressStore.markFailed({
             id,
             kind: kind === 'weather' ? 'weather_backfill' : 'backfill',
+            // A backfill row carries the server's own job id, so the server's count already includes it.
+            serverJobId: id,
             title,
             message,
             route: '/settings',
@@ -112,6 +149,8 @@ export function syncBackfillJobProgress(
     jobProgressStore.upsertRunning({
         id,
         kind: kind === 'weather' ? 'weather_backfill' : 'backfill',
+        // A backfill row carries the server's own job id, so the server's count already includes it.
+        serverJobId: id,
         title,
         message,
         route: '/settings',

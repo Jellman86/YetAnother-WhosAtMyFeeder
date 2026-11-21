@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { openSettings, unsavedChanges } from './settings-page-mock';
+import { openMoreOptions, openSettings, saveBar as unsavedChanges } from './settings-page-mock';
 
-// Settings → AI keeps its fields in the one Settings draft and loads its tab body, with the
-// built-in prompt templates, only when opened. Apply saves it with the rest of the form.
+// Settings → Sharing & integrations keeps its fields in the one Settings draft and loads its tab body, with the
+// built-in prompt templates, only when opened. Save changes saves it with the rest of the form.
 
-test('AI loads on first open, follows a provider switch and saves with Apply', async ({ page }) => {
+test('AI loads on first open, follows a provider switch and saves with Save changes', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     const harness = await openSettings(page, {
@@ -16,27 +16,32 @@ test('AI loads on first open, follows a provider switch and saves with Apply', a
     expect(harness.moduleRequests('AISettings.svelte')).toBe(0);
     expect(harness.moduleRequests('llm-prompt-templates.ts')).toBe(0);
 
-    await page.getByRole('link', { name: 'AI', exact: true }).click();
+    await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await openMoreOptions(page);
     const model = page.locator('#llm-model');
     await expect(model).toHaveValue('gemini-3.1-pro-preview');
     expect(harness.moduleRequests('AISettings.svelte')).toBe(1);
     await expect(page.locator('#llm-api-key')).toHaveValue('');
     await expect(unsavedChanges(page)).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Claude', exact: true }).click();
+    await page.getByRole('combobox', { name: /^Provider/ }).selectOption({ label: 'Claude' });
     await expect(model).toHaveValue('claude-opus-4-8');
     await expect(unsavedChanges(page)).toBeVisible();
 
     await page.getByRole('button', { name: /Pricing & prompt templates/ }).click();
-    await page.getByRole('button', { name: 'Apply Style', exact: true }).click();
+    // Choosing a style is an edit like any other: there is no second apply button to forget.
+    await expect(page.getByRole('button', { name: /Apply style|Reset defaults/i })).toHaveCount(0);
+    await page.locator('#llm-prompt-style').selectOption('classic');
     await expect(page.locator('#llm-prompt-analysis')).toHaveValue(/ornithologist/);
+    await expect(page.locator('#llm-prompt-style')).toHaveValue('classic');
 
-    await page.getByRole('link', { name: 'Connection' }).click();
+    await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toBeVisible();
-    await page.getByRole('link', { name: 'AI', exact: true }).click();
+    await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await openMoreOptions(page);
     await expect(model).toHaveValue('claude-opus-4-8');
 
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => harness.writes.length).toBe(1);
     expect(harness.writes[0]).toMatchObject({
         llm_enabled: true,
@@ -47,4 +52,26 @@ test('AI loads on first open, follows a provider switch and saves with Apply', a
     expect(String(harness.writes[0].llm_analysis_prompt_template)).toContain('ornithologist');
     await expect(unsavedChanges(page)).toHaveCount(0);
     expect(errors).toEqual([]);
+});
+
+test('a provider set outside Settings shows as itself, never as the first choice, and is kept', async ({ page }) => {
+    const harness = await openSettings(page, {
+        llm_enabled: true,
+        llm_provider: 'custom-provider',
+        llm_api_key: '***REDACTED***',
+        llm_model: 'my-model'
+    });
+    await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await openMoreOptions(page);
+    const provider = page.getByRole('combobox', { name: /^Provider/ });
+    await expect(provider).toHaveValue('custom-provider');
+    await expect(provider.locator('option:checked')).toHaveText('custom-provider (set outside Settings)');
+    await expect(provider.locator('option')).toHaveText(['custom-provider (set outside Settings)', 'Gemini', 'OpenAI', 'Claude', 'OpenRouter']);
+
+    // Saving another change never rewrites the provider to one of the listed choices.
+    await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
+    await page.locator('#mqtt-server').fill('broker.lan');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await expect.poll(() => harness.writes.length).toBe(1);
+    expect([undefined, 'custom-provider']).toContain(harness.writes[0].llm_provider);
 });

@@ -165,7 +165,7 @@ describe('gardenEntryText', () => {
         const pending = capture();
         expect(gardenEntryText(pending, gardenEntryView(pending), t, 'owner')).toEqual({ title: 'Possible animal', state: 'Waiting for automatic identification' });
         const suggested = capture({ status: 'confirmed', identification: named('unreviewed') });
-        expect(gardenEntryText(suggested, gardenEntryView(suggested), t, 'owner')).toEqual({ title: 'Red fox', state: 'Needs review: suggested species' });
+        expect(gardenEntryText(suggested, gardenEntryView(suggested), t, 'owner')).toEqual({ title: 'Red fox', state: 'Needs your call: suggested species' });
         const unnamed = capture({ status: 'confirmed' });
         expect(gardenEntryText(unnamed, gardenEntryView(unnamed), t, 'owner')).toEqual({ title: 'Animal, not named', state: 'Animal confirmed, species not named' });
     });
@@ -225,6 +225,12 @@ describe('groupGardenVisits', () => {
             fox('a', 0)
         ]);
         expect(ids(visits)).toEqual([['late'], ['lawn'], ['badger'], ['b', 'a']]);
+    });
+
+    it("follows the owner's visit gap, as bird visits do (#1044)", () => {
+        const captures = [fox('c', 41), fox('b', 8), fox('a', 0)];
+        expect(ids(groupGardenVisits(captures))).toEqual([['c', 'b', 'a']]);
+        expect(ids(groupGardenVisits(captures, 10_000))).toEqual([['c'], ['b', 'a']]);
     });
 
     it('never merges unconfirmed motion proposals by time, so an animal is not buried in a feeder stack', () => {
@@ -315,5 +321,35 @@ describe('findRefreshedGardenVisit', () => {
     it('finds nothing when no refreshed visit holds one of its photos', () => {
         expect(findRefreshedGardenVisit([{ id: 'position:q', kind: 'position', representative: { id: 'q' } }], opened)).toBeNull();
         expect(findRefreshedGardenVisit([], null)).toBeNull();
+    });
+});
+
+describe('why a pending capture is waiting', () => {
+    const t = (_key: string, fallback: string): string => fallback;
+    const pending = capture();
+    const state = (checkModel: Parameters<typeof gardenEntryText>[4]): string =>
+        gardenEntryText(pending, gardenEntryView(pending), t, 'owner', checkModel).state;
+
+    const model = (readiness: 'missing' | 'queued' | 'ready' | 'running' | 'checking') => ({ kind: 'model', readiness }) as const;
+
+    it('names the model when the model is what is missing', () => {
+        expect(state(model('missing'))).toBe('Waiting: the automatic check model is not downloaded, so nothing can identify this yet.');
+        expect(state(model('queued'))).toBe('Waiting: the automatic check model is downloading. Identification starts when it finishes.');
+    });
+
+    it('names what Garden measured when something else blocks the check, never a model that could not load', () => {
+        const speciesData = state({ kind: 'blocked', blocker: 'species_data', detail: null });
+        expect(speciesData).toBe('Waiting: Garden species data is unavailable, so nothing can identify this yet.');
+        const service = gardenEntryText(pending, gardenEntryView(pending), (_key, fallback, values) => fallback.replace('{detail}', String(values?.detail ?? '')), 'owner', {
+            kind: 'blocked', blocker: 'service', detail: 'Garden worker did not stop. Restart the application before running more Garden work.'
+        }).state;
+        expect(service).toBe('Waiting: Garden checks have stopped. Garden worker did not stop. Restart the application before running more Garden work.');
+        for (const text of [speciesData, service]) expect(text).not.toContain('could not load');
+    });
+
+    it('says only that it waits when the model is able to run, or its state is not known', () => {
+        for (const check of [model('ready'), model('running'), model('checking'), null, undefined]) {
+            expect(state(check)).toBe('Waiting for automatic identification');
+        }
     });
 });

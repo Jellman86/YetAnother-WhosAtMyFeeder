@@ -11,9 +11,10 @@ import os
 import json
 from datetime import datetime, timedelta, timezone
 import sys  # Trigger CI rebuild
+import traceback
 from time import monotonic
 from contextlib import asynccontextmanager
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, TypedDict
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Counter
 from pydantic import BaseModel
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -32,7 +33,9 @@ from app.services.media_integrity_scan import (
     run_media_integrity_scan,
 )
 from app.version import compose_app_version, normalize_app_branch
+from app.models.classifier_reports import ClassifierHealthReport
 from app.services.mqtt_service import mqtt_service
+from app.services.service_connections import frigate_reachability
 from app.services.classifier_service import (
     CLASSIFIER_ACCEL_PROBE_TTL_SECONDS,
     get_classifier,
@@ -47,6 +50,9 @@ from app.services.archive_service import archive_service
 from app.services.broadcaster import broadcaster
 from app.services.telemetry_service import telemetry_service
 from app.services.system_telemetry import system_telemetry_history_service
+from app.services.system_status import status_event
+from app.services.system_status_readings import SystemStatusReadings
+from app.services.system_status_runtime import configure_status_readings, system_status_service
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.bird_scan_service import bird_scan_service
@@ -83,6 +89,7 @@ from app.routers import (
     setup as setup_router,
     auth as auth_router,
     jobs as jobs_router,
+    status as status_router,
     manual_observations,
     range_filter,
     taxonomy,
@@ -91,6 +98,8 @@ from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.middleware.public_calendar import PublicCalendarMiddleware
 from app.utils.tasks import create_background_task
+from app.services.history_retention import RetentionPaused, delete_aged_captures
+from app.utils.diagnostic_redaction import configured_secrets, redact_connection_error, safe_connection_error
 from app.utils.runtime_flavor import get_image_flavor
 from app.services.label_enrichment import start_background_map_refresh
 from app.services.localized_names import start_background_refresh
@@ -260,9 +269,14 @@ async def run_cleanup():
             async with get_db() as db:
                 repo = DetectionRepository(db)
                 favorite_event_ids = await repo.get_favorite_frigate_event_ids()
-                deleted_count = await repo.delete_older_than(
-                    cutoff, preserve_favorites=True, species_floor=species_floor
-                )
+                # Seals each day's totals before deleting any of its captures (#949). If sealing
+                # fails nothing is deleted and Health says so; the rest of cleanup still runs.
+                try:
+                    deleted_count = await delete_aged_captures(
+                        db, cutoff, now=now, species_floor=species_floor, source="scheduled_cleanup"
+                    )
+                except RetentionPaused:
+                    deleted_count = 0
                 deleted_audio_count = await repo.delete_audio_detections_older_than(cutoff)
                 await GardenRepository(db).delete_older_than(cutoff)
             if deleted_count > 0:
@@ -447,7 +461,9 @@ async def _revalidate_stale_accelerators() -> None:
     from app.services.provider_revalidation import provider_revalidation
 
     await provider_revalidation.run()
-    await bird_finder_revalidation.run()
+    while True:
+        await bird_finder_revalidation.run()
+        await asyncio.sleep(300)
 
 
 async def _start_mqtt_service_task() -> None:
@@ -630,6 +646,14 @@ async def lifespan(app: FastAPI):
         )
         await _run_lifecycle_phase(
             app,
+            "system_status_start",
+            system_status_service.start,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=84,
+        )
+        await _run_lifecycle_phase(
+            app,
             "bird_scan_start",
             bird_scan_service.start,
             fatal=False,
@@ -793,6 +817,7 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "auto_video_classifier_stop", auto_video_classifier.stop, fatal=False)
         await _run_lifecycle_phase(app, "full_visit_clip_stop", full_visit_clip_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "favorite_archive_stop", archive_service.stop, fatal=False)
+        await _run_lifecycle_phase(app, "system_status_stop", system_status_service.stop, fatal=False)
         await _run_lifecycle_phase(
             app, "system_telemetry_history_stop", system_telemetry_history_service.stop, fatal=False
         )
@@ -889,10 +914,30 @@ def db_pool_is_degraded(db_pool_health: dict) -> bool:
     )
 
 
+configure_status_readings(
+    SystemStatusReadings(
+        startup_instance_id=lambda: str(getattr(app.state, "startup_instance_id", "unknown")),
+        version=APP_VERSION,
+        startup_warning_count=lambda: len(getattr(app.state, "startup_warnings", []) or []),
+        event_pipeline_status=lambda: event_processor.get_status() if event_processor is not None else None,
+        db_pool_degraded=lambda: db_pool_is_degraded(get_db_pool_status()),
+    )
+)
+
+
 # Global exception handler for unexpected 500s
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    log.error("Unhandled exception", path=request.url.path, method=request.method, error=str(exc), exc_info=True)
+    # The traceback is redacted here rather than rendered from exc_info, because an HTTP client
+    # error repeats the request URL, and an integration URL can carry credentials.
+    log.error(
+        "Unhandled exception",
+        path=request.url.path,
+        method=request.method,
+        error_type=type(exc).__name__,
+        error=safe_connection_error(exc),
+        traceback=redact_connection_error("".join(traceback.format_exception(exc)), configured_secrets()),
+    )
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
@@ -906,7 +951,7 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-YAWAMF-Audio-Suppressed-By-Mapping"],
+    expose_headers=["X-YAWAMF-Audio-Suppressed-By-Mapping", "X-Next-Offset"],
 )
 
 # Auth router - no auth required (provides login endpoint)
@@ -944,6 +989,7 @@ app.include_router(
     model_eval.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)]
 )
 app.include_router(jobs_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(status_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(garden.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(garden.public_router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(manual_observations.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
@@ -1196,14 +1242,51 @@ def _naming_health() -> dict[str, object]:
     return {"species_reference": reference, "localized_names": localized, "species_catalog": catalog}
 
 
-def build_health_payload() -> dict[str, object]:
+class HealthFileReadings(TypedDict):
+    """The parts of the health report that read files, SQLite or /proc, done in worker threads.
+
+    The classifier's part reads the state the loop owns from a copy taken on the loop.
+    """
+
+    ml: ClassifierHealthReport
+    naming: dict[str, object]
+    host: dict[str, object]
+    process_memory: dict[str, object]
+
+
+def _read_health_files() -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
     from app.services.host_facts import collect_host_facts
     from app.services.process_memory import collect_process_memory
+
+    return _naming_health(), collect_host_facts(), collect_process_memory()
+
+
+async def collect_health_payload() -> dict[str, object]:
+    """The health report, as `/health` and the diagnostics workspace serve it.
+
+    Its file, SQLite and /proc reads run in worker threads so the event loop keeps
+    serving; the rest is composed on the loop by `build_health_payload`.
+    """
+    ml = await get_classifier().collect_health()
+    naming, host, process_memory = await asyncio.to_thread(_read_health_files)
+    return build_health_payload(HealthFileReadings(ml=ml, naming=naming, host=host, process_memory=process_memory))
+
+
+def build_health_payload(files: HealthFileReadings) -> dict[str, object]:
+    """Compose the health report from `files` and the services' live state.
+
+    Runs on the event loop, never in a worker thread. Every service below keeps
+    its counters, windows and maps on the loop and updates them without locks; a
+    read from another thread can meet a write part-way through, which answered
+    /health with "deque mutated during iteration" on a busy feeder. On the loop no
+    write can land mid-read, and nothing here does blocking I/O.
+    """
+    from app.services.process_memory import audio_buffer_entries
 
     startup_warnings = getattr(app.state, "startup_warnings", [])
     startup_instance_id = getattr(app.state, "startup_instance_id", "unknown")
     startup_started_at = getattr(app.state, "startup_started_at", None)
-    classifier_health = get_classifier().check_health()
+    classifier_health = files["ml"]
     mqtt_health = mqtt_service.get_status()
     video_health = auto_video_classifier.get_status()
     high_quality_snapshot_health = high_quality_snapshot_service.get_status()
@@ -1222,6 +1305,7 @@ def build_health_payload() -> dict[str, object]:
             "stage_timeouts": {},
             "stage_failures": {},
             "stage_fallbacks": {},
+            "snapshot_not_found_events": 0,
             "drop_reasons": {},
             "last_stage_timeout": None,
             "last_stage_failure": None,
@@ -1230,31 +1314,37 @@ def build_health_payload() -> dict[str, object]:
             "recent_outcomes": [],
         }
     )
+    from app.services.garden_motion import garden_motion_service
+
     health = {
         "status": "ok",
         "service": "ya-wamf-backend",
         "version": APP_VERSION,
         "ml": classifier_health,
-        "naming": _naming_health(),
+        "naming": files["naming"],
         "db_pool": db_pool_health,
         "media_integrity_scan": get_media_integrity_scan_status(),
         # Photographs and visit media are always kept, so a folder that cannot be written is a
         # fault to report, not a setting someone chose (#622).
         "media_storage": {"available": media_cache.available, "error": media_cache.unavailable_reason},
         "mqtt": mqtt_health,
+        "frigate_api": {"state": frigate_reachability.state, "last_failure": frigate_reachability.last_failure},
         "video_classifier": video_health,
         "high_quality_snapshots": high_quality_snapshot_health,
         "notification_dispatcher": notification_dispatch_health,
         "event_pipeline": event_pipeline_health,
+        # Whether garden motion recordings decode on the Intel GPU or the CPU, and why. CPU decode
+        # is a power cost, not a fault, so it never degrades the status above.
+        "garden_motion_decode": garden_motion_service.decode_health(),
         "startup_warnings": startup_warnings,
         # The machine this is running on. A performance report cannot be sized
         # without it, and two bundles were exchanged on #300 before anyone could
         # say whether the host was a small box or a large one.
-        "host": collect_host_facts(),
+        "host": files["host"],
         # Where this process's memory sits. Resident memory grew eightfold in a
         # day with no change of model (#314), and a curve without attribution
         # can only be guessed at.
-        "process_memory": collect_process_memory(),
+        "process_memory": {**files["process_memory"], "audio_buffer_entries": audio_buffer_entries()},
         "startup_instance_id": startup_instance_id,
         "startup_started_at": startup_started_at,
     }
@@ -1273,6 +1363,9 @@ def build_health_payload() -> dict[str, object]:
         or event_pipeline_health.get("status") != "ok"
         or db_pool_is_degraded(db_pool_health)
         or not media_cache.available
+        # No new detection can arrive without the broker, and none can be saved without Frigate.
+        or mqtt_health.get("connection_state") in {"disconnected", "not_configured"}
+        or frigate_reachability.state == "unreachable"
     ):
         health["status"] = "degraded"
 
@@ -1282,7 +1375,7 @@ def build_health_payload() -> dict[str, object]:
 @app.get("/health")
 async def health_check(response: Response) -> dict[str, object]:
     response.headers["Cache-Control"] = "no-store, max-age=0"
-    return build_health_payload()
+    return await collect_health_payload()
 
 
 @app.get("/ready", response_model=ReadinessResponse)
@@ -1336,11 +1429,25 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
         try:
             # Send initial connection message with auth level
             yield f"data: {json.dumps({'type': 'connected', 'message': 'SSE Connected', 'auth_level': auth.auth_level})}\n\n"
+            if auth.is_owner:
+                # The status a page paints from, so a fresh or reconnected stream needs no reads.
+                try:
+                    snapshot = await system_status_service.current()
+                    yield f"data: {json.dumps(status_event(snapshot))}\n\n"
+                except Exception as exc:  # noqa: BLE001 - the stream works without it; the next push follows
+                    log.warning("sse_status_snapshot_failed", error=str(exc))
 
             while True:
                 try:
                     # Wait for a message or a timeout for heartbeat
                     message = await asyncio.wait_for(queue.get(), timeout=20.0)
+
+                    # A subscriber the broadcaster dropped for falling behind receives nothing more,
+                    # yet its heartbeats would keep the page believing it is live. End the stream so
+                    # the page reconnects and starts again from a fresh status snapshot.
+                    if not broadcaster.is_subscribed(queue):
+                        log.info("sse_stream_closed_after_backpressure")
+                        return
 
                     if (
                         stream_auth.session_version is not None
@@ -1384,6 +1491,8 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
 
                     yield f"data: {json.dumps(message)}\n\n"
                 except asyncio.TimeoutError:
+                    if not broadcaster.is_subscribed(queue):
+                        return
                     if (
                         stream_auth.session_version is not None
                         and stream_auth.session_version != settings.auth.session_version

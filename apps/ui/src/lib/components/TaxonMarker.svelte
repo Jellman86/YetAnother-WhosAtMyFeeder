@@ -21,7 +21,7 @@
         {
             current: 'fill-surface',
             path: 'fill-slate-700 dark:fill-slate-200',
-            seen: 'fill-emerald-600 dark:fill-emerald-400',
+            seen: 'fill-success-600 dark:fill-success-400',
             plain: 'fill-surface',
             more: 'fill-surface'
         }[marker.tone]
@@ -30,7 +30,7 @@
         marker.tone === 'path' || marker.tone === 'current'
             ? 'stroke-slate-700 dark:stroke-slate-200'
             : marker.tone === 'seen'
-              ? 'stroke-emerald-600 dark:stroke-emerald-400'
+              ? 'stroke-success-600 dark:stroke-success-400'
               : 'stroke-slate-400 dark:stroke-slate-500'
     );
     // The plus sits on the fill, so it takes the opposite ink.

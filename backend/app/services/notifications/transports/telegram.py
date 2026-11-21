@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from app.services.notifications.message import DeliveryResult, NotificationMessage
+from app.services.notifications.message import UNREADABLE_REPLY, DeliveryResult, NotificationMessage, channel_reply
 from app.services.notifications.transports import http_logging  # noqa: F401  (installs the log filter)
 
 API_BASE = "https://api.telegram.org"
@@ -94,8 +94,10 @@ class TelegramTransport:
                     payload["reply_markup"] = button
                 response = await self._client.post(f"{base}/sendMessage", json=payload)
             response.raise_for_status()
-            accepted = response.json().get("ok") is True
-            return DeliveryResult(sent=accepted, status_code=response.status_code)
+            reply = channel_reply(response)
+            if reply is None:
+                return DeliveryResult(sent=False, error_type=UNREADABLE_REPLY, status_code=response.status_code)
+            return DeliveryResult(sent=reply.get("ok") is True, status_code=response.status_code)
         except httpx.HTTPStatusError as error:
             return DeliveryResult(sent=False, error_type=type(error).__name__, status_code=error.response.status_code)
         except Exception as error:

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import appSource from '../../App.svelte?raw';
 
 import errorsSource from './Errors.svelte?raw';
-import settingsSource from './Settings.svelte?raw';
 import timelineSource from '../components/HealthActivityTimeline.svelte?raw';
 import filteredPreviewSource from '../components/FilteredFramePreview.svelte?raw';
 
@@ -25,8 +25,8 @@ describe('health page timeline', () => {
         expect(errorsSource).toContain('onNavigate?: (path: string) => void');
         expect(errorsSource).toContain("onNavigate?.(`/events?event=${encodeURIComponent(eventId)}`)");
         expect(errorsSource).not.toContain('window.location.hash');
-        expect(settingsSource).toContain('loader={loadHealthTab}');
-        expect(settingsSource).toContain('props={{ onNavigate }}');
+        expect(appSource).toContain('loader={loadHealthPage}');
+        expect(appSource).toContain('props={{ onNavigate: navigate }}');
         expect(timelineSource).toContain("jobs.errors_activity_view_record");
     });
 
@@ -57,7 +57,7 @@ describe('health page timeline', () => {
 describe('the health verdict', () => {
     it('colours the whole card, not just a pill on a neutral ground', () => {
         expect(errorsSource).toContain('heroToneClass');
-        expect(errorsSource).toMatch(/<div class="[^"]*rounded-2xl border px-5 py-4 \{heroToneClass\(/);
+        expect(errorsSource).toMatch(/<div class="[^"]*rounded-2xl border px-4 py-4 sm:px-5 \{heroToneClass\(/);
         // The verdict opens the System card rather than sitting in a second card of its own.
         expect(errorsSource.indexOf('{#snippet status()}')).toBeLessThan(errorsSource.indexOf('{heroToneClass('));
     });
@@ -68,15 +68,16 @@ describe('the health verdict', () => {
         // itself is unit-tested in utils/status-tone.test.ts.
         expect(errorsSource).toContain("from '../utils/status-tone'");
         expect(errorsSource).toContain('STATUS_SURFACE[statusTone(value)]');
-        expect(errorsSource).toContain('STATUS_PILL[statusTone(value)]');
+        expect(errorsSource).toContain('STATUS_TONE[statusTone(verdict())]');
         expect(errorsSource).not.toMatch(/emerald-|amber-|accent-/);
     });
 
     it('prints statuses in translated sentence case, keeping the raw word in a title', () => {
         expect(errorsSource).toContain('statusLabelKey(value)');
-        expect(errorsSource).toContain('{statusLabel(overallStatus())}');
-        expect(errorsSource).toContain('title={overallStatus()}');
-        expect(errorsSource).not.toMatch(/text-xs font-bold uppercase tracking-(widest|wider|\[0\.2em\])[^"`]*"?>?\s*\{(overallStatus|incident\.status|event\.severity)/);
+        // The verdict is the reported status corrected by the measured connections.
+        expect(errorsSource).toContain('{statusLabel(verdict())}');
+        expect(errorsSource).toContain('title={verdict()}');
+        expect(errorsSource).not.toMatch(/text-xs font-bold uppercase tracking-(widest|wider|\[0\.2em\])[^"`]*"?>?\s*\{(overallStatus|verdict|incident\.status|event\.severity)/);
         expect(errorsSource).not.toContain('tracking-[0.18em]');
         // English fallbacks no longer leak into other languages.
         expect(errorsSource).not.toContain("fallback = 'Unknown'");
@@ -97,7 +98,7 @@ describe('filtered rows', () => {
 
     it('never borrow the amber that means a person is needed', () => {
         // §1.3: amber is reserved for outstanding work. A rejected frame wants nothing.
-        expect(timelineSource).toContain("'border-l-slate-300 bg-slate-50/55");
+        expect(timelineSource).toContain("'border-l-status-neutral-line bg-surface-raised'");
         expect(timelineSource).not.toContain('data-needs-review="true"');
     });
 
@@ -108,7 +109,7 @@ describe('filtered rows', () => {
     it('keeps fault drops visible and distinct from expected filtering', () => {
         expect(timelineSource).toContain("row.kind === 'fault'");
         expect(timelineSource).toContain("data-row-kind={isFault ? 'fault' : 'filtered'}");
-        expect(timelineSource).toContain('border-l-rose-400');
+        expect(timelineSource).toContain('border-l-status-fail-line');
     });
 
     it('states each outcome once instead of repeating status at the end of the row', () => {
@@ -134,7 +135,7 @@ describe('filtered frame preview', () => {
     it('portals the panel out of the clipped timeline card and keeps it on screen', () => {
         expect(filteredPreviewSource).toContain("import { portal } from '../utils/portal'");
         expect(filteredPreviewSource).toContain('use:portal');
-        expect(filteredPreviewSource).toContain("class=\"fixed z-[70]");
+        expect(filteredPreviewSource).toContain("class=\"fixed z-70");
         expect(filteredPreviewSource).toContain('getBoundingClientRect()');
         expect(filteredPreviewSource).toContain("window.addEventListener('scroll', follow, true)");
         expect(filteredPreviewSource).toContain('max-w-[calc(100vw-16px)]');

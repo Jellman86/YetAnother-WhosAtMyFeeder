@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { fetchVersion, type VersionInfo } from '../api';
+    import { readVersion, type VersionInfo } from '../api';
     import { docsRefForBranch } from '../app/app-version';
     import { APP_ICON_192_URL } from '../assets';
     import InstancePipeline from '../components/InstancePipeline.svelte';
@@ -37,7 +37,7 @@
     $effect(() => {
         (async () => {
             try {
-                const info = await fetchVersion();
+                const info = await readVersion();
                 versionInfo = info;
             } catch {
                 // Fall back to build-time version info when runtime fetch fails.
@@ -50,6 +50,24 @@
     let portrait = $state.raw<FeederPortraitData | null>(null);
     // Until the read settles its shape stands in, so the colophon does not move when it lands.
     let portraitFailed = $state(false);
+    // With no picture there is no picture column, so the loading shape must know which to hold.
+    // The last portrait's shape is remembered per browser; a first visit assumes a picture.
+    const PORTRAIT_SHAPE_KEY = 'yawamf.about.portrait_has_picture';
+    function rememberedPortraitHasPicture(): boolean {
+        try {
+            return localStorage.getItem(PORTRAIT_SHAPE_KEY) !== 'false';
+        } catch {
+            return true;
+        }
+    }
+    function rememberPortraitShape(hasPicture: boolean): void {
+        try {
+            localStorage.setItem(PORTRAIT_SHAPE_KEY, String(hasPicture));
+        } catch {
+            // Storage can be refused; the page then holds the picture shape, as on a first visit.
+        }
+    }
+    const expectPortraitPicture = rememberedPortraitHasPicture();
     let communityInstalls = $state<number | null>(null);
     let communityReadEnabled = $state<boolean | null>(null);
     let selectedEvent = $state<Detection | null>(null);
@@ -79,7 +97,10 @@
     async function loadPortrait(signal: AbortSignal, generation: number): Promise<void> {
         try {
             const next = await fetchFeederPortrait(signal);
-            if (!signal.aborted && generation === portraitGeneration) portrait = next;
+            if (!signal.aborted && generation === portraitGeneration) {
+                portrait = next;
+                rememberPortraitShape(Boolean(next.latest_visit));
+            }
         } catch (error) {
             if (signal.aborted || generation !== portraitGeneration) return;
             portraitFailed = true;
@@ -184,78 +205,88 @@
 </script>
 
 <!-- The page uses the shell width like every other view; only running prose is held to a
-     reading measure, so a wide screen gets wider panels rather than longer lines. -->
-<div class="space-y-6">
-    <!-- Colophon: what this is, in plain sentences -->
-    <section id="about-project" aria-labelledby="about-project-heading" class="space-y-4 px-1 pt-2">
-        <!-- On a phone the version sits on its own line, so the runtime version replacing the
-             build's cannot rewrap the title and move the page beneath it. -->
-        <div class="flex flex-wrap items-start gap-x-4 gap-y-2">
-            <div class="min-w-0 basis-full sm:basis-0 sm:grow">
-                <!-- The PageHeader already says "About" for owners; repeating it here was the
-                     second half of the doubled heading. -->
-                <h2 id="about-project-heading" class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white">
-                    {$_('app.full_title', { default: 'Yet Another WhosAtMyFeeder' })}
-                </h2>
+     reading measure, so a wide screen gets wider panels rather than longer lines. From 1280 px the
+     reference a reader looks up rather than reads through (what it stores and sends, the credits)
+     stands in a side column, at about a line's measure. On narrower screens it follows, in reading order. -->
+<div class="grid gap-6 xl:grid-cols-12 xl:items-start">
+    <div class="min-w-0 space-y-6 xl:col-span-8" data-about-main>
+        <!-- Colophon: what this is, in plain sentences -->
+        <section id="about-project" aria-labelledby="about-project-heading" class="space-y-4 px-1 pt-2">
+            <!-- On a phone the version sits on its own line; from 640px it has a slot of a fixed width
+                 beside the title, cut short with the whole version in its title. Either way the
+                 version's length (a long branch name in a development build, or the runtime version
+                 replacing the build's) can never rewrap the title and move the page beneath it. -->
+            <div class="flex flex-wrap items-start gap-x-4 gap-y-2">
+                <div class="min-w-0 basis-full sm:basis-0 sm:grow">
+                    <!-- The PageHeader already says "About" for owners; repeating it here was the
+                         second half of the doubled heading. -->
+                    <h2 id="about-project-heading" class="font-display text-3xl font-bold leading-tight text-strong">
+                        {$_('app.full_title', { default: 'Yet Another WhosAtMyFeeder' })}
+                    </h2>
+                </div>
+                <div class="flex min-w-0 basis-full sm:w-56 sm:shrink-0 sm:basis-auto sm:justify-end" data-about-version-slot>
+                    <a
+                        href={`${repoUrl}/blob/${docsRefBranch}/CHANGELOG.md`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="min-w-0 max-w-full truncate rounded-full border border-line px-3 py-1 font-mono text-xs text-muted transition-colors hover:border-accent-line focus-ring"
+                        title={`v${versionInfo.version} · ${$_('about.view_changelog')}`}
+                        data-about-version
+                    >
+                        <!-- The same full version string the footer shows, so the page never names two. -->
+                        v{versionInfo.version}
+                    </a>
+                </div>
             </div>
-            <a
-                href={`${repoUrl}/blob/${docsRefBranch}/CHANGELOG.md`}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="max-w-full shrink-0 truncate rounded-full border border-slate-200/80 px-3 py-1 font-mono text-xs sm:ml-auto text-slate-600 transition-colors hover:border-brand-300/60 focus-ring dark:border-slate-700 dark:text-slate-300"
-                title={$_('about.view_changelog')}
-            >
-                v{versionInfo.base_version}
-            </a>
-        </div>
 
-        {#if portrait}
-            <FeederPortrait
-                {portrait}
-                {communityInstalls}
-                {openingEvent}
-                onopenvisit={openVisit}
-                onopenspecies={(name) => (selectedSpecies = name)}
-            />
-        {:else}
-            <FeederPortraitPlaceholder failed={portraitFailed} withCommunity={communityInstalls !== null} />
-        {/if}
+            {#if portrait}
+                <FeederPortrait
+                    {portrait}
+                    {communityInstalls}
+                    {openingEvent}
+                    onopenvisit={openVisit}
+                    onopenspecies={(name) => (selectedSpecies = name)}
+                />
+            {:else}
+                <FeederPortraitPlaceholder failed={portraitFailed} withCommunity={communityInstalls !== null} withPicture={expectPortraitPicture} />
+            {/if}
 
-        <div class="max-w-prose space-y-3 text-base leading-7 text-slate-700 dark:text-slate-300">
-            <p>{$_('about.project_desc_2')}</p>
-            <p>
-                {projectDescription.before}<a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:underline dark:text-brand-400">WhosAtMyFeeder</a>{projectDescription.after}
-            </p>
-        </div>
-    </section>
+            <div class="max-w-prose space-y-3 text-base leading-7 text-ink">
+                <p>{$_('about.project_desc_2')}</p>
+                <p>
+                    {projectDescription.before}<a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="font-medium text-accent-ink underline underline-offset-2 focus-ring rounded-sm">WhosAtMyFeeder</a>{projectDescription.after}
+                </p>
+            </div>
+        </section>
 
-    <!-- How it works, annotated with what this instance is doing -->
-    <section id="about-workflow" aria-labelledby="about-workflow-heading" class="card-base space-y-4 p-6">
-        <div>
-            <h2 id="about-workflow-heading" class="font-display text-xl font-bold text-slate-900 dark:text-white">
-                {$_('about.how_it_works')}
-            </h2>
-            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                {$_('about.pipeline.subtitle', {
-                    default: 'The standard pipeline, showing what this instance is doing.'
-                })}
-            </p>
-        </div>
-        <InstancePipeline />
-    </section>
+        <!-- How it works, annotated with what this instance is doing -->
+        <section id="about-workflow" aria-labelledby="about-workflow-heading" class="card-base space-y-4 p-6">
+            <div>
+                <h2 id="about-workflow-heading" class="font-display text-xl font-bold text-strong">
+                    {$_('about.how_it_works')}
+                </h2>
+                <p class="mt-1 text-sm text-muted">
+                    {$_('about.pipeline.subtitle', {
+                        default: 'The path a visit takes, and what this instance is doing at each step.'
+                    })}
+                </p>
+            </div>
+            <InstancePipeline />
+        </section>
 
-    <InstanceSummary {versionInfo} />
+        <InstanceSummary {versionInfo} />
+    </div>
 
-    <!-- What it keeps, what it sends, who to thank: one closing row -->
-    <section class="card-base p-6" aria-labelledby="about-close-heading">
+    <!-- What it keeps, what it sends, who to thank: one closing row, or the side column from 1280 px -->
+    <section class="card-base min-w-0 p-6 xl:col-span-4" aria-labelledby="about-close-heading" data-about-side>
         <h2 id="about-close-heading" class="sr-only">
             {$_('about.close.title', { default: 'Data, privacy and credits' })}
         </h2>
-        <div class="grid gap-8 md:grid-cols-3">
+        <div class="grid gap-8 md:grid-cols-3 xl:grid-cols-1">
             <PrivacySummary {communityReadEnabled} />
 
             <section aria-labelledby="about-credits-heading">
-                <h3 id="about-credits-heading" class="text-sm font-bold text-slate-900 dark:text-white">
+                <h3 id="about-credits-heading" class="text-sm font-bold text-strong">
                     {$_('about.reference_thanks', { default: 'Reference & thanks' })}
                 </h3>
                 <ul class="mt-2 space-y-1.5 text-xs">
@@ -265,13 +296,13 @@
                                 href={action.href}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                class="group inline-flex min-h-11 items-center gap-1.5 text-brand-600 focus-ring dark:text-brand-400"
+                                class="group inline-flex min-h-11 items-center gap-1.5 text-accent-ink focus-ring"
                             >
                                 <span class="group-hover:underline">{action.label}</span>
                                 <!-- Sized in the icon rather than left to the display font, which
                                      rendered the bare arrow glyph far larger than its label. -->
                                 <svg
-                                    class="h-2.5 w-2.5 shrink-0 text-slate-400 dark:text-slate-500"
+                                    class="h-2.5 w-2.5 shrink-0 text-muted"
                                     viewBox="0 0 12 12"
                                     fill="none"
                                     stroke="currentColor"
@@ -286,21 +317,20 @@
                     {/each}
                 </ul>
 
-                <p class="mt-4 text-xs font-semibold text-slate-800 dark:text-slate-100">
+                <p class="mt-4 text-xs font-semibold text-strong">
                     {$_('about.thanks_to', { default: 'Thanks to' })}
                 </p>
-                <ul class="mt-1 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                <!-- The same ruled rows as "What it stores", each a touch target tall, so the three columns keep one rhythm. -->
+                <ul class="mt-2 divide-y divide-line text-xs text-muted">
                     {#each creditsLinks as credit}
                         <li>
-                            {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center text-brand-600 hover:underline focus-ring dark:text-brand-400">{credit.label}</a>{credit.parts.after}
+                            {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center font-medium text-accent-ink underline underline-offset-2 focus-ring rounded-sm">{credit.label}</a>{credit.parts.after}
                         </li>
                     {/each}
-                    <li>{$_('about.credits_list.ai_assistants')}</li>
-                    <li>{$_('about.flaticon_credit')}</li>
+                    <!-- The rows above are a touch target tall; these match, so the list keeps one rhythm. -->
+                    <li class="flex min-h-11 items-center">{$_('about.credits_list.ai_assistants')}</li>
+                    <li class="flex min-h-11 items-center">{$_('about.flaticon_credit')}</li>
                 </ul>
-                <p class="mt-3 text-2xs text-slate-500 dark:text-slate-400">
-                    {$_('about.license_notice', { values: { year: new Date().getFullYear(), license: $_('common.mit_license') } })}
-                </p>
             </section>
         </div>
     </section>

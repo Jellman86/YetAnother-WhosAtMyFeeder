@@ -67,7 +67,7 @@
         class="flex flex-col gap-3 border-t border-line {size === 'small' ? 'pt-3' : 'pt-4'} {stacked ? '' : 'sm:flex-row sm:items-center sm:justify-between'}"
         data-spotlight-kept-bird={candidate.bird}
     >
-        <p class="max-w-prose text-slate-700 dark:text-slate-200 {size === 'small' ? 'text-xs' : 'text-base'}">
+        <p class="max-w-prose text-ink {size === 'small' ? 'text-xs' : 'text-base'}">
             {$_('leaderboard.check.kept_bird_body', {
                 values: { species: candidate.species, kind },
                 default: '{species} may be a domestic bird: {kind}. If you keep them, record them as Garden animals: their bird records move to Garden, hidden from bird history, not deleted.'

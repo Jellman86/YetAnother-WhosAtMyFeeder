@@ -1,21 +1,29 @@
 <script lang="ts" generics="Props extends Record<string, unknown>">
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import type { Component } from 'svelte';
+    import type { Component, Snippet } from 'svelte';
 
+    type LoadedPage = Component<Props>;
     type PageModule = {
-        default: Component<Props>;
+        default: LoadedPage;
     };
 
     let {
         loader,
         props,
+        content,
         label,
+        loadingText,
         onLoadError
     }: {
         loader: () => Promise<PageModule>;
-        props: Props;
+        /** What the page is given. A page whose props are bound to the host's state uses `content`. */
+        props?: Props;
+        /** Renders the loaded page itself, for a host that binds to the page's props. */
+        content?: Snippet<[LoadedPage]>;
         label: string;
+        /** The loading sentence, for a part whose name does not read well after "Opening". */
+        loadingText?: string;
         onLoadError?: (error: unknown) => void;
     } = $props();
 
@@ -68,7 +76,11 @@
 
 {#if pageModule}
     {@const Page = pageModule.default}
-    <Page {...props} />
+    {#if content}
+        {@render content(Page)}
+    {:else if props}
+        <Page {...props} />
+    {/if}
 {:else if loadError}
     <section
         class="my-6 border-y border-slate-200 py-8 dark:border-slate-700"
@@ -77,7 +89,7 @@
     >
         <div class="flex max-w-2xl items-start gap-4">
             <div
-                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-attention-50 text-attention-700 dark:bg-attention-950/40 dark:text-attention-300"
                 aria-hidden="true"
             >
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,7 +120,7 @@
     <div class="min-h-svh" aria-busy="true" data-route-loading>
         {#if showLoadingState}
             <div
-                class="flex items-center gap-3 border-t border-slate-200 py-6 text-sm font-medium text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                class="flex items-center gap-3 border-t border-slate-200 py-6 text-sm font-medium text-slate-600 dark:border-slate-700 dark:text-slate-400"
                 role="status"
                 aria-live="polite"
             >
@@ -116,7 +128,7 @@
                     <circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" />
                     <path class="opacity-80" fill="currentColor" d="M21 12a9 9 0 0 0-9-9v3a6 6 0 0 1 6 6h3Z" />
                 </svg>
-                {$_('route_load.loading', { default: 'Opening {page}…', values: { page: label } })}
+                {loadingText ?? $_('route_load.loading', { default: 'Opening {page}…', values: { page: label } })}
             </div>
         {/if}
     </div>

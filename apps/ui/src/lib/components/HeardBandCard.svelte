@@ -73,19 +73,19 @@
     class="flex h-full flex-col overflow-hidden rounded-2xl border border-dashed border-line bg-surface-raised/40"
     data-heard-band-card={band.position}
 >
-    <div class="relative aspect-[4/3] overflow-hidden bg-slate-200 dark:bg-slate-950" aria-hidden="true">
+    <div class="relative aspect-4/3 overflow-hidden bg-surface-raised" aria-hidden="true">
         <div class="grid h-full grid-cols-2 grid-rows-2 gap-0.5">
             {#each pictures as id (id)}
-                <span class="block overflow-hidden bg-slate-100 dark:bg-slate-900 {pictures.length === 1 ? 'row-span-2' : ''}">
-                    <img src={spectrogram(id)} alt="" loading="lazy" class="h-full w-full scale-125 object-cover [transform-origin:50%_64%]" onerror={() => (failed = { ...failed, [id]: true })} />
+                <span class="block overflow-hidden bg-surface-raised {pictures.length === 1 ? 'row-span-2' : ''}">
+                    <img src={spectrogram(id)} alt="" loading="lazy" class="h-full w-full scale-125 object-cover origin-[50%_64%]" onerror={() => (failed = { ...failed, [id]: true })} />
                 </span>
             {/each}
-            <span class="flex flex-col items-center justify-center bg-surface text-slate-700 dark:text-slate-200 {pictures.length === 0 ? 'col-span-2 row-span-2' : pictures.length === 1 ? 'row-span-2' : pictures.length === 2 ? 'col-span-2' : ''}">
+            <span class="flex flex-col items-center justify-center bg-surface text-ink {pictures.length === 0 ? 'col-span-2 row-span-2' : pictures.length === 1 ? 'row-span-2' : pictures.length === 2 ? 'col-span-2' : ''}">
                 <span class="font-display text-lg font-bold tabular-nums">{$_('events.heard.calls', { values: { count: band.callCount }, default: '{count} calls' })}</span>
             </span>
         </div>
-        <span class="absolute bottom-3 left-3 inline-flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 text-xs font-bold text-white backdrop-blur-md">
-            <svg class="h-3 w-3 text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" /></svg>
+        <span class="absolute bottom-3 left-3 inline-flex min-h-11 items-center gap-1.5 rounded-full photo-chip border border-on-media/10 px-3 text-xs font-bold">
+            <svg class="h-3 w-3 text-on-media" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" /></svg>
             <!-- Like a visit card, the photo pill gives when it began; the heading gives the span. -->
             <time datetime={band.firstHeard}>{formatTime(band.firstHeard)}</time>
         </span>
@@ -96,7 +96,7 @@
             type="button"
             bind:this={trigger}
             popovertarget={panelId}
-            class="mt-auto inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg px-2 -ml-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-500/10"
+            class="mt-auto inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg px-2 -ml-2 text-xs font-semibold text-accent-ink transition-colors hover:bg-accent-soft focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
             aria-expanded={open}
             aria-controls={panelId}
             data-heard-band-toggle
@@ -114,10 +114,10 @@
         role="region"
         aria-label={$_('events.heard.calls_panel', { default: 'Heard calls' })}
         style={position}
-        class="fixed inset-auto m-0 overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface pb-2 text-slate-900 shadow-xl dark:text-slate-100"
+        class="fixed inset-auto m-0 overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface pb-2 text-strong shadow-xl"
     >
         <div class="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-line-soft bg-surface px-4 py-1">
-            <p class="text-sm font-semibold">{$_('events.heard.calls_panel', { default: 'Heard calls' })}<span class="ml-2 text-xs font-normal tabular-nums text-slate-500 dark:text-slate-400">{span}</span></p>
+            <p class="text-sm font-semibold">{$_('events.heard.calls_panel', { default: 'Heard calls' })}<span class="ml-2 text-xs font-normal tabular-nums text-muted">{span}</span></p>
             <button type="button" class="btn btn-ghost min-h-11 min-w-11 px-2" popovertarget={panelId} popovertargetaction="hide">{$_('common.close', { default: 'Close' })}</button>
         </div>
         {#if open}<HeardCallList groups={band.groups} inline={false} />{/if}

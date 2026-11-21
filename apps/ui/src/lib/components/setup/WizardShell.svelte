@@ -1,4 +1,5 @@
 <script lang="ts">
+    import DialogCloseButton from '../DialogCloseButton.svelte';
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fade } from 'svelte/transition';
@@ -15,9 +16,7 @@
     import QualityStep from './QualityStep.svelte';
     import IntegrationsStep from './IntegrationsStep.svelte';
     import HistoryStep from './HistoryStep.svelte';
-    import TelemetryStep from './TelemetryStep.svelte';
     import ReviewStep from './ReviewStep.svelte';
-    import SetupStepIcon from './SetupStepIcon.svelte';
 
     let step = $derived(setupWizardStore.current);
     let index = $derived(setupWizardStore.index);
@@ -47,7 +46,7 @@
             }
             setupWizardStore.close();
         } catch (err) {
-            skipError = err instanceof Error ? err.message : $_('setup.skip_failed', { default: 'Skipping failed: the server could not be reached.' });
+            skipError = err instanceof Error ? err.message : $_('setup.skip_failed', { default: 'Setup could not be skipped because YA-WAMF did not answer. Check that it is running, then try again.' });
         } finally {
             skipBusy = false;
         }
@@ -79,34 +78,33 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div use:portal role="presentation" class="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm">
+<div use:portal role="presentation" class="fixed inset-0 z-70 flex items-center justify-center bg-media/60 p-4 backdrop-blur-xs short:p-2">
     <div
         bind:this={modalElement}
         role="dialog"
         aria-modal="true"
         aria-label={$_('nav.setup_wizard', { default: 'Setup wizard' })}
         tabindex="-1"
-        class="my-8 w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl ring-1 ring-black/5"
+        class="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl"
     >
         <!-- Header -->
-        <div class="space-y-3 bg-surface-raised px-6 py-4">
-            <div class="flex items-center justify-between">
-                <span class="flex items-center gap-1.5 text-sm font-bold tracking-tight text-brand-700 dark:text-brand-300">
+        <div class="space-y-3 bg-surface-raised px-6 py-4 short:space-y-1.5 short:py-2">
+            <!-- Wraps: at a large text size the step name takes a line of its own under the brand. -->
+            <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <span class="flex items-center gap-1.5 text-sm font-bold tracking-tight text-accent-ink">
                     <BrandMark alt="" class="h-6 w-6" width={24} height={24} sizes="24px" /> YA-WAMF
                 </span>
-                <div class="flex items-center gap-3">
-                    <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <div class="flex min-w-0 items-center gap-3">
+                    <span class="min-w-0 text-xs font-semibold text-muted wrap-break-word">
                         {$_('setup.step_of', { values: { n: setupWizardStore.position, total: setupWizardStore.total }, default: `Step ${setupWizardStore.position} of ${setupWizardStore.total}` })}
-                        <span class="text-slate-700 dark:text-slate-200">· {stepName(step.id)}</span>
+                        <span class="text-ink">· {stepName(step.id)}</span>
                     </span>
                     {#if canExit}
-                        <button type="button" class="flex h-11 w-11 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:hover:bg-slate-700/60 dark:hover:text-slate-200" aria-label={$_('setup.exit', { default: 'Exit setup' })} onclick={() => setupWizardStore.close()}>
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
+                        <DialogCloseButton label={$_('setup.exit', { default: 'Exit setup' })} onclick={() => setupWizardStore.close()} />
                     {:else}
                         <button
                             type="button"
-                            class="min-h-11 rounded-full px-3 text-xs font-bold text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-200"
+                            class="min-h-11 rounded-full px-3 text-xs font-bold text-muted hover:bg-line hover:text-ink focus-ring"
                             onclick={() => (skipConfirming = true)}
                         >
                             {$_('setup.skip', { default: 'Skip setup' })}
@@ -119,32 +117,40 @@
             <ol class="flex items-center gap-1.5" aria-label={$_('setup.step_list', { default: 'Setup steps' })}>
                 {#each steps as s, i (s.id)}
                     <li
-                        class="h-1.5 flex-1 rounded-full transition-colors duration-300 motion-reduce:transition-none {i < index ? 'bg-brand-500' : i === index ? 'bg-brand-400' : 'bg-slate-200 dark:bg-slate-700'}"
+                        class="h-1.5 flex-1 rounded-full transition-colors duration-300 motion-reduce:transition-none {i < index ? 'bg-accent-line' : i === index ? 'bg-accent' : 'bg-track'}"
                         aria-current={i === index ? 'step' : undefined}
                     >
                         <span class="sr-only">{stepName(s.id)}</span>
                     </li>
                 {/each}
             </ol>
-            <span class="sr-only" role="progressbar" aria-valuenow={progressPct} aria-valuemin="0" aria-valuemax="100">{progressPct}%</span>
+            <span class="sr-only" role="progressbar" aria-label={$_('setup.progress', { default: 'Setup progress' })} aria-valuenow={progressPct} aria-valuemin="0" aria-valuemax="100">{progressPct}%</span>
         </div>
 
         {#if skipConfirming}
-            <div class="border-b border-slate-200 bg-amber-50/70 px-6 py-4 dark:border-slate-700 dark:bg-amber-950/20" role="alertdialog" aria-labelledby="skip-setup-title" aria-describedby="skip-setup-body">
-                <p id="skip-setup-title" class="text-sm font-bold text-slate-900 dark:text-white">
-                    {$_('setup.skip_confirm_title', { default: 'Skip setup and open the app?' })}
-                </p>
-                <p id="skip-setup-body" class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                    {#if authStore.needsInitialSetup}
-                        {$_('setup.skip_confirm_body_no_account', { default: 'The app will run without a password until you set one under Settings → Security. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
-                    {:else}
-                        {$_('setup.skip_confirm_body', { default: 'Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
-                    {/if}
-                </p>
+            <!-- At most half the card: its words scroll inside it and its two buttons stay put, so on a short
+                 screen the step's own Back and Continue are never pushed out of the card either. -->
+            <div class="flex max-h-half-screen shrink-0 flex-col border-b border-line bg-status-attention-soft" role="alertdialog" aria-labelledby="skip-setup-title" aria-describedby="skip-setup-body">
+                <!-- A tab stop of its own, so the keyboard can scroll the words in every browser (Safari
+                     does not focus a scrolling box that holds no control). -->
+                <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                <div class="min-h-0 overflow-y-auto px-6 pt-4 focus-ring short:pt-2" role="group" tabindex="0" aria-labelledby="skip-setup-title" data-skip-setup-text>
+                    <p id="skip-setup-title" class="text-sm font-bold text-strong">
+                        {$_('setup.skip_confirm_title', { default: 'Skip setup and open the app?' })}
+                    </p>
+                    <p id="skip-setup-body" class="mt-1 text-sm leading-relaxed text-muted">
+                        {#if authStore.needsInitialSetup}
+                            {$_('setup.skip_confirm_body_no_account', { default: 'The app will run without a password until you set one under Settings → Sharing & integrations. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
+                        {:else}
+                            {$_('setup.skip_confirm_body', { default: 'Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
+                        {/if}
+                    </p>
+                </div>
+                <!-- Outside the scrolling words, just above the buttons, so a failed skip is seen where it was pressed. -->
                 {#if skipError}
-                    <p role="alert" class="mt-2 text-sm font-semibold text-red-600 dark:text-red-400">{skipError}</p>
+                    <p role="alert" class="shrink-0 px-6 pt-2 text-sm font-semibold text-status-fail" data-skip-setup-error>{skipError}</p>
                 {/if}
-                <div class="mt-3 flex flex-wrap gap-2">
+                <div class="flex shrink-0 flex-wrap gap-2 px-6 pb-4 pt-3 short:pb-2 short:pt-2">
                     <button type="button" class="btn btn-secondary min-h-11 px-4" disabled={skipBusy} onclick={() => { skipConfirming = false; skipError = null; }}>
                         {$_('common.cancel', { default: 'Cancel' })}
                     </button>
@@ -157,10 +163,11 @@
 
         <!-- Body -->
         <!-- Not a live region: each step focuses its own heading, which is what is announced. -->
-        <div class="max-h-[70vh] overflow-y-auto p-6">
+        <!-- The card is as tall as the window allows and the step lays itself out inside it: its
+             content scrolls and its Back / Continue row stays in view (WizardStepLayout). -->
+        <div class="flex min-h-0 flex-1 flex-col">
             {#key step.id}
-                <div in:fade={{ duration: 180 }}>
-                    <div class="mb-4"><SetupStepIcon step={step.id} /></div>
+                <div class="flex min-h-0 flex-1 flex-col" in:fade={{ duration: 180 }}>
                     {#if step.id === 'welcome'}
                         <WelcomeStep />
                     {:else if step.id === 'account'}
@@ -177,8 +184,6 @@
                         <IntegrationsStep />
                     {:else if step.id === 'history'}
                         <HistoryStep />
-                    {:else if step.id === 'telemetry'}
-                        <TelemetryStep />
                     {:else if step.id === 'review'}
                         <ReviewStep />
                     {/if}

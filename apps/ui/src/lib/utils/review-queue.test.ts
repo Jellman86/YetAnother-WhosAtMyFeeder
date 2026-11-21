@@ -3,7 +3,10 @@ import type { Detection } from '../api';
 import {
     buildReviewQueue,
     readingFromResponse,
+    reviewReasonFor,
     reviewReasonMessage,
+    reviewReasonNote,
+    reviewSuggestion,
     visibleUnresolvedCount,
     withoutEvent,
     type QueuedDetection,
@@ -197,7 +200,7 @@ describe('reviewReasonMessage', () => {
     it('words every reason a detection can wait for', () => {
         expect(reviewReasonMessage('unknown_species', 0)).toEqual({
             key: 'dashboard.review_queue.reason_unknown_species',
-            default: 'Unknown species'
+            default: 'No species reached the naming threshold'
         });
         expect(reviewReasonMessage('low_score', 0)).toEqual({
             key: 'dashboard.review_queue.reason_low_score',
@@ -205,8 +208,53 @@ describe('reviewReasonMessage', () => {
         });
         expect(reviewReasonMessage('new_species', 3)).toEqual({
             key: 'dashboard.review_queue.new_species_tag',
-            default: 'New species · {count, plural, one {# sighting} other {# sightings}}',
+            default: 'New species · {count, plural, one {seen once} other {seen # times}}',
             values: { count: 3 }
+        });
+    });
+});
+
+describe('reviewSuggestion', () => {
+    it("offers the model's own name for a visit below the naming threshold", () => {
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: 'Eurasian Bullfinch' }), 'low_score')).toBe('Eurasian Bullfinch');
+    });
+
+    it('offers the name of a species seen here for the first time', () => {
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: 'Mallard' }), 'new_species')).toBe('Mallard');
+    });
+
+    it('offers nothing when the visit has no species to confirm', () => {
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: 'Unknown Bird' }), 'unknown_species')).toBeNull();
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: 'Unknown Bird' }), 'low_score')).toBeNull();
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: '  ' }), 'low_score')).toBeNull();
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: 'Not a bird' }), 'new_species')).toBeNull();
+    });
+
+    it('offers nothing for an unknown visit even if a label is attached', () => {
+        expect(reviewSuggestion(detection({ frigate_event: 'a', display_name: 'Dunnock' }), 'unknown_species')).toBeNull();
+    });
+});
+
+describe('the reason a queued visit states', () => {
+    it('is the queue\'s own reason whenever it gave one', () => {
+        const reasons = new Map([['evt-a', 'new_species' as const]]);
+        expect(reviewReasonFor(detection({ frigate_event: 'evt-a', display_name: 'Mallard' }), reasons)).toBe('new_species');
+    });
+
+    it('never calls a bird with no species "below the naming threshold" when no reason came with it', () => {
+        expect(reviewReasonFor(detection({ frigate_event: 'evt-b', display_name: 'Unknown Bird' }), new Map())).toBe('unknown_species');
+        expect(reviewReasonFor(detection({ frigate_event: 'evt-c', display_name: 'Dunnock' }), undefined)).toBe('low_score');
+    });
+
+    it('gives each reason its own sentence in the review dialog', () => {
+        expect(reviewReasonNote('low_score', 'Dunnock').default).toBe('The model scored this below the naming threshold.');
+        expect(reviewReasonNote('unknown_species', 'Unknown bird').default).toBe(
+            'The model could not name this bird, so there is no species to confirm. Pick one below.'
+        );
+        expect(reviewReasonNote('new_species', 'Mallard')).toEqual({
+            key: 'dashboard.review_session.new_species_note',
+            default: 'First {species} recorded here. Confirm it, correct it, or block the species.',
+            values: { species: 'Mallard' }
         });
     });
 });

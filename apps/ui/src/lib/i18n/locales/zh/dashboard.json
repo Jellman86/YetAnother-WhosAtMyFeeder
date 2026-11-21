@@ -2,7 +2,7 @@
   "title": "仪表盘",
   "live_feed": "实时画面",
   "showing_last_3_days": "显示最近3天",
-  "no_detections": "暂无检测",
+  "no_detections": "过去 24 小时内没有到访。",
   "waiting_first_visitor": "过去24小时内没有到访。新的到访一出现就会显示在这里。",
   "discovery_feed": "发现动态",
   "see_full_history": "查看完整历史",
@@ -23,7 +23,7 @@
     "audio": "音频"
   },
   "histogram": {
-    "title": "活动脉冲",
+    "title": "活动",
     "visits_per_hour": "每小时到访次数（过去24小时）",
     "peak": "{count, plural, other {{time} 最繁忙，# 次到访}}",
     "now": "现在",
@@ -87,7 +87,7 @@
     "seen_and_heard": "既见又闻"
   },
   "desk": {
-    "cameras_empty": "还没有摄像头上报。请在“设置 → 连接”中添加。",
+    "cameras_empty": "还没有摄像头上报。请在“设置 → 摄像头与连接”中添加。",
     "camera_no_visits": "无到访",
     "no_cross_confirmation": "{count, plural, other {共听到 # 次鸣叫，但没有一次与摄像头到访对应。麦克风与摄像头覆盖的范围可能不同。}}",
     "temperature_span": "到访时气温介于 {low} 至 {high}",
@@ -133,6 +133,7 @@
     "skipped_note": "{count, plural, other {# 项留待稍后，它们仍在队列中。}}",
     "back": "返回仪表板",
     "threshold_note": "模型的判定低于命名阈值。",
+    "unknown_note": "模型未能识别这只鸟，因此没有可确认的物种。请在下方选择一个。",
     "search": "搜索物种…",
     "no_matches": "没有匹配的物种，试试更少的字母。",
     "search_failed": "无法搜索物种。请修改搜索内容后重试。",

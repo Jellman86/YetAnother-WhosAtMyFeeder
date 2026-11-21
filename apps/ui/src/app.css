@@ -1,8 +1,298 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Source+Serif+4:wght@400;600;700&family=Sora:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Sora:wght@500;600;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Classes are read from the app source only, never from tests, fixtures or documentation.
+   Unit tests quote class names in their assertions, retired ones included, so they are left out. */
+@import 'tailwindcss' source(none);
+@import './tailwind-3-parity.css';
+@source './**/*.{html,js,svelte,ts}';
+@source not './**/*.test.ts';
+/* The switch is part of the kit whether or not a screen in this build wears it yet. */
+@source inline('switch-track switch-thumb');
+
+/* Dark mode is the `dark` class on <html>, set before first paint in index.html. The selector is
+   the one this app has always shipped, so a dark utility keeps the weight it had against a hover
+   or a breakpoint utility on the same element. */
+@custom-variant dark (&:is(.dark *));
+
+/* A hover style applies wherever the browser reports :hover, touch screens included: a tap on a
+   card still reveals what a pointer would, as it always has here. */
+@custom-variant hover (&:hover);
+
+/* The field log lays its rows out by its own width in rem, not the screen's, so a larger text
+   size on a phone, or a narrow dashboard column, gets the layout that fits. The `.field-log`
+   section in FieldLog.svelte declares the container these query. */
+@custom-variant log-wide (@container field-log (width >= 32rem));
+@custom-variant log-narrow (@container field-log (width < 16rem));
+/* A short screen: a phone or small tablet held sideways (844 × 390, 1024 × 600). The wizard
+   tightens its chrome there so the step has room and the actions stay in view. In px, like the
+   breakpoints below, so a larger text size does not change which screens count as short. */
+@custom-variant short (@media (max-height: 640px));
+/* A desktop window that is wide but not tall (1920 × 900, 1440 × 800): the sidebar's wordmark sits
+   beside the mark instead of under it, so every place in the navigation and the way to Health fit. */
+@custom-variant compact-height (@media (max-height: 900px));
+
+@theme {
+  /* Breakpoints stay in px, so a reader's larger text size never moves a layout to its phone
+     form. 3xl is for wide desktop monitors: room for the dashboard's third column without
+     squeezing the field log. */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+  --breakpoint-3xl: 1920px;
+
+  /* The page container (max-w-shell): pages use the width up to a 1920px desktop, and beyond that the
+     content stays centred with growing gutters, so a 2560px display does not stretch every card and
+     line across it. In rem, so it keeps its share of the screen as the root size grows. Running text
+     keeps its own measure inside it (max-w-prose). */
+  --container-shell: 104rem;
+
+  /* The 44px touch target (h-11, min-h-11, w-11, min-w-11) grows with a larger text size
+     but never shrinks below 44px when a reader picks a smaller one. */
+  --spacing-11: max(2.75rem, 44px);
+
+  /* Small print in rem, with a floor (--text-floor, set on :root below). The Standard text size
+     puts the root at 14px, where 0.6875rem is under 10px and reads as noise rather than words. */
+  --text-3xs: max(0.6875rem, var(--text-floor));
+  --text-2xs: max(0.75rem, var(--text-floor));
+  --text-xs: max(0.75rem, var(--text-floor));
+  /* Secondary and normal text each keep a step above the floor, so at the small Appearance sizes,
+     where the floor has caught up with them, small print, secondary text and normal text are
+     still three sizes and hierarchy does not rest on one. */
+  --text-sm: max(0.875rem, var(--text-floor) * 25 / 24);
+  --text-base: max(1rem, var(--text-floor) * 13 / 12);
+
+  /* Leading in rem rather than as a ratio of the size: at a fractional root size a ratio rounds
+     a line a sixty-fourth of a pixel short, and the error adds up down a page. */
+  --text-xs--line-height: 1rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+
+  --shadow-card: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-card-dark: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+
+  --animate-fade-in: fadeIn 0.3s ease-out;
+  --animate-shimmer: shimmer 1.5s infinite;
+
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* The palette is closed: only the colours named here and in the fixed palette below exist. */
+  --color-*: initial;
+
+  /* Primary accent, driven by the active colour theme through the variables further down
+     (classic = teal, bluetit = blue). */
+  --color-brand-50: rgb(var(--brand-50)); --color-brand-100: rgb(var(--brand-100)); --color-brand-200: rgb(var(--brand-200));
+  --color-brand-300: rgb(var(--brand-300)); --color-brand-400: rgb(var(--brand-400)); --color-brand-500: rgb(var(--brand-500));
+  --color-brand-600: rgb(var(--brand-600)); --color-brand-700: rgb(var(--brand-700)); --color-brand-800: rgb(var(--brand-800));
+  --color-brand-900: rgb(var(--brand-900)); --color-brand-950: rgb(var(--brand-950));
+
+  /* ── Semantic tokens: what a colour is for, not which colour it is ──
+     Every screen paints with these. Each is resolved once per mode further down (light in
+     :root, dark in html.dark, high contrast in html.high-contrast), so a component names no mode
+     and needs no `dark:` pair. design-tokens.contrast.test.ts proves every foreground against
+     every ground it can sit on, in every mode and colour theme; design-tokens.ratchet.test.ts
+     stops new raw palette classes. docs/standards/design-tokens.md says which token to reach for. */
+
+  /* Grounds: a panel, a well or hover fill inside it, and the recessed page ground behind panels. */
+  --color-surface-sunken: rgb(var(--surface-sunken));
+
+  /* Inks. `strong` for headings and figures, `ink` for body text, `muted` for secondary text (all
+     4.5:1 on every ground). `subtle` is for marks only (an icon beside words, a separator dot):
+     3:1, never the only carrier of words. */
+  --color-strong: rgb(var(--ink-strong));
+  --color-ink: rgb(var(--ink));
+  --color-muted: rgb(var(--ink-muted));
+  --color-subtle: rgb(var(--ink-subtle));
+
+  /* An edge that has to be seen (a control's boundary, a meter's track): 3:1 on every ground.
+     `line` and `line-soft` below stay the quiet rules between rows and round panels. */
+  --color-line-strong: rgb(var(--line-strong));
+
+  /* A meter's track (a score bar, a level): every status and accent fill reads against it at 3:1,
+     so a bar's extent is never lost, in high contrast included. */
+  --color-track: rgb(var(--track));
+
+  /* The accent is the brand, as the colour theme sets it: a primary action's fill (`accent`,
+     with `accent-fg` on it), brand-coloured words and links (`accent-ink`), the recessed key of
+     a chosen row (`accent-soft`) and a chosen tile's edge (`accent-line`). */
+  --color-accent: rgb(var(--accent));
+  --color-accent-hover: rgb(var(--accent-hover));
+  --color-accent-fg: rgb(var(--accent-fg));
+  --color-accent-ink: rgb(var(--accent-ink));
+  --color-accent-soft: rgb(var(--accent-soft));
+  --color-accent-line: rgb(var(--accent-line));
+
+  /* A destructive action's solid fill, with white words. */
+  --color-danger: rgb(var(--danger));
+  --color-danger-hover: rgb(var(--danger-hover));
+  --color-danger-fg: rgb(var(--danger-fg));
+
+  /* Status tones. Each has its ink (`text-status-ok`, also the colour of its icon or dot), a soft
+     ground (`bg-status-ok-soft`) and an edge (`border-status-ok-line`, 3:1). The ink passes 4.5:1
+     on its own soft ground and on every page ground.
+       ok         confirmed, passed, healthy, connected (green in every theme)
+       attention  this needs a person (amber, and for nothing else; layout-patterns.md §1.3)
+       fail       failed or broken (rose)
+       info       running, in flight, normal emphasis (the brand)
+       neutral    off by choice, idle, not measured, unknown (slate)
+     A tone never carries meaning alone: StatusChip and StateBlock always say it in words too. */
+  --color-status-ok: rgb(var(--status-ok));
+  --color-status-ok-soft: rgb(var(--status-ok-soft));
+  --color-status-ok-line: rgb(var(--status-ok-line));
+  --color-status-attention: rgb(var(--status-attention));
+  --color-status-attention-soft: rgb(var(--status-attention-soft));
+  --color-status-attention-line: rgb(var(--status-attention-line));
+  --color-status-fail: rgb(var(--status-fail));
+  --color-status-fail-soft: rgb(var(--status-fail-soft));
+  --color-status-fail-line: rgb(var(--status-fail-line));
+  --color-status-info: rgb(var(--status-info));
+  --color-status-info-soft: rgb(var(--status-info-soft));
+  --color-status-info-line: rgb(var(--status-info-line));
+  --color-status-neutral: rgb(var(--status-neutral));
+  --color-status-neutral-soft: rgb(var(--status-neutral-soft));
+  --color-status-neutral-line: rgb(var(--status-neutral-line));
+
+  /* A photograph or the video player is the same dark ground in every mode, so what sits on it
+     (`text-on-media`, a scrim of `bg-media/75`) does not follow the theme either. */
+  --color-media: rgb(var(--media));
+  --color-on-media: rgb(var(--on-media));
+  /* A panel on that ground (the player's bars and sheets), and the brand where it marks a choice
+     on it: a light step that reads on the dark ground, yellow in high contrast. */
+  --color-media-raised: rgb(var(--media-raised));
+  --color-on-media-accent: rgb(var(--brand-400));
+  /* A failure said on the dark ground: a light rose, since the theme's own red is written for paper. */
+  --color-on-media-fail: rgb(var(--on-media-fail));
+  /* Rain over a time series: the precipitation bands on the Leaderboard's timeline and their key. */
+  --color-rain-band: rgb(var(--rain-band));
+  /* The lines of a load chart, in a fixed order: the Health chart's CPU and accelerators and the
+     sidebar's meters. Categorical, not semantic: they never follow the colour theme, and they keep
+     clear of the accent, the focus ring and every status tone, so no line reads as a link or a
+     state. The contrast test (design-tokens.contrast.test.ts) checks normal-vision separation and
+     contrast in each mode; for colour-blind readers each line's own dash carries the difference. */
+  --color-series-1: rgb(var(--series-1));
+  --color-series-2: rgb(var(--series-2));
+  --color-series-3: rgb(var(--series-3));
+  --color-series-4: rgb(var(--series-4));
+
+  /* Semantic success, deliberately NOT theme-driven. `accent` is a brand colour and the
+     bluetit theme paints it amber, which is reserved for "needs a person"
+     (layout-patterns.md §1.3). */
+  --color-success-50: rgb(var(--success-50)); --color-success-100: rgb(var(--success-100)); --color-success-200: rgb(var(--success-200));
+  --color-success-300: rgb(var(--success-300)); --color-success-400: rgb(var(--success-400)); --color-success-500: rgb(var(--success-500));
+  --color-success-600: rgb(var(--success-600)); --color-success-700: rgb(var(--success-700)); --color-success-800: rgb(var(--success-800));
+  --color-success-900: rgb(var(--success-900)); --color-success-950: rgb(var(--success-950));
+
+  /* Semantic attention: amber for "this needs a person", in every theme. Not theme-driven for
+     the same reason as success: classic paints `accent` emerald, which read waiting work as
+     healthy (layout-patterns.md §1.3). */
+  --color-attention-50: rgb(var(--attention-50)); --color-attention-100: rgb(var(--attention-100)); --color-attention-200: rgb(var(--attention-200));
+  --color-attention-300: rgb(var(--attention-300)); --color-attention-400: rgb(var(--attention-400)); --color-attention-500: rgb(var(--attention-500));
+  --color-attention-600: rgb(var(--attention-600)); --color-attention-700: rgb(var(--attention-700)); --color-attention-800: rgb(var(--attention-800));
+  --color-attention-900: rgb(var(--attention-900)); --color-attention-950: rgb(var(--attention-950));
+
+  /* An outline drawn on a photograph (a counted bird, the chosen frame, a detector's box): one light
+     colour that holds against plumage and foliage in every theme. It marks evidence, not a state, so
+     it is neither the brand nor the attention colour. */
+  --color-evidence: #7dd3fc;
+
+  /* Panels and the fills inside them; set per mode and theme below. */
+  --color-surface: rgb(var(--surface));
+  --color-surface-raised: rgb(var(--surface-raised));
+  /* Rules: `line` edges controls, `line-soft` separates rows and panels. */
+  --color-line: rgb(var(--line));
+  --color-line-soft: rgb(var(--line-soft));
+  /* Keyboard focus: one opaque colour per mode, at 3:1 or better against the page, a panel and a
+     well. `focus-on-dark` is for a control drawn over a photograph or a fixed dark media ground,
+     which stays dark in the light theme. */
+  --color-focus: rgb(var(--focus));
+  --color-focus-on-dark: rgb(var(--focus-on-dark));
+  /* A switch's track, off and on: each 3:1 against what it sits on and under its white thumb. */
+  --color-switch-off: rgb(var(--switch-off));
+  --color-switch-on: rgb(var(--switch-on));
+}
+
+/* The fixed palette, in the sRGB values the app was drawn with, so a colour reads the same on
+   every display. These never change at run time, so they are written into each utility as
+   literals (`inline`) instead of being read through a variable: a utility with an opacity then
+   needs one declaration, not a fallback and a `color-mix()` pair. */
+@theme inline {
+  --color-black: #000;
+  --color-white: #fff;
+
+  /* Page ground for full-screen states (the setup wizard, the backend status screen). */
+  --color-surface-light: #f8fafc;
+  --color-surface-dark: #030712;
+
+  --color-slate-50: #f8fafc; --color-slate-100: #f1f5f9; --color-slate-200: #e2e8f0; --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8; --color-slate-500: #64748b; --color-slate-600: #475569; --color-slate-700: #334155;
+  --color-slate-800: #1e293b; --color-slate-900: #0f172a; --color-slate-950: #020617;
+
+  --color-gray-50: #f9fafb; --color-gray-100: #f3f4f6; --color-gray-200: #e5e7eb; --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af; --color-gray-500: #6b7280; --color-gray-600: #4b5563; --color-gray-700: #374151;
+  --color-gray-800: #1f2937; --color-gray-900: #111827; --color-gray-950: #030712;
+
+  --color-red-50: #fef2f2; --color-red-100: #fee2e2; --color-red-200: #fecaca; --color-red-300: #fca5a5;
+  --color-red-400: #f87171; --color-red-500: #ef4444; --color-red-600: #dc2626; --color-red-700: #b91c1c;
+  --color-red-800: #991b1b; --color-red-900: #7f1d1d; --color-red-950: #450a0a;
+
+  --color-orange-50: #fff7ed; --color-orange-100: #ffedd5; --color-orange-200: #fed7aa; --color-orange-300: #fdba74;
+  --color-orange-400: #fb923c; --color-orange-500: #f97316; --color-orange-600: #ea580c; --color-orange-700: #c2410c;
+  --color-orange-800: #9a3412; --color-orange-900: #7c2d12; --color-orange-950: #431407;
+
+  --color-amber-50: #fffbeb; --color-amber-100: #fef3c7; --color-amber-200: #fde68a; --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24; --color-amber-500: #f59e0b; --color-amber-600: #d97706; --color-amber-700: #b45309;
+  --color-amber-800: #92400e; --color-amber-900: #78350f; --color-amber-950: #451a03;
+
+  --color-green-50: #f0fdf4; --color-green-100: #dcfce7; --color-green-200: #bbf7d0; --color-green-300: #86efac;
+  --color-green-400: #4ade80; --color-green-500: #22c55e; --color-green-600: #16a34a; --color-green-700: #15803d;
+  --color-green-800: #166534; --color-green-900: #14532d; --color-green-950: #052e16;
+
+  --color-emerald-50: #ecfdf5; --color-emerald-100: #d1fae5; --color-emerald-200: #a7f3d0; --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #34d399; --color-emerald-500: #10b981; --color-emerald-600: #059669; --color-emerald-700: #047857;
+  --color-emerald-800: #065f46; --color-emerald-900: #064e3b; --color-emerald-950: #022c22;
+
+  --color-teal-50: #f0fdfa; --color-teal-100: #ccfbf1; --color-teal-200: #99f6e4; --color-teal-300: #5eead4;
+  --color-teal-400: #2dd4bf; --color-teal-500: #14b8a6; --color-teal-600: #0d9488; --color-teal-700: #0f766e;
+  --color-teal-800: #115e59; --color-teal-900: #134e4a; --color-teal-950: #042f2e;
+
+  --color-cyan-50: #ecfeff; --color-cyan-100: #cffafe; --color-cyan-200: #a5f3fc; --color-cyan-300: #67e8f9;
+  --color-cyan-400: #22d3ee; --color-cyan-500: #06b6d4; --color-cyan-600: #0891b2; --color-cyan-700: #0e7490;
+  --color-cyan-800: #155e75; --color-cyan-900: #164e63; --color-cyan-950: #083344;
+
+  --color-sky-50: #f0f9ff; --color-sky-100: #e0f2fe; --color-sky-200: #bae6fd; --color-sky-300: #7dd3fc;
+  --color-sky-400: #38bdf8; --color-sky-500: #0ea5e9; --color-sky-600: #0284c7; --color-sky-700: #0369a1;
+  --color-sky-800: #075985; --color-sky-900: #0c4a6e; --color-sky-950: #082f49;
+
+  --color-blue-50: #eff6ff; --color-blue-100: #dbeafe; --color-blue-200: #bfdbfe; --color-blue-300: #93c5fd;
+  --color-blue-400: #60a5fa; --color-blue-500: #3b82f6; --color-blue-600: #2563eb; --color-blue-700: #1d4ed8;
+  --color-blue-800: #1e40af; --color-blue-900: #1e3a8a; --color-blue-950: #172554;
+
+  --color-indigo-50: #eef2ff; --color-indigo-100: #e0e7ff; --color-indigo-200: #c7d2fe; --color-indigo-300: #a5b4fc;
+  --color-indigo-400: #818cf8; --color-indigo-500: #6366f1; --color-indigo-600: #4f46e5; --color-indigo-700: #4338ca;
+  --color-indigo-800: #3730a3; --color-indigo-900: #312e81; --color-indigo-950: #1e1b4b;
+
+  --color-violet-50: #f5f3ff; --color-violet-100: #ede9fe; --color-violet-200: #ddd6fe; --color-violet-300: #c4b5fd;
+  --color-violet-400: #a78bfa; --color-violet-500: #8b5cf6; --color-violet-600: #7c3aed; --color-violet-700: #6d28d9;
+  --color-violet-800: #5b21b6; --color-violet-900: #4c1d95; --color-violet-950: #2e1065;
+
+  --color-rose-50: #fff1f2; --color-rose-100: #ffe4e6; --color-rose-200: #fecdd3; --color-rose-300: #fda4af;
+  --color-rose-400: #fb7185; --color-rose-500: #f43f5e; --color-rose-600: #e11d48; --color-rose-700: #be123c;
+  --color-rose-800: #9f1239; --color-rose-900: #881337; --color-rose-950: #4c0519;
+}
 
 :root {
   --font-body: 'Instrument Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -19,6 +309,79 @@
   --surface-raised: 241 245 249;
   --line: 214 222 232;
   --line-soft: 229 234 241;
+  /* Depth, from light. A dialog stands over a scrim that dims the page behind it, lifted by a
+     close contact shadow and a wide soft one; a panel inside it stands on a sunken well, lifted by
+     a small shadow. Dark mode has no light to cast a shadow on, so there the lift is carried by a
+     lighter surface and a firmer edge, and the scrim is deeper than the dialog. */
+  --scrim: 2 6 23;
+  --scrim-strength: 0.6;
+  --elevation-dialog: 0 2px 6px -1px rgb(15 23 42 / 0.14), 0 28px 64px -16px rgb(15 23 42 / 0.5);
+  --elevation-panel: 0 1px 2px rgb(15 23 42 / 0.06), 0 3px 8px -3px rgb(15 23 42 / 0.12);
+  --dialog-edge: var(--line);
+  /* The smallest any text is drawn. Half the browser's own text size (the root with the reader's
+     Appearance size divided back out) plus a third of the root: 12px at the smallest Appearance
+     size, a little more at each larger one, and never a fixed pixel count, so it doubles with
+     everything else when the browser's text size is doubled. */
+  --text-floor: calc(0.5rem / var(--text-scale, 1) + 1rem / 3);
+  /* These follow the colour theme: each names a step of the brand scale set further down. */
+  --focus: var(--brand-700);
+  --focus-on-dark: var(--brand-400);
+  --switch-off: 100 116 139;
+  --switch-on: var(--brand-600);
+  /* The inks of the record's AI panel and the Markdown inside it. They are tokens, not colours
+     written in the component, so each theme and high contrast set them in one place. */
+  --ai-ink: 30 41 59;
+  --ai-heading: var(--brand-600);
+  --ai-strong: var(--brand-700);
+  --ai-code: var(--brand-700);
+  --ai-muted: 100 116 139;
+  --ai-marker: var(--brand-600);
+
+  /* Semantic tokens, light. */
+  --surface-sunken: 248 250 252;
+  --ink-strong: 15 23 42;
+  --ink: 51 65 85;
+  --ink-muted: 71 85 105;
+  --ink-subtle: 100 116 139;
+  --line-strong: 100 116 139;
+  --track: 226 232 240;
+  --accent: var(--brand-700);
+  --accent-hover: var(--brand-800);
+  --accent-fg: 255 255 255;
+  --accent-ink: var(--brand-700);
+  --accent-soft: var(--brand-50);
+  --accent-line: var(--brand-600);
+  --danger: 185 28 28;
+  --danger-hover: 153 27 27;
+  --danger-fg: 255 255 255;
+  --status-ok: var(--success-700);
+  --status-ok-soft: var(--success-50);
+  --status-ok-line: var(--success-600);
+  --status-attention: var(--attention-800);
+  --status-attention-soft: var(--attention-50);
+  --status-attention-line: var(--attention-700);
+  --status-fail: 190 18 60;
+  --status-fail-soft: 255 241 242;
+  --status-fail-line: 225 29 72;
+  --status-info: var(--brand-700);
+  --status-info-soft: var(--brand-50);
+  --status-info-line: var(--brand-600);
+  --status-neutral: 51 65 85;
+  --status-neutral-soft: 241 245 249;
+  --status-neutral-line: 100 116 139;
+  --media: 0 0 0;
+  --media-raised: 15 23 42;
+  /* The hairline round a media object: on-media white at about a fifth, as a solid colour. */
+  --media-edge: 61 68 84;
+  --on-media-fail: 253 164 175;
+  --rain-band: 56 189 248;
+  --on-media: 255 255 255;
+  /* Violet, sky, plum, pink: the CPU and the first accelerator, the pair on show most, are the
+     furthest apart. */
+  --series-1: 119 47 221;
+  --series-2: 0 140 206;
+  --series-3: 145 0 128;
+  --series-4: 248 81 174;
 }
 
 html.dark,
@@ -27,12 +390,58 @@ html[data-theme='dark'] {
   --surface-raised: 30 41 59;
   --line: 51 65 85;
   --line-soft: 34 46 66;
+  --scrim: 0 0 0;
+  --scrim-strength: 0.72;
+  --elevation-dialog: 0 28px 64px -16px rgb(0 0 0 / 0.85);
+  --elevation-panel: 0 1px 2px rgb(0 0 0 / 0.5);
+  --dialog-edge: 71 85 105;
+  --focus: var(--brand-400);
+
+  /* Semantic tokens, dark. The status grounds are quiet tints of the panel, not the deep 950
+     steps: a tone is carried by its ink and its edge, and a saturated fill under a whole callout
+     weighs more than its message. */
+  --surface-sunken: 2 6 23;
+  --ink-strong: 255 255 255;
+  --ink: 226 232 240;
+  --ink-muted: 148 163 184;
+  --ink-subtle: 100 116 139;
+  --line-strong: 100 116 139;
+  --track: 30 41 59;
+  --accent-ink: var(--brand-300);
+  --accent-soft: var(--brand-950);
+  --accent-line: var(--brand-500);
+  --status-ok: var(--success-300);
+  --status-ok-soft: 16 40 36;
+  --status-ok-line: var(--success-600);
+  --status-attention: var(--attention-200);
+  --status-attention-soft: 42 33 22;
+  --status-attention-line: var(--attention-600);
+  --status-fail: 253 164 175;
+  --status-fail-soft: 50 22 32;
+  --status-fail-line: 244 63 94;
+  --status-info: var(--brand-300);
+  --status-info-soft: var(--brand-950);
+  --status-info-line: var(--brand-500);
+  --status-neutral: 226 232 240;
+  --status-neutral-soft: 30 41 59;
+  --status-neutral-line: 100 116 139;
+  --ai-ink: 241 245 249;
+  --ai-heading: 94 234 212;
+  --ai-strong: var(--brand-200);
+  --ai-code: var(--brand-200);
+  --ai-muted: 148 163 184;
+  --ai-marker: var(--brand-300);
+  /* The same four hues, stepped for the dark ground: violet, sky, orchid, deep pink. */
+  --series-1: 144 72 253;
+  --series-2: 8 154 195;
+  --series-3: 227 110 253;
+  --series-4: 217 9 129;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Accent tokens. Utilities use brand-* (primary) and accent-* (secondary);
-   the active colour theme swaps these values, so the whole app follows it.
-   The :root values below are teal + emerald; the bluetit theme is blue + amber.
+   The brand scale. The active colour theme swaps these values, and the semantic
+   accent tokens read them, so the whole app follows it. The :root values below
+   are teal; the bluetit theme is blue.
    Bluetit is what a new install actually gets — the shipped defaults live in
    stores/theme.svelte.ts (bluetit + the classic font pairing + dark).
    ═══════════════════════════════════════════════════════════════════════ */
@@ -41,21 +450,17 @@ html[data-theme='dark'] {
   --brand-300: 94 234 212;  --brand-400: 45 212 191;  --brand-500: 20 184 166;
   --brand-600: 13 148 136;  --brand-700: 15 118 110;  --brand-800: 17 94 89;
   --brand-900: 19 78 74;    --brand-950: 4 47 46;
-  --accent-50: 236 253 245; --accent-100: 209 250 229; --accent-200: 167 243 208;
-  --accent-300: 110 231 183;--accent-400: 52 211 153;  --accent-500: 16 185 129;
-  --accent-600: 5 150 105;  --accent-700: 4 120 87;    --accent-800: 6 95 70;
-  --accent-900: 6 78 59;    --accent-950: 2 44 34;
 
   /* Semantic, never re-themed: layout-patterns.md §1.3 gives green to
      "confirmed or healthy" and reserves amber for "this needs a person".
-     A theme may repaint --accent-*; it may not repaint success. */
+     A theme may repaint --brand-*; it may not repaint success. */
   --success-50: 236 253 245; --success-100: 209 250 229;--success-200: 167 243 208;
   --success-300: 110 231 183;--success-400: 52 211 153; --success-500: 16 185 129;
   --success-600: 5 150 105;  --success-700: 4 120 87;   --success-800: 6 95 70;
   --success-900: 6 78 59;    --success-950: 2 44 34;
 
   /* Attention is the amber that says "this needs a person", in every theme.
-     A theme may repaint --accent-*; it may not repaint attention. */
+     A theme may repaint --brand-*; it may not repaint attention. */
   --attention-50: 255 251 235; --attention-100: 254 243 199; --attention-200: 253 230 138;
   --attention-300: 252 211 77; --attention-400: 251 191 36;  --attention-500: 245 158 11;
   --attention-600: 217 119 6;  --attention-700: 180 83 9;    --attention-800: 146 64 14;
@@ -67,10 +472,6 @@ html.theme-bluetit {
   --brand-300: 147 197 253; --brand-400: 96 165 250;  --brand-500: 59 130 246;
   --brand-600: 37 99 235;   --brand-700: 29 78 216;   --brand-800: 30 64 175;
   --brand-900: 30 58 138;   --brand-950: 23 37 84;
-  --accent-50: 255 251 235; --accent-100: 254 243 199;--accent-200: 253 230 138;
-  --accent-300: 252 211 77; --accent-400: 251 191 36; --accent-500: 245 158 11;
-  --accent-600: 217 119 6;  --accent-700: 180 83 9;   --accent-800: 146 64 14;
-  --accent-900: 120 53 15;  --accent-950: 69 26 3;
 }
 
 html.dark,
@@ -81,10 +482,25 @@ html[data-theme='dark'] {
 
 
 @layer base {
+  /* Figures are lining and tabular everywhere: the display faces default to old-style figures, which
+     set "08:00" as "o8:oo" and "100%" as "1oo%", and tabular digits keep times and counts in line.
+     Tailwind's numeric utilities (tabular-nums, oldstyle-nums) rebuild font-variant-numeric from
+     these per-element variables, which do not inherit, so each element starts from the default and
+     a utility still changes only the part it names. */
+  *,
+  ::before,
+  ::after {
+    --tw-numeric-figure: lining-nums;
+    --tw-numeric-spacing: tabular-nums;
+  }
+
   html,
   body {
-    @apply text-slate-700 dark:text-slate-200;
+    @apply text-ink;
+    font-variant-numeric: lining-nums tabular-nums;
     font-family: var(--font-body);
+    /* Normal text is the base step, not the bare root: the root can sit on the small-print floor. */
+    font-size: var(--text-base);
     min-height: 100%;
     /* Safari/iOS overscroll uses the root/body paint, so keep this explicit. */
     background-color: var(--app-bg);
@@ -109,11 +525,13 @@ html[data-theme='dark'] {
 /* Smooth theme transitions */
 html {
   /* Type and spacing are all rem, so the root size scales the whole app. It holds the reader's own
-     size up to a 1280px window, then grows a pixel for every 256px of width, to at most 20px from
-     2304px, so a large display is not read at laptop size. A percentage keeps the browser's
-     text-size setting in charge; media queries stay in px and are unaffected. The reader's own
+     size up to a 1280px window, then grows by a sixteenth of that size for every 256px of width,
+     to a quarter more from 2304px, so a large display is not read at laptop size. The growth is a
+     share of the reader's size, not a count of pixels, so the whole root still doubles when the
+     browser's text size does: tan(atan2(a, b)) is the plain number a / b, which calc cannot get by
+     dividing one length by another. Media queries stay in px and are unaffected. The reader's own
      text size in Appearance (--text-scale, kept per device) multiplies the whole of it. */
-  font-size: calc(clamp(100%, calc(100% + (100vw - 1280px) / 256), 125%) * var(--text-scale, 1));
+  font-size: calc(100% * clamp(1, 1 + tan(atan2(100vw - 1280px, 4096px)), 1.25) * var(--text-scale, 1));
   transition: background-color 0.3s ease, color 0.3s ease;
   background-color: var(--app-bg);
   color: var(--app-fg);
@@ -127,210 +545,376 @@ html[data-theme='dark'] {
 
 /* Custom selection */
 ::selection {
-  @apply bg-brand-500/30 text-inherit;
+  @apply bg-accent-line/30 text-inherit;
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Scrollbars are the platform's own. Styling ::-webkit-scrollbar turns off macOS's overlay
+   scrollbars in Safari and Chrome, so every scrolling panel kept a bar and the page moved sideways
+   when a dialog took the bar away. `color-scheme` above already gives the native bar the right
+   colours in each mode. */
+
+/* A strip that scrolls sideways under a thin bar, or none (when its edge already says there is more).
+   The standard properties, unlike ::-webkit-scrollbar, leave macOS's overlay scrollbars in place. */
+@utility scrollbar-thin {
+  scrollbar-width: thin;
 }
 
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
+@utility scrollbar-none {
+  scrollbar-width: none;
 }
 
-::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 dark:bg-slate-600 rounded-full border-2 border-transparent bg-clip-padding;
+/* The keyboard focus ring: two opaque pixels of the focus colour, set off from the control by two
+   of the panel colour, so it reads at 3:1 against whatever lies beside it in either mode. It shows
+   for keyboard focus only; a pointer press does not draw it. */
+@utility focus-ring {
+  @apply focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-400 dark:bg-slate-500;
+/* A Settings part's heading that an address landed on holds focus, so the next Tab starts there. It
+   shows the kit's ring unless the reader last used a pointer: after a key, and also on an address opened
+   cold or pasted, which the browser treats as keyboard focus, so the ring says where focus now is. */
+[data-settings-landed]:focus-visible {
+  @apply rounded-md outline-hidden ring-2 ring-focus ring-offset-2 ring-offset-surface;
 }
 
-/* Focus ring styling */
-@layer utilities {
-  .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900;
+/* The same ring for a control over a photograph or a fixed dark media ground. */
+@utility focus-ring-on-dark {
+  @apply focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-on-dark focus-visible:ring-offset-2 focus-visible:ring-offset-media;
+}
+
+/* A ruled panel on the page ground: a hairline and a flat fill, no shadow or blur.
+   Hierarchy comes from type and spacing, so every block need not float. */
+@utility card-base {
+  @apply rounded-2xl border border-line-soft bg-surface transition-colors duration-200;
+}
+
+/* Depth for dialogs (docs/standards/ui-ux.md, Depth). Four parts, each one job:
+   the scrim dims the page so the dialog is the brightest surface on screen; the dialog surface is
+   edged and lifted off it; a well is the recessed ground inside a dialog; and a raised panel
+   stands on a well to group what belongs together. A panel on plain dialog ground stays `card-base`. */
+@utility dialog-scrim {
+  background-color: rgb(var(--scrim) / var(--scrim-strength));
+}
+
+@utility dialog-surface {
+  @apply bg-surface;
+  border: 1px solid rgb(var(--dialog-edge));
+  box-shadow: var(--elevation-dialog);
+}
+
+@utility dialog-well {
+  @apply bg-surface-sunken;
+}
+
+@utility panel-raised {
+  @apply rounded-2xl border border-line bg-surface;
+  box-shadow: var(--elevation-panel);
+}
+
+/* A photograph or a player as an object: a light hairline edge, so it keeps its outline on a dark
+   well and on the scrim, and the same lift as a dialog. The component sets the ground. In high
+   contrast the edge is the theme's own rule colour. */
+@utility media-frame {
+  border: 1px solid rgb(var(--media-edge));
+  box-shadow: var(--elevation-dialog);
+}
+
+/* A dashboard or page section: the card chrome with the section's own padding. */
+@utility panel {
+  @apply card-base p-5;
+}
+
+/* The kit. Each class is a utility, so it takes variants (sm:panel) and sits in the same layer
+   as the utilities written beside it: a later utility of equal weight overrides it, while its own
+   dark and hover styles keep the extra weight they have always had. */
+/* A small label above a heading or a group: names the window, the camera, the section. Sentence
+   case at normal tracking, like every other label; it stays subordinate to its heading by size,
+   weight and a muted ink, never by capitals. */
+@utility eyebrow {
+  @apply text-xs font-semibold text-muted;
+  /* A long translated label may break rather than push its row past the edge. */
+  overflow-wrap: anywhere;
+}
+
+/* A taxonomic rank named beside a name: small and muted, the same wherever a rank appears so the
+   eye learns one label. The muted ink keeps AA contrast on a panel, a well and the page. */
+@utility taxon-rank {
+  @apply text-3xs font-semibold text-muted;
+}
+
+/* A figure set in the display face with lining, tabular digits so columns of numbers align. */
+@utility figure {
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  /* Plain declarations: a text-size utility on the same element still sets its own leading. */
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Tab button styling */
+@utility tab-button {
+  @apply flex min-h-11 items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium focus-ring;
+  @apply transition-colors duration-200;
+}
+
+@utility tab-button-active {
+  @apply bg-surface text-accent-ink shadow-xs ring-1 ring-inset ring-line-soft;
+}
+
+@utility tab-button-inactive {
+  @apply text-muted hover:text-strong hover:bg-surface-raised;
+}
+
+/* Unified buttons */
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors duration-200 focus-ring disabled:opacity-50 disabled:cursor-not-allowed;
+
+  /* A button with nothing else said is a 44px target with room round its label. `:where` gives
+     the defaults no weight, so any height or padding utility beside `btn` replaces them. */
+  :where(&) {
+    @apply min-h-11 px-4 py-2;
   }
 }
 
-/* Smooth card transitions */
-@layer components {
-  /* A ruled panel on the page ground: a hairline and a flat fill, no shadow or blur.
-     Hierarchy comes from type and spacing, so every block need not float. */
-  .card-base {
-    @apply rounded-2xl border border-line-soft bg-surface transition-colors duration-200;
-  }
+/* A solid fill, dark enough under white text to pass AA in every theme. */
+@utility btn-primary {
+  @apply bg-accent text-accent-fg hover:bg-accent-hover;
+}
 
-  /* A dashboard or page section: the card chrome with the section's own padding. */
-  .panel {
-    @apply card-base p-5;
-  }
+@utility btn-secondary {
+  @apply bg-surface text-ink border border-line;
+  @apply hover:bg-surface-raised hover:text-strong;
+}
 
-  /* A small uppercase label above a heading or a group: names the window, the camera, the section. */
-  .eyebrow {
-    @apply text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
-  }
+@utility btn-ghost {
+  @apply text-muted hover:bg-surface-raised hover:text-strong;
+}
 
-  /* A taxonomic rank named beside a name: small tracked capitals, muted, the same wherever a rank
-     appears so the eye learns one label. Slate 500 and 400 keep AA contrast on either ground. */
-  .taxon-rank {
-    @apply text-3xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
-  }
+@utility btn-danger {
+  @apply text-status-fail border border-status-fail-line hover:bg-status-fail-soft;
+}
 
-  /* A figure set in the display face with lining, tabular digits so columns of numbers align. */
-  .figure {
-    font-family: var(--font-display);
-    font-variant-numeric: lining-nums tabular-nums;
-    @apply font-bold leading-none;
-  }
+/* The widest-reaching destructive action on a screen: a solid fill that passes AA under white text. */
+@utility btn-danger-solid {
+  @apply bg-danger text-danger-fg hover:bg-danger-hover;
+}
 
-  /* Tab button styling */
-  .tab-button {
-    @apply flex min-h-11 items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium focus-ring;
-    @apply transition-colors duration-200;
-  }
+/* A button over a photograph or on a fixed dark media ground (the video player, a picture's
+   toolbar): white on a faint white fill, edged in white, the same in both themes because the
+   ground does not change with the theme. `:not(_)` puts its ring ahead of the one `btn` sets. */
+@utility btn-on-dark {
+  @apply border border-on-media/40 bg-on-media/10 text-on-media hover:bg-on-media/20;
 
-  .tab-button-active {
-    @apply bg-surface text-brand-700 shadow-sm ring-1 ring-inset ring-line-soft dark:text-brand-300;
+  &:focus-visible:not(_) {
+    --tw-ring-color: var(--color-focus-on-dark);
+    /* slate-950, written out: the fixed palette is inlined and has no variable to read. */
+    --tw-ring-offset-color: #020617;
   }
+}
 
-  .tab-button-inactive {
-    @apply text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-surface-raised;
+/* Any other kit button that sits on a dark media ground keeps its own fill and takes the dark ring. */
+@utility btn-focus-on-dark {
+  &:focus-visible:not(_) {
+    --tw-ring-color: var(--color-focus-on-dark);
+    /* slate-950, written out: the fixed palette is inlined and has no variable to read. */
+    --tw-ring-offset-color: #020617;
   }
+}
 
-  /* Unified buttons */
-  .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors duration-200 focus-ring disabled:opacity-50 disabled:cursor-not-allowed;
+@utility btn-icon {
+  @apply min-h-11 min-w-11 p-2.5 rounded-xl;
+}
+
+/* Unified fields */
+@utility input-base {
+  @apply w-full px-3 py-2.5 rounded-xl bg-surface border border-line;
+  @apply text-sm text-strong placeholder:text-muted;
+  @apply outline-hidden transition-colors focus:ring-2 focus:ring-focus focus:border-focus;
+}
+
+/* For a field that sits flush against an edge that clips (a phone's edge, a scrolling rail): the ring is drawn
+   inside the border, so no edge can cut it off and its contrast does not depend on what lies beyond. */
+@utility input-focus-inset {
+  @apply focus:ring-inset;
+}
+
+/* A field on a fixed dark media ground: the same shape as `input-base`, in colours that do not
+   follow the theme, with an edge that is 3:1 against the ground. */
+@utility input-on-dark {
+  @apply w-full rounded-xl border border-on-media/60 bg-media px-3 py-2 text-sm text-on-media placeholder:text-on-media/70;
+  @apply outline-hidden transition-colors focus:border-focus-on-dark focus:ring-2 focus:ring-focus-on-dark;
+}
+
+/* A switch: `switch-track` on the `role="switch"` button, `switch-thumb` on the span inside it.
+   The off track is as visible as the on track (3:1 against a panel or a well), the thumb's side
+   carries the state so it never reads by colour alone, and keyboard focus draws the kit ring. */
+@utility switch-track {
+  @apply relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-switch-off transition-colors duration-200 focus-ring;
+  @apply aria-checked:bg-switch-on aria-disabled:cursor-not-allowed aria-disabled:opacity-50;
+
+  &[aria-checked='true'] .switch-thumb {
+    @apply translate-x-5;
   }
+}
 
-  /* A solid fill, dark enough under white text to pass AA in every theme. */
-  .btn-primary {
-    @apply bg-brand-700 text-white hover:bg-brand-800;
-  }
+@utility switch-thumb {
+  @apply pointer-events-none inline-block h-5 w-5 rounded-full bg-accent-fg shadow-sm transition-transform duration-200;
+}
 
-  .btn-secondary {
-    @apply bg-surface text-slate-700 dark:text-slate-200 border border-line;
-    @apply hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white;
-  }
+/* A label set over a photograph (a time, a score, a camera): white on a fill dark enough to pass
+   AA over the palest frame, with no blur, so the words never depend on what the camera saw. */
+@utility photo-chip {
+  @apply bg-media/75 text-on-media;
+}
 
-  .btn-ghost {
-    @apply text-slate-600 dark:text-slate-300 hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white;
-  }
+@utility select-base {
+  @apply input-base pr-9 appearance-none;
+  /* An image cannot inherit the text colour, so each mode names its chevron colour (slate-500, slate-400). */
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 12px 12px;
 
-  .btn-danger {
-    @apply text-red-700 dark:text-red-300 border border-red-200/70 dark:border-red-900/50 hover:bg-red-50/80 dark:hover:bg-red-950/40;
-  }
-
-  /* The widest-reaching destructive action on a screen: a solid fill that passes AA under white text. */
-  .btn-danger-solid {
-    @apply bg-red-700 text-white hover:bg-red-800;
-  }
-
-  .btn-icon {
-    @apply min-h-11 min-w-11 p-2.5 rounded-xl;
-  }
-
-  /* Unified fields */
-  .input-base {
-    @apply w-full px-3 py-2.5 rounded-xl bg-surface border border-line;
-    @apply text-sm text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400;
-    @apply outline-none transition-colors focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/70;
-  }
-
-  /* For a field that sits flush against an edge that clips (a phone's edge, a scrolling rail): the ring is drawn
-     inside the border, solid, so no edge can cut it off and its contrast does not depend on what lies beyond. */
-  .input-focus-inset {
-    @apply focus:ring-inset focus:ring-brand-600 dark:focus:ring-brand-400;
-  }
-
-  .select-base {
-    @apply input-base pr-9 appearance-none;
-    /* An image cannot inherit the text colour, so each mode names its chevron colour (slate-500, slate-400). */
-    background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.75rem center;
-    background-size: 12px 12px;
-  }
-
-  .dark .select-base {
+  .dark & {
     background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
+}
 
-  /* Navigation buttons */
-  .nav-button {
-    @apply px-4 py-2 rounded-xl text-sm font-semibold transition-colors duration-200 focus-ring;
-  }
+@utility sidebar-nav {
+  @apply flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium transition-colors duration-200 focus-ring;
+}
 
-  /* The selected route is a recessed key with a lit icon; no bar, no glow. */
-  .nav-button-active {
-    @apply bg-brand-50 text-slate-900 dark:bg-brand-950/60 dark:text-white;
-  }
+@utility sidebar-nav-active {
+  @apply bg-accent-soft font-semibold text-strong;
 
-  .nav-button-active svg {
-    @apply text-brand-600 dark:text-brand-400;
-  }
-
-  .nav-button-inactive {
-    @apply text-slate-600 dark:text-slate-300 hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white;
-  }
-
-  .sidebar-nav {
-    @apply flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors duration-200 focus-ring;
-  }
-
-  .sidebar-nav-active {
-    @apply bg-brand-50 font-semibold text-slate-900 dark:bg-brand-950/60 dark:text-white;
-  }
-
-  .sidebar-nav-active svg {
-    @apply text-brand-600 dark:text-brand-400;
-  }
-
-  .sidebar-nav-inactive {
-    @apply text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-300 dark:hover:text-white;
-  }
-
-  /* A chosen row in a list of choices (the Explorer rail, the search's active result): the same
-     recessed brand key as the selected route, with a lit check so it never reads by tint alone.
-     Never a coloured bar on one edge. */
-  .choice-active {
-    @apply bg-brand-50 font-medium text-slate-900 dark:bg-brand-950/60 dark:text-white;
-  }
-
-  .choice-active svg {
-    @apply text-brand-600 dark:text-brand-400;
-  }
-
-  /* Work that needs a person: a small amber dot set beside the reason in words. The words carry
-     the meaning; the dot lets the eye find the row. */
-  .attention-dot {
-    @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-attention-500;
-  }
-
-  /* Badges */
-  .badge {
-    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border;
-  }
-
-  .badge-info {
-    @apply bg-indigo-100/80 dark:bg-indigo-900/30 border-indigo-200/70 dark:border-indigo-700/40 text-indigo-700 dark:text-indigo-300;
-  }
-
-  .badge-success {
-    @apply bg-success-100/80 dark:bg-success-900/30 border-success-200/70 dark:border-success-700/40 text-success-700 dark:text-success-300;
+  & svg {
+    @apply text-accent-ink;
   }
 }
 
-/* Controls speak in sentence case. Small capitals with wide tracking are for labels that name a
-   group (the eyebrow); on a button they shout, and the serif faces set them poorly. Element plus
-   class outranks the utilities, so every control follows without editing each one. */
-button.uppercase,
-a.btn.uppercase,
-label.uppercase.cursor-pointer {
-  text-transform: none;
-  letter-spacing: normal;
+@utility sidebar-nav-inactive {
+  @apply text-muted hover:bg-surface-raised hover:text-strong;
+}
+
+/* A chosen row in a list of choices (the Explorer rail, the search's active result): the same
+   recessed brand key as the selected route, with a lit check so it never reads by tint alone.
+   Never a coloured bar on one edge. */
+@utility choice-active {
+  @apply bg-accent-soft font-medium text-strong;
+
+  & svg {
+    @apply text-accent-ink;
+  }
+}
+
+/* A single-choice option drawn as a tile or card (Settings pickers, the bird finder, link targets).
+   Chosen, it takes the same recessed brand key as .choice-active, a brand edge and a lit check
+   beside its name, so every tab marks a choice the same way and never by tint alone. */
+@utility choice-option {
+  @apply rounded-2xl border border-line-soft bg-surface text-ink transition-colors hover:bg-surface-raised;
+}
+
+@utility choice-option-selected {
+  @apply choice-active border-accent-line hover:bg-accent-soft;
+}
+
+/* Settings: calm rows of label and control, in the app's own fonts. A section is a plain heading
+   over one card whose direct children are rows split by hairlines; at 768px and wider a row puts its
+   label and hint left and its control right, every control on the same column edge. */
+
+@utility settings-section-body {
+  @apply divide-y divide-line-soft px-4 md:px-6;
+  /* A group stands off the page, with the same lift as a raised panel, so it reads as one thing. */
+  box-shadow: var(--elevation-panel);
+
+  & > * {
+    @apply py-4;
+  }
+
+  /* A section whose rows are all hidden (a service switched off) shows its heading alone. */
+  &:not(:has(> *)) {
+    display: none;
+  }
+}
+
+/* Rows revealed by "Show advanced options", ruled like the section they belong to. */
+@utility settings-subrows {
+  @apply divide-y divide-line-soft border-t border-line-soft;
+
+  & > * {
+    @apply py-4;
+  }
+}
+
+/* A group of rows inside one row slot (a list's controls, revealed fields): ruled like the card. */
+@utility settings-stack {
+  @apply divide-y divide-line-soft;
+
+  & > * {
+    @apply py-4;
+  }
+
+  & > *:first-child {
+    @apply pt-0;
+  }
+
+  & > *:last-child {
+    @apply pb-0;
+  }
+}
+
+/* The setting a search result just opened: an outline that stays for a moment, over a tint that
+   fades. With reduced motion the tint does not animate; the outline alone marks it, then goes. */
+[data-settings-found] {
+  border-radius: 0.5rem;
+  outline: 2px solid var(--color-focus);
+  outline-offset: 6px;
+  animation: settings-found 2.4s ease-out both;
+}
+
+@keyframes settings-found {
+  from {
+    background-color: var(--color-accent-soft);
+    box-shadow: 0 0 0 6px var(--color-accent-soft);
+  }
+  to {
+    background-color: transparent;
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-settings-found] {
+    animation: none;
+  }
+}
+
+@utility settings-row-columns {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+
+  /* Every control ends on the card's right edge: a field fills the column, so a switch sits at
+     its end too, level with the switch beside a section heading. */
+  & > :last-child > .switch-track:first-child {
+    display: flex;
+    margin-inline-start: auto;
+  }
+}
+
+/* Work that needs a person: a small amber dot set beside the reason in words. The words carry
+   the meaning; the dot lets the eye find the row, at 3:1 on any ground. */
+@utility attention-dot {
+  @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-status-attention-line;
+}
+
+/* Badges */
+@utility badge {
+  @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border;
+}
+
+/* A picture that failed to load keeps its box and shows the ground behind it: no alt text spilling
+   over the controls on top, no broken-image glyph (installMediaFallback marks it). */
+img[data-media-failed] {
+  visibility: hidden;
 }
 
 /* Chart heights. A chart on a wide screen should not flatten into a strip that hides its slopes,
@@ -344,30 +928,35 @@ label.uppercase.cursor-pointer {
   height: clamp(23.75rem, 24vw, 38rem);
 }
 
-/* Entrance Animations */
-@keyframes slideUpFade {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* A bottom sheet on a phone stops short of the top, so the page it covers still shows above it. */
+@utility max-h-sheet {
+  max-height: 92dvh;
 }
 
-.animate-entrance {
-  animation: slideUpFade 0.5s cubic-bezier(0.215, 0.61, 0.355, 1) both;
+/* A prompt inside a dialog takes at most half the screen, so the dialog's own actions keep their place. */
+@utility max-h-half-screen {
+  max-height: 50dvh;
 }
 
-@layer utilities {
+/* The record's photograph gives up height so the decision under it stays on the first screen.
+   Its most is what the dialog can show (92vh at most, 52rem with a reference column, less the
+   header) less what stands under the photograph down to the identification buttons, which the
+   record states in rem as `--record-under-photo`. In rem and vh only, so the frame never changes
+   size as the record's contents arrive. It keeps 10rem at least: past that the reader scrolls. */
+@utility record-photo-cap {
+  max-height: max(10rem, calc(min(52rem, 92vh) - 4rem - var(--record-under-photo, 18rem)));
+}
 
-  /* Pulsing status indicator */
-  .status-pulse {
-    @apply relative;
-  }
+/* The same in a record of one narrow column, and never taller than the two-column photograph. */
+@utility record-photo-cap-narrow {
+  max-height: max(10rem, min(22rem, calc(92vh - 4rem - var(--record-under-photo, 18rem))));
+}
 
-  .status-pulse::after {
+/* Pulsing status indicator */
+@utility status-pulse {
+  @apply relative;
+
+  &::after {
     content: '';
     @apply absolute inset-0 rounded-full;
     animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
@@ -391,67 +980,44 @@ label.uppercase.cursor-pointer {
    only tints those; components need no per-theme overrides. */
 
 html.theme-bluetit:not(.dark) {
+  --ai-heading: 29 78 216;
+  --ai-strong: 30 64 175;
   --app-bg: #f4f7fc;
   --app-fg: #1e293b;
   --surface: 255 255 255;
   --surface-raised: 239 244 251;
   --line: 208 219 234;
   --line-soft: 226 233 243;
+  --surface-sunken: 244 247 252;
 }
 
 html.theme-bluetit.dark {
+  --ai-heading: 96 165 250;
+  --ai-marker: var(--brand-400);
   --app-bg: #050a14;
   --app-fg: #e8edf5;
   --surface: 11 19 34;
   --surface-raised: 17 27 46;
   --line: 30 44 72;
   --line-soft: 21 32 54;
+  --surface-sunken: 5 10 20;
 }
 
-/* ── 2. Scrollbar & Selection ── */
+/* ── 2. Selection ── */
 
 .theme-bluetit ::selection { background: rgba(37, 99, 235, 0.22); }
-
-.theme-bluetit:not(.dark) ::-webkit-scrollbar-thumb { background-color: #a4b6d4; }
-.theme-bluetit:not(.dark) ::-webkit-scrollbar-thumb:hover { background-color: #8a9ec4; }
-.theme-bluetit.dark ::-webkit-scrollbar-thumb { background-color: #293d5e; }
-.theme-bluetit.dark ::-webkit-scrollbar-thumb:hover { background-color: #354d72; }
 
 /* ── 14. AI Analysis Surface & Markdown ──
  * `.ai-markdown-surface` descendants are globalised in DetectionModal.svelte,
  * so we target them directly here.
  */
 
-/* Markdown headings */
-html.theme-bluetit:not(.dark) .ai-markdown-surface h1,
-html.theme-bluetit:not(.dark) .ai-markdown-surface h2,
-html.theme-bluetit:not(.dark) .ai-markdown-surface h3,
-html.theme-bluetit:not(.dark) .ai-markdown-surface h4,
-html.theme-bluetit:not(.dark) .ai-markdown-surface h5,
-html.theme-bluetit:not(.dark) .ai-markdown-surface h6 { color: rgb(29 78 216); }
-html.theme-bluetit.dark .ai-markdown-surface h1,
-html.theme-bluetit.dark .ai-markdown-surface h2,
-html.theme-bluetit.dark .ai-markdown-surface h3,
-html.theme-bluetit.dark .ai-markdown-surface h4,
-html.theme-bluetit.dark .ai-markdown-surface h5,
-html.theme-bluetit.dark .ai-markdown-surface h6 { color: rgb(96 165 250); }
-
-/* Markdown strong */
-html.theme-bluetit:not(.dark) .ai-markdown-surface strong { color: rgb(30 64 175); }
-html.theme-bluetit.dark .ai-markdown-surface strong { color: rgb(191 219 254); }
-
-/* Markdown links */
-html.theme-bluetit:not(.dark) .ai-markdown-surface a { color: rgb(29 78 216); }
-html.theme-bluetit.dark .ai-markdown-surface a { color: rgb(96 165 250); }
-
 /* Markdown code */
 html.theme-bluetit:not(.dark) .ai-markdown-surface code {
   background: rgba(37, 99, 235, 0.08);
-  color: rgb(29 78 216);
 }
 html.theme-bluetit.dark .ai-markdown-surface code {
   background: rgba(96, 165, 250, 0.20);
-  color: rgb(191 219 254);
 }
 
 /* Markdown pre */
@@ -472,14 +1038,6 @@ html.theme-bluetit.dark .ai-markdown-surface blockquote {
   background: rgba(37, 99, 235, 0.15);
   border-left-color: rgba(96, 165, 250, 0.6);
 }
-
-/* Markdown list markers */
-html.theme-bluetit:not(.dark) .ai-markdown-surface li::marker { color: rgba(37, 99, 235, 0.5); }
-html.theme-bluetit.dark .ai-markdown-surface li::marker { color: rgba(96, 165, 250, 0.5); }
-
-/* Markdown table headers */
-html.theme-bluetit:not(.dark) .ai-markdown-surface th { color: rgb(29 78 216); }
-html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
 
 
 /* Accessibility Modes */
@@ -502,7 +1060,8 @@ html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
   font-display: swap;
 }
 
-/* Dyslexia Friendly Font */
+/* Reading font: OpenDyslexic for every word. It changes the face and the leading and nothing
+   else, so it combines with any theme and with high contrast. */
 .font-dyslexic,
 .font-dyslexic * {
   font-family: 'OpenDyslexic', sans-serif !important;
@@ -511,7 +1070,103 @@ html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
   font-weight: inherit !important;
 }
 
-/* High Contrast Mode */
+/* High Contrast Mode
+   One black scheme. The theme store adds `dark` whenever this class is on, so every `dark:`
+   variant applies whatever theme the reader chose, and the rules below lift what dark mode
+   leaves short of 7:1. Inks are repainted by colour family ([class*='text-slate-']), never by a
+   list of classes: a list is how headings were once left near-black on this black page.
+   app.high-contrast.test.ts fails a text colour family that is written in the app and missing here. */
+/* Panels, wells and rules come from these tokens, so high contrast reaches every one of them.
+   The class sits on <html> beside the theme classes, so this selector must outrank
+   html.theme-bluetit.dark. */
+html.high-contrast.high-contrast.high-contrast {
+  --app-bg: #000000;
+  --app-fg: #ffffff;
+  --surface: 0 0 0;
+  --surface-raised: 0 0 0;
+  --line: 255 255 0;
+  --line-soft: 255 255 0;
+  --focus: 0 255 255;
+  --focus-on-dark: 0 255 255;
+  /* The brand steps drawn as marks on the page (a chart's bars, a progress fill) are yellow:
+     the dark theme's blue or teal is under 3:1 on black. Brand inks are set by family below. */
+  --brand-400: 255 255 0;
+  --brand-500: 255 255 0;
+  /* A switch is told apart by its fill as well as its thumb: grey off, yellow on. */
+  --switch-off: 118 118 118;
+  --switch-on: 255 255 0;
+
+  /* The AI panel's own ink tokens, so its headings, role labels and Markdown follow the mode. */
+  --ai-ink: 255 255 255;
+  --ai-heading: 255 255 0;
+  --ai-strong: 255 255 0;
+  --ai-code: 255 255 0;
+  --ai-muted: 255 255 255;
+  --ai-marker: 255 255 0;
+
+  /* The semantic tokens: one black ground, white words, yellow edges and accent, and each
+     status ink at 7:1 or better. A soft status ground is black, so a chip is told by its edge
+     and its words, never by a tint. */
+  --surface-sunken: 0 0 0;
+  --ink-strong: 255 255 255;
+  --ink: 255 255 255;
+  --ink-muted: 255 255 255;
+  --ink-subtle: 200 200 200;
+  --line-strong: 255 255 0;
+  --track: 64 64 64;
+  --accent: 255 255 0;
+  --accent-hover: 255 255 0;
+  --accent-fg: 0 0 0;
+  --accent-ink: 255 255 0;
+  --accent-soft: 0 0 0;
+  --accent-line: 255 255 0;
+  --danger: 122 0 0;
+  --danger-hover: 122 0 0;
+  --danger-fg: 255 255 255;
+  --status-ok: 125 255 155;
+  --status-ok-soft: 0 0 0;
+  --status-ok-line: 125 255 155;
+  --status-attention: 255 194 102;
+  --status-attention-soft: 0 0 0;
+  --status-attention-line: 255 194 102;
+  --status-fail: 255 156 156;
+  --status-fail-soft: 0 0 0;
+  --status-fail-line: 255 156 156;
+  --status-info: 255 255 0;
+  --status-info-soft: 0 0 0;
+  --status-info-line: 255 255 0;
+  --status-neutral: 255 255 255;
+  --status-neutral-soft: 0 0 0;
+  --status-neutral-line: 255 255 255;
+  --media-raised: 0 0 0;
+  /* No shadows on black: every raised surface is told by its yellow edge. */
+  --scrim: 0 0 0;
+  --scrim-strength: 0.85;
+  --elevation-dialog: none;
+  --elevation-panel: none;
+  --dialog-edge: 255 255 0;
+  --media-edge: 255 255 0;
+  /* Chart lines on black, clear of the yellow accent and the cyan focus ring. */
+  --series-1: 164 119 255;
+  --series-2: 33 210 250;
+  --series-3: 201 33 206;
+  --series-4: 255 113 214;
+
+  /* The inks. Each is 7:1 or better on black; meaning still never rests on the hue alone. */
+  --hc-ink: #ffffff;
+  --hc-ink-brand: #ffff00;
+  --hc-ink-success: #7dff9b;
+  --hc-ink-attention: #ffc266;
+  --hc-ink-danger: #ff9c9c;
+  --hc-ink-disabled: #c8c8c8;
+  /* A chosen or primary control: a yellow fill under black words. */
+  --hc-fill: #ffff00;
+  --hc-on-fill: #000000;
+  /* A destructive or failed state that carries words: a deep red under white. */
+  --hc-dark-fill: #7a0000;
+  --hc-on-dark-fill: #ffffff;
+}
+
 .high-contrast {
   --bg-color: #000000;
   --text-color: #ffffff;
@@ -520,82 +1175,155 @@ html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
   --highlight-color: #00ffff;
   /* Cyan for focus/active */
   color-scheme: dark;
+
+  /* Every repaint below is nested in this one rule, so it applies only inside the mode, and the
+     design-token ratchet exempts only what is nested here (design-tokens.ratchet.test.ts). */
+
+  & body,
+  & .bg-surface-light,
+  & .dark\:bg-surface-dark {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+  }
+
+  & .bg-white,
+  & .dark\:bg-slate-800,
+  & .bg-slate-50,
+  & .dark\:bg-slate-900\/50,
+  & .dark\:bg-slate-800\/50 {
+    background-color: #000000 !important;
+    border: 2px solid #ffff00 !important;
+    color: #ffffff !important;
+  }
+
+  & button,
+  & a,
+  & input,
+  & select,
+  & textarea {
+    border: 2px solid #00ffff !important;
+    color: #ffffff !important;
+    background-color: #000000 !important;
+  }
+
+  /* Ink, by family. Neutral text is white at every step, muted or not: hierarchy is carried by
+     size and weight here. The semantic families follow, so a hover or state class of another
+     family on the same element resolves to the semantic ink. */
+  & :is([class*='text-slate-'], [class*='text-gray-']) {
+    color: var(--hc-ink) !important;
+  }
+
+  & :is([class*='text-brand-'], [class*='text-blue-'], [class*='text-teal-'], [class*='text-violet-']) {
+    color: var(--hc-ink-brand) !important;
+  }
+
+  & :is([class*='text-success-'], [class*='text-emerald-'], [class*='text-green-']) {
+    color: var(--hc-ink-success) !important;
+  }
+
+  & :is([class*='text-attention-'], [class*='text-amber-'], [class*='text-orange-']) {
+    color: var(--hc-ink-attention) !important;
+  }
+
+  & :is([class*='text-rose-'], [class*='text-red-']) {
+    color: var(--hc-ink-danger) !important;
+  }
+
+  & ::placeholder {
+    color: var(--hc-ink-disabled) !important;
+    opacity: 1 !important;
+  }
+
+  /* Fills. A filled element sets its ground and its ink together, and everything inside it takes
+     that ink: a `text-white` or tinted word in a badge would otherwise keep a colour chosen for
+     the theme's fill. app.high-contrast.test.ts fails a fill the app puts white words on that is
+     neither dark enough for them nor named here.
+
+     Chosen-state fills (the accent, or brand-700, under white text in the themes) and the primary
+     button: yellow under black words. */
+  & :is(.bg-accent, .bg-teal-500, .bg-brand-500, .dark\:bg-brand-500, .bg-brand-700, [class~='bg-brand-700/95'], .bg-indigo-500, .btn-primary) {
+    background-color: var(--hc-fill) !important;
+    color: var(--hc-on-fill) !important;
+    border: 2px solid #ffffff !important;
+  }
+
+  /* A bright semantic fill that carries words (a count badge, a "?" disc) keeps its own colour
+     under black words. Whole class names only, so a translucent tint such as bg-attention-500/10
+     is left to the inks above. */
+  & :is([class~='bg-attention-300'], [class~='bg-attention-400'], [class~='bg-attention-500'], [class~='bg-success-300'], [class~='bg-success-400'], [class~='bg-success-500'], [class~='bg-rose-300'], [class~='bg-rose-400'], [class~='bg-red-300'], [class~='bg-red-400'], [class~='bg-slate-400']) {
+    color: var(--hc-on-fill) !important;
+  }
+
+  & :is(.bg-accent, .bg-teal-500, .bg-brand-500, .dark\:bg-brand-500, .bg-brand-700, [class~='bg-brand-700/95'], .bg-indigo-500, .btn-primary, [class~='bg-attention-300'], [class~='bg-attention-400'], [class~='bg-attention-500'], [class~='bg-success-300'], [class~='bg-success-400'], [class~='bg-success-500'], [class~='bg-rose-300'], [class~='bg-rose-400'], [class~='bg-red-300'], [class~='bg-red-400'], [class~='bg-slate-400']) * {
+    color: var(--hc-on-fill) !important;
+  }
+
+  /* A mid-tone semantic fill under white words (a danger button, a status disc on a photograph)
+     is too light for them at 7:1, so it becomes one deep fill of its own hue family under white. */
+  & :is([class~='bg-success-600'], [class~='bg-success-700'], [class~='bg-success-700/95']) {
+    background-color: #004d2a !important;
+    color: var(--hc-on-dark-fill) !important;
+    border: 2px solid #ffffff !important;
+  }
+
+  & :is([class~='bg-red-600'], [class~='bg-red-700'], [class~='bg-rose-700'], [class~='bg-orange-500/95'], .btn-danger-solid) {
+    background-color: var(--hc-dark-fill) !important;
+    color: var(--hc-on-dark-fill) !important;
+    border: 2px solid #ffffff !important;
+  }
+
+  & :is([class~='bg-success-600'], [class~='bg-success-700'], [class~='bg-success-700/95'], [class~='bg-red-600'], [class~='bg-red-700'], [class~='bg-rose-700'], [class~='bg-orange-500/95'], .btn-danger-solid) * {
+    color: var(--hc-on-dark-fill) !important;
+  }
+
+  /* A disabled control keeps readable words and says it is off with a dashed grey edge, not by
+     fading: half-opacity white on black is the low contrast this mode exists to remove. It comes
+     after the fills and sets its ground with its ink, so a disabled primary or chosen control is
+     grey on black, never grey on the yellow it wears when it can be used. */
+  & :is(button, input, select, textarea):disabled,
+  & [aria-disabled='true'] {
+    opacity: 1 !important;
+    color: var(--hc-ink-disabled) !important;
+    background-color: #000000 !important;
+    border: 2px dashed var(--hc-ink-disabled) !important;
+  }
+
+  & :is(button, input, select, textarea):disabled *,
+  & [aria-disabled='true'] * {
+    color: var(--hc-ink-disabled) !important;
+  }
+
+  /* The switch keeps its kit shape: the track is the state (grey off, yellow on) inside a white
+     edge, and the thumb is black on yellow so its side still reads. */
+  & .switch-track {
+    background-color: rgb(var(--switch-off)) !important;
+    border: 2px solid #ffffff !important;
+  }
+
+  & .switch-track[aria-checked='true'] {
+    background-color: rgb(var(--switch-on)) !important;
+  }
+
+  & .switch-thumb {
+    background-color: #000000 !important;
+    border: 0 !important;
+  }
+
+  & svg {
+    stroke: currentColor !important;
+  }
 }
 
-/* Panels, wells and rules come from these tokens, so high contrast reaches every one of them.
-   The class sits on <html> beside the theme classes, so this selector must outrank
-   html.theme-bluetit.dark. */
-html.high-contrast.high-contrast.high-contrast {
-  --surface: 0 0 0;
-  --surface-raised: 0 0 0;
-  --line: 255 255 0;
-  --line-soft: 255 255 0;
-}
-
-.high-contrast body,
-.high-contrast .bg-surface-light,
-.high-contrast .dark\:bg-surface-dark {
-  background-color: #000000 !important;
-  color: #ffffff !important;
-}
-
-.high-contrast .bg-white,
-.high-contrast .dark\:bg-slate-800,
-.high-contrast .bg-slate-50,
-.high-contrast .dark\:bg-slate-900\/50,
-.high-contrast .dark\:bg-slate-800\/50 {
-  background-color: #000000 !important;
-  border: 2px solid #ffff00 !important;
-  color: #ffffff !important;
-}
-
-.high-contrast .text-slate-400,
-.high-contrast .text-slate-500,
-.high-contrast .dark\:text-slate-400,
-.high-contrast .text-slate-600,
-.high-contrast .dark\:text-slate-300 {
-  color: #ffffff !important;
-}
-
-.high-contrast button,
-.high-contrast a,
-.high-contrast input,
-.high-contrast select {
-  border: 2px solid #00ffff !important;
-  color: #ffffff !important;
-  background-color: #000000 !important;
-}
-
-.high-contrast .text-teal-600,
-.high-contrast .dark\:text-teal-400,
-.high-contrast .text-brand-500 {
-  color: #ffff00 !important;
-  /* Yellow text for emphasis */
-}
-
-/* Chosen-state fills moved from brand-500 to brand-700 for contrast under white text; they keep
-   the same high-contrast treatment. */
-.high-contrast .bg-teal-500,
-.high-contrast .bg-brand-500,
-.high-contrast .bg-brand-700,
-.high-contrast .bg-indigo-500 {
-  background-color: #ffff00 !important;
-  color: #000000 !important;
-  border: 2px solid #ffffff !important;
-}
-
-.high-contrast svg {
-  stroke: currentColor !important;
-}
-
-/* Respect user motion preferences - WCAG 2.1 Level AA */
+/* Respect user motion preferences - WCAG 2.1 Level AA. Transitions are turned off (0s), not cut
+   short: at 0.01ms every element still ran one for each property that changed, and Safari then kept
+   the old text size inside each of them after a text size change until the page was reloaded. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 0s !important;
     scroll-behavior: auto !important;
   }
 
@@ -617,7 +1345,7 @@ html.high-contrast.high-contrast.high-contrast {
 .reduced-motion *::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
+  transition-duration: 0s !important;
   scroll-behavior: auto !important;
 }
 
@@ -629,26 +1357,17 @@ html.high-contrast.high-contrast.high-contrast {
   animation: none !important;
 }
 
-/* Screen reader only - hides visually but keeps for assistive tech */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}
-
-.sr-only:focus {
-  position: static;
-  width: auto;
-  height: auto;
-  padding: inherit;
-  margin: inherit;
-  overflow: visible;
-  clip: auto;
-  white-space: normal;
+/* Screen reader only: Tailwind hides the element; this brings it back while it has focus, as a
+   skip link needs. A focus variant on the element (focus:not-sr-only) still overrides it. */
+@utility sr-only {
+  &:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: inherit;
+    margin: inherit;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
 }

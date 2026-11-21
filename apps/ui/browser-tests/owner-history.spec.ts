@@ -27,7 +27,10 @@ test('recent sightings link to the exact capture even when it has no clip', asyn
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/owner-history.html?surface=species');
-    const links = page.locator('[data-species-recent-sightings]').getByRole('link', { name: 'Open Eurasian Blue Tit capture' });
+    // The list is the newest stored photographs, not grouped into visits, so it is headed as captures.
+    await expect(page.locator('[data-species-recent-sightings] h3')).toHaveText('Recent captures');
+    // Each link is named by what it shows: the bird in the picture, then when it was seen and how sure the model was.
+    const links = page.locator('[data-species-recent-sightings]').getByRole('link', { name: /^Eurasian Blue Tit .*\d+%$/ });
     await expect(links).toHaveCount(2);
     for (const [index, capture] of sightings.entries()) {
         await expect(links.nth(index)).toHaveAttribute('href', `/events?event=${encodeURIComponent(capture.frigate_event)}`);
@@ -117,4 +120,65 @@ test('incoming capture refresh waits for the current visit read and updates memb
     release();
     await expect(page.locator('[data-visit-captures="first"] [data-visit-captures-toggle]')).toContainText('14 captures');
     expect(reads).toBe(2);
+});
+
+for (const opened of ['row', 'elsewhere'] as const) {
+    test(`species dialog opened from ${opened === 'row' ? 'a Leaderboard row leads with the visits that row showed' : 'elsewhere leads with captures'}`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
+        await page.route('https://fonts.gstatic.com/**', route => route.abort());
+        await page.route(url => url.pathname.startsWith('/api/'), async route => {
+            const path = new URL(route.request().url()).pathname;
+            if (path.endsWith('/stats')) return route.fulfill({ json: {
+                species_name: 'Cyanistes caeruleus', scientific_name: 'Cyanistes caeruleus', common_name: 'Eurasian Blue Tit',
+                total_sightings: 161, first_seen: '2026-10-03T09:00:00Z', last_seen: '2026-11-16T07:11:00Z',
+                cameras: [{ camera_name: 'birdcam', count: 161, percentage: 100 }], hourly_distribution: Array(24).fill(0),
+                daily_distribution: Array(7).fill(0), monthly_distribution: Array(12).fill(0),
+                avg_confidence: 0.8, min_confidence: 0.8, max_confidence: 0.8, recent_sightings: []
+            } });
+            if (path.endsWith('/range')) return route.fulfill({ json: { available: false } });
+            return route.fulfill({ json: {} });
+        });
+        await page.goto(`/browser-tests/owner-history.html?surface=species${opened === 'row' ? '&row=123' : ''}`);
+        const summary = page.locator('[data-species-record-summary]');
+        await expect(summary.locator('[data-species-detections-label]')).toHaveText('Captures, all time');
+        const figures = summary.locator('dt');
+        if (opened === 'row') {
+            // The row said 123 visits, so that is the first figure the dialog states, with its window.
+            await expect(figures.first()).toHaveText('Visits, last 30 days');
+            await expect(summary.locator('[data-species-row-figure] dd')).toHaveText('123');
+            await expect(figures.nth(1)).toHaveText('Captures, all time');
+        } else {
+            await expect(summary.locator('[data-species-row-figure]')).toHaveCount(0);
+            await expect(figures.first()).toHaveText('Captures, all time');
+        }
+        await summary.screenshot({ path: testInfo.outputPath(`species-dialog-${opened}.png`) });
+    });
+}
+
+test('a species seen only before retention keeps its month chart and says where its counts come from', async ({ page }) => {
+    await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
+    await page.route('https://fonts.gstatic.com/**', route => route.abort());
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/stats')) return route.fulfill({ json: {
+            species_name: 'Parus major', scientific_name: 'Parus major', common_name: 'Great Tit',
+            total_sightings: 14, first_seen: null, last_seen: null, cameras: [],
+            hourly_distribution: Array(24).fill(0), daily_distribution: [2, 2, 2, 2, 2, 2, 2],
+            monthly_distribution: [0, 0, 0, 0, 0, 0, 0, 0, 14, 0, 0, 0],
+            avg_confidence: 0, min_confidence: 0, max_confidence: 0, recent_sightings: [],
+            history_first_day: '2026-09-02',
+            daily_totals: { totals_through: '2026-09-30', complete_from: null, partial: false },
+        } });
+        if (path.endsWith('/range')) return route.fulfill({ json: { available: false } });
+        return route.fulfill({ json: {} });
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=species');
+    const activity = page.locator('[data-species-activity]');
+    await expect(activity.getByRole('figure', { name: 'Month' })).toBeVisible();
+    await expect(activity.locator('[data-daily-totals-note]')).toHaveText(
+        /^Counts before 1 Oct( 2026)? come from daily totals; photos and clips from those days are no longer stored\. Time of day counts stored captures only, because a daily total has no time\.$/
+    );
+    // No photograph is claimed for days whose captures are gone.
+    await expect(page.locator('[data-species-recent-sightings]').getByRole('link')).toHaveCount(0);
 });

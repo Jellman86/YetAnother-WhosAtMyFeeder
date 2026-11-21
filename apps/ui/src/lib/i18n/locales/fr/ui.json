@@ -1,0 +1,15 @@
+{
+  "state": {
+    "loading": "Chargement…",
+    "empty": "Rien pour l’instant",
+    "failed": "Chargement impossible",
+    "stale": "Peut-être plus à jour",
+    "off": "Désactivé",
+    "not_measured": "Non mesuré",
+    "try_again": "Réessayer"
+  },
+  "chart": {
+    "show_data": "Afficher les données sous forme de tableau",
+    "key": "Légende"
+  }
+}

@@ -30,6 +30,9 @@ const DEFAULT_DISTANCE_LABELS: UnitLabels = {
 
 export const KM_PER_MILE = 1.609344;
 
+/** Joins a figure to its unit, so a narrow screen never sets "km/h" on a line of its own. */
+const NO_BREAK = '\u00a0';
+
 export function resolveWeatherUnitSystem(
     weatherUnitSystem?: string | null,
     legacyTemperatureUnit?: string | null
@@ -76,7 +79,7 @@ export function formatWindSpeed(
     const label = system === 'british'
         ? (labels.british ?? labels.imperial)
         : labels[system];
-    return `${Math.round(converted)} ${label}`;
+    return `${Math.round(converted)}${NO_BREAK}${label}`;
 }
 
 export function formatPrecipitation(
@@ -92,12 +95,12 @@ export function formatPrecipitation(
         ? (labels.british ?? labels.metric)
         : labels[system];
     if (system === 'imperial') {
-        if (converted < 0.1) return `${converted.toFixed(2)}${label}`;
-        return `${converted.toFixed(1)}${label}`;
+        if (converted < 0.1) return `${converted.toFixed(2)}${NO_BREAK}${label}`;
+        return `${converted.toFixed(1)}${NO_BREAK}${label}`;
     }
-    if (converted < 0.1) return `${converted.toFixed(2)}${label}`;
-    if (converted < 1) return `${converted.toFixed(1)}${label}`;
-    return `${converted.toFixed(0)}${label}`;
+    if (converted < 0.1) return `${converted.toFixed(2)}${NO_BREAK}${label}`;
+    if (converted < 1) return `${converted.toFixed(1)}${NO_BREAK}${label}`;
+    return `${converted.toFixed(0)}${NO_BREAK}${label}`;
 }
 
 function convertDistance(valueKm: number | null | undefined, system: WeatherUnitSystem): number | null {
@@ -122,5 +125,5 @@ export function formatDistance(
     // A one-mile radius shown as a whole number would overstate a two-kilometre
     // search by a third, so short distances keep a decimal.
     const rounded = converted < 10 ? Number(converted.toFixed(1)) : Math.round(converted);
-    return `${rounded} ${label}`;
+    return `${rounded}${NO_BREAK}${label}`;
 }

@@ -1,23 +1,27 @@
 <script lang="ts">
+    import SettingsSubheading from './_primitives/SettingsSubheading.svelte';
     /**
-     * Garden animals as one card on Settings → Beta features. The switch stages the beta in the
+     * Garden animals as one card on Settings → Identifying birds. The switch stages the beta in the
      * page draft; its settings appear only while it is on, grouped into sections in the order
-     * setup runs, with anything still left to do stated above them. Cameras are chosen once, with
-     * their bird role, in Connection, and alerts with their channels in Notifications; this card
-     * only summarises both. Daily review is in the Explorer.
+     * setup runs, with anything still left to do stated above them. Everything Garden decides is
+     * set here, alerts included. Which cameras it watches stays one choice per camera, with the
+     * camera's bird role, in Connection, so a camera is never set two ways; this card summarises it.
+     * The channels alerts go through are set up once, in Notifications. Daily review is in the
+     * Explorer.
      */
     import { tick } from 'svelte';
     import { _, locale } from 'svelte-i18n';
     import BetaFeatureCard from './BetaFeatureCard.svelte';
     import BetaSection from './BetaSection.svelte';
+    import { useDisclosure } from '../../settings/disclosures.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
-    import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
+    import SettingsSlider from './_primitives/SettingsSlider.svelte';
     import GardenModelSetup from './GardenModelSetup.svelte';
     import GardenCollectionStatus from './GardenCollectionStatus.svelte';
     import { GardenServiceStatus } from './garden-service-status.svelte';
     import { settingsStore } from '../../stores/settings.svelte';
-    import { gardenThresholdPercentStep, percentToThreshold, thresholdPercentText } from '../../utils/garden-threshold';
+    import { thresholdPercentText } from '../../utils/garden-threshold';
     import { formatCameraList, gardenMotionWithinGarden } from '../../utils/camera-watch';
     import { DOMESTIC_BIRD_KEYS, domesticBirdKind, type DomesticBirdKey } from '../../utils/domestic-birds';
     import { GARDEN_MODEL_NAME, gardenModelRows, type GardenModelRole } from '../../utils/garden-models';
@@ -25,29 +29,24 @@
 
     const DOCS = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/features/garden-animals.md';
 
-    interface Props {
+    // A type alias, not an interface: the lazy tab loader needs props it can treat as a record.
+    type Props = {
         enabled: boolean;
         /** Cameras watched for Garden animals, chosen in Connection. */
         cameras: string[];
         motionCameras: string[];
         labels: string;
         motionConfidence: number;
-        automaticNaming: boolean;
-        /** Whether Garden alerts are on, as the page holds it; they are set up in Notifications. */
-        notificationsEnabled?: boolean;
-        namingThreshold: number;
         /** Domestic birds the owner keeps: Garden animals on every camera, never bird detections. */
         domesticBirds?: DomesticBirdKey[];
-        /** The saved threshold, so a calibrated value keeps its own precision while edited. */
-        savedMotionConfidence?: number;
         onNavigate?: (path: string) => void;
         /** Opens Connection at its camera list. */
         onOpenCameras?: () => void;
-        /** Opens Notifications, where Garden alerts are set up. */
-        onOpenNotifications?: () => void;
         /** Opens Integrations at the location, which gives Garden its country. */
         onOpenLocation?: () => void;
-    }
+        /** Opens Garden's alerts, which are set in Alerts. */
+        onOpenAlerts?: () => void;
+    };
 
     let {
         enabled = $bindable(false),
@@ -55,15 +54,11 @@
         motionCameras,
         labels = $bindable('cat, dog'),
         motionConfidence = $bindable(0.5),
-        automaticNaming = $bindable(true),
-        notificationsEnabled = false,
-        namingThreshold = $bindable(0.8),
         domesticBirds = $bindable([]),
-        savedMotionConfidence,
         onNavigate,
         onOpenCameras,
-        onOpenNotifications,
-        onOpenLocation
+        onOpenLocation,
+        onOpenAlerts
     }: Props = $props();
 
     const service = new GardenServiceStatus();
@@ -81,7 +76,7 @@
     });
 
     // Cameras and naming are what most visits change; the rest is set once and stays closed.
-    let sections = $state({ cameras: true, checks: true, models: false, domestic: false, alerts: false, outcomes: false });
+    const modelsSection = useDisclosure(() => ({ id: 'garden-section-models' }));
 
     const collectingMotion = $derived(gardenMotionWithinGarden(cameras, motionCameras));
     const listLocale = $derived($locale ?? 'en');
@@ -104,9 +99,9 @@
     function statusPart(part: GardenStatusPart): string {
         switch (part.kind) {
             case 'off': return $_('settings.beta.status_off', { default: 'Off' });
-            case 'off_after_apply': return $_('settings.beta.status_off_after_apply', { default: 'Off after you apply' });
+            case 'off_after_apply': return $_('settings.beta.status_off_after_apply', { default: 'Off after you save' });
             case 'on': return $_('settings.beta.status_on', { default: 'On' });
-            case 'on_after_apply': return $_('settings.beta.status_on_after_apply', { default: 'On after you apply' });
+            case 'on_after_apply': return $_('settings.beta.status_on_after_apply', { default: 'On after you save' });
             case 'cameras': return $_('settings.beta.garden_status_cameras', { default: '{count, plural, =0 {no camera chosen} one {# camera} other {# cameras}}', values: { count: part.count } });
             case 'device': return $_('settings.beta.garden_status_device', { default: 'automatic checks on {device}', values: { device: EXECUTION_DEVICE_LABEL[part.provider] } });
             case 'model_missing': return $_('settings.beta.garden_status_model_missing', { default: 'model not downloaded yet' });
@@ -117,14 +112,14 @@
     function stepText(step: GardenNextStep): string {
         switch (step.kind) {
             case 'choose_camera': return $_('settings.beta.garden_step_camera', { default: 'Choose a camera to watch for Garden animals.' });
-            case 'apply': return $_('settings.beta.garden_step_apply', { default: 'Apply Settings to turn Garden on. Model and country checks then appear here.' });
+            case 'apply': return $_('settings.beta.garden_step_apply', { default: 'Save changes to turn Garden on. Model and country checks then appear here.' });
             case 'download_model': return $_('settings.beta.garden_step_model', { default: 'Download the {model}.', values: { model: modelName(step.role) } });
             case 'set_location': return $_('settings.beta.garden_step_location', { default: 'Set your location, so Garden knows your country and can name animals.' });
         }
     }
 
     async function openModels(): Promise<void> {
-        sections.models = true;
+        modelsSection.open = true;
         await tick();
         const toggle = document.getElementById('garden-section-models-toggle');
         toggle?.scrollIntoView({ block: 'start' });
@@ -146,7 +141,7 @@
         </p>
         <p>{$_('settings.beta.garden_off_effects', { default: 'While it is off, Garden is hidden in the Explorer, its alerts stop, and birds you keep are recorded as wild birds. History retention still applies to saved captures.' })}</p>
         <p class="text-xs" data-garden-beta-requirements>
-            {$_('settings.beta.garden_requirements', { default: 'Needs Frigate cameras that track animals or keep motion recordings. Garden downloads its own models only when you ask: 224 MB for automatic checks, plus optional 224 MB and 101 MB models. Your bird model is not changed.' })}
+            {$_('settings.beta.garden_requirements', { default: 'Needs Frigate cameras that track animals or keep motion recordings. Garden downloads its own models only when you ask: 224 MB for automatic checks, plus optional 224 MB and 101 MB models. Your bird model is not changed.' })}
         </p>
     </div>
 {/snippet}
@@ -162,16 +157,16 @@
     attention={summary.attention}
     off={offNote}
 >
-    <div class="space-y-4 break-words" data-garden-beta-settings>
+    <div class="space-y-4 wrap-break-word" data-garden-beta-settings>
         {#if summary.steps.length > 0}
-            <section class="space-y-2 rounded-xl p-4 {summary.attention ? 'bg-attention-500/5' : 'bg-surface-raised/70'}" aria-labelledby="garden-next-steps" data-garden-next-steps>
-                <h5 id="garden-next-steps" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_next_steps', { default: 'Still to set up' })}</h5>
+            <section class="space-y-2" aria-labelledby="garden-next-steps" data-garden-next-steps>
+                <SettingsSubheading id="garden-next-steps">{$_('settings.beta.garden_next_steps', { default: 'Still to set up' })}</SettingsSubheading>
                 <ol class="space-y-2">
                     {#each summary.steps as step (step.kind === 'download_model' ? step.role : step.kind)}
                         <li class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-garden-next-step={step.kind}>
                             <span class="flex min-w-0 flex-1 basis-56 items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
                                 {#if step.kind !== 'apply'}<span class="attention-dot mt-2" aria-hidden="true"></span>{/if}
-                                <span class="min-w-0 break-words">{stepText(step)}</span>
+                                <span class="min-w-0 wrap-break-word">{stepText(step)}</span>
                             </span>
                             {#if step.kind === 'choose_camera' && onOpenCameras}
                                 <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenCameras}>
@@ -179,7 +174,7 @@
                                 </button>
                             {:else if step.kind === 'download_model'}
                                 <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={openModels}>
-                                    {$_('settings.beta.garden_step_model_open', { default: 'Open Models' })}
+                                    {$_('settings.beta.garden_step_model_open', { default: 'Set up Garden models' })}
                                 </button>
                             {:else if step.kind === 'set_location' && onOpenLocation}
                                 <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenLocation}>
@@ -193,7 +188,7 @@
         {/if}
 
         <div class="divide-y divide-line-soft">
-            <BetaSection id="garden-section-cameras" title={$_('settings.beta.garden_section_cameras', { default: 'Cameras' })} bind:open={sections.cameras}>
+            <BetaSection id="garden-section-cameras" title={$_('settings.beta.garden_section_cameras', { default: 'Cameras' })} openByDefault>
                 <div class="flex flex-wrap items-center justify-between gap-3" data-garden-camera-summary>
                     <div class="min-w-0 flex-1 basis-56 space-y-1 text-sm text-slate-700 dark:text-slate-300">
                         <p>
@@ -222,6 +217,7 @@
                 >
                     <SettingsInput
                         id="garden-labels"
+                        field="garden_labels"
                         value={labels}
                         ariaLabel={$_('garden.labels', { default: 'Frigate animal labels' })}
                         describedBy="garden-label-help"
@@ -229,93 +225,45 @@
                     />
                 </SettingsRow>
 
-                <SettingsRow
-                    labelId="setting-garden-motion-confidence"
-                    label={$_('garden.confidence', { default: 'Animal proposal threshold' })}
-                    description={$_('garden.confidence_help', { default: 'From 50% to 95%. Higher values reduce proposals but can miss animals. Applies to new motion photos only; bird detection and person privacy checks are unchanged.' })}
-                    descriptionId="garden-motion-confidence-help"
-                    layout="stacked"
-                >
-                    <div class="flex items-center gap-2">
-                        <div class="min-w-0 flex-1">
-                            <SettingsInput
-                                id="garden-motion-confidence"
-                                type="number"
-                                min={50}
-                                max={95}
-                                step={gardenThresholdPercentStep(motionConfidence, savedMotionConfidence)}
-                                value={thresholdPercentText(motionConfidence)}
-                                ariaLabel={$_('garden.confidence', { default: 'Animal proposal threshold' })}
-                                describedBy="garden-motion-confidence-help"
-                                oninput={(value) => (motionConfidence = percentToThreshold(value))}
-                            />
-                        </div>
-                        <span class="text-sm font-semibold text-slate-600 dark:text-slate-300" aria-hidden="true">%</span>
-                    </div>
-                </SettingsRow>
+                <SettingsSlider
+                    id="garden-motion-confidence"
+                    field="garden_motion_confidence"
+                    label={$_('garden.confidence', { default: 'Suggest a motion photo when this sure it shows an animal' })}
+                    description={$_('garden.confidence_help', { default: 'This decides which motion photos reach Needs review. Photos below it are not kept. Higher means fewer suggestions, and more animals missed.' })}
+                    bind:value={motionConfidence}
+                    min={0.5}
+                    max={0.95}
+                    step={0.01}
+                    display={(value) => `${thresholdPercentText(value)}%`}
+                    lowLabel={$_('garden.confidence_low', { default: 'More suggestions' })}
+                    highLabel={$_('garden.confidence_high', { default: 'Fewer suggestions' })}
+                />
             </BetaSection>
 
-            <BetaSection id="garden-section-checks" title={$_('settings.beta.garden_section_checks', { default: 'Automatic checks and naming' })} bind:open={sections.checks}>
-                <div class="space-y-3" data-garden-naming>
-                    <SettingsRow
-                        labelId="setting-garden-naming"
-                        label={$_('settings.beta.garden_naming', { default: 'Name animals automatically' })}
-                        description={$_('settings.beta.garden_naming_help', { default: 'Animals that reach the naming threshold are confirmed and named. Photos below it go to Dismissed, where you can restore them.' })}
-                    >
-                        <SettingsToggle
-                            checked={automaticNaming}
-                            labelledBy="setting-garden-naming"
-                            srLabel={$_('settings.beta.garden_naming', { default: 'Name animals automatically' })}
-                            onchange={(value) => (automaticNaming = value)}
-                        />
-                    </SettingsRow>
-                    {#if automaticNaming}
-                        <SettingsRow
-                            labelId="setting-garden-naming-threshold"
-                            label={$_('settings.beta.garden_naming_threshold', { default: 'Naming threshold' })}
-                            description={$_('settings.beta.garden_naming_threshold_help', { default: 'From 70% to 99%. Higher values automatically name fewer animals and dismiss more low-confidence photos. Person checks are unchanged.' })}
-                            descriptionId="garden-naming-threshold-help"
-                            layout="stacked"
-                        >
-                            <div class="flex items-center gap-2">
-                                <div class="min-w-0 flex-1">
-                                    <SettingsInput
-                                        id="garden-naming-threshold"
-                                        type="number"
-                                        min={70}
-                                        max={99}
-                                        step={1}
-                                        value={thresholdPercentText(namingThreshold)}
-                                        ariaLabel={$_('settings.beta.garden_naming_threshold', { default: 'Naming threshold' })}
-                                        describedBy="garden-naming-threshold-help"
-                                        oninput={(value) => (namingThreshold = percentToThreshold(value))}
-                                    />
-                                </div>
-                                <span class="text-sm font-semibold text-slate-600 dark:text-slate-300" aria-hidden="true">%</span>
-                            </div>
-                        </SettingsRow>
-                    {:else}
-                        <p class="text-sm text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_naming_off', { default: 'Every animal waits in Needs review for you to confirm and name it.' })}</p>
-                    {/if}
-                </div>
+            <BetaSection id="garden-section-checks" title={$_('settings.beta.garden_section_checks', { default: 'Automatic checks and naming' })} openByDefault>
+                <p class="text-sm text-muted" data-garden-naming-elsewhere>
+                    {$_('settings.beta.garden_naming_elsewhere', { default: 'Automatic naming is set with the birds\' naming threshold, at the top of Identifying birds.' })}
+                </p>
 
-                <GardenCollectionStatus {service} />
+                <GardenCollectionStatus {service} blockedBy={summary.steps.some((step) => step.kind === 'download_model') ? 'model' : cameras.length === 0 ? 'camera' : null} />
 
                 <p class="text-xs text-slate-600 dark:text-slate-400">
-                    {$_('settings.beta.garden_device_note', { default: 'Automatic checks use your Detection device once it agrees with CPU, and fall back to CPU if it fails. Motion scans use CPU. Garden runs one job at a time while birds and cameras are idle.' })}
-                    <a href={`${DOCS}#verify-which-device-ran-a-model`} target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-200">
+                    {$_('settings.beta.garden_device_note', { default: 'Automatic checks use the device chosen under Settings › Models › Hardware once it agrees with the CPU, and fall back to the CPU if it fails. Motion scans use the CPU. Garden runs one job at a time while birds and cameras are idle.' })}
+                    <a href={`${DOCS}#verify-which-device-ran-a-model`} target="_blank" rel="noopener noreferrer" class="focus-ring font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
                         {$_('settings.beta.learn_more', { default: 'Learn more' })}
                     </a>
                 </p>
 
                 {#if savedEnabled}
-                    <button type="button" class="btn btn-ghost min-h-11 max-w-full px-3 py-2 whitespace-normal" disabled={service.loading} onclick={() => service.refresh()}>
-                        {$_('settings.beta.garden_status_refresh', { default: 'Refresh status' })}
-                    </button>
+                    <div>
+                        <button type="button" class="btn btn-secondary min-h-11 max-w-full self-start px-3 py-2 whitespace-normal" disabled={service.loading} onclick={() => service.refresh()}>
+                            {$_('settings.beta.garden_status_refresh', { default: 'Refresh status' })}
+                        </button>
+                    </div>
                 {/if}
             </BetaSection>
 
-            <BetaSection id="garden-section-models" title={$_('settings.beta.garden_section_models', { default: 'Models' })} bind:open={sections.models}>
+            <BetaSection id="garden-section-models" title={$_('settings.beta.garden_section_models', { default: 'Models' })}>
                 <GardenModelSetup motionCameras={collectingMotion} {service} />
             </BetaSection>
 
@@ -323,7 +271,6 @@
                 id="garden-section-domestic"
                 title={$_('settings.beta.garden_domestic_birds', { default: 'Domestic birds you keep' })}
                 hint={$_('settings.beta.garden_domestic_birds_count', { default: '{count, plural, =0 {None} one {# bird} other {# birds}}', values: { count: domesticBirds.length } })}
-                bind:open={sections.domestic}
             >
                 <div class="space-y-3" data-garden-domestic-birds>
                     <p id="garden-domestic-birds-help" class="text-sm text-slate-600 dark:text-slate-400">
@@ -331,7 +278,7 @@
                     </p>
                     <p class="text-xs text-slate-600 dark:text-slate-400">
                         {$_('settings.beta.garden_domestic_birds_wild', { default: 'Nothing counts as domestic until you add it. Mallards, Greylag Geese, Wild Turkeys and Rock Doves also live wild, so on every camera they are then recorded as your birds.' })}
-                        <a href={`${DOCS}#domestic-birds`} target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-200">
+                        <a href={`${DOCS}#domestic-birds`} target="_blank" rel="noopener noreferrer" class="focus-ring font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
                             {$_('settings.beta.learn_more', { default: 'Learn more' })}
                         </a>
                     </p>
@@ -370,27 +317,19 @@
                 </div>
             </BetaSection>
 
-            <BetaSection
-                id="garden-section-alerts"
-                title={$_('settings.beta.garden_section_alerts', { default: 'Alerts' })}
-                hint={notificationsEnabled ? $_('settings.beta.status_on', { default: 'On' }) : $_('settings.beta.status_off', { default: 'Off' })}
-                bind:open={sections.alerts}
-            >
-                <div class="flex flex-wrap items-center justify-between gap-3" data-garden-alerts-summary>
-                    <p class="min-w-0 flex-1 basis-56 text-sm text-slate-700 dark:text-slate-300">
-                        {notificationsEnabled
-                            ? $_('settings.beta.garden_alerts_on', { default: 'Garden alerts are on. They are set up in Notifications, with their channels.' })
-                            : $_('settings.beta.garden_alerts_off', { default: 'Garden alerts are off. Turn them on in Notifications, with their channels.' })}
-                    </p>
-                    {#if onOpenNotifications}
-                        <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenNotifications}>
-                            {$_('settings.beta.garden_alerts_open', { default: 'Set up alerts' })}
-                        </button>
-                    {/if}
-                </div>
-            </BetaSection>
+            <!-- Garden's alerts send through the bird alert channels, so they are set in Alerts. -->
+            <div class="flex flex-wrap items-center justify-between gap-3" data-garden-alerts-elsewhere>
+                <p class="min-w-0 flex-1 basis-60 text-sm text-muted">
+                    {$_('settings.beta.garden_alerts_elsewhere', { default: 'Garden animal alerts are set in Alerts, with the channels they send through.' })}
+                </p>
+                {#if onOpenAlerts}
+                    <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenAlerts}>
+                        {$_('settings.beta.garden_alerts_open', { default: 'Open Garden alerts' })}
+                    </button>
+                {/if}
+            </div>
 
-            <BetaSection id="garden-section-outcomes" title={$_('settings.beta.garden_outcomes', { default: 'Where captures go' })} bind:open={sections.outcomes}>
+            <BetaSection id="garden-section-outcomes" title={$_('settings.beta.garden_outcomes', { default: 'Where captures go' })}>
                 <div class="space-y-3" data-garden-outcomes>
                     <dl class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                         <div>

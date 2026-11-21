@@ -35,14 +35,21 @@ for (const width of [1280, 390]) {
             return route.fulfill({ json: {} });
         });
         await page.goto('/browser-tests/settings-backfill.html');
-        if (width < 768) await page.getByRole('combobox', { name: 'Settings', exact: true }).selectOption('detection');
-        else await page.getByRole('link', { name: 'Detection', exact: true }).click();
+        // Detection and Models are both parts of Identifying birds; the second open is a no-op there.
+        const openTab = async (_part: 'detection' | 'models', name: string) => {
+            if (width < 1024) await page.getByRole('combobox', { name: 'Settings section', exact: true }).selectOption('identification');
+            else await page.getByRole('link', { name, exact: true }).click();
+        };
+        // An unsaved edit in Detection, then the model's location guidance in Models.
+        await openTab('detection', 'Identifying birds');
         const slider = page.locator('#confidence-threshold-slider');
         await expect(slider).toHaveValue('0.6');
         await slider.fill('0.75');
-        const location = page.getByRole('link', { name: 'Open Location settings', exact: true });
+        await openTab('models', 'Identifying birds');
+        const location = page.getByRole('link', { name: 'Open location settings', exact: true });
         await expect(location).toBeVisible();
-        await expect(location).toHaveAttribute('href', '/settings/integrations');
+        // The location is the first card in Sharing & integrations, so the address is the section's top.
+        await expect(location).toHaveAttribute('href', '/settings/sharing');
         await expect(page.getByText('Uses your feeder location', { exact: true })).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
         await location.scrollIntoViewIfNeeded();
@@ -50,12 +57,11 @@ for (const width of [1280, 390]) {
         const readsBeforeLink = settingsReads;
         await location.click();
         if (width < 768) {
-            await expect(page.getByRole('combobox', { name: 'Settings', exact: true })).toHaveValue('integrations');
-            await page.getByRole('combobox', { name: 'Settings', exact: true }).selectOption('detection');
+            await expect(page.getByRole('combobox', { name: 'Settings section', exact: true })).toHaveValue('sharing');
         } else {
-            await expect(page.getByRole('link', { name: 'Integrations', exact: true })).toHaveAttribute('aria-current', 'page');
-            await page.getByRole('link', { name: 'Detection', exact: true }).click();
+            await expect(page.getByRole('link', { name: 'Sharing & integrations', exact: true })).toHaveAttribute('aria-current', 'page');
         }
+        await openTab('detection', 'Identifying birds');
         await expect(slider).toHaveValue('0.75');
         expect(settingsReads).toBe(readsBeforeLink);
         expect(errors).toEqual([]);

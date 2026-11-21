@@ -26,9 +26,15 @@
             "type": "integer"
           },
           "estimated_cost_usd": {
-            "default": 0.0,
-            "title": "Estimated Cost Usd",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Cost Usd"
           },
           "feature": {
             "title": "Feature",
@@ -45,6 +51,11 @@
           "output_tokens": {
             "title": "Output Tokens",
             "type": "integer"
+          },
+          "priced": {
+            "default": false,
+            "title": "Priced",
+            "type": "boolean"
           },
           "provider": {
             "title": "Provider",
@@ -95,11 +106,6 @@
             "title": "Day",
             "type": "string"
           },
-          "estimated_cost_usd": {
-            "default": 0.0,
-            "title": "Estimated Cost Usd",
-            "type": "number"
-          },
           "input_tokens": {
             "title": "Input Tokens",
             "type": "integer"
@@ -144,9 +150,15 @@
             "type": "array"
           },
           "estimated_cost_usd": {
-            "default": 0.0,
-            "title": "Estimated Cost Usd",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Cost Usd"
           },
           "from_date": {
             "title": "From Date",
@@ -158,6 +170,16 @@
           },
           "output_tokens": {
             "title": "Output Tokens",
+            "type": "integer"
+          },
+          "priced_calls": {
+            "default": 0,
+            "title": "Priced Calls",
+            "type": "integer"
+          },
+          "priced_tokens": {
+            "default": 0,
+            "title": "Priced Tokens",
             "type": "integer"
           },
           "pricing_configured": {
@@ -175,6 +197,24 @@
           },
           "total_tokens": {
             "title": "Total Tokens",
+            "type": "integer"
+          },
+          "unpriced_calls": {
+            "default": 0,
+            "title": "Unpriced Calls",
+            "type": "integer"
+          },
+          "unpriced_models": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Unpriced Models",
+            "type": "array"
+          },
+          "unpriced_tokens": {
+            "default": 0,
+            "title": "Unpriced Tokens",
             "type": "integer"
           }
         },
@@ -820,6 +860,66 @@
           "is_favorite"
         ],
         "title": "ArchiveStatusResponse",
+        "type": "object"
+      },
+      "AudioActivityHeatmapCell": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "day_of_week": {
+            "title": "Day Of Week",
+            "type": "integer"
+          },
+          "hour": {
+            "title": "Hour",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day_of_week",
+          "hour",
+          "count"
+        ],
+        "title": "AudioActivityHeatmapCell",
+        "type": "object"
+      },
+      "AudioActivityHeatmapResponse": {
+        "description": "Calls heard per local weekday and hour: the same cell shape as the camera grid's.",
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/AudioActivityHeatmapCell"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "max_cell_count": {
+            "title": "Max Cell Count",
+            "type": "integer"
+          },
+          "total_count": {
+            "title": "Total Count",
+            "type": "integer"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "window_start",
+          "window_end",
+          "total_count",
+          "max_cell_count",
+          "cells"
+        ],
+        "title": "AudioActivityHeatmapResponse",
         "type": "object"
       },
       "AudioContextDetectionResponse": {
@@ -1670,6 +1770,29 @@
             ],
             "title": "Correlation Key"
           },
+          "count": {
+            "default": 1,
+            "description": "How many times this fault was recorded; repeats share one entry.",
+            "title": "Count",
+            "type": "integer"
+          },
+          "dismissal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiagnosticDismissalStateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set while `dismissed` is true."
+          },
+          "dismissed": {
+            "default": false,
+            "description": "Hidden on Health by the owner. False again once an occurrence newer than the dismissal is recorded.",
+            "title": "Dismissed",
+            "type": "boolean"
+          },
           "event_id": {
             "anyOf": [
               {
@@ -1680,6 +1803,18 @@
               }
             ],
             "title": "Event Id"
+          },
+          "first_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the first occurrence was recorded.",
+            "title": "First Seen"
           },
           "id": {
             "title": "Id",
@@ -1695,6 +1830,18 @@
               }
             ],
             "title": "Job Id"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the newest occurrence was recorded; equals `timestamp`.",
+            "title": "Last Seen"
           },
           "message": {
             "title": "Message",
@@ -1797,6 +1944,12 @@
             "title": "Component Counts",
             "type": "object"
           },
+          "dismissed_events": {
+            "default": 0,
+            "description": "Entries held that the owner has dismissed, across every entry held.",
+            "title": "Dismissed Events",
+            "type": "integer"
+          },
           "events": {
             "items": {
               "$ref": "#/components/schemas/BackendDiagnosticEventResponse"
@@ -1820,7 +1973,14 @@
             "type": "object"
           },
           "total_events": {
+            "description": "Distinct entries held, after repeats are grouped.",
             "title": "Total Events",
+            "type": "integer"
+          },
+          "total_occurrences": {
+            "default": 0,
+            "description": "Recorded occurrences across every entry held.",
+            "title": "Total Occurrences",
             "type": "integer"
           }
         },
@@ -2076,6 +2236,63 @@
           "bytes_freed"
         ],
         "title": "BackfillResetCacheStats",
+        "type": "object"
+      },
+      "BackfillResetCountChanged": {
+        "description": "The count the owner confirmed no longer holds. Nothing was deleted.",
+        "properties": {
+          "code": {
+            "const": "reset_count_changed",
+            "default": "reset_count_changed",
+            "title": "Code",
+            "type": "string"
+          },
+          "detection_count": {
+            "description": "What a reset would delete now, to ask the owner again with.",
+            "title": "Detection Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "detection_count"
+        ],
+        "title": "BackfillResetCountChanged",
+        "type": "object"
+      },
+      "BackfillResetPreviewResponse": {
+        "description": "What a reset would delete right now, counted over the reset's own scope.",
+        "properties": {
+          "detection_count": {
+            "description": "Every detection row a reset removes, hidden ones included.",
+            "title": "Detection Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "detection_count"
+        ],
+        "title": "BackfillResetPreviewResponse",
+        "type": "object"
+      },
+      "BackfillResetRefusal": {
+        "description": "A reset that did not run: the confirmed count changed, or another reset is under way.",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BackfillResetCountChanged"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Detail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "BackfillResetRefusal",
         "type": "object"
       },
       "BackfillResetResponse": {
@@ -3225,6 +3442,83 @@
         "title": "CacheStatsResponse",
         "type": "object"
       },
+      "CameraHealth": {
+        "properties": {
+          "camera": {
+            "title": "Camera",
+            "type": "string"
+          },
+          "camera_fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera Fps"
+          },
+          "detection_fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detection Fps"
+          },
+          "process_fps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Fps"
+          },
+          "status": {
+            "enum": [
+              "online",
+              "offline",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "camera",
+          "status"
+        ],
+        "title": "CameraHealth",
+        "type": "object"
+      },
+      "CameraHealthReading": {
+        "properties": {
+          "cameras": {
+            "items": {
+              "$ref": "#/components/schemas/CameraHealth"
+            },
+            "title": "Cameras",
+            "type": "array"
+          },
+          "checked_at": {
+            "title": "Checked At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cameras",
+          "checked_at"
+        ],
+        "title": "CameraHealthReading",
+        "type": "object"
+      },
       "CameraStats": {
         "properties": {
           "camera_name": {
@@ -3489,6 +3783,131 @@
           "$ref": "#/components/schemas/JsonValue"
         },
         "properties": {
+          "attempt_count": {
+            "default": 0,
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierCropDeviceCheckResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "next_retry_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Retry At"
+          },
+          "providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "mismatch",
+                  "unfinished",
+                  "no_photos",
+                  "driver_changed",
+                  "no_positive_baseline",
+                  "superseded",
+                  "interrupted",
+                  "passed",
+                  "gpu_recovery",
+                  "no_accelerator",
+                  "ledger_unreadable",
+                  "no_full_frames"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "runtime_current": {
+            "default": true,
+            "title": "Runtime Current",
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "idle",
+              "waiting",
+              "running",
+              "succeeded",
+              "failed",
+              "superseded",
+              "interrupted"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "model_id",
+          "providers",
+          "reason",
+          "checked_at"
+        ],
+        "title": "ClassifierCropDeviceCheck",
+        "type": "object"
+      },
+      "ClassifierCropDeviceCheckResult": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
           "checked_at": {
             "anyOf": [
               {
@@ -3529,6 +3948,36 @@
             ],
             "title": "Reason"
           },
+          "reason_code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "mismatch",
+                  "unfinished",
+                  "no_photos",
+                  "driver_changed",
+                  "no_positive_baseline",
+                  "superseded",
+                  "interrupted",
+                  "passed",
+                  "gpu_recovery",
+                  "no_accelerator",
+                  "ledger_unreadable",
+                  "no_full_frames"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "runtime_current": {
+            "default": true,
+            "title": "Runtime Current",
+            "type": "boolean"
+          },
           "state": {
             "enum": [
               "idle",
@@ -3550,7 +3999,7 @@
           "reason",
           "checked_at"
         ],
-        "title": "ClassifierCropDeviceCheck",
+        "title": "ClassifierCropDeviceCheckResult",
         "type": "object"
       },
       "ClassifierCropStatus": {
@@ -3558,10 +4007,42 @@
           "$ref": "#/components/schemas/JsonValue"
         },
         "properties": {
+          "active_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Provider"
+          },
+          "chosen_installed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chosen Installed"
+          },
           "chosen_model_id": {
             "default": "",
             "title": "Chosen Model Id",
             "type": "string"
+          },
+          "cpu_fallback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierFinderCPUFallback"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "device_check": {
             "anyOf": [
@@ -3624,6 +4105,17 @@
               }
             ],
             "title": "Model Path"
+          },
+          "planned_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Planned Provider"
           },
           "reason": {
             "default": "",
@@ -3704,6 +4196,65 @@
           "message"
         ],
         "title": "ClassifierDownloadResponse",
+        "type": "object"
+      },
+      "ClassifierFinderCPUFallback": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          }
+        },
+        "required": [
+          "active",
+          "model_id",
+          "provider"
+        ],
+        "title": "ClassifierFinderCPUFallback",
         "type": "object"
       },
       "ClassifierHostEligibility": {
@@ -3869,6 +4420,17 @@
             ],
             "title": "Active Model Id"
           },
+          "active_model_installed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Model Installed"
+          },
           "active_model_validated_providers": {
             "items": {
               "type": "string"
@@ -3956,6 +4518,17 @@
               }
             ],
             "title": "Effective Model Id"
+          },
+          "effective_model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Model Name"
           },
           "enabled": {
             "default": false,
@@ -4964,6 +5537,52 @@
         "title": "CropGeneratorConfig",
         "type": "object"
       },
+      "CurrentIdentification": {
+        "description": "What a detection's identification reads now.",
+        "properties": {
+          "category_name": {
+            "title": "Category Name",
+            "type": "string"
+          },
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "manual_tagged": {
+            "title": "Manual Tagged",
+            "type": "boolean"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          }
+        },
+        "required": [
+          "display_name",
+          "category_name",
+          "manual_tagged"
+        ],
+        "title": "CurrentIdentification",
+        "type": "object"
+      },
       "DailyCameraVisits": {
         "properties": {
           "camera": {
@@ -5141,9 +5760,28 @@
             "default": 0,
             "title": "Visit Count",
             "type": "integer"
+          },
+          "window": {
+            "default": "rolling",
+            "enum": [
+              "rolling",
+              "today"
+            ],
+            "title": "Window",
+            "type": "string"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
           }
         },
         "required": [
+          "window_start",
+          "window_end",
           "hourly_distribution",
           "top_species",
           "latest_detection",
@@ -5151,6 +5789,42 @@
           "audio_confirmations"
         ],
         "title": "DailySummaryResponse",
+        "type": "object"
+      },
+      "DailyTotalsCoverage": {
+        "description": "How far back a chart's counts come from sealed daily totals instead of stored captures (#949).\n\n`totals_through` is the last such day (null when the chart reads only stored captures).\n`partial` is true when some of those days were sealed after older captures were already\nremoved, before daily totals were kept; `complete_from` is then the first day whose total is\nwhole, if any.",
+        "properties": {
+          "complete_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Complete From"
+          },
+          "partial": {
+            "default": false,
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "totals_through": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Totals Through"
+          }
+        },
+        "title": "DailyTotalsCoverage",
         "type": "object"
       },
       "DailyWeatherSummary": {
@@ -5648,6 +6322,17 @@
             ],
             "title": "Id"
           },
+          "illuminance_lux": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Illuminance Lux"
+          },
           "initial_classification_input": {
             "anyOf": [
               {
@@ -6080,6 +6765,20 @@
             "title": "Frigate Event",
             "type": "string"
           },
+          "frigate_event_check": {
+            "default": "not_checked",
+            "enum": [
+              "found",
+              "not_found",
+              "unreachable",
+              "timed_out",
+              "unauthorized",
+              "failed",
+              "not_checked"
+            ],
+            "title": "Frigate Event Check",
+            "type": "string"
+          },
           "has_clip": {
             "default": false,
             "title": "Has Clip",
@@ -6325,6 +7024,20 @@
             "title": "Frigate Event",
             "type": "string"
           },
+          "frigate_event_check": {
+            "default": "not_checked",
+            "enum": [
+              "found",
+              "not_found",
+              "unreachable",
+              "timed_out",
+              "unauthorized",
+              "failed",
+              "not_checked"
+            ],
+            "title": "Frigate Event Check",
+            "type": "string"
+          },
           "frigate_last_checked_at": {
             "anyOf": [
               {
@@ -6399,6 +7112,17 @@
               }
             ],
             "title": "Id"
+          },
+          "illuminance_lux": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Illuminance Lux"
           },
           "initial_classification_input": {
             "anyOf": [
@@ -7053,6 +7777,9 @@
             ],
             "title": "Compare Series"
           },
+          "daily_totals": {
+            "$ref": "#/components/schemas/DailyTotalsCoverage"
+          },
           "points": {
             "items": {
               "$ref": "#/components/schemas/DetectionsTimelinePoint"
@@ -7203,6 +7930,81 @@
         "title": "DetectionsTimelineWeatherPoint",
         "type": "object"
       },
+      "DiagnosticDismissalEntryRequest": {
+        "properties": {
+          "count": {
+            "description": "How many occurrences the owner saw, the entry's `count`.",
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "count"
+        ],
+        "title": "DiagnosticDismissalEntryRequest",
+        "type": "object"
+      },
+      "DiagnosticDismissalResponse": {
+        "properties": {
+          "component": {
+            "title": "Component",
+            "type": "string"
+          },
+          "dismissed_at": {
+            "title": "Dismissed At",
+            "type": "string"
+          },
+          "dismissed_count": {
+            "title": "Dismissed Count",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "reason_code": {
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "component",
+          "reason_code",
+          "dismissed_count",
+          "dismissed_at"
+        ],
+        "title": "DiagnosticDismissalResponse",
+        "type": "object"
+      },
+      "DiagnosticDismissalStateResponse": {
+        "properties": {
+          "dismissed_at": {
+            "description": "When the owner dismissed it.",
+            "title": "Dismissed At",
+            "type": "string"
+          },
+          "dismissed_count": {
+            "description": "How many occurrences the dismissal covers; a later one ends it.",
+            "title": "Dismissed Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dismissed_count",
+          "dismissed_at"
+        ],
+        "title": "DiagnosticDismissalStateResponse",
+        "type": "object"
+      },
       "DiagnosticsBundleResponse": {
         "properties": {
           "backend_diagnostics": {
@@ -7329,6 +8131,11 @@
             "title": "Diagnostic Events",
             "type": "integer"
           },
+          "dismissed_events": {
+            "default": 0,
+            "title": "Dismissed Events",
+            "type": "integer"
+          },
           "health_status": {
             "title": "Health Status",
             "type": "string"
@@ -7363,6 +8170,16 @@
             "additionalProperties": true,
             "title": "Classifier",
             "type": "object"
+          },
+          "connections": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceConnectionsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "focused_diagnostics": {
             "$ref": "#/components/schemas/FocusedDiagnosticsResponse"
@@ -7416,6 +8233,49 @@
           "startup_warnings"
         ],
         "title": "DiagnosticsWorkspaceResponse",
+        "type": "object"
+      },
+      "DismissDiagnosticsRequest": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticDismissalEntryRequest"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "title": "DismissDiagnosticsRequest",
+        "type": "object"
+      },
+      "DismissDiagnosticsResponse": {
+        "properties": {
+          "dismissed": {
+            "items": {
+              "$ref": "#/components/schemas/DiagnosticDismissalResponse"
+            },
+            "title": "Dismissed",
+            "type": "array"
+          },
+          "missing": {
+            "description": "Entries no longer in the history, so there was nothing to dismiss.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dismissed",
+          "missing"
+        ],
+        "title": "DismissDiagnosticsResponse",
         "type": "object"
       },
       "DownloadProgress": {
@@ -7515,6 +8375,7 @@
             "enum": [
               "baseline",
               "measured",
+              "counter_wrapped",
               "counter_regressed",
               "missing_total",
               "total_not_advancing",
@@ -8340,6 +9201,95 @@
           }
         },
         "title": "FocusedDiagnosticsResponse",
+        "type": "object"
+      },
+      "FrigateApiStatus": {
+        "description": "Frigate's HTTP API, judged by the latest request this instance made to it.",
+        "properties": {
+          "availability": {
+            "default": "unknown",
+            "description": "What Frigate last announced on its MQTT availability topic; unknown without the broker.",
+            "enum": [
+              "online",
+              "offline",
+              "unknown"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UTC time of the latest request.",
+            "title": "Checked At"
+          },
+          "last_failure": {
+            "anyOf": [
+              {
+                "enum": [
+                  "timeout",
+                  "connection",
+                  "unauthorized",
+                  "server_error"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the latest failed request failed, when the latest request failed.",
+            "title": "Last Failure"
+          },
+          "last_failure_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Failure At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "state": {
+            "description": "reachable: the latest request was answered. unreachable: it was not, or Frigate refused it or failed. unchecked: no request has been made since this instance started.",
+            "enum": [
+              "reachable",
+              "unreachable",
+              "unchecked"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "url": {
+            "description": "The Frigate address requests go to.",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "url"
+        ],
+        "title": "FrigateApiStatus",
         "type": "object"
       },
       "FrigateCameraStatusItem": {
@@ -9656,7 +10606,7 @@
             "type": "boolean"
           },
           "catchup_seconds": {
-            "default": 1800,
+            "default": 600,
             "title": "Catchup Seconds",
             "type": "integer"
           },
@@ -9792,7 +10742,8 @@
               "duration_limit",
               "decode_failed",
               "frame_unbounded",
-              "photo_too_large"
+              "photo_too_large",
+              "size_limit"
             ],
             "title": "Last Reason",
             "type": "string"
@@ -10290,6 +11241,61 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HaIlluminanceTestReading": {
+        "description": "The light level the configured sensor would add to a detection right now.",
+        "properties": {
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "lux": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Measured illuminance in lx; null when there is no reading",
+            "title": "Lux"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "invalid_entity_id",
+                  "unreachable",
+                  "not_illuminance",
+                  "unavailable",
+                  "not_numeric",
+                  "out_of_range"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why there is no reading",
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_id",
+          "status"
+        ],
+        "title": "HaIlluminanceTestReading",
+        "type": "object"
+      },
       "HaWeatherTestRequest": {
         "properties": {
           "access_token": {
@@ -10314,6 +11320,28 @@
             ],
             "title": "Base Url"
           },
+          "illuminance_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Illuminance Entity"
+          },
+          "scope": {
+            "default": "all",
+            "description": "Read everything configured, or only the weather or only the illuminance entity",
+            "enum": [
+              "all",
+              "weather",
+              "illuminance"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
           "weather_entity": {
             "anyOf": [
               {
@@ -10331,6 +11359,17 @@
       },
       "HaWeatherTestResponse": {
         "properties": {
+          "illuminance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HaIlluminanceTestReading"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Outcome of the illuminance entity; null when none is configured"
+          },
           "message": {
             "title": "Message",
             "type": "string"
@@ -10341,11 +11380,23 @@
             "type": "object"
           },
           "status": {
+            "description": "ok only when every configured part answered",
             "enum": [
               "ok",
               "error"
             ],
             "title": "Status",
+            "type": "string"
+          },
+          "weather": {
+            "default": "not_configured",
+            "description": "Outcome of the weather entity and sensor overrides alone",
+            "enum": [
+              "ok",
+              "error",
+              "not_configured"
+            ],
+            "title": "Weather",
             "type": "string"
           }
         },
@@ -10546,6 +11597,44 @@
           "is_hidden"
         ],
         "title": "HideResponse",
+        "type": "object"
+      },
+      "IdentificationChangedDetail": {
+        "description": "Why a decision was refused: the identification changed after it was shown.",
+        "properties": {
+          "code": {
+            "const": "identification_changed",
+            "title": "Code",
+            "type": "string"
+          },
+          "current": {
+            "$ref": "#/components/schemas/CurrentIdentification"
+          },
+          "message": {
+            "description": "Plain-language reason, in the request's language",
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "current"
+        ],
+        "title": "IdentificationChangedDetail",
+        "type": "object"
+      },
+      "IdentificationChangedResponse": {
+        "description": "409 body of PATCH /api/events/{event_id} when `expected_category_name` no longer holds.",
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/IdentificationChangedDetail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "IdentificationChangedResponse",
         "type": "object"
       },
       "ImageClassificationResponse": {
@@ -11047,6 +12136,11 @@
       },
       "InstalledModel": {
         "properties": {
+          "bundled": {
+            "default": false,
+            "title": "Bundled",
+            "type": "boolean"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -11343,6 +12437,31 @@
         "title": "JobSnapshotItem",
         "type": "object"
       },
+      "JobsProgress": {
+        "properties": {
+          "current": {
+            "minimum": 0.0,
+            "title": "Current",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 1.0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current",
+          "total",
+          "unit"
+        ],
+        "title": "JobsProgress",
+        "type": "object"
+      },
       "JobsSnapshotResponse": {
         "properties": {
           "captured_at": {
@@ -11370,6 +12489,38 @@
           "lanes"
         ],
         "title": "JobsSnapshotResponse",
+        "type": "object"
+      },
+      "JobsSummary": {
+        "description": "The prominent work as one count, so the banner's headline and its detail can never disagree.",
+        "properties": {
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobsProgress"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set only when every running job counts the same thing towards a known total; otherwise null."
+          },
+          "queued": {
+            "minimum": 0.0,
+            "title": "Queued",
+            "type": "integer"
+          },
+          "running": {
+            "minimum": 0.0,
+            "title": "Running",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "running",
+          "queued"
+        ],
+        "title": "JobsSummary",
         "type": "object"
       },
       "JsonValue": {},
@@ -11960,6 +13111,108 @@
           }
         },
         "title": "MQTTTestRequest",
+        "type": "object"
+      },
+      "MaintenanceLastRun": {
+        "properties": {
+          "changed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Records it changed, found or queued",
+            "title": "Changed"
+          },
+          "checked": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Records the run looked at",
+            "title": "Checked"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "kind": {
+            "enum": [
+              "taxonomy",
+              "timezone_scan",
+              "timezone_repair",
+              "analyze_unknowns",
+              "detections",
+              "weather"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it started, where recorded (a running backfill has no finish yet)",
+            "title": "Started At"
+          },
+          "status": {
+            "description": "completed or failed; a backfill job can also report running or cancelled",
+            "title": "Status",
+            "type": "string"
+          },
+          "unchecked": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Records it looked at but could not check, e.g. Frigate did not answer; not an all-clear",
+            "title": "Unchecked"
+          }
+        },
+        "required": [
+          "kind",
+          "status"
+        ],
+        "title": "MaintenanceLastRun",
+        "type": "object"
+      },
+      "MaintenanceLastRunsResponse": {
+        "properties": {
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/MaintenanceLastRun"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs"
+        ],
+        "title": "MaintenanceLastRunsResponse",
         "type": "object"
       },
       "MaintenanceStatsResponse": {
@@ -12743,6 +13996,28 @@
         "title": "ModelActionResponse",
         "type": "object"
       },
+      "ModelActivityResponse": {
+        "description": "Models being downloaded or checked on this hardware right now, by model id.",
+        "properties": {
+          "activity": {
+            "additionalProperties": {
+              "enum": [
+                "downloading",
+                "validating"
+              ],
+              "type": "string"
+            },
+            "description": "Each model with work in progress and its phase: `downloading` or `validating`. A model that is absent has none. Garden's automatic check model is reported as `garden-speciesnet-4.0.3a`.",
+            "title": "Activity",
+            "type": "object"
+          }
+        },
+        "required": [
+          "activity"
+        ],
+        "title": "ModelActivityResponse",
+        "type": "object"
+      },
       "ModelDeleteResponse": {
         "properties": {
           "bytes_freed": {
@@ -12764,6 +14039,650 @@
           "bytes_freed"
         ],
         "title": "ModelDeleteResponse",
+        "type": "object"
+      },
+      "ModelEvalActiveStatus": {
+        "properties": {
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/ModelEvalProgress"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "phase",
+          "started_at",
+          "progress"
+        ],
+        "title": "ModelEvalActiveStatus",
+        "type": "object"
+      },
+      "ModelEvalListResponse": {
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelEvalActiveStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEvalRunRow"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "title": "ModelEvalListResponse",
+        "type": "object"
+      },
+      "ModelEvalModelSummary": {
+        "properties": {
+          "abstention_rate": {
+            "default": 0.0,
+            "title": "Abstention Rate",
+            "type": "number"
+          },
+          "active_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Provider"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "failed_providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed Providers",
+            "type": "array"
+          },
+          "high_confidence_unknown_rate": {
+            "default": 0.0,
+            "title": "High Confidence Unknown Rate",
+            "type": "number"
+          },
+          "images_evaluated": {
+            "default": 0,
+            "title": "Images Evaluated",
+            "type": "integer"
+          },
+          "images_in_vocabulary": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Images In Vocabulary"
+          },
+          "inference_health_verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Health Verdict"
+          },
+          "latency_drift_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Drift Ratio"
+          },
+          "mean_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Latency Ms"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "p50_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P50 Latency Ms"
+          },
+          "p95_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P95 Latency Ms"
+          },
+          "panel_species": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Panel Species"
+          },
+          "ready": {
+            "default": true,
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "ready_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ready Reason"
+          },
+          "regional_top1": {
+            "default": 0.0,
+            "title": "Regional Top1",
+            "type": "number"
+          },
+          "regional_top1_in_vocabulary": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regional Top1 In Vocabulary"
+          },
+          "requested_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Provider"
+          },
+          "shared_core_top1": {
+            "default": 0.0,
+            "title": "Shared Core Top1",
+            "type": "number"
+          },
+          "shared_core_top1_in_vocabulary": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared Core Top1 In Vocabulary"
+          },
+          "species_outside_vocabulary": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species Outside Vocabulary"
+          },
+          "startup_benchmark_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startup Benchmark Ms"
+          },
+          "top1_accuracy": {
+            "default": 0.0,
+            "title": "Top1 Accuracy",
+            "type": "number"
+          },
+          "top1_accuracy_in_vocabulary": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top1 Accuracy In Vocabulary"
+          },
+          "top3_accuracy": {
+            "default": 0.0,
+            "title": "Top3 Accuracy",
+            "type": "number"
+          },
+          "top3_accuracy_in_vocabulary": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top3 Accuracy In Vocabulary"
+          },
+          "top5_accuracy": {
+            "default": 0.0,
+            "title": "Top5 Accuracy",
+            "type": "number"
+          },
+          "top5_accuracy_in_vocabulary": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top5 Accuracy In Vocabulary"
+          },
+          "validated_providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Validated Providers",
+            "type": "array"
+          },
+          "vocabulary_known": {
+            "default": false,
+            "title": "Vocabulary Known",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEvalWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "model_id"
+        ],
+        "title": "ModelEvalModelSummary",
+        "type": "object"
+      },
+      "ModelEvalProgress": {
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "done",
+          "total",
+          "label"
+        ],
+        "title": "ModelEvalProgress",
+        "type": "object"
+      },
+      "ModelEvalRunResponse": {
+        "properties": {
+          "available_artifacts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Available Artifacts",
+            "type": "array"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "in_progress": {
+            "default": false,
+            "title": "In Progress",
+            "type": "boolean"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEvalModelSummary"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "skipped_models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEvalSkippedModel"
+            },
+            "title": "Skipped Models",
+            "type": "array"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "test_set": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelEvalTestSet"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "title": "ModelEvalRunResponse",
+        "type": "object"
+      },
+      "ModelEvalRunRow": {
+        "properties": {
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "model_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Count"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total_images": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Images"
+          },
+          "total_species": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Species"
+          }
+        },
+        "required": [
+          "run_id",
+          "status"
+        ],
+        "title": "ModelEvalRunRow",
+        "type": "object"
+      },
+      "ModelEvalSkippedModel": {
+        "properties": {
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_id",
+          "reason"
+        ],
+        "title": "ModelEvalSkippedModel",
+        "type": "object"
+      },
+      "ModelEvalTestSet": {
+        "properties": {
+          "image_sources": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Image Sources",
+            "type": "object"
+          },
+          "images_per_species": {
+            "default": 0,
+            "title": "Images Per Species",
+            "type": "integer"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "regional_species": {
+            "default": 0,
+            "title": "Regional Species",
+            "type": "integer"
+          },
+          "shared_core_species": {
+            "default": 0,
+            "title": "Shared Core Species",
+            "type": "integer"
+          },
+          "total_images": {
+            "default": 0,
+            "title": "Total Images",
+            "type": "integer"
+          },
+          "total_species": {
+            "default": 0,
+            "title": "Total Species",
+            "type": "integer"
+          }
+        },
+        "title": "ModelEvalTestSet",
+        "type": "object"
+      },
+      "ModelEvalWarning": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "default": "info",
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "ModelEvalWarning",
         "type": "object"
       },
       "ModelFile": {
@@ -13092,6 +15011,110 @@
         "title": "ModelMetadata",
         "type": "object"
       },
+      "ModelState": {
+        "description": "The bird model in use and whether the inference provider the owner chose is the one running.",
+        "properties": {
+          "active_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Provider"
+          },
+          "cause": {
+            "title": "Cause",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "fallback_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Reason"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "provider_fallback": {
+            "default": false,
+            "description": "The chosen provider is not the one running, or the runtime reported a fallback.",
+            "title": "Provider Fallback",
+            "type": "boolean"
+          },
+          "revision": {
+            "description": "Changes whenever the model, its provider or its runtime changes, so a page reads details again.",
+            "title": "Revision",
+            "type": "string"
+          },
+          "selected_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Provider"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "degraded",
+              "error",
+              "off",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "validation_state": {
+            "default": "idle",
+            "description": "The once-per-runtime accelerator check: idle, running, succeeded, failed, ...",
+            "title": "Validation State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "cause",
+          "revision"
+        ],
+        "title": "ModelState",
+        "type": "object"
+      },
       "ModelValidateDevice": {
         "properties": {
           "backend": {
@@ -13415,6 +15438,106 @@
         "title": "MoveToGardenResponse",
         "type": "object"
       },
+      "MqttConnectionStatus": {
+        "description": "The broker session, as the MQTT service last saw it.",
+        "properties": {
+          "connected_since": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UTC time the current session started.",
+            "title": "Connected Since"
+          },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UTC time of the latest connection attempt.",
+            "title": "Last Attempt At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The broker client's own words for that failure.",
+            "title": "Last Error"
+          },
+          "last_error_cause": {
+            "anyOf": [
+              {
+                "enum": [
+                  "host_not_found",
+                  "refused",
+                  "timeout",
+                  "not_authorised",
+                  "unreachable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The cause read from that failure, as a code the page words in its own language: host_not_found, refused, timeout, not_authorised or unreachable. Null while connected or before any failure.",
+            "title": "Last Error Cause"
+          },
+          "last_failure_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UTC time the latest attempt or session failed.",
+            "title": "Last Failure At"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "server": {
+            "description": "The broker host the service connects to.",
+            "title": "Server",
+            "type": "string"
+          },
+          "state": {
+            "description": "connecting: the first attempt since start has not finished. connected: subscribed and receiving. disconnected: the last attempt failed or the session dropped; it keeps retrying. not_configured: no broker address is saved. stopped: the service is not running.",
+            "enum": [
+              "connecting",
+              "connected",
+              "disconnected",
+              "not_configured",
+              "stopped"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "server",
+          "port"
+        ],
+        "title": "MqttConnectionStatus",
+        "type": "object"
+      },
       "NewSpeciesQueueResponse": {
         "properties": {
           "items": {
@@ -13620,6 +15743,51 @@
           "authorization_url"
         ],
         "title": "OAuthAuthorizeResponse",
+        "type": "object"
+      },
+      "OverallVerdict": {
+        "properties": {
+          "cause": {
+            "description": "The first thing to fix, as `status.cause.<subsystem>.<cause>` or an overall code.",
+            "title": "Cause",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "degraded",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "subsystem": {
+            "anyOf": [
+              {
+                "enum": [
+                  "mqtt",
+                  "frigate",
+                  "classifier",
+                  "finder",
+                  "audio",
+                  "storage",
+                  "notifications"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Which part the cause belongs to; null for a cause of the whole install.",
+            "title": "Subsystem"
+          }
+        },
+        "required": [
+          "state",
+          "cause"
+        ],
+        "title": "OverallVerdict",
         "type": "object"
       },
       "PortraitDay": {
@@ -13856,6 +16024,11 @@
             "description": "Whether recording-backed clips are enabled",
             "title": "Recording Clip Enabled",
             "type": "boolean"
+          },
+          "visit_gap_seconds": {
+            "description": "Seconds apart that captures of one species on one camera stay one visit",
+            "title": "Visit Gap Seconds",
+            "type": "integer"
           }
         },
         "required": [
@@ -13863,7 +16036,8 @@
           "ebird_default_days_back",
           "clips_enabled",
           "recording_clip_enabled",
-          "bird_counting_enabled"
+          "bird_counting_enabled",
+          "visit_gap_seconds"
         ],
         "title": "PublicSettings",
         "type": "object"
@@ -14737,6 +16911,43 @@
         "title": "RecordingClipFetchResponse",
         "type": "object"
       },
+      "RestoreDiagnosticsRequest": {
+        "properties": {
+          "ids": {
+            "items": {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "title": "RestoreDiagnosticsRequest",
+        "type": "object"
+      },
+      "RestoreDiagnosticsResponse": {
+        "properties": {
+          "restored": {
+            "description": "Entries that were dismissed and now show again.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Restored",
+            "type": "array"
+          }
+        },
+        "required": [
+          "restored"
+        ],
+        "title": "RestoreDiagnosticsResponse",
+        "type": "object"
+      },
       "RevalidationProfile": {
         "properties": {
           "blocked": {
@@ -15052,6 +17263,28 @@
           "total_observations"
         ],
         "title": "SeasonalityResponse",
+        "type": "object"
+      },
+      "ServiceConnectionsResponse": {
+        "description": "The two connections every detection depends on.",
+        "properties": {
+          "frigate": {
+            "$ref": "#/components/schemas/FrigateApiStatus"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "mqtt": {
+            "$ref": "#/components/schemas/MqttConnectionStatus"
+          }
+        },
+        "required": [
+          "mqtt",
+          "frigate",
+          "generated_at"
+        ],
+        "title": "ServiceConnectionsResponse",
         "type": "object"
       },
       "SettingsImportResponse": {
@@ -15875,6 +18108,17 @@
               }
             ],
             "title": "Ha Weather Entity"
+          },
+          "ha_weather_illuminance_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Illuminance Entity"
           },
           "ha_weather_precipitation_entity": {
             "anyOf": [
@@ -17293,6 +19537,17 @@
             "default": 3,
             "title": "Video Classification Max Retries"
           },
+          "visit_gap_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visit Gap Seconds"
+          },
           "write_frigate_sublabel": {
             "default": true,
             "title": "Write Frigate Sublabel",
@@ -18223,6 +20478,18 @@
             ],
             "description": "Weather entity used as the general source",
             "title": "Ha Weather Entity"
+          },
+          "ha_weather_illuminance_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Illuminance sensor (lx) recorded with each detection",
+            "title": "Ha Weather Illuminance Entity"
           },
           "ha_weather_precipitation_entity": {
             "anyOf": [
@@ -19643,6 +21910,20 @@
             "description": "Max retries for clip availability",
             "title": "Video Classification Max Retries"
           },
+          "visit_gap_seconds": {
+            "anyOf": [
+              {
+                "maximum": 300.0,
+                "minimum": 5.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Captures of one species on one camera no more than this many seconds apart count as one visit",
+            "title": "Visit Gap Seconds"
+          },
           "write_frigate_sublabel": {
             "default": true,
             "description": "Write YA-WAMF labels back to Frigate sublabels",
@@ -19668,7 +21949,7 @@
         "type": "object"
       },
       "SetupSectionState": {
-        "description": "Readiness of one wizard section.\n\n- ``ok``: functional (explicitly configured, or a working default).\n- ``attention``: needs the user's input to work properly (e.g. no Frigate URL, no cameras).\n- ``optional``: an optional feature that is simply not enabled.",
+        "description": "Readiness of one wizard section.\n\n- ``ok``: functional (explicitly configured, or a working default).\n- ``attention``: needs the user's input to work properly (e.g. no Frigate URL, no cameras).\n- ``optional``: an optional feature that is simply not enabled, including running without\n  a password.",
         "properties": {
           "detail": {
             "anyOf": [
@@ -20601,6 +22882,19 @@
             ],
             "title": "Source Url"
           },
+          "summary_language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The language the description is written in, when its source says: a Wikipedia edition's code such as `en`. It can differ from the language asked for.",
+            "readOnly": true,
+            "title": "Summary Language"
+          },
           "summary_source": {
             "anyOf": [
               {
@@ -20662,7 +22956,8 @@
           }
         },
         "required": [
-          "title"
+          "title",
+          "summary_language"
         ],
         "title": "SpeciesInfo",
         "type": "object"
@@ -20818,6 +23113,9 @@
             "title": "Daily Distribution",
             "type": "array"
           },
+          "daily_totals": {
+            "$ref": "#/components/schemas/DailyTotalsCoverage"
+          },
           "first_seen": {
             "anyOf": [
               {
@@ -20828,6 +23126,18 @@
               }
             ],
             "title": "First Seen"
+          },
+          "history_first_day": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "History First Day"
           },
           "hourly_distribution": {
             "items": {
@@ -20996,6 +23306,46 @@
           "expires_in_seconds"
         ],
         "title": "StreamTicketResponse",
+        "type": "object"
+      },
+      "SubsystemVerdict": {
+        "properties": {
+          "cause": {
+            "description": "Why it is in this state, as a code the page words: `status.cause.<key>.<cause>`.",
+            "title": "Cause",
+            "type": "string"
+          },
+          "key": {
+            "enum": [
+              "mqtt",
+              "frigate",
+              "classifier",
+              "finder",
+              "audio",
+              "storage",
+              "notifications"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "degraded",
+              "error",
+              "off",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "state",
+          "cause"
+        ],
+        "title": "SubsystemVerdict",
         "type": "object"
       },
       "SystemAcceleratorIdentity": {
@@ -21341,6 +23691,109 @@
           "label"
         ],
         "title": "SystemProcessLoadResponse",
+        "type": "object"
+      },
+      "SystemStatusSnapshot": {
+        "properties": {
+          "analysis": {
+            "$ref": "#/components/schemas/AnalysisStatusResponse"
+          },
+          "cameras": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CameraHealthReading"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Per-camera health from Frigate's stats; null until Frigate has answered."
+          },
+          "connections": {
+            "$ref": "#/components/schemas/ServiceConnectionsResponse"
+          },
+          "diagnostics_revision": {
+            "description": "Recorded fault occurrences; when it changes, the incident workspace has something new.",
+            "minimum": 0.0,
+            "title": "Diagnostics Revision",
+            "type": "integer"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "health_revision": {
+            "description": "Changes with `incident_revision` and with the pipeline's running totals, which only Health shows. The totals travel with the next push rather than causing one; Health reads its workspace again when this moves.",
+            "title": "Health Revision",
+            "type": "string"
+          },
+          "incident_revision": {
+            "description": "Changes whenever an incident can open or close: a verdict, a recorded fault, a video breaker opening or closing, the finder or the live classifier recovering. Every owner page reads the incident workspace again when it moves.",
+            "title": "Incident Revision",
+            "type": "string"
+          },
+          "jobs": {
+            "$ref": "#/components/schemas/JobsSnapshotResponse"
+          },
+          "jobs_summary": {
+            "$ref": "#/components/schemas/JobsSummary"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelState"
+          },
+          "overall": {
+            "$ref": "#/components/schemas/OverallVerdict"
+          },
+          "revision": {
+            "description": "Rises with every published change; a client keeps the highest it saw.",
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "startup_instance_id": {
+            "title": "Startup Instance Id",
+            "type": "string"
+          },
+          "subsystems": {
+            "items": {
+              "$ref": "#/components/schemas/SubsystemVerdict"
+            },
+            "title": "Subsystems",
+            "type": "array"
+          },
+          "telemetry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TelemetrySummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "description": "The backend's version; a page built for another version reloads.",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "revision",
+          "generated_at",
+          "startup_instance_id",
+          "version",
+          "overall",
+          "subsystems",
+          "jobs_summary",
+          "jobs",
+          "analysis",
+          "model",
+          "connections",
+          "diagnostics_revision",
+          "incident_revision",
+          "health_revision"
+        ],
+        "title": "SystemStatusSnapshot",
         "type": "object"
       },
       "SystemTelemetryHistoryResponse": {
@@ -21957,6 +24410,68 @@
         "title": "TaxonomySyncStatusResponse",
         "type": "object"
       },
+      "TelemetrySummary": {
+        "properties": {
+          "accelerator_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "npu",
+                  "gpu"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accelerator Kind"
+          },
+          "accelerator_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accelerator Label"
+          },
+          "accelerator_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accelerator Percent"
+          },
+          "cpu_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Percent"
+          },
+          "sampled_at": {
+            "description": "Unix time of the latest host sample.",
+            "title": "Sampled At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "sampled_at"
+        ],
+        "title": "TelemetrySummary",
+        "type": "object"
+      },
       "TestEmailRequest": {
         "properties": {
           "test_message": {
@@ -22210,6 +24725,19 @@
             "minLength": 1,
             "title": "Display Name",
             "type": "string"
+          },
+          "expected_category_name": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The stored identification (category_name) the owner was shown. When given, the update applies only while the detection still carries it; otherwise the answer is 409 with what the detection says now.",
+            "title": "Expected Category Name"
           }
         },
         "required": [
@@ -22973,7 +25501,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.23.2"
+    "version": "2.24.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -23130,7 +25658,7 @@
     },
     "/api/about/showcase/{event_id}.jpg": {
       "get": {
-        "description": "The stored photograph at card size, under the same access rules as the photograph.",
+        "description": "The stored photograph at card or tile size, under the same access rules as the photograph.",
         "operationId": "get_about_reel_image_api_about_showcase__event_id__jpg_get",
         "parameters": [
           {
@@ -23141,6 +25669,22 @@
               "maxLength": 64,
               "minLength": 1,
               "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "card for a single photograph, tile for a wall of many",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": "card",
+              "description": "card for a single photograph, tile for a wall of many",
+              "enum": [
+                "card",
+                "tile"
+              ],
+              "title": "Size",
               "type": "string"
             }
           }
@@ -23229,6 +25773,150 @@
         "summary": "Get Visit Film",
         "tags": [
           "about"
+        ]
+      }
+    },
+    "/api/audio/activity-heatmap": {
+      "get": {
+        "description": "Calls heard by weekday and hour in the viewer's time zone, over the summary's window and filters.",
+        "operationId": "get_audio_activity_heatmap_api_audio_activity_heatmap_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 3650,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "species",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Species"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_confidence",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Confidence"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioActivityHeatmapResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Audio Activity Heatmap",
+        "tags": [
+          "audio",
+          "audio"
         ]
       }
     },
@@ -24542,14 +27230,88 @@
     },
     "/api/backfill/reset": {
       "delete": {
-        "description": "Reset the database: Delete ALL detections and clear media cache. Owner only.",
+        "description": "Reset the database: Delete ALL detections and clear media cache. Owner only.\n\nWith `expected_count`, nothing is deleted unless that is still the number of detections once\ningest has stopped: a 409 carries the current count so the owner can be asked again.",
         "operationId": "reset_database_api_backfill_reset_delete",
+        "parameters": [
+          {
+            "description": "The detection count the owner was shown. The reset is refused if it no longer holds.",
+            "in": "query",
+            "name": "expected_count",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The detection count the owner was shown. The reset is refused if it no longer holds.",
+              "title": "Expected Count"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BackfillResetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResetRefusal"
+                }
+              }
+            },
+            "description": "Nothing was deleted. Either `expected_count` is no longer the number of detections (`detail.code` is `reset_count_changed` and `detail.detection_count` is the current number), or a reset is already in progress (`detail` is a sentence)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Reset Database",
+        "tags": [
+          "backfill"
+        ]
+      }
+    },
+    "/api/backfill/reset/preview": {
+      "get": {
+        "description": "How many detections a reset would delete: the number its confirmation states. Owner only.",
+        "operationId": "preview_reset_api_backfill_reset_preview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackfillResetPreviewResponse"
                 }
               }
             },
@@ -24567,7 +27329,7 @@
             "APIKeyQuery": []
           }
         ],
-        "summary": "Reset Database",
+        "summary": "Preview Reset",
         "tags": [
           "backfill"
         ]
@@ -25933,6 +28695,148 @@
         ]
       }
     },
+    "/api/diagnostics/connections": {
+      "get": {
+        "description": "Whether the MQTT broker session is up and Frigate's API answers, as last measured.\n\nA Frigate reading older than a minute is refreshed with one short request first.",
+        "operationId": "get_service_connections_api_diagnostics_connections_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceConnectionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Service Connections",
+        "tags": [
+          "diagnostics",
+          "diagnostics"
+        ]
+      }
+    },
+    "/api/diagnostics/dismissals": {
+      "post": {
+        "description": "Hide backend history entries on Health for everyone, each up to the occurrences the owner saw.\n\nNothing is deleted: a newer occurrence shows the entry again, restore shows it now, and\nclearing the error history removes the dismissals with everything else.",
+        "operationId": "dismiss_owner_workspace_diagnostics_api_diagnostics_dismissals_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DismissDiagnosticsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DismissDiagnosticsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Dismiss Owner Workspace Diagnostics",
+        "tags": [
+          "diagnostics",
+          "diagnostics"
+        ]
+      }
+    },
+    "/api/diagnostics/dismissals/restore": {
+      "post": {
+        "description": "Show dismissed backend history entries on Health again.",
+        "operationId": "restore_owner_workspace_diagnostics_api_diagnostics_dismissals_restore_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreDiagnosticsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreDiagnosticsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Restore Owner Workspace Diagnostics",
+        "tags": [
+          "diagnostics",
+          "diagnostics"
+        ]
+      }
+    },
     "/api/diagnostics/errors": {
       "get": {
         "description": "Return recent backend diagnostics events for operator troubleshooting.",
@@ -26047,11 +28951,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "$ref": "#/components/schemas/JsonValue"
-                  },
-                  "title": "Response List Runs Api Diagnostics Model Eval Runs Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ModelEvalListResponse"
                 }
               }
             },
@@ -26209,11 +29109,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "$ref": "#/components/schemas/JsonValue"
-                  },
-                  "title": "Response Get Run Api Diagnostics Model Eval Runs  Run Id  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ModelEvalRunResponse"
                 }
               }
             },
@@ -27138,20 +30034,20 @@
             }
           },
           {
-            "description": "Number of events to skip",
+            "description": "Number of events to skip. While more events match, the response carries X-Next-Offset.",
             "in": "query",
             "name": "offset",
             "required": false,
             "schema": {
               "default": 0,
-              "description": "Number of events to skip",
+              "description": "Number of events to skip. While more events match, the response carries X-Next-Offset.",
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
           },
           {
-            "description": "Filter events from this date (inclusive)",
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "start_date",
             "required": false,
@@ -27162,15 +30058,19 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
-              "description": "Filter events from this date (inclusive)",
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "Start Date"
             }
           },
           {
-            "description": "Filter events until this date (inclusive)",
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "end_date",
             "required": false,
@@ -27181,10 +30081,14 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
-              "description": "Filter events until this date (inclusive)",
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "End Date"
             }
           },
@@ -27392,7 +30296,16 @@
                 }
               }
             },
-            "description": "Full DetectionResponse[] by default. With fields=list, returns DetectionListItemResponse[]. Custom comma-separated fields return a partial event projection plus required navigation fields."
+            "description": "Full DetectionResponse[] by default. With fields=list, returns DetectionListItemResponse[]. Custom comma-separated fields return a partial event projection plus required navigation fields.",
+            "headers": {
+              "X-Next-Offset": {
+                "description": "The `offset` of the next page. Present only while more events match.",
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -27524,7 +30437,7 @@
         "operationId": "get_events_count_api_events_count_get",
         "parameters": [
           {
-            "description": "Filter events from this date (inclusive)",
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "start_date",
             "required": false,
@@ -27535,15 +30448,19 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
-              "description": "Filter events from this date (inclusive)",
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "Start Date"
             }
           },
           {
-            "description": "Filter events until this date (inclusive)",
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "end_date",
             "required": false,
@@ -27554,10 +30471,14 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
-              "description": "Filter events until this date (inclusive)",
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "End Date"
             }
           },
@@ -28049,6 +30970,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentificationChangedResponse"
+                }
+              }
+            },
+            "description": "The identification named in `expected_category_name` changed elsewhere; nothing was written."
           },
           "422": {
             "content": {
@@ -32831,6 +35762,36 @@
         "summary": "Clear Classification Feedback"
       }
     },
+    "/api/maintenance/last-runs": {
+      "get": {
+        "description": "The newest recorded run of each Maintenance job, so the tab can say when it last ran. Owner only.",
+        "operationId": "get_maintenance_last_runs_api_maintenance_last_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceLastRunsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Maintenance Last Runs"
+      }
+    },
     "/api/maintenance/purge-missing-clips": {
       "post": {
         "description": "Remove detections without clips (or missing events). Owner only.",
@@ -33582,6 +36543,39 @@
         "summary": "Species Photo Manual Observation",
         "tags": [
           "manual observations"
+        ]
+      }
+    },
+    "/api/models/activity": {
+      "get": {
+        "description": "Downloads and hardware checks in progress. Owner only.\n\nThe server's account of work on models, whichever page or browser tab started it, so that\nSettings, the setup wizard, About and Garden records all state the same thing.",
+        "operationId": "get_model_activity_api_models_activity_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelActivityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Model Activity",
+        "tags": [
+          "models"
         ]
       }
     },
@@ -35397,8 +38391,26 @@
     },
     "/api/stats/daily-summary": {
       "get": {
-        "description": "Get a summary of detections for today.",
+        "description": "Summarise detections over the last 24 hours, or over today so far.",
         "operationId": "get_daily_summary_api_stats_daily_summary_get",
+        "parameters": [
+          {
+            "description": "`rolling`: the last 24 hours. `today`: from local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC.",
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": "rolling",
+              "description": "`rolling`: the last 24 hours. `today`: from local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC.",
+              "enum": [
+                "rolling",
+                "today"
+              ],
+              "title": "Window",
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -35409,6 +38421,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -35727,6 +38749,39 @@
         "summary": "Get Uptime",
         "tags": [
           "stats"
+        ]
+      }
+    },
+    "/api/status": {
+      "get": {
+        "description": "The same snapshot the live stream pushes as a `status` event. Owner only.",
+        "operationId": "get_system_status_api_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStatusSnapshot"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get System Status",
+        "tags": [
+          "status"
         ]
       }
     },
@@ -36446,24 +39501,27 @@
             "required": false,
             "schema": {
               "default": 24,
-              "maximum": 100,
+              "maximum": 500,
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
             }
           },
           {
+            "description": "Visits to skip; `total` counts every matching visit",
             "in": "query",
             "name": "offset",
             "required": false,
             "schema": {
               "default": 0,
+              "description": "Visits to skip; `total` counts every matching visit",
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
             }
           },
           {
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "start_date",
             "required": false,
@@ -36474,13 +39532,19 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "Start Date"
             }
           },
           {
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "end_date",
             "required": false,
@@ -36491,13 +39555,19 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "End Date"
             }
           },
           {
+            "description": "Exact start instant; overrides start_date",
             "in": "query",
             "name": "start_time",
             "required": false,
@@ -36511,10 +39581,12 @@
                   "type": "null"
                 }
               ],
+              "description": "Exact start instant; overrides start_date",
               "title": "Start Time"
             }
           },
           {
+            "description": "Exact end instant; overrides end_date",
             "in": "query",
             "name": "end_time",
             "required": false,
@@ -36528,6 +39600,7 @@
                   "type": "null"
                 }
               ],
+              "description": "Exact end instant; overrides end_date",
               "title": "End Time"
             }
           },
@@ -36710,6 +39783,7 @@
             }
           },
           {
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "start_date",
             "required": false,
@@ -36720,13 +39794,19 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "Start Date"
             }
           },
           {
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
             "in": "query",
             "name": "end_date",
             "required": false,
@@ -36737,13 +39817,19 @@
                   "type": "string"
                 },
                 {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
                   "type": "null"
                 }
               ],
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "End Date"
             }
           },
           {
+            "description": "Exact start instant; overrides start_date",
             "in": "query",
             "name": "start_time",
             "required": false,
@@ -36757,10 +39843,12 @@
                   "type": "null"
                 }
               ],
+              "description": "Exact start instant; overrides start_date",
               "title": "Start Time"
             }
           },
           {
+            "description": "Exact end instant; overrides end_date",
             "in": "query",
             "name": "end_time",
             "required": false,
@@ -36774,6 +39862,7 @@
                   "type": "null"
                 }
               ],
+              "description": "Exact end instant; overrides end_date",
               "title": "End Time"
             }
           },

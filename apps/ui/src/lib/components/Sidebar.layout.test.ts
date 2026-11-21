@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import appSource from '../../App.svelte?raw';
 import connectionStatusSource from './ConnectionStatus.svelte?raw';
+import statusMappingSource from '../utils/system-status.ts?raw';
 import sidebarSource from './Sidebar.svelte?raw';
-import telemetryGraphSource from './SystemTelemetryGraph.svelte?raw';
+import loadMetersSource from './SystemLoadMeters.svelte?raw';
 
 describe('Sidebar hybrid refresh', () => {
-    it('keeps the large brand mark centred above the navigation', () => {
+    it('keeps the large brand mark centred above the navigation, and beside its name on a short window', () => {
         expect(sidebarSource).toContain('data-sidebar-brand');
         expect(sidebarSource).toContain("sizes={collapsed ? '40px' : '64px'}");
-        expect(sidebarSource).toContain("collapsed ? 'h-10 w-10' : 'h-16 w-16'");
+        expect(sidebarSource).toContain("collapsed ? 'h-10 w-10' : 'h-16 w-16 compact-height:h-10 compact-height:w-10'");
         expect(sidebarSource).toContain('items-center text-center');
+        expect(sidebarSource).toContain("{collapsed ? '' : 'compact-height:flex-row compact-height:text-left'}");
     });
 
     it('groups observation and management routes with a stronger active state', () => {
@@ -23,13 +25,15 @@ describe('Sidebar hybrid refresh', () => {
 
     it('shows truthful operational status rows in the expanded sidebar', () => {
         expect(sidebarSource).toContain('data-sidebar-status');
-        // The unused compact header variant is gone; the sidebar tiles are the only shape.
+        // The unused compact header variant is gone; the status list is the only shape.
         expect(connectionStatusSource).not.toContain('variant');
-        expect(connectionStatusSource).toContain("$_('status.live_updates')");
-        expect(connectionStatusSource).toContain("$_('status.audio_analysis')");
-        expect(connectionStatusSource).toContain("$_('status.notifications')");
-        expect(connectionStatusSource).toContain("$_('status.online')");
-        expect(connectionStatusSource).toContain("$_('status.offline')");
+        // The rows and their words come from one tested mapping, never from the markup.
+        expect(connectionStatusSource).toContain('const feedState = $derived(feedRow(feed));');
+        expect(connectionStatusSource).toContain('[feedState, audioRow(birdnetEnabled, feed), alertsRow(notificationsActive)]');
+        // The Frigate events row says what was measured: the broker session, not only the page's stream.
+        expect(statusMappingSource).toContain("text('feed_live'");
+        expect(statusMappingSource).toContain("text('feed_broker_down'");
+        expect(statusMappingSource).toContain("text('feed_app_only'");
     });
 
     it('uses an account card when expanded while preserving compact auth actions', () => {
@@ -42,10 +46,10 @@ describe('Sidebar hybrid refresh', () => {
     });
 
     it('never tells a guest that notifications are off', () => {
-        // A guest cannot read the owner's settings, so the Alerts tile is left out, not guessed.
+        // A guest cannot read the owner's settings, so the Alerts row is left out, not guessed.
         expect(appSource).toContain('if (!s) return null;');
         expect(connectionStatusSource).toContain('notificationsActive?: boolean | null;');
-        expect(connectionStatusSource).toContain('...(notificationsActive === null');
+        expect(statusMappingSource).toContain('if (active === null) return null;');
     });
 
     it('is a wordmark, not a heading, so each page owns its single h1', () => {
@@ -63,33 +67,106 @@ describe('Sidebar hybrid refresh', () => {
     });
 
     it('keeps navigation and bottom controls reachable on short viewports', () => {
-        expect(sidebarSource).toContain('[@media(max-height:42rem)]:hidden');
+        // No status is hidden by the window's height: the card and the icon rail's group are both measured
+        // against the room the column really has (see below).
+        expect(sidebarSource).not.toContain('[@media(max-height:42rem)]:hidden');
+        // One action chooses the form the room allows, the card or the one line that stands in for it.
+        // The options that decide behaviour, each on its own so a reformatting of the call does not matter.
+        const fit = sidebarSource.slice(sidebarSource.indexOf('use:fitStatus={{'), sidebarSource.indexOf('}}', sidebarSource.indexOf('use:fitStatus={{')));
+        expect(fit).toMatch(/container:\s*'\[data-sidebar-scroll\]'/);
+        expect(fit).toMatch(/floor:\s*'\[data-status-row\]'/);
+        expect(fit).toMatch(/control:\s*'\[data-sidebar-status-link\], \[data-sidebar-summary-link\], \[data-sidebar-compact-link\]'/);
+        expect(fit).toMatch(/fallbackFocus:\s*refocusFromStatus/);
+        // The card waiting past the fold is inert while the Health place says the same issues.
+        expect(sidebarSource).toMatch(/data-sidebar-status\s+class="[^"]*"\s+inert=\{healthCarriesStatus\}/);
+        expect(sidebarSource.match(/data-status-form="full"/g)).toHaveLength(2);
+        expect(sidebarSource.match(/data-status-form="summary"/g)).toHaveLength(2);
+        expect(sidebarSource.match(/data-status-form="compact"/g)).toHaveLength(2);
         expect(sidebarSource).toContain('[@media(max-height:42rem)]:py-3');
+        // On a short window the brand sits beside its mark, the status readings give way inside the card
+        // with the Health link pinned at its foot, the card gives way entirely where not even that fits,
+        // and only when the places themselves do not fit do the places and the status scroll together.
+        // The controls below never scroll, so the language menu is never clipped.
+        expect(sidebarSource).toContain('<div class="flex min-h-0 flex-1 flex-col overflow-y-auto" data-sidebar-scroll>');
+        expect(sidebarSource).toContain('<nav class="shrink-0 px-3 py-4"');
+        expect(sidebarSource).toMatch(/data-sidebar-status\s+class="mt-auto flex flex-col/);
+        expect(sidebarSource).toMatch(/class="focus-ring"\s+role="group"\s+tabindex="0"\s+aria-labelledby="sidebar-status-title"\s+data-sidebar-status-readings/);
+        // No box of the card may shrink below its content: the readings' height is set in whole lines,
+        // and a card with no room for its floor is taken out of view rather than squashed.
+        expect(sidebarSource).not.toMatch(/\[data-sidebar-status(?:-card)?\][^{]*\{[^}]*min-height: 0/);
+        expect(sidebarSource).toMatch(/\[data-sidebar-status-readings\] \{\s*overflow-y: auto;/);
+        // The form not shown stays laid out, unseen and far above the window (the meters stop there).
+        expect(sidebarSource).toMatch(/\[data-sidebar-status\]:global\(\[data-fit='summary'\]\) \[data-status-form='full'\],\s*\[data-sidebar-status\]:global\(\[data-fit='compact'\]\) \[data-status-form='full'\] \{[^}]*position: absolute;[^}]*bottom: calc\(100% \+ 200vh\);[^}]*visibility: hidden;/);
+        expect(sidebarSource).toContain('flex min-h-7 shrink-0 items-center justify-between');
+        expect(sidebarSource.indexOf('data-sidebar-scroll')).toBeLessThan(sidebarSource.indexOf('<LanguageSelector'));
+        // An owner with sign-in off has no account to show, so no empty band.
+        expect(sidebarSource).toMatch(/\{#if authStore\.isAuthenticated \|\| authStore\.isGuest\}\s*<div class="shrink-0 border-t border-line-soft p-3" data-sidebar-account-band>/);
     });
 
-    it('layers a lightweight live telemetry graph behind the status content', () => {
-        expect(sidebarSource).toContain("import SystemTelemetryGraph from './SystemTelemetryGraph.svelte'");
-        expect(sidebarSource).toContain('<SystemTelemetryGraph readoutClass=');
-        // The readout has a row of its own, above the System health link when there is one.
-        expect(sidebarSource).toContain('<span class="mt-1 block h-4" aria-hidden="true"></span>');
-        expect(sidebarSource).toContain('relative overflow-hidden');
-        expect(sidebarSource).toContain('relative z-10');
+    it('shows the load as labelled meters in the card, on a neutral surface', () => {
+        expect(sidebarSource).toContain("import SystemLoadMeters from './SystemLoadMeters.svelte'");
+        // Seen while the readings that scroll them are on screen, not by their own clip (see shell-heights).
+        expect(sidebarSource).toContain('<SystemLoadMeters watchFrom="[data-sidebar-status-readings]" />');
+        // The readings are text in the card's own flow: nothing is drawn behind the rows, and
+        // nothing is positioned over them, so the rows and the link can grow or wrap freely.
+        expect(loadMetersSource).not.toContain('absolute');
+        expect(loadMetersSource).not.toContain('use:portal');
+        expect(loadMetersSource).toContain('tabular-nums');
+        expect(loadMetersSource).toContain('min-h-4');
+        // Each meter is named in words and says its figure; the bar wears the Health chart's series
+        // colour as a fill, never as text, and never a link or status colour.
+        expect(loadMetersSource).toContain('<dt class="text-muted">{meter.label}</dt>');
+        expect(loadMetersSource).toContain('{meter.shown}');
+        expect(loadMetersSource).toContain('{meter.fill}');
+        expect(loadMetersSource).not.toMatch(/text-(?:brand|indigo|accent|status|series)-|bg-status-/);
+        const card = sidebarSource.slice(sidebarSource.search(/data-sidebar-status\s+class/));
+        expect(card).not.toMatch(/bg-gradient|bg-linear|from-|overflow-hidden/);
     });
 
     it('samples telemetry only while the status card is actually visible', () => {
-        expect(telemetryGraphSource).toContain('IntersectionObserver');
-        expect(telemetryGraphSource).toContain('return inViewport && !document.hidden;');
-        expect(telemetryGraphSource).toContain('history = []');
-        expect(telemetryGraphSource).not.toContain('setInterval');
+        expect(loadMetersSource).toContain('IntersectionObserver');
+        expect(loadMetersSource).toContain('return inViewport && !document.hidden;');
+        expect(loadMetersSource).toContain('history = []');
+        expect(loadMetersSource).not.toContain('setInterval');
     });
 
     it('paces telemetry to the visitor budget and keeps a failed reading marked as not current', () => {
-        expect(telemetryGraphSource).toContain('telemetrySampleDelayMs({');
-        expect(telemetryGraphSource).toContain('guest: authStore.isGuest');
-        expect(telemetryGraphSource).toContain('cap: authStore.publicAccessRateLimitPerMinute');
-        const failure = telemetryGraphSource.slice(telemetryGraphSource.indexOf('} catch {'), telemetryGraphSource.indexOf('} finally {'));
+        expect(loadMetersSource).toContain('telemetrySampleDelayMs({');
+        expect(loadMetersSource).toContain('guest: authStore.isGuest');
+        expect(loadMetersSource).toContain('cap: authStore.publicAccessRateLimitPerMinute');
+        const failure = loadMetersSource.slice(loadMetersSource.indexOf('} catch {'), loadMetersSource.indexOf('} finally {'));
         expect(failure).toContain('stale = history.length > 0;');
         expect(failure).not.toContain('history = []');
-        expect(telemetryGraphSource).toContain("system_telemetry.last_reading");
+        expect(loadMetersSource).toContain("system_telemetry.last_reading");
+    });
+
+    it('shows the status readings in whole lines at rest, instead of cutting a line of words', () => {
+        // Never fewer than the heading and the first reading (fitStatus's floor).
+        expect(sidebarSource).toMatch(/floor:\s*'\[data-status-row\]'/);
+        // Nothing is drawn over the readings: a mask on them, a tab stop, clipped their focus ring, and a fade
+        // or an edge over a line reads as cut or underlined text.
+        expect(sidebarSource).not.toContain('mask-image');
+        expect(sidebarSource).not.toContain('[data-sidebar-status-readings]::after');
+    });
+
+    it('lets a wrapped status state start under its label, not right-aligned under nothing', () => {
+        // Beside its label, justify-between keeps it at the right edge; alone on its line, at the start
+        // (status-feed.spec.ts measures both).
+        expect(connectionStatusSource).toContain('flex min-w-0 flex-wrap items-baseline justify-between');
+        expect(connectionStatusSource).not.toContain('ml-auto text-right');
+    });
+
+    it('says a failed sample\'s figures are old before they are read, and mutes them', () => {
+        expect(loadMetersSource.indexOf('data-telemetry-last-reading')).toBeLessThan(loadMetersSource.indexOf('data-telemetry-readout'));
+        expect(loadMetersSource).toContain("stale || !meter.measured ? 'text-muted' : 'text-ink'");
+    });
+
+    it('sets the rows in one weight, and only a state that needs a person apart', () => {
+        expect(connectionStatusSource).toContain("row.tone === 'attention' ? 'font-semibold text-status-attention' : 'text-ink'");
+        // The way to Health is the card's foot: its own words, at the start of the row, in body ink.
+        const link = sidebarSource.slice(sidebarSource.indexOf('data-sidebar-status-link\n                            data-health-attention'));
+        expect(sidebarSource).toMatch(/flex min-h-7 shrink-0 items-center justify-between gap-x-2 rounded-md border-t border-line-soft px-1 pt-2 text-xs leading-4 text-ink/);
+        expect(link).toContain("<span>{$_('status.open_health', { default: 'Health' })}</span>");
+        expect(link).not.toContain('ml-auto');
     });
 });

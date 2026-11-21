@@ -20,17 +20,17 @@
      so a long day label in the column beside it never runs under the picture. -->
 <span class="relative mx-auto block shrink-0 {size === 'card' ? 'h-16 w-16' : 'h-10 w-10'}" aria-hidden="true" data-layered-thumbs={shown.length}>
     {#if shown.length === 0}
-        <span class="flex h-full w-full items-center justify-center rounded-lg bg-slate-100 text-slate-400 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:ring-slate-700">
+        <span class="flex h-full w-full items-center justify-center rounded-lg bg-slate-100 text-slate-600 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700">
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" /></svg>
         </span>
     {:else if shown.length === 1}
         <span class="block h-full w-full overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
-            <img src={shown[0]} alt="" loading="lazy" class="h-full w-full object-cover {spectrogram ? 'scale-[1.6] [transform-origin:50%_64%]' : ''}" onerror={() => (failed = { ...failed, [shown[0]]: true })} />
+            <img src={shown[0]} alt="" loading="lazy" class="h-full w-full object-cover {spectrogram ? 'scale-[1.6] origin-[50%_64%]' : ''}" onerror={() => (failed = { ...failed, [shown[0]]: true })} />
         </span>
     {:else}
         {#each shown as source, index (source)}
-            <span class="absolute {tile} overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700 {index === 0 ? 'left-0 top-0' : 'bottom-0 right-0 outline outline-2 outline-white dark:outline-slate-950'}">
-                <img src={source} alt="" loading="lazy" class="h-full w-full object-cover {spectrogram ? 'scale-[1.6] [transform-origin:50%_64%]' : ''}" onerror={() => (failed = { ...failed, [source]: true })} />
+            <span class="absolute {tile} overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700 {index === 0 ? 'left-0 top-0' : 'bottom-0 right-0 outline-solid outline-2 outline-white dark:outline-slate-950'}">
+                <img src={source} alt="" loading="lazy" class="h-full w-full object-cover {spectrogram ? 'scale-[1.6] origin-[50%_64%]' : ''}" onerror={() => (failed = { ...failed, [source]: true })} />
             </span>
         {/each}
     {/if}

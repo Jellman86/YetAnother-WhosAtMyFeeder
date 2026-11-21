@@ -14,7 +14,7 @@ describe('the leaderboard share bar, now the wall\'s navigation', () => {
         expect(wallSource).not.toContain('class="chip');
         // The photographs the wall shows come from the capture list; the portraits only say which
         // visits have a film made.
-        expect(leaderboardSource).toContain('fetchLeaderboardPortraits(requestedSpan, controller.signal, SPOTLIGHT_PORTRAITS)');
+        expect(leaderboardSource).toContain('fetchLeaderboardPortraits(requestedSpan, controller.signal, RANKING_PORTRAITS)');
     });
 
     it('fills the bar from the same segments and colours as before', () => {
@@ -31,8 +31,11 @@ describe('the leaderboard share bar, now the wall\'s navigation', () => {
         // Opening out is a flex weight, so a thin segment becomes readable and the rest give way.
         expect(wallSource).toContain('const OPEN_SHARE = 30;');
         expect(wallSource).toContain('transition: flex-grow');
-        // The share, count and unit are said when open, never colour alone.
+        // The name, share, count and unit are in the key under the bar at all times, never colour
+        // alone and never only on hover.
+        expect(wallSource).toContain('data-capture-wall-key');
         expect(wallSource).toContain('{percentOfTotal(segment.count)} · {segment.count.toLocaleString()} {countLabel(segment.count)}');
+        expect(wallSource).not.toContain('text-overflow: ellipsis');
         // The ink on every segment is chosen for contrast, not fixed, and the ring shows on any colour.
         expect(wallSource).toContain('style:color={readableInk(colour)}');
         expect(wallSource).toContain('box-shadow: inset 0 0 0 2px #fff;');

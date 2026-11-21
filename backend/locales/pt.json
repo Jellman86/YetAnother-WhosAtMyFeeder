@@ -25,6 +25,7 @@
       "frigate_auth_failed": "Falha na autenticação do Frigate - verifique o token de autenticação",
       "frigate_error": "Frigate retornou erro: {status_code}",
       "connection_failed": "Falha ao conectar ao Frigate em {url}",
+      "frigate_unreachable": "Não foi possível contactar o Frigate. Tente novamente daqui a pouco.",
       "snapshot_not_found": "Snapshot não encontrado",
       "thumbnail_not_found": "Miniatura não encontrada",
       "clip_not_found": "Clipe não encontrado",
@@ -47,7 +48,8 @@
       "wildlife_model_unavailable": "Modelo de vida selvagem não disponível. Por favor, faça o download primeiro.",
       "reclassification_failed": "Falha na reclassificação",
       "video_analysis_paused": "A análise de vídeo está temporariamente pausada após falhas repetidas de inferência. Tente novamente mais tarde.",
-      "video_analysis_capacity": "A análise de vídeo atingiu a capacidade máxima. Tente novamente quando os trabalhos atuais terminarem."
+      "video_analysis_capacity": "A análise de vídeo atingiu a capacidade máxima. Tente novamente quando os trabalhos atuais terminarem.",
+      "identification_changed": "Esta visita foi alterada noutro lugar. Agora indica {species}."
     },
     "species": {
       "unknown_bird": "Pássaro Desconhecido",
@@ -89,8 +91,11 @@
       "not_enabled": "Notificações por email não habilitadas",
       "recipient_not_configured": "Email do destinatário não configurado",
       "smtp_incomplete": "Configuração SMTP incompleta",
-      "send_failed": "Falha ao enviar email de teste",
-      "send_error": "Falha ao enviar email de teste: {error}",
+      "send_failed": "O servidor de email não aceitou o email de teste. Verifique o host SMTP, a porta, o nome de utilizador e a palavra-passe e teste novamente.",
+      "send_failed_oauth": "{provider} não aceitou o email de teste. Volte a ligar a conta e teste novamente.",
+      "send_timeout": "O servidor de email demorou demasiado a responder. Verifique o host SMTP e a porta e teste novamente.",
+      "send_timeout_oauth": "{provider} demorou demasiado a responder. Aguarde um momento e teste novamente.",
+      "prepare_failed": "O YA-WAMF não conseguiu preparar o email de teste. Abra Saúde e teste novamente.",
       "invalid_state": "Estado OAuth inválido. Por favor, tente novamente.",
       "state_expired": "Estado OAuth expirado. Por favor, tente novamente.",
       "email_missing": "Endereço de email não retornado pelo provedor."

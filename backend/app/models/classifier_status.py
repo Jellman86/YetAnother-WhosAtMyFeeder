@@ -35,18 +35,56 @@ class ClassifierHostEligibility(_StatusSection):
     model_count: int = 0
 
 
-class ClassifierCropDeviceCheck(_StatusSection):
+FinderCheckReasonCode = Literal[
+    "mismatch",
+    "unfinished",
+    "no_photos",
+    "driver_changed",
+    "no_positive_baseline",
+    "superseded",
+    "interrupted",
+    "passed",
+    "gpu_recovery",
+    "no_accelerator",
+    "ledger_unreadable",
+    "no_full_frames",
+]
+
+
+class ClassifierCropDeviceCheckResult(_StatusSection):
     state: Literal["idle", "waiting", "running", "succeeded", "failed", "superseded", "interrupted"]
     model_id: str | None
     providers: list[str]
     reason: str | None
     checked_at: str | None
+    runtime_current: bool = True
+    reason_code: FinderCheckReasonCode | None = None
+
+
+class ClassifierCropDeviceCheck(ClassifierCropDeviceCheckResult):
+    last_result: ClassifierCropDeviceCheckResult | None = None
+    attempt_count: int = 0
+    next_retry_at: str | None = None
+
+
+class ClassifierFinderCPUFallback(_StatusSection):
+    active: bool
+    model_id: str
+    provider: str
+    reason: str | None = None
+    action: str | None = None
+    reason_code: str | None = None
 
 
 class ClassifierCropStatus(_StatusSection):
+    active_provider: str | None = None
+    planned_provider: str | None = None
     last_execution: InferenceExecution | None = None
     model_id: str = ""
     chosen_model_id: str = ""
+    # Whether the chosen finder's own files are installed; `installed` describes the spec in use,
+    # which may be a fallback.
+    chosen_installed: bool | None = None
     selected_tier: str = ""
     resolved_tier: str = ""
     installed: bool = False
@@ -56,6 +94,7 @@ class ClassifierCropStatus(_StatusSection):
     model_path: str | None = None
     load_error: str | None = None
     device_check: ClassifierCropDeviceCheck | None = None
+    cpu_fallback: ClassifierFinderCPUFallback | None = None
 
 
 class ClassifierWorkerRuntime(_StatusSection):
@@ -94,6 +133,10 @@ class ClassifierStatusResponse(_StatusSection):
     enabled: bool = False
     active_model_id: str | None = None
     effective_model_id: str | None = None
+    # The effective model's name as the model list shows it; None when it has no registry entry.
+    effective_model_name: str | None = None
+    # Whether the effective model's weights are on disk; None when that could not be resolved.
+    active_model_installed: bool | None = None
     onnx_available: bool = False
     openvino_available: bool = False
     openvino_version: str | None = None

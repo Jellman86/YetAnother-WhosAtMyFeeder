@@ -72,6 +72,7 @@ class AIAnalysisRevision:
 _SPECIES_ALIAS_CACHE: dict[tuple[str, str], tuple[float, dict]] = {}
 _SPECIES_ALIAS_CACHE_TTL_SECONDS = 60.0
 _SPECIES_ALIAS_CACHE_MAX_ENTRIES = 512
+_EVENT_LOOKUP_CHUNK = 500  # well under SQLite's bound-variable limit
 
 
 def clear_species_alias_cache() -> None:
@@ -213,7 +214,8 @@ DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score
                       d.video_classification_input_source, d.video_classification_diagnostics,
                       d.species_id, d.model_artifact_id, d.model_output_index,
                       f.archive_snapshot_state, f.archive_clip_state, d.classification_input_json,
-                      (SELECT i.classification_input_json FROM detection_initial_classifications i WHERE i.detection_id = d.id)"""
+                      (SELECT i.classification_input_json FROM detection_initial_classifications i WHERE i.detection_id = d.id),
+                      d.illuminance_lux"""
 
 
 @dataclass
@@ -247,6 +249,8 @@ class Detection:
     weather_precipitation: Optional[float] = None
     weather_rain: Optional[float] = None
     weather_snowfall: Optional[float] = None
+    # Light level in lx measured at the detection; None when nothing was measured.
+    illuminance_lux: Optional[float] = None
     # Taxonomy fields
     scientific_name: Optional[str] = None
     common_name: Optional[str] = None
@@ -452,6 +456,9 @@ def _row_to_detection(row: aiosqlite.Row) -> Detection:
     if len(row) > 52:
         d.classification_input = _parse_classification_input(row[51])
         d.initial_classification_input = _parse_classification_input(row[52])
+
+    if len(row) > 53:
+        d.illuminance_lux = row[53]
 
     return d
 
@@ -1128,6 +1135,25 @@ class DetectionRepository:
             if row:
                 return _row_to_detection(row)
             return None
+
+    async def get_by_frigate_events(self, frigate_events: Collection[str]) -> dict[str, Detection]:
+        """Many detections by event id in a few bounded queries, keyed by event id; missing ids are absent."""
+        wanted = list(dict.fromkeys(frigate_events))
+        found: dict[str, Detection] = {}
+        for start in range(0, len(wanted), _EVENT_LOOKUP_CHUNK):
+            chunk = wanted[start : start + _EVENT_LOOKUP_CHUNK]
+            placeholders = ",".join("?" for _ in chunk)
+            async with self.db.execute(
+                f"""SELECT {DETECTION_SELECT_COLUMNS}
+                   FROM detections d
+                   LEFT JOIN detection_favorites f ON f.detection_id = d.id
+                   WHERE d.frigate_event IN ({placeholders})""",
+                chunk,
+            ) as cursor:
+                for row in await cursor.fetchall():
+                    detection = _row_to_detection(row)
+                    found[detection.frigate_event] = detection
+        return found
 
     async def has_recent_detection_for_species(
         self,
@@ -1929,13 +1955,6 @@ class DetectionRepository:
         ]
         return entries, len(waiting)
 
-    async def delete_by_id(self, detection_id: int) -> bool:
-        """Delete a detection by ID. Returns True if deleted."""
-        await self.db.execute("DELETE FROM detections WHERE id = ?", (detection_id,))
-        changed = await self._last_statement_changes()
-        await self.db.commit()
-        return changed > 0
-
     async def delete_by_frigate_event(self, frigate_event: str, *, preserve_favorites: bool = False) -> bool:
         """Delete a detection by Frigate event ID. Returns True if deleted."""
         query = "DELETE FROM detections WHERE frigate_event = ?"
@@ -1954,8 +1973,8 @@ class DetectionRepository:
         try:
             await self.db.execute(
                 """
-                INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json, illuminance_lux)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     detection.detection_time,
@@ -1991,6 +2010,7 @@ class DetectionRepository:
                     checked_at,
                     None,
                     _classification_input_json(detection.classification_input),
+                    detection.illuminance_lux,
                 ),
             )
             await self.db.commit()
@@ -2169,14 +2189,15 @@ class DetectionRepository:
             checked_at,
             None,
             _classification_input_json(detection.classification_input),
+            detection.illuminance_lux,
         )
 
         # Attempt insert first.
         await self.db.execute(
             """
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json, illuminance_lux)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             insert_params,
         )
@@ -2227,6 +2248,9 @@ class DetectionRepository:
                 weather_precipitation = COALESCE(:weather_precipitation, weather_precipitation),
                 weather_rain = COALESCE(:weather_rain, weather_rain),
                 weather_snowfall = COALESCE(:weather_snowfall, weather_snowfall),
+                -- The first reading is the one taken nearest the detection; a later frame
+                -- of the same event neither replaces nor erases it.
+                illuminance_lux = COALESCE(illuminance_lux, :illuminance_lux),
                 scientific_name = CASE
                     WHEN LOWER(TRIM(:category_name)) = LOWER(TRIM(category_name))
                     THEN COALESCE(:scientific_name, scientific_name)
@@ -2287,6 +2311,7 @@ class DetectionRepository:
                 "weather_precipitation": detection.weather_precipitation,
                 "weather_rain": detection.weather_rain,
                 "weather_snowfall": detection.weather_snowfall,
+                "illuminance_lux": detection.illuminance_lux,
                 "scientific_name": getattr(detection, "scientific_name", None),
                 "common_name": getattr(detection, "common_name", None),
                 "taxa_id": getattr(detection, "taxa_id", None),
@@ -2371,8 +2396,8 @@ class DetectionRepository:
         await self.db.execute(
             """
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json, illuminance_lux)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 detection.detection_time,
@@ -2408,6 +2433,7 @@ class DetectionRepository:
                 checked_at,
                 None,
                 _classification_input_json(detection.classification_input),
+                detection.illuminance_lux,
             ),
         )
         changes = await self._last_statement_changes()
@@ -2536,7 +2562,7 @@ class DetectionRepository:
         def _branch(where: str, value: int | str) -> None:
             branches.append(
                 f"SELECT id FROM (SELECT id FROM detections WHERE {where} AND {hidden_clause} "
-                f"ORDER BY detection_time {direction} LIMIT {branch_limit})"
+                f"ORDER BY detection_time {direction}, id {direction} LIMIT {branch_limit})"
             )
             params.append(value)
 
@@ -2558,7 +2584,7 @@ class DetectionRepository:
         query = (
             f"SELECT {DETECTION_SELECT_COLUMNS} FROM detections d "
             "LEFT JOIN detection_favorites f ON f.detection_id = d.id "
-            f"WHERE d.id IN ({union}) ORDER BY d.detection_time {direction} LIMIT ? OFFSET ?"
+            f"WHERE d.id IN ({union}) ORDER BY d.detection_time {direction}, d.id {direction} LIMIT ? OFFSET ?"
         )
         params.extend([limit, offset])
         return query, params
@@ -2714,12 +2740,13 @@ class DetectionRepository:
             query += " WHERE " + " AND ".join(conditions)
 
         # Apply sort order
+        # The id breaks ties, so captures saved in the same instant keep one order across pages.
         if sort == "oldest":
-            query += " ORDER BY d.detection_time ASC"
+            query += " ORDER BY d.detection_time ASC, d.id ASC"
         elif sort == "confidence":
-            query += " ORDER BY d.score DESC, d.detection_time DESC"
+            query += " ORDER BY d.score DESC, d.detection_time DESC, d.id DESC"
         else:  # newest (default)
-            query += " ORDER BY d.detection_time DESC"
+            query += " ORDER BY d.detection_time DESC, d.id DESC"
 
         query += " LIMIT ? OFFSET ?"
         params.extend([limit, offset])
@@ -3066,14 +3093,20 @@ class DetectionRepository:
         audio_species: str | None,
         audio_score: float | None,
         species_id: int | None = None,
-    ) -> None:
+        expected_category_name: str | None = None,
+    ) -> bool:
         """Persist the database fields owned by a manual species correction.
 
         `species_id` is the catalogue identity of the species being corrected
         to; None means the catalogue could not identify it, which is recorded
         honestly rather than left pointing at the previous species.
+
+        With `expected_category_name`, the correction applies only while the stored
+        identification is still the one the owner was shown, checked in the same
+        UPDATE so a change made elsewhere in the meantime is never overwritten.
+        Returns whether the row was written.
         """
-        await self.db.execute(
+        async with self.db.execute(
             """
             UPDATE detections
             SET display_name = ?, category_name = ?,
@@ -3089,6 +3122,7 @@ class DetectionRepository:
                 audio_confirmed = ?, audio_species = ?, audio_score = ?,
                 manual_tagged = 1, classification_input_json = '{"source":"owner_species_choice"}'
             WHERE frigate_event = ?
+              AND (? IS NULL OR LOWER(TRIM(category_name)) = LOWER(TRIM(?)))
             """,
             (
                 display_name,
@@ -3102,18 +3136,34 @@ class DetectionRepository:
                 audio_species,
                 audio_score,
                 frigate_event,
+                expected_category_name,
+                expected_category_name,
             ),
-        )
-        await self._record_owner_species_choice(frigate_event)
+        ) as cursor:
+            written = (cursor.rowcount or 0) > 0
+        if written:
+            await self._record_owner_species_choice(frigate_event)
+        return written
 
-    async def confirm_manual_species_tag(self, *, frigate_event: str) -> None:
-        """Record a human confirmation without rewriting the stored species identity."""
-        await self.db.execute(
+    async def confirm_manual_species_tag(
+        self, *, frigate_event: str, expected_category_name: str | None = None
+    ) -> bool:
+        """Record a human confirmation without rewriting the stored species identity.
+
+        With `expected_category_name`, only while the stored identification is still the one
+        the owner was shown (see `apply_manual_species_tag`). Returns whether the row was written.
+        """
+        async with self.db.execute(
             """UPDATE detections SET manual_tagged = 1,
-               classification_input_json = '{"source":"owner_species_choice"}' WHERE frigate_event = ?""",
-            (frigate_event,),
-        )
-        await self._record_owner_species_choice(frigate_event)
+               classification_input_json = '{"source":"owner_species_choice"}'
+               WHERE frigate_event = ?
+                 AND (? IS NULL OR LOWER(TRIM(category_name)) = LOWER(TRIM(?)))""",
+            (frigate_event, expected_category_name, expected_category_name),
+        ) as cursor:
+            written = (cursor.rowcount or 0) > 0
+        if written:
+            await self._record_owner_species_choice(frigate_event)
+        return written
 
     def _species_floor_sql(self, minimum: int) -> str:
         """Ids of the newest `minimum` visible detections of each canonical species.
@@ -3155,21 +3205,6 @@ class DetectionRepository:
         ) as cursor:
             rows = await cursor.fetchall()
             return {row[0] for row in rows}
-
-    async def delete_by_frigate_events(self, event_ids: list[str]) -> int:
-        """Delete detections by a list of Frigate event IDs."""
-        if not event_ids:
-            return 0
-        total_deleted = 0
-        chunk_size = 500
-        for i in range(0, len(event_ids), chunk_size):
-            chunk = event_ids[i : i + chunk_size]
-            placeholders = ",".join(["?"] * len(chunk))
-            query = f"DELETE FROM detections WHERE frigate_event IN ({placeholders})"
-            async with self.db.execute(query, chunk) as cursor:
-                total_deleted += cursor.rowcount or 0
-                await self.db.commit()
-        return total_deleted
 
     # The scan re-checks what might have changed and skips what cannot have.
     # `manual_%` events are an owner's own records with no Frigate event behind
@@ -3636,12 +3671,47 @@ class DetectionRepository:
 
         return total_deleted
 
-    async def delete_all(self) -> int:
-        """Delete ALL detections. Use with caution."""
-        async with self.db.execute("DELETE FROM detections") as cursor:
-            count = cursor.rowcount
+    async def count_all(self) -> int:
+        """Every detection row `delete_all` would remove: hidden rows included, no filter at all."""
+        async with self.db.execute("SELECT COUNT(*) FROM detections") as cursor:
+            row = await cursor.fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
+    async def _count_all_in_transaction(self) -> int:
+        """The reset's count, read while the caller holds the write lock."""
+        async with self.db.execute("SELECT COUNT(*) FROM detections") as cursor:
+            row = await cursor.fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
+    async def delete_all_if_count_is(self, expected_count: int | None) -> tuple[int | None, int]:
+        """Delete ALL detections, but only if there are exactly `expected_count` of them.
+
+        Returns `(deleted, counted)`; `deleted` is None when the count did not match and nothing
+        was removed. `expected_count=None` deletes whatever is there.
+
+        The count and the delete are one transaction that takes SQLite's write lock before
+        counting. Pausing ingest does not stop a handler that is already running, so without
+        the lock a detection written between the two statements was deleted on a number nobody
+        had confirmed. Under it, that write either lands first and is counted, or waits.
+        """
+        await self.db.execute("BEGIN IMMEDIATE")
+        try:
+            counted = await self._count_all_in_transaction()
+            if expected_count is not None and counted != expected_count:
+                await self.db.rollback()
+                return None, counted
+            cursor = await self.db.execute("DELETE FROM detections")
+            deleted = cursor.rowcount
+            await cursor.close()
+            # The daily totals are history too: deleting all of it leaves no count behind.
+            await self.db.execute("DELETE FROM species_daily_totals")
+            await self.db.execute("DELETE FROM daily_totals_days")
+            await self.db.execute("DELETE FROM lost_captures")
             await self.db.commit()
-            return count
+            return deleted, counted
+        except BaseException:
+            await self.db.rollback()
+            raise
 
     async def get_unknown_detections(self, *, limit: int | None = None) -> list[Detection]:
         """Get unresolved detections labeled as 'Unknown Bird', newest first."""
@@ -5359,7 +5429,7 @@ class DetectionRepository:
         """Detection and visit counts per species for a time range.
 
         A visit follows the leaderboard's rule: a detection opens one unless the same species was
-        on the same camera within sixty seconds of the last verified event end, or capture time.
+        on the same camera within the owner's visit gap of the last verified event end, or capture time.
         """
         from app.repositories.visit_repository import VisitRepository
 

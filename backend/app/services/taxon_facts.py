@@ -193,12 +193,14 @@ class ReaderScope:
     audio: bool
     garden: bool
     shared_days: Optional[int]
+    #: The visit gap the counts were grouped with, so a saved gap is never answered from an older snapshot.
+    visit_gap_seconds: int
 
 
 def reader_scope(*, is_owner: bool, now: Optional[datetime] = None) -> ReaderScope:
     garden = garden_public.garden_visible(is_owner=is_owner)
     if is_owner:
-        return ReaderScope(False, (None, None), (None, None), True, garden, None)
+        return ReaderScope(False, (None, None), (None, None), True, garden, None, settings.visits.gap_seconds)
     start, end = public_events_window(now)
     history = (utc_naive_datetime(start), utc_naive_datetime(end) if end else None)
     media: Optional[Window] = None
@@ -206,7 +208,13 @@ def reader_scope(*, is_owner: bool, now: Optional[datetime] = None) -> ReaderSco
         media_start, media_end = public_media_window(now)
         media = (utc_naive_datetime(media_start), utc_naive_datetime(media_end) if media_end else None)
     return ReaderScope(
-        True, history, media, bool(settings.public_access.show_audio), garden, effective_public_events_days()
+        True,
+        history,
+        media,
+        bool(settings.public_access.show_audio),
+        garden,
+        effective_public_events_days(),
+        settings.visits.gap_seconds,
     )
 
 

@@ -10,11 +10,12 @@ export interface components {
 };
     AIUsageBreakdown: {
     calls: number;
-    estimated_cost_usd?: number;
+    estimated_cost_usd?: number | null;
     feature: string;
     input_tokens: number;
     model: string;
     output_tokens: number;
+    priced?: boolean;
     provider: string;
     total_tokens: number;
 };
@@ -25,7 +26,6 @@ export interface components {
     AIUsageDaily: {
     calls: number;
     day: string;
-    estimated_cost_usd?: number;
     input_tokens: number;
     output_tokens: number;
     total_tokens: number;
@@ -34,14 +34,19 @@ export interface components {
     breakdown: Array<components['schemas']['AIUsageBreakdown']>;
     calls: number;
     daily: Array<components['schemas']['AIUsageDaily']>;
-    estimated_cost_usd?: number;
+    estimated_cost_usd?: number | null;
     from_date: string;
     input_tokens: number;
     output_tokens: number;
+    priced_calls?: number;
+    priced_tokens?: number;
     pricing_configured?: boolean;
     span: string;
     to_date: string;
     total_tokens: number;
+    unpriced_calls?: number;
+    unpriced_models?: Array<string>;
+    unpriced_tokens?: number;
 };
     ActionStatusResponse: {
     message: string;
@@ -111,6 +116,18 @@ export interface components {
     snapshot_state?: string | null;
     state?: string | null;
     updated_at?: string | null;
+};
+    AudioActivityHeatmapCell: {
+    count: number;
+    day_of_week: number;
+    hour: number;
+};
+    AudioActivityHeatmapResponse: {
+    cells: Array<components['schemas']['AudioActivityHeatmapCell']>;
+    max_cell_count: number;
+    total_count: number;
+    window_end: string;
+    window_start: string;
 };
     AudioContextDetectionResponse: {
     birdnet_id?: number | null;
@@ -256,9 +273,14 @@ export interface components {
     component: string;
     context?: Record<string, unknown> | null;
     correlation_key?: string | null;
+    count?: number;
+    dismissal?: components['schemas']['DiagnosticDismissalStateResponse'] | null;
+    dismissed?: boolean;
     event_id?: string | null;
+    first_seen?: string | null;
     id: string;
     job_id?: string | null;
+    last_seen?: string | null;
     message: string;
     reason_code: string;
     runtime_recovery?: Record<string, unknown> | null;
@@ -273,11 +295,13 @@ export interface components {
     capacity: number;
     captured_at: string;
     component_counts: Record<string, number>;
+    dismissed_events?: number;
     events: Array<components['schemas']['BackendDiagnosticEventResponse']>;
     filtered_events: number;
     returned_events: number;
     severity_counts: Record<string, number>;
     total_events: number;
+    total_occurrences?: number;
 };
     BackfillFocusedDiagnosticsResponse: {
     failed_jobs: Array<Record<string, unknown>>;
@@ -315,6 +339,16 @@ export interface components {
     bytes_freed: number;
     clips_deleted: number;
     snapshots_deleted: number;
+};
+    BackfillResetCountChanged: {
+    code?: "reset_count_changed";
+    detection_count: number;
+};
+    BackfillResetPreviewResponse: {
+    detection_count: number;
+};
+    BackfillResetRefusal: {
+    detail: components['schemas']['BackfillResetCountChanged'] | string;
 };
     BackfillResetResponse: {
     cache_stats: components['schemas']['BackfillResetCacheStats'];
@@ -496,6 +530,17 @@ export interface components {
     total_size_bytes: number;
     total_size_mb: number;
 };
+    CameraHealth: {
+    camera: string;
+    camera_fps?: number | null;
+    detection_fps?: number | null;
+    process_fps?: number | null;
+    status: "online" | "offline" | "unknown";
+};
+    CameraHealthReading: {
+    cameras: Array<components['schemas']['CameraHealth']>;
+    checked_at: string;
+};
     CameraStats: {
     camera_name: string;
     count: number;
@@ -526,15 +571,33 @@ export interface components {
     video_classification_timestamp?: string | null;
 };
     ClassifierCropDeviceCheck: {
+    attempt_count?: number;
+    checked_at: string | null;
+    last_result?: components['schemas']['ClassifierCropDeviceCheckResult'] | null;
+    model_id: string | null;
+    next_retry_at?: string | null;
+    providers: Array<string>;
+    reason: string | null;
+    reason_code?: "mismatch" | "unfinished" | "no_photos" | "driver_changed" | "no_positive_baseline" | "superseded" | "interrupted" | "passed" | "gpu_recovery" | "no_accelerator" | "ledger_unreadable" | "no_full_frames" | null;
+    runtime_current?: boolean;
+    state: "idle" | "waiting" | "running" | "succeeded" | "failed" | "superseded" | "interrupted";
+    [key: string]: components['schemas']['JsonValue'];
+};
+    ClassifierCropDeviceCheckResult: {
     checked_at: string | null;
     model_id: string | null;
     providers: Array<string>;
     reason: string | null;
+    reason_code?: "mismatch" | "unfinished" | "no_photos" | "driver_changed" | "no_positive_baseline" | "superseded" | "interrupted" | "passed" | "gpu_recovery" | "no_accelerator" | "ledger_unreadable" | "no_full_frames" | null;
+    runtime_current?: boolean;
     state: "idle" | "waiting" | "running" | "succeeded" | "failed" | "superseded" | "interrupted";
     [key: string]: components['schemas']['JsonValue'];
 };
     ClassifierCropStatus: {
+    active_provider?: string | null;
+    chosen_installed?: boolean | null;
     chosen_model_id?: string;
+    cpu_fallback?: components['schemas']['ClassifierFinderCPUFallback'] | null;
     device_check?: components['schemas']['ClassifierCropDeviceCheck'] | null;
     enabled_for_runtime?: boolean;
     healthy?: boolean;
@@ -543,6 +606,7 @@ export interface components {
     load_error?: string | null;
     model_id?: string;
     model_path?: string | null;
+    planned_provider?: string | null;
     reason?: string;
     resolved_tier?: string;
     selected_tier?: string;
@@ -555,6 +619,15 @@ export interface components {
     model?: string | null;
     path?: string | null;
     status: string;
+};
+    ClassifierFinderCPUFallback: {
+    action?: string | null;
+    active: boolean;
+    model_id: string;
+    provider: string;
+    reason?: string | null;
+    reason_code?: string | null;
+    [key: string]: components['schemas']['JsonValue'];
 };
     ClassifierHostEligibility: {
     generated_at?: string | null;
@@ -584,6 +657,7 @@ export interface components {
     active_model_candidate_providers?: Array<string>;
     active_model_estimated_ram_mb?: number | null;
     active_model_id?: string | null;
+    active_model_installed?: boolean | null;
     active_model_validated_providers?: Array<string>;
     active_provider?: string;
     available_providers?: Array<string>;
@@ -597,6 +671,7 @@ export interface components {
     dev_dri_entries?: Array<string>;
     dev_dri_present?: boolean;
     effective_model_id?: string | null;
+    effective_model_name?: string | null;
     enabled?: boolean;
     error?: string | null;
     fallback_reason?: string | null;
@@ -742,6 +817,13 @@ export interface components {
     input_context?: components['schemas']['ClassificationInputContext'] | null;
     source_preference?: string;
 };
+    CurrentIdentification: {
+    category_name: string;
+    common_name?: string | null;
+    display_name: string;
+    manual_tagged: boolean;
+    scientific_name?: string | null;
+};
     DailyCameraVisits: {
     camera: string;
     last_seen?: string | null;
@@ -771,6 +853,14 @@ export interface components {
     top_species: Array<components['schemas']['DailySpeciesSummary']>;
     total_count: number;
     visit_count?: number;
+    window?: "rolling" | "today";
+    window_end: string;
+    window_start: string;
+};
+    DailyTotalsCoverage: {
+    complete_from?: string | null;
+    partial?: boolean;
+    totals_through?: string | null;
 };
     DailyWeatherSummary: {
     am_cloud?: number | null;
@@ -827,6 +917,7 @@ export interface components {
     frigate_score?: number | null;
     frigate_status?: string;
     id?: number | null;
+    illuminance_lux?: number | null;
     initial_classification_input?: components['schemas']['ClassificationEvidence'] | null;
     is_favorite?: boolean;
     is_hidden?: boolean;
@@ -877,6 +968,7 @@ export interface components {
     detection_time: string | null;
     display_name: string;
     frigate_event: string;
+    frigate_event_check?: "found" | "not_found" | "unreachable" | "timed_out" | "unauthorized" | "failed" | "not_checked";
     has_clip?: boolean;
     has_frigate_event?: boolean;
     has_snapshot?: boolean;
@@ -908,6 +1000,7 @@ export interface components {
     detection_time: string | null;
     display_name: string;
     frigate_event: string;
+    frigate_event_check?: "found" | "not_found" | "unreachable" | "timed_out" | "unauthorized" | "failed" | "not_checked";
     frigate_last_checked_at?: string | null;
     frigate_last_error?: string | null;
     frigate_missing_since?: string | null;
@@ -917,6 +1010,7 @@ export interface components {
     has_frigate_event?: boolean;
     has_snapshot?: boolean;
     id?: number | null;
+    illuminance_lux?: number | null;
     initial_classification_input?: components['schemas']['ClassificationEvidence'] | null;
     is_favorite?: boolean;
     is_hidden?: boolean;
@@ -1006,6 +1100,7 @@ export interface components {
     DetectionsTimelineSpanResponse: {
     bucket: string;
     compare_series?: Array<components['schemas']['DetectionsTimelineCompareSeries']> | null;
+    daily_totals?: components['schemas']['DailyTotalsCoverage'];
     points: Array<components['schemas']['DetectionsTimelinePoint']>;
     span: string;
     sunrise_range?: string | null;
@@ -1023,6 +1118,21 @@ export interface components {
     snow_total?: number | null;
     temp_avg?: number | null;
     wind_avg?: number | null;
+};
+    DiagnosticDismissalEntryRequest: {
+    count: number;
+    id: string;
+};
+    DiagnosticDismissalResponse: {
+    component: string;
+    dismissed_at: string;
+    dismissed_count: number;
+    id: string;
+    reason_code: string;
+};
+    DiagnosticDismissalStateResponse: {
+    dismissed_at: string;
+    dismissed_count: number;
 };
     DiagnosticsBundleResponse: {
     backend_diagnostics: components['schemas']['BackendDiagnosticsSnapshotResponse'];
@@ -1050,6 +1160,7 @@ export interface components {
     backfill_running_jobs: number;
     backfill_stale_jobs: number;
     diagnostic_events: number;
+    dismissed_events?: number;
     health_status: string;
     startup_warning_count: number;
     video_sample_format?: string;
@@ -1057,6 +1168,7 @@ export interface components {
     DiagnosticsWorkspaceResponse: {
     backend_diagnostics: components['schemas']['BackendDiagnosticsSnapshotResponse'];
     classifier: Record<string, unknown>;
+    connections?: components['schemas']['ServiceConnectionsResponse'] | null;
     focused_diagnostics: components['schemas']['FocusedDiagnosticsResponse'];
     health: Record<string, unknown>;
     maintenance_coordinator: Record<string, unknown>;
@@ -1064,6 +1176,13 @@ export interface components {
     system_telemetry?: components['schemas']['SystemTelemetryHistoryResponse'] | null;
     taxonomy_repair: Record<string, unknown>;
     workspace_schema_version: string;
+};
+    DismissDiagnosticsRequest: {
+    entries: Array<components['schemas']['DiagnosticDismissalEntryRequest']>;
+};
+    DismissDiagnosticsResponse: {
+    dismissed: Array<components['schemas']['DiagnosticDismissalResponse']>;
+    missing: Array<string>;
 };
     DownloadProgress: {
     error?: string | null;
@@ -1079,7 +1198,7 @@ export interface components {
     engine: string;
     previous: number | null;
     previous_total: number | null;
-    state: "baseline" | "measured" | "counter_regressed" | "missing_total" | "total_not_advancing" | "invalid_interval";
+    state: "baseline" | "measured" | "counter_wrapped" | "counter_regressed" | "missing_total" | "total_not_advancing" | "invalid_interval";
     total: number | null;
     unit: "ns" | "cycles";
     value: number;
@@ -1197,6 +1316,15 @@ export interface components {
     FocusedDiagnosticsResponse: {
     backfill?: components['schemas']['BackfillFocusedDiagnosticsResponse'] | null;
     video_classifier?: components['schemas']['VideoClassifierFocusedDiagnosticsResponse'] | null;
+};
+    FrigateApiStatus: {
+    availability?: "online" | "offline" | "unknown";
+    checked_at?: string | null;
+    last_failure?: "timeout" | "connection" | "unauthorized" | "server_error" | null;
+    last_failure_at?: string | null;
+    last_success_at?: string | null;
+    state: "reachable" | "unreachable" | "unchecked";
+    url: string;
 };
     FrigateCameraStatusItem: {
     camera: string;
@@ -1383,7 +1511,7 @@ export interface components {
     GardenMotionUnreadable: {
     camera: string;
     count: number;
-    last_reason: "invalid_metadata" | "pixel_limit" | "duration_limit" | "decode_failed" | "frame_unbounded" | "photo_too_large";
+    last_reason: "invalid_metadata" | "pixel_limit" | "duration_limit" | "decode_failed" | "frame_unbounded" | "photo_too_large" | "size_limit";
 };
     GardenNotificationStatus: {
     attempts: Record<string, number>;
@@ -1459,15 +1587,25 @@ export interface components {
     HTTPValidationError: {
     detail?: Array<components['schemas']['ValidationError']>;
 };
+    HaIlluminanceTestReading: {
+    entity_id: string;
+    lux?: number | null;
+    reason?: "invalid_entity_id" | "unreachable" | "not_illuminance" | "unavailable" | "not_numeric" | "out_of_range" | null;
+    status: "ok" | "error";
+};
     HaWeatherTestRequest: {
     access_token?: string | null;
     base_url?: string | null;
+    illuminance_entity?: string | null;
+    scope?: "all" | "weather" | "illuminance";
     weather_entity?: string | null;
 };
     HaWeatherTestResponse: {
+    illuminance?: components['schemas']['HaIlluminanceTestReading'] | null;
     message: string;
     readings?: Record<string, unknown>;
     status: "ok" | "error";
+    weather?: "ok" | "error" | "not_configured";
 };
     HeardGroupResponse: {
     best_birdnet_id?: number | null;
@@ -1502,6 +1640,14 @@ export interface components {
     event_id: string;
     is_hidden: boolean;
     status: string;
+};
+    IdentificationChangedDetail: {
+    code: "identification_changed";
+    current: components['schemas']['CurrentIdentification'];
+    message: string;
+};
+    IdentificationChangedResponse: {
+    detail: components['schemas']['IdentificationChangedDetail'];
 };
     ImageClassificationResponse: {
     active_provider?: string | null;
@@ -1569,6 +1715,7 @@ export interface components {
     username?: string | null;
 };
     InstalledModel: {
+    bundled?: boolean;
     id: string;
     is_active: boolean;
     labels_path: string;
@@ -1611,10 +1758,20 @@ export interface components {
     updated_at?: string | null;
     visibility?: "prominent" | "routine";
 };
+    JobsProgress: {
+    current: number;
+    total: number;
+    unit: string;
+};
     JobsSnapshotResponse: {
     captured_at: string;
     items: Array<components['schemas']['JobSnapshotItem']>;
     lanes: Array<components['schemas']['JobLaneSnapshot']>;
+};
+    JobsSummary: {
+    progress?: components['schemas']['JobsProgress'] | null;
+    queued: number;
+    running: number;
 };
     JsonValue: unknown;
     LeaderboardAnalysisRequest: {
@@ -1701,6 +1858,18 @@ export interface components {
     port?: number | null;
     server?: string | null;
     username?: string | null;
+};
+    MaintenanceLastRun: {
+    changed?: number | null;
+    checked?: number | null;
+    finished_at?: string | null;
+    kind: "taxonomy" | "timezone_scan" | "timezone_repair" | "analyze_unknowns" | "detections" | "weather";
+    started_at?: string | null;
+    status: string;
+    unchecked?: number | null;
+};
+    MaintenanceLastRunsResponse: {
+    runs: Array<components['schemas']['MaintenanceLastRun']>;
 };
     MaintenanceStatsResponse: {
     automatic_cleanup?: boolean;
@@ -1802,10 +1971,104 @@ export interface components {
     message: string;
     status: string;
 };
+    ModelActivityResponse: {
+    activity: Record<string, "downloading" | "validating">;
+};
     ModelDeleteResponse: {
     bytes_freed: number;
     message: string;
     status: string;
+};
+    ModelEvalActiveStatus: {
+    phase: string;
+    progress: components['schemas']['ModelEvalProgress'];
+    run_id: string;
+    started_at: string;
+};
+    ModelEvalListResponse: {
+    active?: components['schemas']['ModelEvalActiveStatus'] | null;
+    runs?: Array<components['schemas']['ModelEvalRunRow']>;
+};
+    ModelEvalModelSummary: {
+    abstention_rate?: number;
+    active_provider?: string | null;
+    device?: string | null;
+    failed_providers?: Array<string>;
+    high_confidence_unknown_rate?: number;
+    images_evaluated?: number;
+    images_in_vocabulary?: number | null;
+    inference_health_verdict?: string | null;
+    latency_drift_ratio?: number | null;
+    mean_latency_ms?: number | null;
+    model_id: string;
+    p50_latency_ms?: number | null;
+    p95_latency_ms?: number | null;
+    panel_species?: number | null;
+    ready?: boolean;
+    ready_reason?: string | null;
+    regional_top1?: number;
+    regional_top1_in_vocabulary?: number | null;
+    requested_provider?: string | null;
+    shared_core_top1?: number;
+    shared_core_top1_in_vocabulary?: number | null;
+    species_outside_vocabulary?: number | null;
+    startup_benchmark_ms?: number | null;
+    top1_accuracy?: number;
+    top1_accuracy_in_vocabulary?: number | null;
+    top3_accuracy?: number;
+    top3_accuracy_in_vocabulary?: number | null;
+    top5_accuracy?: number;
+    top5_accuracy_in_vocabulary?: number | null;
+    validated_providers?: Array<string>;
+    vocabulary_known?: boolean;
+    warnings?: Array<components['schemas']['ModelEvalWarning']>;
+};
+    ModelEvalProgress: {
+    done: number;
+    label: string;
+    total: number;
+};
+    ModelEvalRunResponse: {
+    available_artifacts?: Array<string>;
+    duration_seconds?: number | null;
+    error_code?: string | null;
+    finished_at?: string | null;
+    in_progress?: boolean;
+    models?: Array<components['schemas']['ModelEvalModelSummary']>;
+    run_id: string;
+    skipped_models?: Array<components['schemas']['ModelEvalSkippedModel']>;
+    started_at?: string | null;
+    test_set?: components['schemas']['ModelEvalTestSet'] | null;
+};
+    ModelEvalRunRow: {
+    duration_seconds?: number | null;
+    error_code?: string | null;
+    finished_at?: string | null;
+    model_count?: number | null;
+    region?: string | null;
+    run_id: string;
+    started_at?: string | null;
+    status: string;
+    total_images?: number | null;
+    total_species?: number | null;
+};
+    ModelEvalSkippedModel: {
+    model_id: string;
+    reason: string;
+};
+    ModelEvalTestSet: {
+    image_sources?: Record<string, number>;
+    images_per_species?: number;
+    region?: string | null;
+    regional_species?: number;
+    shared_core_species?: number;
+    total_images?: number;
+    total_species?: number;
+};
+    ModelEvalWarning: {
+    code: string;
+    message?: string;
+    severity?: string;
 };
     ModelFile: {
     name: string;
@@ -1850,6 +2113,19 @@ export interface components {
     tier: string;
     weights_sha256?: string | null;
     weights_url?: string | null;
+};
+    ModelState: {
+    active_provider?: string | null;
+    cause: string;
+    enabled?: boolean;
+    fallback_reason?: string | null;
+    model_id?: string | null;
+    model_name?: string | null;
+    provider_fallback?: boolean;
+    revision: string;
+    selected_provider?: string | null;
+    state: "ok" | "degraded" | "error" | "off" | "unknown";
+    validation_state?: string;
 };
     ModelValidateDevice: {
     backend?: string | null;
@@ -1896,6 +2172,16 @@ export interface components {
     capture_id: string;
     event_id: string;
 };
+    MqttConnectionStatus: {
+    connected_since?: string | null;
+    last_attempt_at?: string | null;
+    last_error?: string | null;
+    last_error_cause?: "host_not_found" | "refused" | "timeout" | "not_authorised" | "unreachable" | null;
+    last_failure_at?: string | null;
+    port: number;
+    server: string;
+    state: "connecting" | "connected" | "disconnected" | "not_configured" | "stopped";
+};
     NewSpeciesQueueResponse: {
     items: Array<components['schemas']['NewSpeciesSighting']>;
     max_sightings: number;
@@ -1925,6 +2211,11 @@ export interface components {
     OAuthAuthorizeResponse: {
     authorization_url: string;
     state?: string | null;
+};
+    OverallVerdict: {
+    cause: string;
+    state: "ok" | "degraded" | "unknown";
+    subsystem?: "mqtt" | "frigate" | "classifier" | "finder" | "audio" | "storage" | "notifications" | null;
 };
     PortraitDay: {
     date: string;
@@ -1963,6 +2254,7 @@ export interface components {
     clips_enabled: boolean;
     ebird_default_days_back: number;
     recording_clip_enabled: boolean;
+    visit_gap_seconds: number;
 };
     PurgeMissingMediaResponse: {
     checked: number;
@@ -2087,6 +2379,12 @@ export interface components {
     recording_state: "complete" | "partial";
     status: "ready" | "partial";
 };
+    RestoreDiagnosticsRequest: {
+    ids: Array<string>;
+};
+    RestoreDiagnosticsResponse: {
+    restored: Array<string>;
+};
     RevalidationProfile: {
     blocked: boolean;
     eligible: boolean;
@@ -2132,6 +2430,11 @@ export interface components {
     status: string;
     taxon_id: number;
     total_observations: number;
+};
+    ServiceConnectionsResponse: {
+    frigate: components['schemas']['FrigateApiStatus'];
+    generated_at: string;
+    mqtt: components['schemas']['MqttConnectionStatus'];
 };
     SettingsImportResponse: {
     changed_fields: Array<string>;
@@ -2219,6 +2522,7 @@ export interface components {
     ha_weather_cloud_cover_entity?: string | null;
     ha_weather_enabled?: boolean | null;
     ha_weather_entity?: string | null;
+    ha_weather_illuminance_entity?: string | null;
     ha_weather_precipitation_entity?: string | null;
     ha_weather_rain_entity?: string | null;
     ha_weather_snowfall_entity?: string | null;
@@ -2358,6 +2662,7 @@ export interface components {
     video_classification_maintenance_circuit_open?: boolean;
     video_classification_maintenance_circuit_until?: string | null;
     video_classification_max_retries?: number | null;
+    visit_gap_seconds?: number | null;
     write_frigate_sublabel?: boolean;
 };
     SettingsUpdate: {
@@ -2441,6 +2746,7 @@ export interface components {
     ha_weather_cloud_cover_entity?: string | null;
     ha_weather_enabled?: boolean | null;
     ha_weather_entity?: string | null;
+    ha_weather_illuminance_entity?: string | null;
     ha_weather_precipitation_entity?: string | null;
     ha_weather_rain_entity?: string | null;
     ha_weather_snowfall_entity?: string | null;
@@ -2567,6 +2873,7 @@ export interface components {
     video_classification_delay?: number | null;
     video_classification_frames?: number | null;
     video_classification_max_retries?: number | null;
+    visit_gap_seconds?: number | null;
     write_frigate_sublabel?: boolean;
 };
     SettingsUpdateResponse: {
@@ -2702,6 +3009,7 @@ export interface components {
     scientific_name?: string | null;
     source?: string | null;
     source_url?: string | null;
+    summary_language: string | null;
     summary_source?: string | null;
     summary_source_url?: string | null;
     taxa_id?: number | null;
@@ -2729,7 +3037,9 @@ export interface components {
     cameras: Array<components['schemas']['CameraStats']>;
     common_name?: string | null;
     daily_distribution: Array<number>;
+    daily_totals?: components['schemas']['DailyTotalsCoverage'];
     first_seen: string | null;
+    history_first_day?: string | null;
     hourly_distribution: Array<number>;
     last_seen: string | null;
     max_confidence: number;
@@ -2756,6 +3066,11 @@ export interface components {
     StreamTicketResponse: {
     expires_in_seconds: number;
     ticket: string;
+};
+    SubsystemVerdict: {
+    cause: string;
+    key: "mqtt" | "frigate" | "classifier" | "finder" | "audio" | "storage" | "notifications";
+    state: "ok" | "degraded" | "error" | "off" | "unknown";
 };
     SystemAcceleratorIdentity: {
     kind: "npu" | "gpu";
@@ -2801,6 +3116,24 @@ export interface components {
     pid: number;
     role: "main" | "live_worker" | "background_worker" | "video_worker" | "ffmpeg" | "other_child";
     rss_bytes?: number | null;
+};
+    SystemStatusSnapshot: {
+    analysis: components['schemas']['AnalysisStatusResponse'];
+    cameras?: components['schemas']['CameraHealthReading'] | null;
+    connections: components['schemas']['ServiceConnectionsResponse'];
+    diagnostics_revision: number;
+    generated_at: string;
+    health_revision: string;
+    incident_revision: string;
+    jobs: components['schemas']['JobsSnapshotResponse'];
+    jobs_summary: components['schemas']['JobsSummary'];
+    model: components['schemas']['ModelState'];
+    overall: components['schemas']['OverallVerdict'];
+    revision: number;
+    startup_instance_id: string;
+    subsystems: Array<components['schemas']['SubsystemVerdict']>;
+    telemetry?: components['schemas']['TelemetrySummary'] | null;
+    version: string;
 };
     SystemTelemetryHistoryResponse: {
     accelerator?: components['schemas']['SystemAcceleratorIdentity'] | null;
@@ -2889,6 +3222,13 @@ export interface components {
     seconds_since_progress?: number | null;
     total: number;
 };
+    TelemetrySummary: {
+    accelerator_kind?: "npu" | "gpu" | null;
+    accelerator_label?: string | null;
+    accelerator_percent?: number | null;
+    cpu_percent?: number | null;
+    sampled_at: number;
+};
     TestEmailRequest: {
     test_message?: string;
     test_subject?: string;
@@ -2935,6 +3275,7 @@ export interface components {
 };
     UpdateDetectionRequest: {
     display_name: string;
+    expected_category_name?: string | null;
 };
     UpdateStatusResponse: {
     channel: string;
@@ -3102,7 +3443,9 @@ export interface paths {
       path: {
     event_id: string;
 };
-      query: never;
+      query: {
+    size?: "card" | "tile";
+};
       requestBody: unknown;
       response: unknown;
     };
@@ -3116,6 +3459,22 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: unknown;
+    };
+  };
+  "/api/audio/activity-heatmap": {
+    get: {
+      operationId: "get_audio_activity_heatmap_api_audio_activity_heatmap_get";
+      path: never;
+      query: {
+    days?: number;
+    end_date?: string | null;
+    min_confidence?: number | null;
+    source?: string | null;
+    species?: string | null;
+    start_date?: string | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['AudioActivityHeatmapResponse'];
     };
   };
   "/api/audio/clip/{birdnet_id}": {
@@ -3356,9 +3715,20 @@ export interface paths {
     delete: {
       operationId: "reset_database_api_backfill_reset_delete";
       path: never;
-      query: never;
+      query: {
+    expected_count?: number | null;
+};
       requestBody: unknown;
       response: components['schemas']['BackfillResetResponse'];
+    };
+  };
+  "/api/backfill/reset/preview": {
+    get: {
+      operationId: "preview_reset_api_backfill_reset_preview_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['BackfillResetPreviewResponse'];
     };
   };
   "/api/backfill/status": {
@@ -3657,6 +4027,33 @@ export interface paths {
       response: components['schemas']['ClearDiagnosticsWorkspaceResponse'];
     };
   };
+  "/api/diagnostics/connections": {
+    get: {
+      operationId: "get_service_connections_api_diagnostics_connections_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ServiceConnectionsResponse'];
+    };
+  };
+  "/api/diagnostics/dismissals": {
+    post: {
+      operationId: "dismiss_owner_workspace_diagnostics_api_diagnostics_dismissals_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['DismissDiagnosticsRequest'];
+      response: components['schemas']['DismissDiagnosticsResponse'];
+    };
+  };
+  "/api/diagnostics/dismissals/restore": {
+    post: {
+      operationId: "restore_owner_workspace_diagnostics_api_diagnostics_dismissals_restore_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['RestoreDiagnosticsRequest'];
+      response: components['schemas']['RestoreDiagnosticsResponse'];
+    };
+  };
   "/api/diagnostics/errors": {
     get: {
       operationId: "get_error_diagnostics_history_api_diagnostics_errors_get";
@@ -3677,7 +4074,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: Record<string, components['schemas']['JsonValue']>;
+      response: components['schemas']['ModelEvalListResponse'];
     };
     post: {
       operationId: "start_run_api_diagnostics_model_eval_runs_post";
@@ -3695,7 +4092,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: Record<string, components['schemas']['JsonValue']>;
+      response: components['schemas']['ModelEvalRunResponse'];
     };
     delete: {
       operationId: "delete_run_api_diagnostics_model_eval_runs__run_id__delete";
@@ -3854,7 +4251,7 @@ export interface paths {
       query: {
     audio_confirmed_only?: boolean;
     camera?: string | null;
-    end_date?: string | null;
+    end_date?: string | "today" | null;
     event_id?: string | null;
     favorites?: boolean;
     fields?: string | null;
@@ -3865,7 +4262,7 @@ export interface paths {
     only_hidden?: boolean;
     sort?: "newest" | "oldest" | "confidence";
     species?: string | null;
-    start_date?: string | null;
+    start_date?: string | "today" | null;
     taxon?: number | null;
 };
       requestBody: unknown;
@@ -3897,13 +4294,13 @@ export interface paths {
       query: {
     audio_confirmed_only?: boolean;
     camera?: string | null;
-    end_date?: string | null;
+    end_date?: string | "today" | null;
     favorites?: boolean;
     include_hidden?: boolean;
     multiple_species_only?: boolean;
     only_hidden?: boolean;
     species?: string | null;
-    start_date?: string | null;
+    start_date?: string | "today" | null;
     taxon?: number | null;
 };
       requestBody: unknown;
@@ -4880,6 +5277,15 @@ export interface paths {
       response: components['schemas']['ClearFeedbackResponse'];
     };
   };
+  "/api/maintenance/last-runs": {
+    get: {
+      operationId: "get_maintenance_last_runs_api_maintenance_last_runs_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['MaintenanceLastRunsResponse'];
+    };
+  };
   "/api/maintenance/purge-missing-clips": {
     post: {
       operationId: "purge_missing_clips_api_maintenance_purge_missing_clips_post";
@@ -5047,6 +5453,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: unknown;
+    };
+  };
+  "/api/models/activity": {
+    get: {
+      operationId: "get_model_activity_api_models_activity_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ModelActivityResponse'];
     };
   };
   "/api/models/available": {
@@ -5427,7 +5842,9 @@ export interface paths {
     get: {
       operationId: "get_daily_summary_api_stats_daily_summary_get";
       path: never;
-      query: never;
+      query: {
+    window?: "rolling" | "today";
+};
       requestBody: unknown;
       response: components['schemas']['DailySummaryResponse'];
     };
@@ -5478,6 +5895,15 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['UptimeWindowResponse'];
+    };
+  };
+  "/api/status": {
+    get: {
+      operationId: "get_system_status_api_status_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['SystemStatusSnapshot'];
     };
   };
   "/api/system-telemetry": {
@@ -5637,7 +6063,7 @@ export interface paths {
       query: {
     audio_confirmed_only?: boolean;
     camera?: string | null;
-    end_date?: string | null;
+    end_date?: string | "today" | null;
     end_time?: string | null;
     favorites?: boolean;
     limit?: number;
@@ -5646,7 +6072,7 @@ export interface paths {
     only_hidden?: boolean;
     sort?: string;
     species?: string | null;
-    start_date?: string | null;
+    start_date?: string | "today" | null;
     start_time?: string | null;
     taxon?: number | null;
 };
@@ -5661,12 +6087,12 @@ export interface paths {
     visit_id: string;
 };
       query: {
-    end_date?: string | null;
+    end_date?: string | "today" | null;
     end_time?: string | null;
     limit?: number;
     offset?: number;
     only_hidden?: boolean;
-    start_date?: string | null;
+    start_date?: string | "today" | null;
     start_time?: string | null;
 };
       requestBody: unknown;

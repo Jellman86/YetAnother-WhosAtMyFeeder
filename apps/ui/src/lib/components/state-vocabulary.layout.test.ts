@@ -37,8 +37,8 @@ describe('state is never a coloured bar on one edge', () => {
 
 describe('a chosen row is a recessed brand key with a lit check', () => {
     it('is defined once in the kit', () => {
-        expect(appCss).toMatch(/\.choice-active \{[^}]*bg-brand-50[^}]*\}/);
-        expect(appCss).toMatch(/\.choice-active svg \{[^}]*text-brand-600/);
+        expect(appCss).toMatch(/@utility choice-active \{[^}]*bg-accent-soft[^}]*\}/);
+        expect(appCss).toMatch(/@utility choice-active \{[^}]*& svg \{[^}]*text-accent-ink/);
     });
 
     it('marks the rail rows with the kit class and a check that is not colour alone', () => {
@@ -55,7 +55,7 @@ describe('a chosen row is a recessed brand key with a lit check', () => {
 
 describe('a row that needs a person carries an amber dot beside its reason in words', () => {
     it('is defined once in the kit, on the attention scale', () => {
-        expect(appCss).toMatch(/\.attention-dot \{[^}]*bg-attention-500[^}]*\}/);
+        expect(appCss).toMatch(/@utility attention-dot \{[^}]*bg-status-attention-line[^}]*\}/);
     });
 
     for (const [name, source] of Object.entries({
@@ -66,8 +66,10 @@ describe('a row that needs a person carries an amber dot beside its reason in wo
     })) {
         it(`${name} keeps the tint faint and puts the dot beside the words`, () => {
             expect(source).toContain('attention-dot');
-            expect(source).toContain('bg-attention-500/5');
-            expect(source).not.toContain('bg-attention-500/10');
+            // The status tone's soft ground: faint in every mode (design-tokens.contrast.test.ts holds
+            // the words on it to AA), and black in high contrast.
+            expect(source).toContain('bg-status-attention-soft');
+            expect(source).not.toMatch(/bg-attention-\d/);
         });
     }
 });

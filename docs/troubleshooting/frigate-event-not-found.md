@@ -78,20 +78,35 @@ create an event for a transient MQTT tracker ID that Frigate never persisted.
 
 YA-WAMF can also mark existing detections as **Frigate event missing** during media integrity checks. This means YA-WAMF kept the local detection, but Frigate no longer had the event, clip, or snapshot at the last check. That can happen after normal Frigate retention cleanup, a Frigate database reset, storage repair, or a retention policy that is intentionally shorter than YA-WAMF's local retention.
 
-You can control this in **Settings → Data → Media integrity**:
+You can control this in **Settings → Storage & upkeep → Media integrity**:
 
 - **Mark missing and keep local data** keeps the detection and cached media, and shows the compact missing-Frigate note in the detection details.
 - **Keep local data unchanged** leaves detections as-is even when Frigate no longer has the event/media.
-- **Delete local data** removes local detections when Frigate no longer has the event/media.
+- **Delete records YA-WAMF has no photo for** removes a local detection when Frigate no longer has
+  the event/media and YA-WAMF holds no photo of its own for it. A detection whose photo YA-WAMF
+  still holds is marked missing instead, and stays marked, so it never loses its only photo.
+  YA-WAMF keeps the photo it classified for every detection, within the media retention setting,
+  so in practice this option marks most detections missing.
 
-> ⚠️ **"Delete local data" is destructive and irreversible.** Frigate routinely
-> rotates events out of its own (often short) retention, so this option can quietly
-> discard bird detections that YA-WAMF classified perfectly well and still has cached
-> media for. Because it keys off Frigate's retention — not yours — it can delete far
-> more than you expect. Prefer **Mark missing and keep local data** (or **Keep local
-> data unchanged**) unless you specifically want YA-WAMF's history tied to Frigate's.
+> ⚠️ **"Delete records YA-WAMF has no photo for" is destructive and irreversible.** It removes a
+> detection, and any clip YA-WAMF still holds for it, whenever Frigate is found not to have the
+> event and YA-WAMF's own photo is already gone, for example after a cache cleanup or a storage
+> limit removed it. Because it keys off Frigate's retention, not yours, it can delete more than you
+> expect. Prefer **Mark missing and keep local data** (or **Keep local data unchanged**) unless
+> you specifically want YA-WAMF's history tied to Frigate's.
 
 ---
+
+## A snapshot Frigate does not have
+
+Frigate publishes `new` over MQTT for objects it may discard a moment later. Asking for their
+snapshot then returns 404, which is expected. YA-WAMF retries once, tries the uncropped snapshot,
+the thumbnail, its own cache and a frame from the recording, and logs the missing snapshot once
+per event at `info` (`Frigate has no snapshot for this event`, `reason=snapshot_not_found`).
+`GET /health` counts these events in `event_pipeline.snapshot_not_found_events`, and every
+fallback that supplied the image in `event_pipeline.stage_fallbacks.classify_snapshot`. None of
+this is a Health warning. Only when every fallback fails is the event lost, and that is still
+recorded as `drop_classify_snapshot_unavailable`.
 
 ## Related reason codes
 
@@ -133,6 +148,24 @@ curl -fsS http://localhost:9852/api/events/{id}
 ```
 
 A detection affected by this scenario will have:
+- `frigate_event_check: "not_found"` (Frigate answered that it has no such event)
 - `has_frigate_event: false`
 - `has_clip: true` (if YA-WAMF cached the clip in time)
 - `video_classification_status: "failed"` or `"completed"` (depending on whether the cache bypass succeeded)
+
+`has_frigate_event: false` alone does not mean the event is gone: it is also false when Frigate
+could not be asked. `frigate_event_check` says which, and the record words each one separately:
+
+| `frigate_event_check` | Meaning | What the record says |
+| --- | --- | --- |
+| `found` | Frigate returned the event. | Nothing. |
+| `not_found` | Frigate answered 404. | "Frigate no longer has this event or media." |
+| `unreachable` | A connection to Frigate could not be made. | That it could not reach Frigate; check that Frigate is running. |
+| `timed_out` | Frigate did not answer in time. | That Frigate did not answer in time; reopen the record. |
+| `unauthorized` | Frigate answered 401 or 403. | That Frigate refused YA-WAMF's credentials; check `FRIGATE_AUTH_TOKEN`. |
+| `failed` | Frigate answered with another error, such as a 5xx. | That Frigate answered with an error; check Frigate's log. |
+| `not_checked` | Frigate was not asked for this response. | That Frigate has not been asked yet; reopen the record. |
+
+While Frigate as a whole is not answering, event reads are put off rather than sent one by one.
+Those reads report the failure that closed the gate (a timeout, a server error or a failed
+connection), not a blanket "unreachable".

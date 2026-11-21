@@ -7,9 +7,10 @@ import barChartSource from './SimpleBarChart.svelte?raw';
 describe('species detail field-record layout', () => {
     it('uses a responsive dialog shell with an accessible close target', () => {
         expect(speciesDetailSource).toContain('max-w-6xl');
-        expect(speciesDetailSource).toContain('h-[100dvh]');
+        expect(speciesDetailSource).toContain('h-dvh');
         expect(speciesDetailSource).not.toContain('max-w-4xl');
-        expect(speciesDetailSource).toContain('min-h-11 min-w-11');
+        // The shared dialog header carries the round close button.
+        expect(speciesDetailSource).toMatch(/<DialogHeader title=\{primaryName\} titleId="modal-title" onClose=\{onclose\}/);
     });
 
     it('prioritizes the owner record before reference and activity detail', () => {
@@ -39,7 +40,7 @@ describe('species detail field-record layout', () => {
         // The rule and padding travel with the lineage, which renders nothing when the catalogue
         // does not know the bird; a wrapper section here would leave an empty ruled band.
         expect(speciesDetailSource).not.toMatch(/<section data-species-taxonomy[^>]*>\s*<TaxonomyLineage/);
-        expect(speciesDetailSource).toMatch(/<TaxonomyLineage[^>]*class="border-t border-slate-200 pt-8 dark:border-slate-700"/);
+        expect(speciesDetailSource).toMatch(/<TaxonomyLineage[^>]*class="border-t border-line pt-8"/);
         expect(lineageSource).toMatch(/<section class="space-y-3 \{className\}"/);
     });
 
@@ -63,15 +64,15 @@ describe('species detail field-record layout', () => {
 
     it('shows the complete reference image instead of forcing a panoramic crop', () => {
         expect(speciesDetailSource).toContain('data-species-hero-image');
-        expect(speciesDetailSource).toContain('aspect-[4/3]');
+        expect(speciesDetailSource).toContain('aspect-4/3');
         expect(speciesDetailSource).toContain('object-contain');
         expect(speciesDetailSource).not.toContain('object-cover object-center');
     });
 
-    it('uses a restrained, accessible icon language for primary record sections', () => {
-        expect(speciesDetailSource.match(/data-species-section-icon/g) ?? []).toHaveLength(5);
-        expect(speciesDetailSource.match(/data-species-section-icon[^>]+aria-hidden="true"/g) ?? []).toHaveLength(5);
-        expect(speciesDetailSource).toContain('focus-visible:ring-2 focus-visible:ring-brand-500');
+    it('heads its sections with words alone, with no icon tile beside each heading', () => {
+        expect(speciesDetailSource).not.toContain('data-species-section-icon');
+        expect(speciesDetailSource).not.toMatch(/p-1\.5 rounded-lg bg-\w+-500\/10/);
+        expect(speciesDetailSource).toContain('focus-visible:ring-2 focus-visible:ring-focus');
     });
 
     it('labels charts without empty headings or fake keyboard controls', () => {

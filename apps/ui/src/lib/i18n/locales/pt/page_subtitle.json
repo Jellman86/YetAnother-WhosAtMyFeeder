@@ -1,10 +1,19 @@
 {
-  "audio_history": "Consulte as detecções do BirdNET-Go armazenadas e a atividade apenas de áudio.",
-  "about": "Versão, registro de alterações, colaboradores e links de suporte.",
-  "dashboard": "Detecções em direto, atividade recente e estado do comedouro num relance.",
+  "audio_history": "Cantos que o BirdNET-Go ouviu, por espécie e fonte.",
+  "about": "O que este comedouro registrou, como o YA-WAMF funciona e o que guarda e envia.",
+  "dashboard": "As últimas 24 horas no seu comedouro e tudo o que aguarda a sua decisão.",
   "events": "Procura, filtra e gere cada visita classificada.",
   "add_observation": "Classifica uma foto ou vídeo, revê as evidências e adiciona-o ao histórico.",
-  "notifications": "Alertas, lembretes e tarefas em segundo plano ativas.",
-  "settings": "Conexões, classificação, integrações e personalização.",
-  "species": "Tabela, totais e detalhes taxonómicos das aves que viste."
+  "notifications": "Visitas, alertas e trabalho em segundo plano, os mais recentes primeiro.",
+  "species": "Que aves visitam mais, com que frequência e quando.",
+  "health": "Se o YA-WAMF está funcionando, o que o computador está fazendo e o que aconteceu.",
+  "settings_section": {
+    "cameras": "De onde vêm os eventos: o Frigate, o broker MQTT e as câmeras observadas.",
+    "identification": "Quão certo um nome precisa ser, os modelos que encontram e nomeiam as aves com o seu hardware, e os recursos ainda em beta.",
+    "alerts": "Quando você é avisado de uma visita, e por quais canais.",
+    "sharing": "A localização do seu comedouro e quem pode abrir esta instalação; depois, os outros serviços dos quais o YA-WAMF lê ou para os quais informa, as descrições por IA e a telemetria.",
+    "storage": "O que é mantido e por quanto tempo, um backup destas configurações e as tarefas que reparam ou completam o histórico.",
+    "display": "Como o YA-WAMF aparece e nomeia as aves, além de contraste, uma fonte de leitura, movimento e avisos falados."
+  },
+  "model_evaluation": "Com que frequência cada modelo instalado nomeia uma ave corretamente, e com que rapidez."
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from '../Separator.svelte';
     import { _ } from 'svelte-i18n';
     import type { LlmTestResult } from '../../api/maintenance';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
@@ -84,7 +85,7 @@
 
 <DiagnosticDialog
     title={$_('settings.ai.test_title', { default: 'AI model diagnostic' })}
-    subtitle={$_('settings.ai.test_subtitle', { default: 'Checking the same multi-frame vision format used for detection analysis.' })}
+    subtitle={$_('settings.ai.test_subtitle', { default: 'Checks the same multi-frame format the AI analysis of a record uses.' })}
     {stages}
     busy={running}
     result={diagnosticResult}
@@ -96,10 +97,10 @@
     {onRetry}
 >
     {#snippet summary()}
-        <span class="text-3xs font-bold uppercase tracking-widest text-slate-400">{$_('settings.llm.provider')}</span>
-        <span class="font-bold text-slate-800 dark:text-slate-100">{provider}</span>
-        <span class="text-slate-300 dark:text-slate-600" aria-hidden="true">·</span>
-        <span class="text-3xs font-bold uppercase tracking-widest text-slate-400">{$_('settings.llm.model')}</span>
-        <span class="min-w-0 truncate font-bold text-slate-800 dark:text-slate-100" title={model}>{model}</span>
+        <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.llm.provider')}</span>
+        <span class="text-slate-800 dark:text-slate-100">{provider}</span>
+        <Separator />
+        <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.llm.model')}</span>
+        <span class="min-w-0 truncate text-slate-800 dark:text-slate-100" title={model}>{model}</span>
     {/snippet}
 </DiagnosticDialog>

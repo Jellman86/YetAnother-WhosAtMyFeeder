@@ -147,6 +147,15 @@ export function progressOf(item: NotificationItem): { percent: number; current: 
     return { percent, current, total };
 }
 
+/** Whether a progress bar says anything: only while the work is unfinished, or stopped part-way. */
+export function showsProgress(item: NotificationItem): boolean {
+    const progress = progressOf(item);
+    if (!progress) return false;
+    if (isStoppedJob(item)) return true;
+    const status = item.meta?.status;
+    return progress.percent < 100 && status !== 'completed' && status !== 'failed' && !isFailure(item);
+}
+
 export function toneOf(item: NotificationItem): NotificationTone {
     if (isFailure(item)) return 'attention';
     // Stale and stopped both mean a person has to decide what to do with the job.

@@ -27,7 +27,7 @@
         if (!file) return;
         avatarError = null;
         if (file.size > AVATAR_MAX_BYTES) {
-            avatarError = $_('settings.auth.avatar_too_large', { default: 'That file is over 8 MB. Choose a smaller picture.' });
+            avatarError = $_('settings.auth.avatar_too_large', { default: 'That file is over 8 MB. Choose a smaller picture.' });
             return;
         }
         avatarBusy = true;
@@ -156,32 +156,30 @@
     }
 </script>
 
-{#snippet authIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 7 3v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6l7-3Zm-3 9 2 2 4-4" /></svg>
-{/snippet}
-{#snippet publicAccessIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3.5 9h17M3.5 15h17M12 3c2.5 2.5 2.5 15.5 0 18M12 3c-2.5 2.5-2.5 15.5 0 18" /></svg>
-{/snippet}
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+<div class="space-y-8">
     <SettingsCard
-        accent
-        iconSnippet={authIcon}
+        id="settings-group-auth"
         title={$_('settings.auth.title')}
         description={$_('settings.auth.desc')}
+        titleId="security-auth-title"
     >
-        <SettingsRow
-            labelId="setting-auth-enabled"
-            label={$_('settings.auth.enable')}
-            description={$_('settings.auth.enable_desc')}
-        >
+        <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
+        {#snippet actions()}
             <SettingsToggle
                 checked={authEnabled}
-                labelledBy="setting-auth-enabled"
-                srLabel={$_('settings.auth.enable')}
+                labelledBy="security-auth-title"
+                srLabel={$_('settings.auth.title')}
                 onchange={(v) => (authEnabled = v)}
             />
-        </SettingsRow>
+        {/snippet}
+        {#if !authEnabled}
+            <!-- What "off" means, said plainly: the address is the only lock. -->
+            <p class="flex items-start gap-2 text-sm text-attention-800 dark:text-attention-200" role="status" data-auth-off-status>
+                <span class="attention-dot mt-2" aria-hidden="true"></span>
+                {$_('settings.auth.off_status', { default: 'Sign-in is off, so anyone who can open this address can see everything and change every setting.' })}
+            </p>
+        {/if}
 
         {#if authEnabled && authStore.isAuthenticated}
             <SettingsRow
@@ -196,7 +194,7 @@
                     {#if avatarStore.url}
                         <img src={avatarStore.url} alt={$_('settings.auth.avatar', { default: 'Profile picture' })} class="h-14 w-14 rounded-xl object-cover" />
                     {:else}
-                        <span class="grid h-14 w-14 place-items-center rounded-xl bg-brand-100 text-lg font-bold text-brand-700 dark:bg-brand-900/50 dark:text-brand-300" aria-hidden="true">
+                        <span class="grid h-14 w-14 place-items-center rounded-xl bg-brand-100 text-lg font-semibold text-brand-700 dark:bg-brand-900/50 dark:text-brand-300" aria-hidden="true">
                             {(authStore.username?.trim().slice(0, 1) || 'Y').toUpperCase()}
                         </span>
                     {/if}
@@ -222,7 +220,7 @@
                         </button>
                     {/if}
                     {#if avatarError}
-                        <p class="w-full text-xs text-red-600 dark:text-red-400" role="alert">{avatarError}</p>
+                        <p class="w-full text-xs text-red-700 dark:text-red-400" role="alert">{avatarError}</p>
                     {/if}
                 </div>
             </SettingsRow>
@@ -236,6 +234,7 @@
         >
             <SettingsInput
                 id="auth-username"
+                field="auth_username"
                 type="text"
                 value={authUsername}
                 ariaLabel={$_('settings.auth.username')}
@@ -251,6 +250,7 @@
         >
             <SecretInput
                 id="auth-password"
+                field="auth_password"
                 value={authPassword}
                 saved={authHasPassword}
                 autocomplete="new-password"
@@ -287,6 +287,7 @@
             >
                 <SettingsInput
                     id="auth-expiry"
+                    field="auth_session_expiry_hours"
                     type="number"
                     min={1}
                     max={720}
@@ -296,7 +297,7 @@
                 />
             </SettingsRow>
 
-            <div class="rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-xs font-bold text-amber-900 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200">
+            <div class="text-xs text-attention-800 dark:text-attention-200">
                 {$_('settings.auth.proxy_trust_note', { default: 'Proxy headers are trusted from all hosts by default. If you run behind a reverse proxy, set trusted proxy hosts to prevent spoofed client IPs.' })}
             </div>
 
@@ -323,17 +324,17 @@
                             onclick={addTrustedProxyHost}
                             disabled={!newTrustedProxyHost.trim()}
                             aria-label={$_('settings.auth.trusted_proxies_add', { default: 'Add trusted proxy host' })}
-                            class="px-6 py-3 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold uppercase tracking-widest rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="btn btn-secondary min-h-11 px-4"
                         >
                             {$_('common.add')}
                         </button>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         {#each trustedProxyHosts as host}
-                            <span class="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold {trustedProxyHostsSuggested ? 'border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400' : 'bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-700/50 text-slate-700 dark:text-slate-300'}">
+                            <span class="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold {trustedProxyHostsSuggested ? 'border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400' : 'bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-700/50 text-slate-700 dark:text-slate-300'}">
                                 {host}
                                 {#if trustedProxyHostsSuggested}
-                                    <span class="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-widest bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                                         {$_('settings.auth.trusted_proxies_suggested_label', { default: 'Suggested' })}
                                     </span>
                                 {:else}
@@ -341,7 +342,7 @@
                                         type="button"
                                         onclick={() => removeTrustedProxyHost(host)}
                                         aria-label={$_('settings.auth.trusted_proxies_remove', { default: 'Remove trusted proxy host' })}
-                                        class="text-slate-400 hover:text-red-500 transition-colors"
+                                        class="text-slate-600 dark:text-slate-400 hover:text-red-500 transition-colors"
                                     >
                                         ✕
                                     </button>
@@ -349,16 +350,16 @@
                             </span>
                         {/each}
                         {#if trustedProxyHosts.length === 0}
-                            <p class="text-xs font-bold text-slate-400 italic">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
                         {/if}
                     </div>
                     {#if trustedProxyHostsSuggested}
-                        <div class="flex flex-col gap-2 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                        <div class="flex flex-col gap-2 text-xs text-slate-600 dark:text-slate-400">
                             <span>{$_('settings.auth.trusted_proxies_suggested_note', { default: 'These are suggestions only. Save will keep the default (trust all) unless you accept or edit them.' })}</span>
                             <button
                                 type="button"
                                 onclick={acceptTrustedProxySuggestions}
-                                class="self-start px-3 py-1.5 rounded-xl bg-brand-700 text-white text-xs font-bold uppercase tracking-widest"
+                                class="btn btn-secondary min-h-11 self-start px-3"
                             >
                                 {$_('settings.auth.trusted_proxies_use_suggestions', { default: 'Use suggestions' })}
                             </button>
@@ -371,23 +372,27 @@
     </SettingsCard>
 
     <SettingsCard
-        accent
-        iconSnippet={publicAccessIcon}
+        id="settings-group-public-access"
         title={$_('settings.public_access.title')}
         description={$_('settings.public_access.desc')}
+        titleId="security-public-title"
     >
-        <SettingsRow
-            labelId="setting-public-enabled"
-            label={$_('settings.public_access.enable')}
-            description={$_('settings.public_access.enable_desc')}
-        >
+        {#snippet actions()}
+            <!-- Without sign-in it cannot be turned on, but one already on can always be turned off. -->
             <SettingsToggle
                 checked={publicAccessEnabled}
-                labelledBy="setting-public-enabled"
-                srLabel={$_('settings.public_access.enable')}
+                labelledBy="security-public-title"
+                describedBy={authEnabled ? undefined : 'security-public-needs-auth'}
+                disabled={!authEnabled && !publicAccessEnabled}
+                srLabel={$_('settings.public_access.title')}
                 onchange={(v) => (publicAccessEnabled = v)}
             />
-        </SettingsRow>
+        {/snippet}
+        {#if !authEnabled}
+            <p id="security-public-needs-auth" class="text-sm text-slate-600 dark:text-slate-300" data-public-needs-auth>
+                {$_('settings.public_access.needs_auth', { default: 'Guest access only means something once sign-in is on: until then, everyone already has full access. Turn on sign-in first.' })}
+            </p>
+        {/if}
 
         {#if publicAccessEnabled}
             <SettingsRow
@@ -405,60 +410,60 @@
 
         <SettingsRow
             labelId="setting-public-show-audio"
-            label={$_('settings.public_access.show_audio', { default: 'Share audio with visitors' })}
-            description={$_('settings.public_access.show_audio_desc', { default: 'BirdNET detections, spectrograms and audio clips. Off means visitors see no audio surfaces at all.' })}
+            label={$_('settings.public_access.show_audio', { default: 'Share audio with guests' })}
+            description={$_('settings.public_access.show_audio_desc', { default: 'BirdNET calls, spectrograms and audio clips. Off means guests see no audio at all.' })}
         >
             <SettingsToggle
                 checked={publicAccessShowAudio}
                 labelledBy="setting-public-show-audio"
-                srLabel={$_('settings.public_access.show_audio', { default: 'Share audio with visitors' })}
+                srLabel={$_('settings.public_access.show_audio', { default: 'Share audio with guests' })}
                 onchange={(v) => (publicAccessShowAudio = v)}
             />
         </SettingsRow>
 
         <SettingsRow
             labelId="setting-public-show-snapshots"
-            label={$_('settings.public_access.show_snapshots', { default: 'Share photographs with visitors' })}
-            description={$_('settings.public_access.show_snapshots_desc', { default: 'Snapshots and thumbnails. Off means visitors see placeholders instead of images.' })}
+            label={$_('settings.public_access.show_snapshots', { default: 'Share photographs with guests' })}
+            description={$_('settings.public_access.show_snapshots_desc', { default: 'Snapshots and thumbnails. Off means guests see placeholders instead of images.' })}
         >
             <SettingsToggle
                 checked={publicAccessShowSnapshots}
                 labelledBy="setting-public-show-snapshots"
-                srLabel={$_('settings.public_access.show_snapshots', { default: 'Share photographs with visitors' })}
+                srLabel={$_('settings.public_access.show_snapshots', { default: 'Share photographs with guests' })}
                 onchange={(v) => (publicAccessShowSnapshots = v)}
             />
         </SettingsRow>
 
         <SettingsRow
             labelId="setting-public-show-clips"
-            label={$_('settings.public_access.show_clips', { default: 'Share video with visitors' })}
-            description={$_('settings.public_access.show_clips_desc', { default: 'Video clips and their previews. Off means visitors cannot play video at all; the download switch below only controls saving the file.' })}
+            label={$_('settings.public_access.show_clips', { default: 'Share video with guests' })}
+            description={$_('settings.public_access.show_clips_desc', { default: 'Video clips and their previews. Off means guests cannot play video at all; the download switch below only controls saving the file.' })}
         >
             <SettingsToggle
                 checked={publicAccessShowClips}
                 labelledBy="setting-public-show-clips"
-                srLabel={$_('settings.public_access.show_clips', { default: 'Share video with visitors' })}
+                srLabel={$_('settings.public_access.show_clips', { default: 'Share video with guests' })}
                 onchange={(v) => (publicAccessShowClips = v)}
             />
         </SettingsRow>
 
         <SettingsRow
             labelId="setting-public-location-precision"
-            label={$_('settings.public_access.location_precision', { default: 'Location shown to visitors' })}
-            description={$_('settings.public_access.location_precision_desc', { default: 'Approximate rounds the location to about 10 km before any visitor-facing feature uses it, so sharing your feeder does not publish your address.' })}
+            label={$_('settings.public_access.location_precision', { default: 'Location shown to guests' })}
+            description={$_('settings.public_access.location_precision_desc', { default: 'Approximate rounds the location to about 10 km before any feature a guest can see uses it, so sharing your feeder does not publish your address.' })}
             layout="stacked"
         >
             <SettingsSegmented
                 value={publicAccessLocationPrecision}
                 layout="card"
                 columns={2}
-                ariaLabelTemplate={(label) => label}
+                labelledBy="setting-public-location-precision"
                 onchange={(v) => (publicAccessLocationPrecision = v as 'approximate' | 'exact')}
                 options={[
                     {
                         value: 'approximate',
                         label: $_('settings.public_access.location_approximate', { default: 'Approximate' }),
-                        sub: $_('settings.public_access.location_approximate_sub', { default: 'About 10 km. The safe default.' })
+                        sub: $_('settings.public_access.location_approximate_sub', { default: 'About 10 km. The safe default.' })
                     },
                     {
                         value: 'exact',
@@ -499,7 +504,7 @@
             id="public-access-windows"
             title={$_('settings.public_access.advanced_title', { default: 'History windows & rate limits' })}
         >
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="space-y-4">
                 <SettingsRow
                     labelId="setting-public-history-days"
                     label={$_('settings.public_access.history_days')}
@@ -537,6 +542,7 @@
                 >
                     <SettingsInput
                         id="public-rate"
+                        field="public_access_rate_limit_per_minute"
                         type="number"
                         min={1}
                         max={100}
@@ -555,6 +561,7 @@
                     >
                         <SettingsInput
                             id="public-share-base-url"
+                            field="public_access_external_base_url"
                             type="url"
                             value={publicAccessExternalBaseUrl}
                             placeholder={$_('settings.public_access.share_base_url_placeholder', { default: 'https://your-public-domain.example' })}

@@ -5,19 +5,18 @@
     const noop = async (): Promise<void> => {};
     let maximum = $state(0);
     let budget = $state(0);
+    let budgetInvalid = $state(false);
     let scan = $state<'standard' | 'intensive'>('intensive');
-    const props: Omit<ComponentProps<typeof DataSettings>, 'cachePerSpeciesMaximum' | 'cacheMaxSizeMb' | 'cacheBirdScanMode'> = {
+    const props: Omit<ComponentProps<typeof DataSettings>, 'cachePerSpeciesMaximum' | 'cacheMaxSizeMb' | 'cacheMaxSizeInvalid' | 'cacheBirdScanMode'> = {
+        region: 'main',
         maintenanceStats: null,
         retentionDays: 0,
-        maintenanceMaxConcurrent: 1,
         frigateMissingBehavior: 'mark_missing',
         autoPurgeMissingClips: false,
         autoPurgeMissingSnapshots: false,
-        autoAnalyzeUnknowns: false,
         cacheRetentionDays: 0,
         cachePerSpeciesMinimum: 0,
         cleaningUp: false,
-        clearingFavorites: false,
         purgingMissingMedia: false,
         cacheClips: false,
         cacheHighQualityEventSnapshots: true,
@@ -29,47 +28,18 @@
                 : null,
         classifierStatus: null,
         cleaningCache: false,
-        taxonomyStatus: null,
-        syncingTaxonomy: false,
-        timezoneRepairPreview: null,
-        previewingTimezoneRepair: false,
-        applyingTimezoneRepair: false,
-        backfillDateRange: 'week',
-        backfillStartDate: '',
-        backfillEndDate: '',
-        backfillCustomError: null,
-        backfillCustomValid: true,
-        backfilling: false,
-        backfillResult: null,
-        backfillTotal: 0,
-        weatherBackfilling: false,
-        weatherBackfillResult: null,
-        weatherBackfillTotal: 0,
-        resettingDatabase: false,
-        clearingFeedback: false,
         exportingConfigBackup: false,
         importingConfigBackup: false,
-        analyzingUnknowns: false,
-        analysisStatus: null,
-        analysisTotal: 0,
         handleCleanup: noop,
-        handleClearFavorites: noop,
         handlePurgeMissingMedia: noop,
         handleCacheCleanup: noop,
-        handleStartTaxonomySync: noop,
-        handlePreviewTimezoneRepair: noop,
-        handleApplyTimezoneRepair: noop,
-        handleBackfill: noop,
-        handleWeatherBackfill: noop,
         handleExportConfigBackup: noop,
         handleImportConfigBackup: noop,
-        handleAnalyzeUnknowns: noop,
-        handleResetDatabase: noop,
-        handleClearFeedback: noop,
     };
 </script>
 
 <main class="mx-auto max-w-4xl space-y-6 p-4">
-    <DataSettings {...props} bind:cachePerSpeciesMaximum={maximum} bind:cacheMaxSizeMb={budget} bind:cacheBirdScanMode={scan} />
+    <DataSettings {...props} bind:cachePerSpeciesMaximum={maximum} bind:cacheMaxSizeMb={budget} bind:cacheMaxSizeInvalid={budgetInvalid} bind:cacheBirdScanMode={scan} />
+    <output aria-label="Storage limit invalid">{budgetInvalid}</output>
     <output aria-label="Selected cache settings">{maximum} / {budget} / {scan}</output>
 </main>

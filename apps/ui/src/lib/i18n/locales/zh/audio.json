@@ -1,22 +1,27 @@
 {
   "chart": {
     "heard": "听测",
-    "daily_title": "活动趋势",
-    "daily_sub": "每日 BirdNET-Go 听测次数",
-    "hourly_title": "时段",
+    "daily_title": "听到的鸣叫趋势",
+    "heatmap_title": "按小时和星期听到的鸣叫",
     "species_title": "物种构成",
-    "empty": "此时间范围内没有活动。"
+    "empty": "此时间范围内没有听到鸣叫。",
+    "other_species": "其他物种",
+    "unavailable": "在无法读取历史记录时不可用。",
+    "col_day": "日期",
+    "col_calls": "鸣声",
+    "col_species": "物种"
   },
   "stat": {
-    "heard": "听测",
-    "heard_sub": "当前显示的 BirdNET 检测",
+    "heard": "听到的鸣叫",
+    "heard_sub": "此时段内的 BirdNET-Go 检测",
     "species": "物种",
-    "species_sub": "通过音频识别的物种",
-    "peak_hour": "高峰时段",
-    "peak_hour_sub": "{count, plural, other {# 次检测}}",
+    "species_sub": "此时段内听到的物种",
+    "busiest_hour": "最活跃时段",
     "no_activity": "尚无活动",
     "sources": "来源",
-    "sources_sub": "麦克风或音频流"
+    "sources_sub": "麦克风或音频流",
+    "not_available": "不可用",
+    "no_calls": "此时间段内没有鸣声"
   },
   "filter": {
     "window": "时间范围",
@@ -28,7 +33,9 @@
     "species": "物种",
     "source": "来源",
     "min_confidence": "最低置信度",
-    "changed": "筛选条件已更改。请应用以更新列表。"
+    "changed": "筛选条件已更改。请应用以更新列表。",
+    "species_placeholder": "任意物种",
+    "source_placeholder": "任意来源"
   },
   "top_species": "听测次数最多的物种",
   "card": {
@@ -38,13 +45,16 @@
   },
   "history": {
     "title": "检测历史",
-    "sub": "已保存的 BirdNET-Go 检测，与视觉访问记录分开。",
+    "sub": "BirdNET-Go 报告的每一次鸣叫，与摄像头到访分开记录。",
     "empty": "没有符合这些筛选条件的 BirdNET 检测。",
     "showing": "显示第 {from}-{to} 项，共 {total} 项",
-    "hide": "在本地隐藏",
+    "hide": "在 YA-WAMF 中隐藏",
     "undo": "撤销",
     "hidden_message": "音频检测已隐藏。",
-    "local_only": "隐藏后，该条目将从YA-WAMF历史记录和未来的音频匹配中排除。BirdNET-Go不会更改；上游删除不会自动同步。"
+    "local_only": "隐藏后，该条目将从YA-WAMF历史记录和未来的音频匹配中排除。BirdNET-Go不会更改；上游删除不会自动同步。",
+    "read_failed": "无法从 YA-WAMF 读取音频历史，因此本页没有任何测量值。",
+    "read_failed_next": "请重试。如果仍然失败，请打开运行状况查看后端是否报告了故障。",
+    "stale": "最近一次刷新失败，因此显示的是 {at} 的读数。"
   },
   "table": {
     "sound": "声音",
@@ -62,5 +72,13 @@
     "empty": "尚无来源。"
   },
   "not_shared_title": "音频未公开共享",
-  "not_shared_body": "此实例的所有者已为访客关闭音频。"
+  "not_shared_body": "此实例的所有者已为访客关闭音频。",
+  "summary_title": "本时段",
+  "calls_heard": "{count, plural, other {听到 # 次鸣叫}}",
+  "heatmap": {
+    "grid_label": "按小时和星期听到的鸣叫。使用方向键读取时段。",
+    "per_hour": "每小时格内听到的鸣叫",
+    "read_failed": "无法读取按小时和星期听到的鸣叫，因此不显示此网格和最活跃时段。页面上的其他内容均已读取。"
+  },
+  "side_label": "最常听到的物种和音源"
 }

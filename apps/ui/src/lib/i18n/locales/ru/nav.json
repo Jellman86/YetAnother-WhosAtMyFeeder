@@ -9,14 +9,14 @@
   "settings": "Настройки",
   "setup_wizard": "Мастер настройки",
   "about": "О проекте",
-  "toggle_menu": "Переключить меню",
+  "toggle_menu": "Меню",
   "collapse_sidebar": "Свернуть панель",
   "expand_sidebar": "Развернуть панель",
   "jobs": "Задачи",
   "close_menu": "Закрыть меню",
   "close_language_selector": "Закрыть выбор языка",
-  "events": "События",
   "notifications": "Уведомления",
   "species": "Виды",
-  "navigation": "Основная навигация"
+  "navigation": "Основная навигация",
+  "health": "Состояние"
 }

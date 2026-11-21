@@ -27,19 +27,19 @@
     const day = $derived(relativeDayLabel(band.firstHeard, $_));
 </script>
 
-<div class="border-t border-slate-200 bg-surface-raised/50 first:border-t-0 dark:border-slate-800" data-heard-band={band.position}>
+<div class="border-t border-line-soft bg-surface-raised/50 first:border-t-0" data-heard-band={band.position}>
     <div class="grid grid-cols-[4rem_2.75rem_minmax(0,1fr)] items-start gap-3 px-3 py-2">
         <div class="pt-0.5">
             <!-- Like a visit row, a band is placed and labelled by when it began. -->
-            <time class="block font-display text-sm font-bold tabular-nums leading-tight text-slate-600 dark:text-slate-300" datetime={band.firstHeard}>{formatTime(band.firstHeard)}</time>
-            {#if day}<span class="block text-3xs font-semibold text-slate-500 dark:text-slate-400">{day}</span>{/if}
+            <time class="block font-display text-sm font-bold tabular-nums leading-tight text-muted" datetime={band.firstHeard}>{formatTime(band.firstHeard)}</time>
+            {#if day}<span class="block text-3xs font-semibold text-muted">{day}</span>{/if}
         </div>
         <LayeredThumbs sources={pictures} spectrogram />
         <div class="min-w-0">
             <HeardBandHeading {band} />
             <button
                 type="button"
-                class="-ml-2 mt-0.5 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-500/10"
+                class="-ml-2 mt-0.5 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-accent-ink transition-colors hover:bg-accent-soft focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
                 aria-expanded={open}
                 aria-controls="{uid}-calls"
                 onclick={() => (open = !open)}
@@ -52,7 +52,7 @@
             </button>
         </div>
     </div>
-    <div id="{uid}-calls" hidden={!open} class="border-t border-slate-200/70 dark:border-slate-800/80">
+    <div id="{uid}-calls" hidden={!open} class="border-t border-line-soft">
         {#if open}<HeardCallList groups={band.groups} />{/if}
     </div>
 </div>

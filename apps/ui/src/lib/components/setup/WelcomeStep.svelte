@@ -1,7 +1,6 @@
 <script lang="ts">
     import { _, locale } from 'svelte-i18n';
     import WizardStepLayout from './WizardStepLayout.svelte';
-    import SetupStepIcon from './SetupStepIcon.svelte';
     import { setAppLocale } from '../../i18n';
 
     const supportedLocales = [
@@ -29,30 +28,31 @@
     let covers = $derived([
         { id: 'connection', label: $_('setup.welcome.cover_connect', { default: 'Connect Frigate & MQTT' }) },
         { id: 'cameras', label: $_('setup.welcome.cover_cameras', { default: 'Pick your cameras' }) },
-        { id: 'model', label: $_('setup.welcome.cover_model', { default: 'Validate the model on your hardware' }) },
+        { id: 'model', label: $_('setup.welcome.cover_model', { default: 'Check the model runs on this machine' }) },
         { id: 'integrations', label: $_('setup.welcome.cover_integrations', { default: 'Turn on integrations' }) }
     ]);
 </script>
 
 <WizardStepLayout
-    title={$_('setup.welcome.title', { default: 'Welcome to YA-WAMF' })}
+    title={$_('setup.welcome.title', { default: 'Set up YA-WAMF' })}
     description={$_('setup.welcome.description', {
-        default: "Let's get your feeder online. This takes a few minutes, optional choices can be skipped, and you can re-run it any time from the Settings navigation."
+        default: 'This takes a few minutes. Optional choices can be skipped, and you can run setup again at any time from Settings.'
     })}
     showBack={false}
     continueLabel={$_('setup.welcome.start', { default: 'Get started' })}
 >
-    <div class="grid grid-cols-2 gap-2">
-        {#each covers as item}
-            <div class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-200">
-                <SetupStepIcon step={item.id} />
-                <span>{item.label}</span>
-            </div>
-        {/each}
+    <!-- What setup will ask for, as a plain list: tiles here looked like buttons and did nothing. -->
+    <div>
+        <p class="text-sm font-semibold text-strong">{$_('setup.welcome.covers', { default: 'Setup will ask you to:' })}</p>
+        <ul class="mt-1 list-disc space-y-1 pl-5 text-sm text-ink" data-setup-welcome-covers>
+            {#each covers as item (item.id)}
+                <li>{item.label}</li>
+            {/each}
+        </ul>
     </div>
 
     <div class="space-y-2">
-        <label for="setup-language" class="text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label for="setup-language" class="text-sm font-medium text-ink">
             {$_('first_run.language_label', { default: 'Language' })}
         </label>
         <select
@@ -66,11 +66,11 @@
                 <option value={opt.value}>{opt.label}</option>
             {/each}
         </select>
-        <p class="text-xs text-slate-500 dark:text-slate-400">
+        <p class="text-xs text-muted">
             {$_('first_run.language_desc', { default: 'You can change this later in Settings.' })}
         </p>
         {#if languageError}
-            <p class="text-xs font-medium text-amber-700 dark:text-amber-300" role="alert">
+            <p class="text-xs font-medium text-status-attention" role="alert">
                 {$_('common.language_load_error', { default: 'That language could not be loaded. Check your connection and try again.' })}
             </p>
         {/if}

@@ -1,5 +1,6 @@
-import { API_BASE, apiFetch, handleResponse } from './core';
+import { API_BASE, apiFetch, apiFetchJson, handleResponse, requestScope, type Guarded } from './core';
 import type { paths } from './generated/openapi';
+import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
 
 export type VersionInfo = paths['/api/version']['get']['response'] & {
     git_hash: string;   // resolved from build-time constant; not returned by the API
@@ -93,54 +94,62 @@ export type FrigateTestResult = paths['/api/frigate/test']['get']['response'];
 
 export type RecordingClipCapability = paths['/api/frigate/recording-clip-capability']['get']['response'];
 
-export async function fetchVersion(): Promise<VersionInfo> {
-    const gitHash = typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown';
-    const appBranch = typeof __APP_BRANCH__ === 'string' ? __APP_BRANCH__ : 'unknown';
-    try {
-        const response = await apiFetch(`${API_BASE}/version`);
-        if (response.ok) {
-            const data = await response.json();
-            // git_hash and branch are no longer returned by the API (reconnaissance
-            // surface reduction) — fill them from build-time constants instead.
-            return { ...data, git_hash: gitHash, branch: appBranch };
-        }
-    } catch {
-        // Ignore errors and return fallback below.
-    }
-    const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
-    const appVersionBase = appVersion.includes('+') ? appVersion.split('+')[0] : appVersion;
+/** The server's version; throws when it cannot be read, so a failure is never shared as a reading. */
+async function requestVersion(): Promise<VersionInfo> {
+    const response = await apiFetch(`${API_BASE}/version`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    // git_hash and branch are no longer returned by the API (reconnaissance
+    // surface reduction) — fill them from build-time constants instead.
+    return { ...data, ...buildIdentity() };
+}
+
+function buildIdentity(): Pick<VersionInfo, 'git_hash' | 'branch'> {
     return {
-        version: appVersion,
-        base_version: appVersionBase,
-        git_hash: gitHash,
-        branch: appBranch
+        git_hash: typeof __GIT_HASH__ === 'string' ? __GIT_HASH__ : 'unknown',
+        branch: typeof __APP_BRANCH__ === 'string' ? __APP_BRANCH__ : 'unknown'
     };
 }
 
-export async function checkHealth(): Promise<HealthStatus> {
-    const response = await apiFetch('/health', { timeoutMs: 10_000 });
-    return handleResponse<HealthStatus>(response);
+/** What the build itself says, shown while the server's own answer cannot be read. */
+function buildVersion(): VersionInfo {
+    const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
+    const appVersionBase = appVersion.includes('+') ? appVersion.split('+')[0] : appVersion;
+    return { version: appVersion, base_version: appVersionBase, ...buildIdentity() };
+}
+
+// The footer names the version on every page, and About and Settings name it again.
+const sharedVersion = createSharedRead(requestVersion, { shareForMs: STATUS_SHARE_MS, scope: () => requestScope() });
+
+/** The running version for a view that shows it; views mounting together share one request. */
+export function readVersion(): Promise<VersionInfo> {
+    return sharedVersion.read().catch(() => buildVersion());
+}
+
+export function checkHealth(): Guarded<HealthStatus> {
+    return apiFetchJson<HealthStatus>('/health', { timeoutMs: 10_000 });
 }
 
 export type SystemTelemetry = paths['/api/system-telemetry']['get']['response'];
 export type SystemTelemetryHistory = paths['/api/system-telemetry/history']['get']['response'];
 
-/** The owner's half hour of host load and this app's share of it; kept by the server. */
-export async function fetchSystemTelemetryHistory(signal?: AbortSignal): Promise<SystemTelemetryHistory> {
-    const response = await apiFetch(`${API_BASE}/system-telemetry/history`, {
+/**
+ * The owner's half hour of host load and this app's share of it; kept by the server. The timeout
+ * and `signal` (the chart unmounting) cover the body as well as the headers.
+ */
+export function fetchSystemTelemetryHistory(signal?: AbortSignal): Guarded<SystemTelemetryHistory> {
+    return apiFetchJson<SystemTelemetryHistory>(`${API_BASE}/system-telemetry/history`, {
         cache: 'no-store',
         timeoutMs: 5_000,
         signal
     });
-    return handleResponse<SystemTelemetryHistory>(response);
 }
 
-export async function fetchSystemTelemetry(): Promise<SystemTelemetry> {
-    const response = await apiFetch(`${API_BASE}/system-telemetry`, {
+export function fetchSystemTelemetry(): Guarded<SystemTelemetry> {
+    return apiFetchJson<SystemTelemetry>(`${API_BASE}/system-telemetry`, {
         cache: 'no-store',
         timeoutMs: 2_500
     });
-    return handleResponse<SystemTelemetry>(response);
 }
 
 export interface UpdateStatus {
@@ -159,6 +168,14 @@ export async function fetchUpdateStatus(): Promise<UpdateStatus> {
     return handleResponse<UpdateStatus>(response);
 }
 
+// The shell's update banner and About's instance summary both show this reading.
+const sharedUpdateStatus = createSharedRead(fetchUpdateStatus, { shareForMs: STATUS_SHARE_MS, scope: () => requestScope() });
+
+/** Whether an update is out, for a view that shows it; views mounting together share one request. */
+export function readUpdateStatus(): Promise<UpdateStatus> {
+    return sharedUpdateStatus.read();
+}
+
 /**
  * Whether to show the update banner. Dismissal is keyed on the version, so dismissing one
  * update won't hide the banner when a newer release later becomes available.
@@ -174,12 +191,12 @@ export async function testFrigateConnection(url?: string): Promise<FrigateTestRe
     return handleResponse<FrigateTestResult>(response);
 }
 
-export async function fetchFrigateConfig(): Promise<unknown> {
-    const response = await apiFetch(`${API_BASE}/frigate/config`);
+export async function fetchFrigateConfig(signal?: AbortSignal): Promise<unknown> {
+    const response = await apiFetch(`${API_BASE}/frigate/config`, { signal });
     return handleResponse<unknown>(response);
 }
 
-export async function fetchRecordingClipCapability(): Promise<RecordingClipCapability> {
-    const response = await apiFetch(`${API_BASE}/frigate/recording-clip-capability`);
-    return handleResponse<RecordingClipCapability>(response);
+/** Asks Frigate, so timed out after 15 s, body included; `signal` cancels it when the tab that asked closes. */
+export function fetchRecordingClipCapability(signal?: AbortSignal): Guarded<RecordingClipCapability> {
+    return apiFetchJson<RecordingClipCapability>(`${API_BASE}/frigate/recording-clip-capability`, { timeoutMs: 15_000, signal });
 }

@@ -9,7 +9,8 @@
     import { getErrorMessage } from '../../utils/error-handling';
     import { getLlmModelOptions, getRecommendedLlmModel } from '../../settings/llm-models';
     import type { AiDraft } from '../../settings/ai-section';
-    import { promptTemplatesFor } from '../../settings/llm-prompt-templates';
+    import { costReading, formatUsd } from '../../settings/ai-cost';
+    import { matchingPromptStyle, promptTemplatesFor } from '../../settings/llm-prompt-templates';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
@@ -29,23 +30,30 @@
         onchange: (edit: Partial<AiDraft>) => void;
     } = $props();
 
-    // Choosing a style only picks which templates Apply style writes; it is not saved.
-    let llmPromptStyle = $state('classic');
     const availableModels = $derived(getLlmModelOptions(draft.llmProvider));
 
-    function applyPromptStyle(style: string): void {
+    // The style is not saved itself: it names the built-in wording the templates hold, and choosing
+    // one writes that wording into the draft, which Save changes then stores with everything else.
+    const CUSTOM_STYLE = 'custom';
+    const promptStyle = $derived(
+        matchingPromptStyle(
+            {
+                analysis: draft.llmAnalysisPromptTemplate,
+                conversation: draft.llmConversationPromptTemplate,
+                chart: draft.llmChartPromptTemplate
+            },
+            $locale || 'en'
+        ) ?? CUSTOM_STYLE
+    );
+
+    function choosePromptStyle(style: string): void {
+        if (style === CUSTOM_STYLE) return;
         const { analysis, conversation, chart } = promptTemplatesFor(style, get(locale) || 'en');
         onchange({
             llmAnalysisPromptTemplate: analysis,
             llmConversationPromptTemplate: conversation,
             llmChartPromptTemplate: chart
         });
-        toastStore.success($_('settings.debug.llm_prompt_apply_notice', { default: 'Prompt templates updated.' }));
-    }
-
-    function resetPromptTemplates(): void {
-        llmPromptStyle = 'classic';
-        applyPromptStyle('classic');
     }
 
     let usage = $state<AIUsageResponse | null>(null);
@@ -102,9 +110,9 @@
 
     async function handleClearUsage() {
         const confirmed = await confirmAction({
-            title: $_('settings.ai.clear_usage', { default: 'Clear History' }),
-            message: $_('settings.ai.clear_usage_confirm', { default: 'Are you sure you want to clear AI usage history? This cannot be undone.' }),
-            confirmLabel: $_('settings.ai.clear_usage', { default: 'Clear History' })
+            title: $_('settings.ai.clear_usage', { default: 'Clear history' }),
+            message: $_('settings.ai.clear_usage_confirm', { default: 'Clear the AI usage history? The counts and costs so far are deleted and cannot be brought back.' }),
+            confirmLabel: $_('settings.ai.clear_usage', { default: 'Clear history' })
         });
         if (!confirmed) {
             return;
@@ -131,39 +139,36 @@
         return n.toString();
     };
 
-    const formatEstimatedCost = (value: number | null | undefined) => (value ?? 0).toFixed(4);
+    // What the cost tile may say: an amount only for priced usage, with the requests it covers.
+    const cost = $derived(usage ? costReading(usage) : null);
 
     const metricCardClass = 'p-6 rounded-2xl border transition-all duration-200 hover:-translate-y-0.5';
     const buttonPrimaryClass = 'btn btn-primary min-h-11 px-6 py-3';
     const buttonSecondaryClass = 'btn btn-secondary min-h-11 px-6 py-3';
 </script>
 
-<div class="space-y-6">
+<div class="space-y-8">
     {#snippet usageActions()}
         <button
             type="button"
             onclick={handleClearUsage}
             disabled={clearingUsage || !usage?.calls}
-            class="min-h-11 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 active:scale-[0.99] transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-300 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="btn btn-secondary min-h-11 px-4 text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 active:scale-[0.99] transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-            {clearingUsage ? $_('common.clearing', { default: 'Clearing...' }) : $_('settings.ai.clear_usage', { default: 'Clear History' })}
+            {clearingUsage ? $_('common.clearing', { default: 'Clearing…' }) : $_('settings.ai.clear_usage', { default: 'Clear history' })}
         </button>
     {/snippet}
 
-    {#snippet aiIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3m12-6h3m-3 6h3M7 7h10v10H7V7Zm3 3h4v4h-4v-4Z" />
-        </svg>
-    {/snippet}
 
     <SettingsCard
-        accent
-        title={$_('settings.ai.connection_title', { default: 'Model Configuration' })}
-        iconSnippet={aiIcon}
+        id="settings-group-ai-connection"
+        nested
+        title={$_('settings.ai.connection_title', { default: 'AI provider' })}
     >
         <SettingsRow
             labelId="setting-llm-enabled"
             label={$_('settings.llm.enabled')}
+            description={$_('settings.llm.enabled_desc', { default: 'Lets you ask an AI provider to describe a visit from its record. Needs an API key from the provider, who bills each request.' })}
         >
             <SettingsToggle
                 checked={draft.llmEnabled}
@@ -181,7 +186,7 @@
         >
             <SettingsSegmented
                 value={draft.llmProvider}
-                ariaLabelTemplate={(label) => label}
+                labelledBy="setting-llm-provider"
                 onchange={(v) => onchange({ llmProvider: v })}
                 options={[
                     { value: 'gemini', label: 'Gemini' },
@@ -229,7 +234,7 @@
                     oninput={(event) => onchange({ llmModel: event.currentTarget.value })}
                     placeholder={getRecommendedLlmModel(draft.llmProvider)}
                     aria-label={$_('settings.llm.model')}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all"
+                    class="input-base w-full"
                 />
             {:else}
                 <SettingsSelect
@@ -246,20 +251,20 @@
             type="button"
             onclick={runConnectionTest}
             disabled={testRunning || (!draft.llmApiKey && !draft.llmApiKeySaved)}
+            aria-describedby={!draft.llmApiKey && !draft.llmApiKeySaved ? 'ai-test-needs-key' : undefined}
             class="w-full {buttonPrimaryClass}"
         >
             {testRunning ? $_('settings.llm.test_loading') : $_('settings.llm.test_connection')}
         </button>
 
         {#if !draft.llmApiKey && !draft.llmApiKeySaved}
-        <div class="rounded-2xl border border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 p-4 text-xs text-slate-600 dark:text-slate-300">
-            <p class="font-bold mb-2 text-slate-700 dark:text-slate-200">{$_('settings.ai.provider_info_title', { default: 'Cloud AI Providers' })}</p>
-            <p class="leading-relaxed">{$_('settings.ai.provider_info_desc', { default: 'YA-WAMF uses cloud LLMs for behavioral analysis and natural language interactions. You will need your own API key from the provider.' })}</p>
+        <div class="border-t border-line-soft pt-4 text-xs text-muted">
+            <p id="ai-test-needs-key" class="mb-2 text-sm text-slate-700 dark:text-slate-200">{$_('settings.ai.test_needs_key', { default: 'Add an API key from your provider to test the connection. Each provider issues its own:' })}</p>
             <div class="mt-3 grid grid-cols-2 gap-2">
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-300 rounded uppercase tracking-widest">{$_('settings.llm.get_gemini_key', { default: 'Get Google Gemini Key →' })}</a>
-                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-300 rounded uppercase tracking-widest">{$_('settings.llm.get_openai_key', { default: 'Get OpenAI Key →' })}</a>
-                <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-300 rounded uppercase tracking-widest">{$_('settings.llm.get_claude_key', { default: 'Get Anthropic Claude Key →' })}</a>
-                <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-300 rounded uppercase tracking-widest">{$_('settings.llm.get_openrouter_key', { default: 'Get OpenRouter Key →' })}</a>
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-brand-600 dark:text-brand-400 hover:underline focus:outline-hidden focus:ring-2 focus:ring-focus rounded-sm">{$_('settings.llm.get_gemini_key', { default: 'Get Google Gemini Key →' })}</a>
+                <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-brand-600 dark:text-brand-400 hover:underline focus:outline-hidden focus:ring-2 focus:ring-focus rounded-sm">{$_('settings.llm.get_openai_key', { default: 'Get OpenAI Key →' })}</a>
+                <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-brand-600 dark:text-brand-400 hover:underline focus:outline-hidden focus:ring-2 focus:ring-focus rounded-sm">{$_('settings.llm.get_claude_key', { default: 'Get Anthropic Claude Key →' })}</a>
+                <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-brand-600 dark:text-brand-400 hover:underline focus:outline-hidden focus:ring-2 focus:ring-focus rounded-sm">{$_('settings.llm.get_openrouter_key', { default: 'Get OpenRouter Key →' })}</a>
             </div>
         </div>
         {/if}
@@ -276,7 +281,7 @@
             >
                 <div class="space-y-2">
                     <div class="flex justify-end">
-                        <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/ai-pricing.json" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline uppercase tracking-widest">
+                        <a href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/ai-pricing.json" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-brand-600 dark:text-brand-400 hover:underline">
                             {$_('settings.ai.view_reference_pricing', { default: 'View Reference Pricing →' })}
                         </a>
                     </div>
@@ -295,28 +300,24 @@
             <SettingsRow
                 labelId="setting-llm-prompt-style"
                 label={$_('settings.debug.llm_prompt_style_label')}
+                description={$_('settings.ai.prompt_style_desc', { default: 'Choosing a style replaces the three templates below with its wording. Save changes keeps it.' })}
+                descriptionId="setting-llm-prompt-style-desc"
                 layout="stacked"
             >
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <SettingsSelect
-                        id="llm-prompt-style"
-                        value={llmPromptStyle}
-                        ariaLabel={$_('settings.debug.llm_prompt_style_label')}
-                        options={[
-                            { value: 'classic', label: $_('settings.debug.llm_prompt_style_classic') },
-                            { value: 'field', label: $_('settings.debug.llm_prompt_style_field') }
-                        ]}
-                        onchange={(v) => (llmPromptStyle = v)}
-                    />
-                    <div class="flex gap-2">
-                        <button type="button" onclick={() => applyPromptStyle(llmPromptStyle)} class="flex-1 {buttonPrimaryClass}">
-                            {$_('settings.debug.llm_prompt_apply_style')}
-                        </button>
-                        <button type="button" onclick={resetPromptTemplates} class="flex-1 {buttonSecondaryClass}">
-                            {$_('settings.debug.llm_prompt_reset_defaults')}
-                        </button>
-                    </div>
-                </div>
+                <SettingsSelect
+                    id="llm-prompt-style"
+                    value={promptStyle}
+                    ariaLabel={$_('settings.debug.llm_prompt_style_label')}
+                    ariaDescribedBy="setting-llm-prompt-style-desc"
+                    options={[
+                        { value: 'classic', label: $_('settings.debug.llm_prompt_style_classic') },
+                        { value: 'field', label: $_('settings.debug.llm_prompt_style_field') },
+                        ...(promptStyle === CUSTOM_STYLE
+                            ? [{ value: CUSTOM_STYLE, label: $_('settings.ai.prompt_style_custom', { default: 'Your own wording' }) }]
+                            : [])
+                    ]}
+                    onchange={choosePromptStyle}
+                />
             </SettingsRow>
 
             <SettingsRow
@@ -368,80 +369,106 @@
             </SettingsRow>
         </AdvancedSection>
         {/if}
-    </SettingsCard>
+        <!-- Usage is history, not a setting: kept with the provider, closed until wanted. -->
+        <AdvancedSection
+            id="ai-usage"
+            title={$_('settings.ai.usage_title', { default: 'AI Usage' })}
+            description={$_('settings.ai.usage_subtitle', { default: 'Last 30 days consumption' })}
+        >
+            <div class="flex justify-end">{@render usageActions()}</div>
+            {#if loadingUsage}
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-pulse">
+                    <div class="h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/50"></div>
+                    <div class="h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/50"></div>
+                    <div class="h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/50"></div>
+                </div>
+            {:else if usage}
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
+                        <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.total_calls', { default: 'API Requests' })}</p>
+                        <p class="text-2xl font-semibold text-strong">{usage.calls.toLocaleString()}</p>
+                    </div>
+                    <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
+                        <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.total_tokens', { default: 'Tokens Consumed' })}</p>
+                        <p class="text-2xl font-semibold text-strong">{formatTokens(usage.total_tokens)}</p>
+                        <p class="text-xs text-muted mt-1">{formatTokens(usage.input_tokens)} in / {formatTokens(usage.output_tokens)} out</p>
+                    </div>
+                    <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
+                        <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.estimated_cost', { default: 'Estimated Cost' })}</p>
+                        <!-- An amount is shown only for usage that has a price, with the share of requests it
+                             covers. A missing price is said in words at body size, never as a zero amount. -->
+                        {#if cost?.kind === 'not_estimated'}
+                            <p class="text-base font-semibold text-strong" data-ai-cost="not_estimated">
+                                {$_('settings.ai.cost_not_estimated', { default: 'Cost not estimated: add prices' })}
+                            </p>
+                            <p class="mt-1 text-xs text-muted" data-ai-cost-coverage>
+                                {cost.unpricedModels.length > 0
+                                    ? $_('settings.ai.cost_unpriced_models', { values: { models: cost.unpricedModels.join(', ') }, default: 'No price is set for {models}. Add one under Pricing and prompt templates.' })
+                                    : $_('settings.ai.pricing_not_configured', { default: 'Set prices under Pricing and prompt templates for an accurate cost.' })}
+                            </p>
+                        {:else if cost?.kind === 'partial'}
+                            <p class="text-2xl font-semibold text-strong" data-ai-cost="partial">
+                                {formatUsd(cost.cost)}
+                                <span class="text-xs ml-1 font-semibold text-muted">USD</span>
+                            </p>
+                            <p class="mt-1 text-xs text-muted" data-ai-cost-coverage>
+                                {$_('settings.ai.cost_coverage_partial', { values: { priced: cost.pricedCalls, total: cost.totalCalls, models: cost.unpricedModels.join(', ') }, default: 'Covers {priced} of {total, plural, one {# request} other {# requests}}. Not priced, so not included: {models}.' })}
+                            </p>
+                        {:else if cost?.kind === 'estimated'}
+                            <p class="text-2xl font-semibold text-strong" data-ai-cost="estimated">
+                                {formatUsd(cost.cost)}
+                                <span class="text-xs ml-1 font-semibold text-muted">USD</span>
+                            </p>
+                            <p class="mt-1 text-xs text-muted" data-ai-cost-coverage>
+                                {$_('settings.ai.cost_coverage_all', { values: { total: cost.totalCalls }, default: '{total, plural, one {Covers the # request made.} other {Covers all # requests.}}' })}
+                            </p>
+                        {:else}
+                            <p class="text-base font-semibold text-strong" data-ai-cost="no_usage">
+                                {$_('settings.ai.cost_no_usage', { default: 'No requests, so nothing to cost.' })}
+                            </p>
+                        {/if}
+                    </div>
+                </div>
 
-    <AdvancedSection
-        id="ai-usage"
-        title={$_('settings.ai.usage_title', { default: 'AI Usage' })}
-        description={$_('settings.ai.usage_subtitle', { default: 'Last 30 days consumption' })}
-    >
-        <div class="flex justify-end">{@render usageActions()}</div>
-        {#if loadingUsage}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-pulse">
-                <div class="h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/50"></div>
-                <div class="h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/50"></div>
-                <div class="h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/50"></div>
-            </div>
-        {:else if usage}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
-                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">{$_('settings.ai.total_calls', { default: 'API Requests' })}</p>
-                    <p class="text-2xl font-bold text-slate-900 dark:text-white">{usage.calls.toLocaleString()}</p>
-                </div>
-                <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
-                    <p class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">{$_('settings.ai.total_tokens', { default: 'Tokens Consumed' })}</p>
-                    <p class="text-2xl font-bold text-slate-900 dark:text-white">{formatTokens(usage.total_tokens)}</p>
-                    <p class="text-xs font-bold text-slate-400 mt-1">{formatTokens(usage.input_tokens)} in / {formatTokens(usage.output_tokens)} out</p>
-                </div>
-                <div class="{metricCardClass} bg-accent-500/5 dark:bg-accent-500/10 border-accent-500/10 dark:border-accent-500/20">
-                    <p class="text-xs font-bold uppercase tracking-widest text-accent-600 dark:text-accent-400 mb-1">{$_('settings.ai.estimated_cost', { default: 'Estimated Cost' })}</p>
-                    <p class="text-2xl font-bold text-accent-700 dark:text-accent-300">
-                        ${formatEstimatedCost(usage.estimated_cost_usd)}
-                        <span class="text-xs ml-1 font-bold text-accent-600/60 dark:text-accent-400/40">USD</span>
-                    </p>
-                    {#if !usage.pricing_configured}
-                        <p class="text-xs font-bold text-amber-600 dark:text-amber-400 mt-1">{$_('settings.ai.pricing_not_configured', { default: 'Configure pricing below for accuracy' })}</p>
-                    {/if}
-                </div>
-            </div>
-
-            {#if usage.breakdown.length > 0}
-                <div class="overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-700/50">
-                    <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-50 dark:bg-slate-900/60 text-xs font-bold uppercase tracking-widest text-slate-400">
-                            <tr>
-                                <th class="px-4 py-3">{$_('settings.ai.table_model', { default: 'Model' })}</th>
-                                <th class="px-4 py-3">{$_('settings.ai.table_feature', { default: 'Feature' })}</th>
-                                <th class="px-4 py-3 text-right">{$_('settings.ai.table_calls', { default: 'Calls' })}</th>
-                                <th class="px-4 py-3 text-right">{$_('settings.ai.table_tokens', { default: 'Tokens' })}</th>
-                                <th class="px-4 py-3 text-right">{$_('settings.ai.table_cost', { default: 'Cost' })}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
-                            {#each usage.breakdown as item}
-                                <tr class="text-slate-700 dark:text-slate-300 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-900/40">
-                                    <td class="px-4 py-3 font-bold">
-                                        <span class="opacity-50 font-bold uppercase text-xs mr-1">{item.provider}</span>
-                                        {item.model}
-                                    </td>
-                                    <td class="px-4 py-3 capitalize">{item.feature}</td>
-                                    <td class="px-4 py-3 text-right">{item.calls}</td>
-                                    <td class="px-4 py-3 text-right font-mono">{formatTokens(item.total_tokens)}</td>
-                                    <td class="px-4 py-3 text-right font-bold text-accent-600 dark:text-accent-400">${formatEstimatedCost(item.estimated_cost_usd)}</td>
+                {#if usage.breakdown.length > 0}
+                    <div>
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 dark:bg-slate-900/60 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                <tr>
+                                    <th class="px-4 py-3">{$_('settings.ai.table_model', { default: 'Model' })}</th>
+                                    <th class="px-4 py-3">{$_('settings.ai.table_feature', { default: 'Feature' })}</th>
+                                    <th class="px-4 py-3 text-right">{$_('settings.ai.table_calls', { default: 'Calls' })}</th>
+                                    <th class="px-4 py-3 text-right">{$_('settings.ai.table_tokens', { default: 'Tokens' })}</th>
+                                    <th class="px-4 py-3 text-right">{$_('settings.ai.table_cost', { default: 'Cost' })}</th>
                                 </tr>
-                            {/each}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                                {#each usage.breakdown as item}
+                                    <tr class="text-slate-700 dark:text-slate-300 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-900/40">
+                                        <td class="px-4 py-3">
+                                            <span class="opacity-50 text-xs mr-1">{item.provider}</span>
+                                            {item.model}
+                                        </td>
+                                        <td class="px-4 py-3 capitalize">{item.feature}</td>
+                                        <td class="px-4 py-3 text-right">{item.calls}</td>
+                                        <td class="px-4 py-3 text-right font-mono">{formatTokens(item.total_tokens)}</td>
+                                        <td class="px-4 py-3 text-right font-semibold text-strong" data-ai-cost-row={item.priced ? 'priced' : 'not_priced'}>{item.estimated_cost_usd === null || item.estimated_cost_usd === undefined ? $_('settings.ai.cost_not_priced', { default: 'Not priced' }) : formatUsd(item.estimated_cost_usd)}</td>
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
+                    </div>
+                {/if}
+            {:else}
+                <div class="text-center">
+                    <p class="text-sm text-muted">
+                        {usageLoadError ?? $_('settings.ai.no_usage_data', { default: 'No AI usage recorded yet.' })}
+                    </p>
                 </div>
             {/if}
-        {:else}
-            <div class="p-12 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700/50">
-                <p class="text-sm font-bold text-slate-400">
-                    {usageLoadError ?? $_('settings.ai.no_usage_data', { default: 'No AI usage recorded yet.' })}
-                </p>
-            </div>
-        {/if}
-    </AdvancedSection>
+        </AdvancedSection>
+    </SettingsCard>
+
 </div>
 
 {#if testModalOpen}

@@ -1,15 +1,87 @@
 # Troubleshooting & Diagnostics
 
-If detections or integrations are misbehaving, start at **Settings → Health**. It reports live
+If detections or integrations are misbehaving, start at the **Health** page, under **Manage** in the sidebar. It reports live
 system status, what happened to every recent frame and why it was or was not recorded, inference
 health, where your species names come from, and it is where you capture a diagnostics bundle to
 attach to a bug report.
 
-![Settings → Health showing System Status and a What happened timeline with recorded, filtered and fault legend entries and two recorded visits](../images/settings-health.png)
+![The Health page showing System Status and a What happened timeline with recorded, filtered and fault legend entries and two recorded visits](../images/settings-health.png)
+
+The **MQTT** and **Frigate** cards under **Detail by part** report the connections every detection
+depends on, as measured: whether the broker session is up (and, when it is not, the address, the last
+attempt and the broker client's own error), and whether Frigate answered the latest request. The page
+never reads healthy while either is down.
+
+The sidebar's **System status** list follows the same readings, in words:
+
+| Row | Says | When |
+|---|---|---|
+| **Frigate events** | **Live** | The broker session is up and Frigate answers. |
+| | **Waiting for events** | The broker session is still connecting. |
+| | **Not connected** | The broker is not connected. This needs you. |
+| | **Frigate not answering** | The broker is up but Frigate's API is not. This needs you. |
+| | **Connected** | Only the page's own connection is known (a visitor is never told more). |
+| | **Reconnecting** | The page has lost its connection to YA-WAMF. |
+| **Audio** | **Listening**, **Not listening**, **Off** | Audio detections arrive through the broker, so it is **Listening** only while the broker session is up. |
+| **Alerts** | **On**, **Off** | Whether notifications are switched on. |
+
+Under the rows is the current load: a meter for the CPU and one for the accelerator, each named,
+with its percentage and its bar in the same colour as its line on the Health chart. The card ends
+with one line that opens the Health page. It
+reads **Health** while nothing is open, and **2 issues need attention** (with the number) while
+the Health page lists open items in its verdict (a failed connection or an unresolved incident); the
+two always count the same thing.
+
+## Repeated faults are one entry
+
+A fault that keeps happening is kept as one entry in **Backend warnings and errors**, marked with how
+many times it was recorded and when it was first and last seen (for example **×14, first 12:21, last
+12:27**), instead of fourteen rows. Entries are grouped when their source, component, reason code
+and severity match and their messages differ only in identifiers or numbers. The newest occurrence
+supplies the event shown.
+
+## Dismissing a warning
+
+Each entry in **Backend warnings and errors**, each earlier incident and each open incident that
+comes from a recorded warning has **Dismiss**. It hides that item on Health for everyone on this
+install, and the counts and the open-issue number in the sidebar stop including it. Nothing is
+deleted: **Show N dismissed** lists what is hidden, each with **Restore**, and a diagnostics bundle
+still carries dismissed items, marked `dismissed`.
+
+- **It comes back if it happens again.** A dismissal names one backend entry, by its component,
+  reason code and entry, and how many occurrences of it you saw. Any occurrence recorded after those
+  shows the entry again, and with it any incident built from it. Occurrences are counted, not timed,
+  so a clock that steps back cannot keep a repeat hidden. One recorded while the page was open,
+  which you had not seen, is not covered: the page says it happened again and keeps it listed.
+- **Only what is still in the history can be dismissed.** If it left the history before you
+  clicked (Clear error history in another tab, or a restart), the page says there was nothing to
+  dismiss rather than claiming it did.
+- **An incident is hidden only while every entry it is built from is dismissed.** Dismissing an
+  incident dismisses those entries, so its warnings leave **Backend warnings and errors** with it.
+- **Live checks are never dismissed.** The verdict still comes from the live checks. An incident a
+  live check shows open now, or has no reading for yet (Frigate's availability while the MQTT
+  broker reconnects, for example), offers no **Dismiss** and says it clears by itself when the
+  check passes; the MQTT and Frigate connection problems have none either. With every live check
+  passing, dismissing the recorded incidents can leave the verdict Healthy, because the verdict is
+  those checks.
+- **Clear error history** still removes everything, dismissals included.
+- **Dismissals reset on restart.** They are kept in memory beside the history they hide, and that
+  history is in memory too. A restart, including a deploy, empties both together, so nothing
+  dismissed can come back without a new occurrence, and no dismissal outlives what it named.
+
+## While Frigate is starting
+
+Frigate and YA-WAMF usually restart together. For its first seconds Frigate answers every request
+with an error because its API has not started. YA-WAMF treats that as one condition: it stops asking
+Frigate about individual events, checks once a second (slowing to every 30 seconds) until Frigate
+answers, and writes one line to the log, **Frigate not ready; retrying event reads**, with the
+number of reads put off, followed by **Frigate is ready; event reads resumed**. Video analysis that
+was queued waits for Frigate rather than failing. An error from Frigate about one event while Frigate
+is otherwise answering is still logged as a warning.
 
 ## Capture current evidence for a report
 
-1. Sign in as the owner and open **Settings → Health**. The **Health · Diagnostics export** link
+1. Sign in as the owner and open the **Health** page. The **Health · Diagnostics export** link
    under **Notifications → Jobs** takes you to the same page.
 2. Expand **Diagnostics export** and add the approximate time, camera, action and expected result
    in the notes. Include recent network or camera changes when relevant.
@@ -82,7 +154,7 @@ time with the newest published commit for your channel.
 ## MQTT pipeline
 If detections are not appearing, prove the path from Frigate to the broker:
 
-1. Go to **Settings → Connection**.
+1. Go to **Settings → Cameras & connection**.
 2. Select **Test Connection**. It runs two stages: **Frigate API**, then **MQTT broker publish**.
    The probe uses the values currently in the form, so you can test an edit before saving it.
 3. Check the backend logs. You should see "Published MQTT message".
@@ -98,8 +170,8 @@ container cannot reach the broker on the Docker network. See
 ## 🔊 Audio Correlation Issues
 If camera visits appear but never have the **Audio confirmed** badge:
 
-1.  **Check the mapped source:** Open **Settings → Integrations → BirdNET-Go → Audio buffer &
-    sensor mapping** and inspect **Recently Detected BirdNET Sources**. Map the camera to the stable
+1.  **Check the mapped source:** Open **Settings → Cameras & connection → More options → BirdNET-Go → Audio
+    buffer & sensor mapping** and inspect **Recently Detected BirdNET Sources**. Map the camera to the stable
     source name that is actually arriving; multiple names can be comma-separated. A blank mapping
     is not a wildcard, and a different microphone's call does not confirm this camera's visit.
 2.  **Verify clocks and timestamps:** Confirm Frigate and BirdNET-Go report the correct moment, with
@@ -176,7 +248,7 @@ If step 5 fails, the most common cause is editing one path but mounting a differ
 ## ⚡ Inference acceleration diagnostics
 
 YA-WAMF exposes image, runtime, and device diagnostics under
-**Settings → Detection → Runtime diagnostics** and at
+**Settings → Identifying birds → More options → Hardware → Runtime report** and at
 `GET /api/classifier/status`.
 
 ### What to check first (UI)
@@ -290,7 +362,9 @@ not a substitute for installing the published artifact.
 Use these endpoints and lifecycle logs to quickly pinpoint startup failures:
 
 - `GET /health`: includes `startup_warnings` and sets `status=degraded` if a non-fatal startup
-  phase failed.
+  phase failed. `garden_motion_decode` says whether Garden motion recordings decode on the
+  Intel GPU or the CPU, and why; CPU decode costs power but does not degrade the status. See
+  [Garden motion video decode](../setup/hardware-acceleration.md#garden-motion-video-decode).
 - `GET /ready`: returns `200` only when backend startup is ready for traffic; returns `503` with
   details when DB or startup phases are not ready. Use the same public host and port as the web app;
   both supported frontend proxies forward this exact path to the backend.
@@ -336,7 +410,7 @@ If a backfill reports repeated classifier-unavailable errors, YA-WAMF stops afte
 consecutive failures instead of consuming the rest of the range. "Classifier busy" results are
 admission pressure (video snapshot fallbacks share the same background capacity), so they
 neither count towards those three nor reset them; ten busy results in a row still stop the job.
-The result keeps the number of events already processed, so you can check **Settings → Health**,
+The result keeps the number of events already processed, so you can check the **Health** page,
 restart the container if an in-process runtime is still stalled, and rerun the same range
 safely. Existing events are not duplicated; a better classification can update an existing
 detection.
@@ -349,7 +423,7 @@ classification slot. Once admitted, the work keeps its slot until completion or
 the existing lease cleanup; cancellation does not interrupt native inference or
 make its capacity immediately available.
 
-After native-runtime recovery, **Settings → Detection** shows the actual execution mode and
+After native-runtime recovery, **Settings → Identifying birds** shows the actual execution mode and
 whether isolated workers have resumed classification. Restart advice remains visible because
 switching to workers cannot release a native thread that is still stalled in the parent process.
 Model changes reload the workers without cleaning up the model that the stalled thread may use.
@@ -488,7 +562,7 @@ CPU results are kept even if the accelerator fails, but that failed accelerator
 is not selected or reloaded. A CPU-selected configuration, an already-current
 accelerator or a consumed attempt does not trigger this startup check.
 
-For an already-saved partial result, use **Settings → Detection → Run
+For an already-saved partial result, use **Settings → Identifying birds → Run
 compatibility check** and inspect Intel CPU's result. Leave **test all models**
 off to avoid downloading and testing the entire registry. This check still tests
 installed models and temporarily changes the active model, so run it when the
@@ -561,7 +635,8 @@ under `system_telemetry.drm_diagnostics`. These contain read/error counts, parse
 client counts and client arrivals/departures, plus up to 64 counter observations
 per sample. Each observation records an allow-listed driver, PCI device identity,
 engine and counter unit, current and previous counters, and a bounded reason such
-as `baseline`, `missing_total`, `total_not_advancing` or `counter_regressed`.
+as `baseline`, `missing_total`, `total_not_advancing`, `counter_wrapped` or
+`counter_regressed`.
 Cycle observations include current and previous total cycles. This evidence can
 distinguish counter access failures, unsupported counters and client turnover.
 It does not establish whether the GPU is stable or why processing became slower.
@@ -571,8 +646,18 @@ For example, Xe hardware with a 36-bit clock at 19.2 MHz wraps about every 59.6
 minutes. YA-WAMF leaves that discontinuous interval unmeasured, then uses the new
 clock baseline for the next valid interval. It does not guess a counter width or
 restart inference. Busy counters still keep their previous high-water mark across
-temporary regressions so recovered work is not counted twice. Standard Xe engine
-names (`rcs`, `bcs`, `vcs`, `vecs`, `ccs`) remain visible in support diagnostics;
+temporary regressions so recovered work is not counted twice.
+
+Xe busy counters themselves have been seen wrapping at 2^32 cycles while the
+total-cycle clock beside them does not (#944). A drop from just below 2^32 to a
+small value is a wrap, not a temporary regression: the counter moved forward by
+less than half of its 32-bit range. YA-WAMF reports that sample as
+`counter_wrapped` and follows the counter from its new value. The wrapped work is
+counted only when the previous mark is from the sample before and the work fits
+inside that clock interval. Otherwise that one interval is left unmeasured.
+Counters wider than 32 bits never take this path.
+
+Standard Xe engine names (`rcs`, `bcs`, `vcs`, `vecs`, `ccs`) remain visible in support diagnostics;
 unrecognised names are still replaced with `other`.
 
 No raw fdinfo, file paths, process arguments, environment variables, client IDs or

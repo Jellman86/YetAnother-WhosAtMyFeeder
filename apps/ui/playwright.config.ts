@@ -8,6 +8,8 @@ const port = Number(environment.PLAYWRIGHT_PORT ?? 4178);
 
 export default defineConfig({
     testDir: './browser-tests',
+    // The production-bundle smoke test has its own config (playwright.production.config.ts).
+    testIgnore: '**/production/**',
     fullyParallel: true,
     forbidOnly: true,
     retries: 0,

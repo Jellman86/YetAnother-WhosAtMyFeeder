@@ -124,6 +124,25 @@ class NpuBusyTimeProbe:
         return readings
 
 
+# xe has been seen publishing busy cycles that wrap at 2**32 while the total-cycle
+# clock beside them runs on (#944). A wider counter never takes this path.
+_BUSY_CYCLE_SPAN = 2**32
+
+
+def _busy_cycles_wrapped(before: int, after: int) -> bool:
+    """Whether a drop in a busy-cycle counter is a 32-bit wrap, not a step back.
+
+    Serial-number arithmetic (RFC 1982) tells the two apart: a wrapped counter
+    moved forward by less than half its span, while the temporary regressions the
+    DRM usage-stats spec permits move back by a small amount. Five-second samples
+    keep a real wrap far inside that half span (about 111 s of one fully busy
+    engine at 19.2 MHz).
+    """
+    if not after < before < _BUSY_CYCLE_SPAN:
+        return False
+    return after + _BUSY_CYCLE_SPAN - before < _BUSY_CYCLE_SPAN // 2
+
+
 @dataclass(frozen=True)
 class _DrmClient:
     """One open DRM client: its card, and each engine class's cumulative work.
@@ -158,7 +177,13 @@ class DrmCounterDiagnostic:
     total: int | None
     previous_total: int | None
     state: Literal[
-        "baseline", "measured", "counter_regressed", "missing_total", "total_not_advancing", "invalid_interval"
+        "baseline",
+        "measured",
+        "counter_wrapped",
+        "counter_regressed",
+        "missing_total",
+        "total_not_advancing",
+        "invalid_interval",
     ]
 
 
@@ -319,12 +344,15 @@ class DrmEngineTimeProbe:
                     mark = self._high_water.get((client.pdev, client.client_id, unit, engine))
                     total = client.engine_total_cycles.get(engine) if unit == "cycles" else None
                     total_mark = self._high_water.get((client.pdev, client.client_id, "total_cycles", engine))
+                    total_regressed = total is not None and total_mark is not None and total < total_mark[0]
                     state = "measured"
                     if unit == "cycles" and total is None:
                         state = "missing_total"
                     elif mark is None or (unit == "cycles" and total_mark is None):
                         state = "baseline"
-                    elif value < mark[0] or (total is not None and total_mark is not None and total < total_mark[0]):
+                    elif unit == "cycles" and not total_regressed and _busy_cycles_wrapped(mark[0], value):
+                        state = "counter_wrapped"
+                    elif value < mark[0] or total_regressed:
                         state = "counter_regressed"
                     elif now <= mark[1]:
                         state = "invalid_interval"
@@ -383,7 +411,10 @@ class DrmEngineTimeProbe:
         total-cycle delta: clients on one card share the same engine clock,
         so summing their totals would count the same denominator twice. A
         client with no baseline, a rolled-back counter, or a total that did
-        not advance contributes nothing rather than an invented number.
+        not advance contributes nothing rather than an invented number. A busy
+        counter that wrapped counts its work across the wrap only when its
+        last mark is from the previous sample and the work fits inside that
+        clock interval; otherwise the interval is left unmeasured.
         Nanoseconds win when an engine reports both units."""
         capacity: dict[str, int] = {}
         for client in clients:
@@ -414,6 +445,10 @@ class DrmEngineTimeProbe:
                     continue
                 busy_delta = cycles - busy_mark[0]
                 total_delta = client.engine_total_cycles[engine] - total_mark[0]
+                if busy_delta < 0 and _busy_cycles_wrapped(busy_mark[0], cycles) and busy_mark[1] == total_mark[1]:
+                    wrapped_delta = busy_delta + _BUSY_CYCLE_SPAN
+                    if wrapped_delta <= total_delta * capacity.get(engine, 1):
+                        busy_delta = wrapped_delta
                 if busy_delta < 0 or total_delta <= 0:
                     continue
                 cycle_busy[engine] = cycle_busy.get(engine, 0) + busy_delta
@@ -494,10 +529,17 @@ class DrmEngineTimeProbe:
                 for engine, value in counters.items():
                     key = (client.pdev, client.client_id, unit, engine)
                     mark = self._high_water.get(key)
-                    # Retain cumulative busy work across temporary regressions.
-                    # The total-cycle clock can wrap or reset independently;
-                    # keeping its old high-water would suppress future samples.
-                    if unit == "total_cycles" or mark is None or value >= mark[0]:
+                    # Retain cumulative busy work across temporary regressions,
+                    # but follow a busy counter through a 32-bit wrap: its old
+                    # high-water would never be reached again. The total-cycle
+                    # clock can wrap or reset independently; keeping its old
+                    # high-water would suppress future samples.
+                    if (
+                        unit == "total_cycles"
+                        or mark is None
+                        or value >= mark[0]
+                        or (unit == "cycles" and _busy_cycles_wrapped(mark[0], value))
+                    ):
                         self._high_water[key] = (value, now)
         return readings
 

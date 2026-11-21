@@ -1,0 +1,184 @@
+import { expect, test, type Page } from '@playwright/test';
+import { replayFeeder, settled } from './accessibility-mock';
+
+/**
+ * The Leaderboard and Audio history use the space each device gives them: on a phone the controls
+ * are compact and the filters wait in a sheet; on a desktop secondary figures stand in a side column
+ * and charts take the full width; at no width does the page scroll sideways. Every chart carries its
+ * data as a table, and the wall's preview stays inside the page's main landmark.
+ */
+const READY = { timeout: 15_000 };
+const WIDTHS = [
+    { width: 390, height: 844 },
+    { width: 768, height: 1024 },
+    { width: 1024, height: 768 },
+    { width: 1440, height: 900 },
+    { width: 1920, height: 1080 }
+];
+
+async function open(page: Page, path: string, ready: string, size: { width: number; height: number }): Promise<void> {
+    await page.setViewportSize(size);
+    await replayFeeder(page, 'light');
+    await page.goto(path);
+    await expect(page.locator(ready).first()).toBeVisible(READY);
+    await settled(page);
+}
+
+for (const size of WIDTHS) {
+    for (const [name, path, ready] of [['the Leaderboard', '/species', '[data-leaderboard-species-portrait]'], ['Audio history', '/audio', '[data-audio-top-species-button]']] as const) {
+        test(`${name} does not scroll sideways at ${size.width} px`, async ({ page }) => {
+            await open(page, path, ready, size);
+            expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+        });
+    }
+}
+
+test('on a phone the Leaderboard controls are one compact row, with the rarer choice under More', async ({ page }) => {
+    await open(page, '/species', '[data-leaderboard-species-portrait]', WIDTHS[0]);
+    const controls = page.locator('[data-leaderboard-controls]');
+    await expect(page.locator('[data-leaderboard-span-select]')).toBeVisible();
+    await expect(page.locator('[data-leaderboard-span-bar]')).toBeHidden();
+    await expect(controls.getByRole('checkbox', { name: 'Include Unknown bird' })).toBeHidden();
+    expect((await controls.boundingBox())?.height ?? Infinity).toBeLessThan(140);
+    await page.locator('[data-leaderboard-more-controls] summary').click();
+    await expect(controls.getByRole('checkbox', { name: 'Include Unknown bird' })).toBeVisible();
+    await page.locator('[data-leaderboard-span-select]').selectOption('week');
+    await expect(page.locator('[data-leaderboard-analytics-window]')).toContainText('Week');
+});
+
+test('at 1440 px the standing figures sit beside the wall, and the rankings table and charts take the full width', async ({ page }) => {
+    await open(page, '/species', '[data-leaderboard-species-portrait]', WIDTHS[3]);
+    const wall = await page.locator('[data-capture-wall]').boundingBox();
+    const side = await page.locator('[data-leaderboard-side]').boundingBox();
+    expect(wall && side && side.x > wall.x + wall.width - 1).toBe(true);
+    // The ranking is a table at this width, and it and the charts reach the side column's far edge.
+    await expect(page.locator('[data-leaderboard-table-rankings]')).toBeVisible();
+    for (const selector of ['[data-leaderboard-rankings]', '[data-leaderboard-analytics]']) {
+        const box = await page.locator(selector).boundingBox();
+        expect(box && side && box.x + box.width >= side.x + side.width - 1, selector).toBe(true);
+    }
+});
+
+test('every Leaderboard chart has its data as a table', async ({ page }) => {
+    await open(page, '/species', '[data-leaderboard-species-portrait]', WIDTHS[3]);
+    const figures = page.locator('[data-leaderboard-analytics] figure');
+    await expect(figures).toHaveCount(3);
+    for (const figure of await figures.all()) {
+        await figure.scrollIntoViewIfNeeded();
+        await figure.locator('summary').filter({ hasText: 'Show the data as a table' }).click();
+        await expect(figure.locator('table tbody tr').first()).toBeVisible();
+        expect(await figure.locator('table th[scope="row"]').count()).toBeGreaterThan(0);
+    }
+});
+
+test('the wall\'s preview opens inside the main landmark', async ({ page }) => {
+    await open(page, '/species', '[data-capture-wall]', WIDTHS[3]);
+    const tile = page.locator('[data-capture-wall] [data-capture-wall-tile]').first();
+    await tile.scrollIntoViewIfNeeded();
+    await tile.hover();
+    const popout = page.locator('[data-capture-wall-popout]');
+    await expect(popout).toBeVisible();
+    expect(await popout.evaluate((node) => Boolean(node.closest('main')))).toBe(true);
+});
+
+test('on a phone Audio history puts the window\'s figures before the log and its filters in a sheet', async ({ page }) => {
+    await open(page, '/audio', '[data-audio-top-species-button]', WIDTHS[0]);
+    await expect(page.locator('[data-audio-history-filters] form')).toBeHidden();
+    const opener = page.locator('[data-audio-filters-open]');
+    await expect(opener).toBeVisible();
+    // How the window stands is read first, as on the Leaderboard: in the page and on screen, the
+    // figures come before the first call, and they are drawn once.
+    const figures = page.locator('[data-audio-history-summary]');
+    await expect(figures).toHaveCount(1);
+    const firstCall = page.locator('[data-audio-history-table] tbody tr').first();
+    await expect(firstCall).toBeVisible();
+    expect(await figures.evaluate((node) => {
+        const call = document.querySelector('[data-audio-history-table] tbody tr');
+        return Boolean(call && node.compareDocumentPosition(call) & Node.DOCUMENT_POSITION_FOLLOWING);
+    })).toBe(true);
+    const [figuresBox, callBox] = await Promise.all([figures.boundingBox(), firstCall.boundingBox()]);
+    expect(figuresBox && callBox && figuresBox.y + figuresBox.height <= callBox.y).toBe(true);
+    // The species and sources still follow the log, and their landmark has its own name.
+    await expect(page.getByRole('complementary', { name: 'Most heard species and sources' })).toHaveCount(1);
+    await opener.click();
+    const sheet = page.getByRole('dialog', { name: 'Filters' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole('slider')).toHaveAttribute('aria-valuetext', /%$/);
+    // Focus moves into the sheet, as a modal's does, so Escape is the sheet's to take.
+    await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(sheet).toBeHidden();
+    await expect(opener).toBeFocused();
+});
+
+test('at 1440 px Audio history keeps the log in the main column with the figures, then species and sources, beside it', async ({ page }) => {
+    await open(page, '/audio', '[data-audio-top-species-button]', WIDTHS[3]);
+    const [log, figures, side] = await Promise.all(
+        ['[data-audio-history-log]', '[data-audio-history-summary]', '[data-audio-history-side]'].map((selector) => page.locator(selector).boundingBox())
+    );
+    expect(log && figures && side).toBeTruthy();
+    if (!log || !figures || !side) return;
+    // The figures sit at the head of the right-hand column, level with the log's top.
+    expect(figures.x).toBeGreaterThan(log.x + log.width - 1);
+    expect(Math.abs(figures.y - log.y)).toBeLessThanOrEqual(1);
+    // Species and sources follow directly under them in the same column, 2rem apart as before: the
+    // log's height opens no gap under the figures.
+    expect(Math.abs(side.x - figures.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(side.width - figures.width)).toBeLessThanOrEqual(1);
+    const twoRem = await page.evaluate(() => 2 * parseFloat(getComputedStyle(document.documentElement).fontSize));
+    expect(Math.abs(side.y - (figures.y + figures.height) - twoRem)).toBeLessThanOrEqual(1);
+});
+
+test('every Audio history chart has its data as a table', async ({ page }) => {
+    await open(page, '/audio', '[data-audio-top-species-button]', WIDTHS[3]);
+    const figures = page.locator('[data-audio-history-analytics] figure');
+    await expect(figures).toHaveCount(3);
+    for (const figure of await figures.all()) {
+        await figure.scrollIntoViewIfNeeded();
+        await figure.locator('summary').filter({ hasText: 'Show the data as a table' }).click();
+        await expect(figure.locator('table tbody tr').first()).toBeVisible();
+    }
+});
+
+test('the Audio filter sheet goes with the phone width, and lets the page scroll again', async ({ page }) => {
+    await open(page, '/audio', '[data-audio-top-species-button]', WIDTHS[0]);
+    await page.locator('[data-audio-filters-open]').click();
+    const sheet = page.getByRole('dialog', { name: 'Filters' });
+    await expect(sheet).toBeVisible();
+    await sheet.getByPlaceholder('Any species').fill('Robin');
+    await expect.poll(() => page.evaluate(() => document.body.style.position)).toBe('fixed');
+    // A tablet turned to landscape: the fields now stand inline, so the modal and its lock go.
+    await page.setViewportSize(WIDTHS[1]);
+    await expect(sheet).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => document.body.style.position)).toBe('');
+    // The draft is kept in the inline form, beside the Apply it needs.
+    const inline = page.locator('[data-audio-history-filters] form');
+    await expect(inline.getByPlaceholder('Any species')).toHaveValue('Robin');
+    await expect(page.locator('[data-audio-filters-changed]')).toContainText('Apply');
+    await expect(inline.getByRole('button', { name: 'Apply' })).toBeVisible();
+});
+
+test('leaving the Audio filter sheet without Apply puts the fields back to what the list shows', async ({ page }) => {
+    await open(page, '/audio', '[data-audio-top-species-button]', WIDTHS[0]);
+    const opener = page.locator('[data-audio-filters-open]');
+    await opener.click();
+    const sheet = page.getByRole('dialog', { name: 'Filters' });
+    await sheet.getByPlaceholder('Any species').fill('Robin');
+    await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]')))).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(sheet).toHaveCount(0);
+    // Nothing waits on an Apply the reader can no longer see.
+    await expect(page.locator('[data-audio-filters-changed]')).toHaveText('');
+    await opener.click();
+    await expect(page.getByRole('dialog', { name: 'Filters' }).getByPlaceholder('Any species')).toHaveValue('');
+});
+
+
+test('the Leaderboard names one window: the wall says the same span and dates as the rankings', async ({ page }) => {
+    await open(page, '/species', '[data-leaderboard-species-portrait]', WIDTHS[3]);
+    const rankings = (await page.locator('[data-leaderboard-rankings-window]').textContent())?.trim() ?? '';
+    expect(rankings).toMatch(/·/);
+    const eyebrow = (await page.locator('[data-capture-wall] header p').first().textContent())?.trim() ?? '';
+    expect(eyebrow).toContain(rankings);
+    await expect(page.locator('main')).not.toContainText(/Last (?:7|30) days/);
+});

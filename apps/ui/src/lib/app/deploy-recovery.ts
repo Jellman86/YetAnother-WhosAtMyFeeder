@@ -21,8 +21,20 @@ interface DeployRecoveryOptions {
     storage?: StorageLike | null;
     reload: () => void;
     warn: (message: string) => void;
+    /**
+     * Asks the server which build it runs, for a failed import (see handleRuntimeFailure). Without
+     * it a failed import can never be confirmed as a deploy, so it only warns.
+     */
+    readDeployment?: () => Promise<HealthLike | null | undefined>;
+    /** How long that question may take before it counts as unanswered. */
+    deploymentCheckMs?: number;
     report?: (event: DeployRecoveryEvent) => void;
     warningMessage?: string;
+    /**
+     * Said instead when a page failed to load and the server could not be asked for its build: nothing
+     * measured says the app was updated, so this names what is known and what to do.
+     */
+    unreachableMessage?: string;
 }
 
 interface HealthLike {
@@ -33,6 +45,10 @@ interface HealthLike {
 const RECOVERY_ATTEMPT_KEY = 'yawamf_deploy_recovery_attempt_v1';
 const RECOVERY_COUNT_KEY = 'yawamf_deploy_recovery_count_v1';
 const MAX_REMEMBERED_ATTEMPTS = 8;
+const DEPLOYMENT_CHECK_MS = 8000;
+
+/** What deploy recovery does with a runtime failure at once: nothing, or ask the server first. */
+export type RuntimeFailureAction = 'ignore' | 'checking';
 const STALE_BUNDLE_PATTERNS = [
     'failed to fetch dynamically imported module',
     'error loading dynamically imported module',
@@ -106,12 +122,17 @@ export function createDeployRecovery(options: DeployRecoveryOptions) {
     const warningMessage =
         normalizeString(options.warningMessage) ||
         'The app was updated while this tab was open. Refresh the page.';
+    const unreachableMessage =
+        normalizeString(options.unreachableMessage) ||
+        'This page could not be opened, and YA-WAMF could not be reached to check for an update. Check your connection, then refresh the page.';
     const hasUsableAppVersion = Boolean(appVersion && appVersion.toLowerCase() !== 'unknown');
     const attemptPrefix = hasUsableAppVersion ? `stale:${appVersion}` : '';
     const warnedSignatures = new Set<string>();
     const inMemoryAttempts = new Set<string>();
     let storageAvailable = storage !== null;
     let inMemoryRecoveryCount = 0;
+    let checking: Promise<void> | null = null;
+    let reloading = false;
 
     function readStorage(key: string): string {
         if (!storage || !storageAvailable) return '';
@@ -171,13 +192,14 @@ export function createDeployRecovery(options: DeployRecoveryOptions) {
     function warnOnce(
         signature: string,
         reason: DeployRecoveryReason,
-        backendVersion?: string
+        backendVersion?: string,
+        message: string = warningMessage
     ): DeployRecoveryAction {
         if (warnedSignatures.has(signature)) return 'warn';
         warnedSignatures.add(signature);
         incrementRecoveryCount();
         options.report?.({ action: 'warn', reason, frontendVersion: appVersion, backendVersion });
-        options.warn(warningMessage);
+        options.warn(message);
         return 'warn';
     }
 
@@ -195,14 +217,57 @@ export function createDeployRecovery(options: DeployRecoveryOptions) {
 
         incrementRecoveryCount();
         options.report?.({ action: 'reload', reason, frontendVersion: appVersion, backendVersion });
+        reloading = true;
         options.reload();
         return 'reload';
     }
 
+    /** The server's build, or null when it cannot be asked or does not answer in time. */
+    async function readServerVersion(): Promise<string | null> {
+        if (!options.readDeployment) return null;
+        let deadline: ReturnType<typeof setTimeout> | undefined;
+        const unanswered = new Promise<null>((resolve) => {
+            deadline = setTimeout(() => resolve(null), options.deploymentCheckMs ?? DEPLOYMENT_CHECK_MS);
+        });
+        try {
+            const health = await Promise.race([options.readDeployment().catch(() => null), unanswered]);
+            const version = normalizeString(health?.version);
+            return version && version.toLowerCase() !== 'unknown' ? version : null;
+        } finally {
+            clearTimeout(deadline);
+        }
+    }
+
+    /**
+     * A failed import is a deploy only if the server now runs another build. Safari ends a page's
+     * loading imports with the same words when the reader goes elsewhere, and a network blip looks
+     * alike too; on the same build the route's own retry is the recovery, and no attempt is spent.
+     */
+    async function confirmDeployment(): Promise<void> {
+        const backendVersion = await readServerVersion();
+        if (backendVersion === null) {
+            warnOnce(`${attemptPrefix}:runtime-unconfirmed`, 'runtime_failure', undefined, unreachableMessage);
+            return;
+        }
+        if (isSameDeployment(appVersion, backendVersion)) return;
+        // The same key as a pushed status naming that build: one deploy, one automatic reload.
+        triggerRecovery(`${attemptPrefix}:backend:${backendVersion.toLowerCase()}`, 'runtime_failure', backendVersion);
+    }
+
     return {
-        handleRuntimeFailure(error: unknown): DeployRecoveryAction {
-            if (!isLikelyStaleBundleError(error)) return 'ignore';
-            return triggerRecovery(attemptPrefix ? `${attemptPrefix}:runtime` : '', 'runtime_failure');
+        /**
+         * A failure that looks like a stale bundle is answered once the server has said which build it
+         * runs. Failures while that question is open, or while the page is already reloading, join it
+         * rather than warning on their own.
+         */
+        handleRuntimeFailure(error: unknown): RuntimeFailureAction {
+            if (!attemptPrefix || !isLikelyStaleBundleError(error)) return 'ignore';
+            if (!reloading && !checking) {
+                checking = confirmDeployment().finally(() => {
+                    checking = null;
+                });
+            }
+            return 'checking';
         },
 
         observeHealth(health: HealthLike | null | undefined): DeployRecoveryAction {

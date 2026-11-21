@@ -1,8 +1,10 @@
 <script lang="ts">
     import { fetchVisits } from '../api/visits';
-    import { onMount } from 'svelte';
+    import { chainGuarded, guardedValue, mapGuarded, type Guarded } from '../api/core';
+    import type { DiagnosticDismissalEntry } from '../api/diagnostics';
+    import { onMount, tick } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import { incidentWorkspaceStore } from '../stores/incident_workspace.svelte';
+    import { dismissOutcome, incidentWorkspaceStore } from '../stores/incident_workspace.svelte';
     import {
         jobDiagnosticsStore,
         type DiagnosticsExportOptions,
@@ -21,9 +23,14 @@
         keyedPipelineDetections
     } from '../utils/pipeline-health';
     import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
-    import { STATUS_PILL, STATUS_SURFACE, statusLabelKey, statusTone } from '../utils/status-tone';
+    import { STATUS_SURFACE, STATUS_TONE, statusLabelKey, statusTone } from '../utils/status-tone';
+    import { frigateCardStatus, healthProblems, healthVerdict, mqttCardStatus, pipelineCardStatus, type HealthProblem } from '../utils/connection-health';
+    import { diagnosticWordsKey } from '../utils/diagnostic-words';
+    import { connectionCauseMessage } from '../api/error-message';
+    import { serviceConnectionsStore } from '../stores/service_connections.svelte';
+    import { systemStatusStore } from '../stores/system_status.svelte';
+    import { followRevisions } from '../app/revision-follower';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
-    import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { fromServerVisit } from '../utils/visit-grouping';
     import {
@@ -33,7 +40,11 @@
         representedEventCount
     } from '../utils/health-timeline';
     import HealthActivityTimeline from '../components/HealthActivityTimeline.svelte';
+    import HealthDismissedItems, { type DismissedHealthItem } from '../components/HealthDismissedItems.svelte';
     import SystemHealthPanel from '../components/settings/SystemHealthPanel.svelte';
+    import Panel from '../components/ui/Panel.svelte';
+    import StateBlock from '../components/ui/StateBlock.svelte';
+    import StatusChip from '../components/ui/StatusChip.svelte';
 
     interface Props {
         onNavigate?: (path: string) => void;
@@ -127,10 +138,80 @@
             ? workspacePayload.health as DiagnosticsHealth
             : null
     );
+    // The pushed status, the same reading the sidebar, the banner and the Dashboard show, so no two
+    // of them disagree; the workspace's own reading stands in until the first status arrives.
+    const pushedStatus = $derived(systemStatusStore.snapshot);
+    let connections = $derived(pushedStatus?.connections ?? workspacePayload?.connections ?? null);
+    let problems = $derived(healthProblems(connections, pushedStatus));
+    // Everything open, from the one workspace reading: the failed connections, then any incident
+    // not yet resolved. The verdict card lists these, so a count elsewhere can never disagree.
+    let openItems = $derived([
+        ...problems.map((problem) => ({ key: problem, problem, incident: null })),
+        ...currentIssues.map((incident) => ({ key: `incident:${incident.id}`, problem: null, incident }))
+    ]);
     let videoClassifierCard = $derived(getVideoClassifierCardState(health));
     let frigateMediaAdvisory = $derived(getFrigateMediaAdvisory(health));
     let frigateMediaDropPercent = $derived(Math.round(frigateMediaAdvisory.rate * 100));
-    let backendEvents = $derived(faultDiagnostics(workspacePayload?.backend_diagnostics?.events ?? []));
+    let faultEvents = $derived(faultDiagnostics(workspacePayload?.backend_diagnostics?.events ?? []));
+    let backendEvents = $derived(faultEvents.filter((event) => !event.dismissed));
+    let dismissedIncidents = $derived(incidentWorkspaceStore.dismissedIncidents);
+    type DismissedCard = 'earlier' | 'backend';
+    function dismissedIncidentItem(incident: (typeof dismissedIncidents)[number]): DismissedHealthItem {
+        return {
+            key: `incident:${incident.id}`,
+            title: diagnosticWords(incident.primaryReasonCode).title,
+            lastSeenAt: incident.lastSeenAt,
+            entryIds: incidentWorkspaceStore.dismissalEntries(incident).map((entry) => entry.id)
+        };
+    }
+    /** Dismissed incidents that had cleared: listed at the foot of Earlier incidents, where they were. */
+    let dismissedEarlier = $derived(
+        dismissedIncidents.filter((incident) => incident.status === 'resolved').map(dismissedIncidentItem)
+    );
+    /**
+     * Everything else dismissed, at the foot of Backend warnings and errors: open incidents, and each
+     * dismissed entry no dismissed incident already covers, so Restore is never offered twice.
+     */
+    let dismissedBackend = $derived.by((): DismissedHealthItem[] => {
+        const covered = new Set(dismissedIncidents.flatMap((incident) => incident.evidenceRefs));
+        return [
+            ...dismissedIncidents.filter((incident) => incident.status !== 'resolved').map(dismissedIncidentItem),
+            ...faultEvents
+                .filter((event) => event.dismissed && !covered.has(event.id))
+                .map((event) => ({
+                    key: `entry:${event.id}`,
+                    title: diagnosticWords(event.reason_code).title,
+                    lastSeenAt: Date.parse(event.last_seen ?? event.timestamp),
+                    entryIds: [event.id]
+                }))
+        ].sort((left, right) => right.lastSeenAt - left.lastSeenAt);
+    });
+    /** The item whose Dismiss or Restore is on its way, so only its button waits. */
+    let dismissing = $state<string | null>(null);
+    let restoring = $state<string | null>(null);
+    /**
+     * What a Dismiss or Restore did when it is not the plain result (it failed, the fault happened
+     * again, or the entry had already gone), shown in the card it happened in. It takes focus when
+     * nothing else on the card can, so a keyboard user is never dropped to the top of the page.
+     */
+    let dismissNotice = $state<{ card: DismissedCard; message: string; tone: 'error' | 'info' } | null>(null);
+    let dismissStatus = $state('');
+    let dismissedLists = $state<Record<DismissedCard, { focusToggle: () => boolean } | null>>({ earlier: null, backend: null });
+    let dismissNoticeLines = $state<Record<DismissedCard, HTMLParagraphElement | null>>({ earlier: null, backend: null });
+
+    /** The card's Show dismissed, then the other card's, then the card's notice. */
+    function focusAfterDismissal(card: DismissedCard): void {
+        const other: DismissedCard = card === 'earlier' ? 'backend' : 'earlier';
+        if (dismissedLists[card]?.focusToggle()) return;
+        if (dismissedLists[other]?.focusToggle()) return;
+        dismissNoticeLines[card]?.focus();
+    }
+
+    function focusDismissButton(key: string): boolean {
+        const button = document.querySelector<HTMLButtonElement>(`[data-health-dismiss-key="${CSS.escape(key)}"]`);
+        button?.focus();
+        return button !== null;
+    }
     let startupWarnings = $derived(workspacePayload?.startup_warnings ?? []);
     let captureLabel = $state('');
     let reportNotes = $state('');
@@ -138,8 +219,16 @@
     let exportError = $state('');
     let refreshing = $state(false);
     let clearing = $state(false);
-    let refreshError = $state('');
-    let lastRefreshedAt = $state<number | null>(null);
+    let clearError = $state('');
+    /**
+     * Whether the verdict is a measurement. Before the first reading nothing is claimed; a failed
+     * first read says so; a failed refresh keeps the last reading and says how old it is. The store
+     * changes this only when a read settles, so a retry in flight never makes kept data look current
+     * and a later successful read (a clear-and-refresh, or the shell's own sync) makes it fresh.
+     */
+    const readState = $derived(incidentWorkspaceStore.readFreshness);
+    // The raw reason the latest read failed: kept for the technical details, never the page's own sentence.
+    const refreshError = $derived(incidentWorkspaceStore.readSettled.error ?? '');
 
     let workspaceCapturedAt = $derived.by(() => {
         const raw = workspacePayload?.backend_diagnostics?.captured_at;
@@ -147,6 +236,7 @@
         const parsed = Date.parse(raw);
         return Number.isFinite(parsed) ? parsed : null;
     });
+    const lastReadAt = $derived(incidentWorkspaceStore.readSettled.readAt ?? workspaceCapturedAt);
 
     // The health counters are measured from startup, so the visits shown beside them
     // use the same window rather than a rolling day (layout-patterns 1.1).
@@ -168,53 +258,77 @@
         )
     );
 
+    // The timeline is the server's visits and the pipeline's own records, read with the workspace;
+    // Health shows no part of the recent history list, so it never reads it.
     onMount(() => {
-        void detectionsStore.loadInitial();
-        void refreshWorkspace();
+        // The counters, verdicts and incidents move without a new fault being recorded (a recovery,
+        // events counted). The pushed status names them by a revision; Health reads on opening and
+        // again when it moves, and a failed read is retried with the shared backoff until it lands.
+        const follower = followRevisions(refreshWorkspace, systemStatusStore.snapshot?.health_revision ?? null);
+        follower.start();
+        const stop = systemStatusStore.subscribe((snapshot) => follower.observe(snapshot.health_revision));
+        return () => {
+            stop();
+            follower.stop();
+        };
     });
 
     $effect(() => {
-        return pageRefreshAction.register(refreshWorkspace);
+        return pageRefreshAction.register(async () => { await refreshWorkspace(); });
     });
 
-    async function refreshWorkspace() {
+    /** Bounds Health's visit read, body included, so a stalled answer never holds the follower. */
+    const HEALTH_VISITS_TIMEOUT_MS = 15_000;
+
+    /** Reads the workspace and the visits beside it; false when either read failed, so it is retried. */
+    function refreshWorkspace(signal?: AbortSignal): Guarded<boolean> {
         refreshing = true;
-        refreshError = '';
-        try {
-            await incidentWorkspaceStore.refresh();
+        const read = chainGuarded(incidentWorkspaceStore.refresh(200, signal), () => {
+            if (workspacePayload?.connections) serviceConnectionsStore.ingest(workspacePayload.connections);
             const started = workspacePayload?.health?.startup_started_at;
-            if (typeof started === 'string') {
-                const window = { startTime: started, endTime: new Date().toISOString() };
-                const result = await fetchVisits({ ...window, limit: 25, requestKey: 'health:visits' });
+            if (typeof started !== 'string') {
+                serverVisits = [];
+                return guardedValue(true);
+            }
+            const window = { startTime: started, endTime: new Date().toISOString() };
+            const visits = fetchVisits({ ...window, limit: 25, requestKey: 'health:visits', timeoutMs: HEALTH_VISITS_TIMEOUT_MS, signal });
+            return mapGuarded(visits, (result) => {
                 serverVisits = result.visits.map((visit) => fromServerVisit(visit, window));
-            } else serverVisits = [];
-            lastRefreshedAt = Date.now();
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Failed to refresh incident workspace';
-            refreshError = message;
-            jobDiagnosticsStore.recordError({
-                source: 'runtime',
-                component: 'incident_workspace',
-                reasonCode: 'refresh_failed',
-                message,
-                severity: 'warning',
-                context: { scope: 'Errors.svelte' }
+                return true;
             });
-        } finally {
-            refreshing = false;
-        }
+        });
+        return mapGuarded(
+            read,
+            (ok) => {
+                refreshing = false;
+                return ok;
+            },
+            (error) => {
+                refreshing = false;
+                const message = error instanceof Error ? error.message : 'Failed to refresh incident workspace';
+                jobDiagnosticsStore.recordError({
+                    source: 'runtime',
+                    component: 'incident_workspace',
+                    reasonCode: 'refresh_failed',
+                    message,
+                    severity: 'warning',
+                    context: { scope: 'Errors.svelte' }
+                });
+                return false;
+            }
+        );
     }
 
     async function clearWorkspace() {
         clearing = true;
-        refreshError = '';
+        clearError = '';
         try {
             await incidentWorkspaceStore.clearRemote();
             jobDiagnosticsStore.clear();
             await incidentWorkspaceStore.refresh();
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to clear incident workspace';
-            refreshError = message;
+            clearError = message;
             jobDiagnosticsStore.recordError({
                 source: 'runtime',
                 component: 'incident_workspace',
@@ -228,11 +342,87 @@
         }
     }
 
+    /** Hide an item for everyone, then hand focus to Show dismissed so the keyboard is not lost. */
+    async function dismissItem(key: string, entries: DiagnosticDismissalEntry[], card: DismissedCard) {
+        if (dismissing || restoring || entries.length === 0) return;
+        dismissing = key;
+        dismissNotice = null;
+        dismissStatus = '';
+        try {
+            const result = await incidentWorkspaceStore.dismissRemote(entries);
+            // Enabled again before focus moves, since a disabled button cannot take it.
+            dismissing = null;
+            const outcome = dismissOutcome(result, incidentWorkspaceStore.isListed(key));
+            if (outcome === 'dismissed') {
+                dismissStatus = $_('jobs.health_dismiss.dismissed_status', { default: 'Dismissed. It shows again if it happens again.' });
+                await tick();
+                focusAfterDismissal(card);
+            } else if (outcome === 'happened_again') {
+                dismissNotice = { card, tone: 'info', message: $_('jobs.health_dismiss.happened_again', { default: 'It happened again while this page was open, so it is still listed. Dismiss it again to hide the newer occurrence too.' }) };
+                await tick();
+                if (!focusDismissButton(key)) dismissNoticeLines[card]?.focus();
+            } else {
+                dismissNotice = { card, tone: 'info', message: $_('jobs.health_dismiss.already_cleared', { default: 'This had already left the error history, for example after Clear error history or a restart, so there was nothing to dismiss.' }) };
+                await tick();
+                dismissNoticeLines[card]?.focus();
+            }
+        } catch (error) {
+            dismissNotice = { card, tone: 'error', message: $_('jobs.health_dismiss.dismiss_failed', { default: 'That could not be dismissed. Try again; if it keeps failing, check that YA-WAMF is running.' }) };
+            jobDiagnosticsStore.recordError({
+                source: 'runtime',
+                component: 'incident_workspace',
+                reasonCode: 'dismiss_failed',
+                message: error instanceof Error ? error.message : 'Failed to dismiss a Health item',
+                severity: 'warning',
+                context: { scope: 'Errors.svelte' }
+            });
+        } finally {
+            dismissing = null;
+        }
+    }
+
+    async function restoreItem(item: DismissedHealthItem, card: DismissedCard) {
+        if (dismissing || restoring) return;
+        restoring = item.key;
+        dismissNotice = null;
+        dismissStatus = '';
+        try {
+            await incidentWorkspaceStore.restoreRemote(item.entryIds);
+            const restoredText = $_('jobs.health_dismiss.restored_status', { default: 'Restored. It is listed again.' });
+            // Enabled again before focus moves, since a disabled button cannot take it.
+            restoring = null;
+            await tick();
+            // Back to the restored row's own Dismiss, then Show dismissed; when neither is on screen
+            // (the last item came back to a row beyond the lists' limits), the notice says so and takes focus.
+            if (focusDismissButton(item.key) || dismissedLists[card]?.focusToggle()) {
+                dismissStatus = restoredText;
+            } else {
+                dismissNotice = { card, tone: 'info', message: restoredText };
+                await tick();
+                dismissNoticeLines[card]?.focus();
+            }
+        } catch (error) {
+            dismissNotice = { card, tone: 'error', message: $_('jobs.health_dismiss.restore_failed', { default: 'That could not be restored. Try again; if it keeps failing, check that YA-WAMF is running.' }) };
+            jobDiagnosticsStore.recordError({
+                source: 'runtime',
+                component: 'incident_workspace',
+                reasonCode: 'restore_failed',
+                message: error instanceof Error ? error.message : 'Failed to restore a Health item',
+                severity: 'warning',
+                context: { scope: 'Errors.svelte' }
+            });
+        } finally {
+            restoring = null;
+        }
+    }
+
     function buildExportOptions(): DiagnosticsExportOptions {
+        // The bundle keeps what the owner dismissed, marked as dismissed, so a report is complete.
+        const incidents = incidentWorkspaceStore.exportIncidents();
         return {
             workspacePayload: workspacePayload ?? undefined,
-            currentIssues,
-            recentIncidents,
+            currentIssues: incidents.current,
+            recentIncidents: incidents.recent,
             reportNotes: reportNotes.trim() || undefined,
         };
     }
@@ -284,7 +474,14 @@
     }
 
     function bundleSummaryText(bundle: JobDiagnosticBundle): string {
-        return `${bundle.summary.error_groups.toLocaleString()} groups • ${bundle.summary.total_events.toLocaleString()} events • ${bundle.summary.health_snapshots.toLocaleString()} snapshots`;
+        return $_('jobs.error_bundles_stats', {
+            values: {
+                groups: bundle.summary.error_groups,
+                events: bundle.summary.total_events,
+                snapshots: bundle.summary.health_snapshots
+            },
+            default: '{groups, plural, one {# group} other {# groups}} · {events, plural, one {# event} other {# events}} · {snapshots, plural, one {# snapshot} other {# snapshots}}'
+        });
     }
 
     function bundleNotesPreview(bundle: JobDiagnosticBundle): string | null {
@@ -314,10 +511,6 @@
         return STATUS_SURFACE[statusTone(value)];
     }
 
-    function toneClass(value: string): string {
-        return STATUS_PILL[statusTone(value)];
-    }
-
     /** A reported status in words, in sentence case; a word we do not know is shown as sent. */
     function statusLabel(value: string): string {
         const key = statusLabelKey(value);
@@ -325,33 +518,103 @@
     }
 
     function overallStatus(): string {
-        return asText(health?.status, 'unknown');
+        return pushedStatus?.overall.state ?? asText(health?.status, 'unknown');
+    }
+
+    /** The hero's verdict: never healthy while the broker or Frigate is down or unread. */
+    function verdict(): string {
+        if (!workspacePayload) return 'unknown';
+        return withOpenIncidents(healthVerdict(overallStatus(), connections));
+    }
+
+    const GENERIC_DIAGNOSTIC_TITLE = 'A processing step failed in a way YA-WAMF does not recognise.';
+
+    /**
+     * A reason code in the reader's words, with what to try. The backend's message can carry an
+     * exception's text, paths and URLs, so it is never the title: an unknown code gets the generic
+     * cause, a next step that does not pretend to know the cause, and its message stays under
+     * Technical details.
+     */
+    function diagnosticWords(reasonCode: string | null | undefined): { title: string; next: string | null } {
+        const key = diagnosticWordsKey(reasonCode);
+        const title = $_(`jobs.diagnostic_words.${key}.title`, { default: '' })
+            || $_('jobs.diagnostic_words.generic.title', { default: GENERIC_DIAGNOSTIC_TITLE });
+        const next = $_(`jobs.diagnostic_words.${key}.next`, { default: '' });
+        return { title, next: next || null };
+    }
+
+    /** The raw words of an open or earlier incident, for its Technical details only. */
+    function incidentDetails(incident: { title: string; summary: string; primaryReasonCode: string }): string[] {
+        const title = incident.title.trim();
+        const summary = incident.summary.trim();
+        return [incident.primaryReasonCode, title, ...(summary && summary !== title ? [summary] : [])].filter(Boolean);
+    }
+
+    /** An open incident is never shown beside a healthy verdict. */
+    function withOpenIncidents(status: string): string {
+        if (currentIssues.length === 0) return status;
+        const value = status.toLowerCase();
+        return value === 'ok' || value === 'healthy' ? 'degraded' : status;
+    }
+
+    /** One short item per failed connection: what is wrong, then what to do. */
+    function problemItem(problem: HealthProblem): { title: string; next: string } {
+        const server = connections ? `${connections.mqtt.server}:${connections.mqtt.port}` : '';
+        const url = connections?.frigate.url ?? '';
+        switch (problem) {
+            case 'mqtt_down':
+                return {
+                    title: $_('jobs.errors_problem.mqtt_down', { values: { server }, default: 'The MQTT broker at {server} is not connected, so no new visits can be recorded.' }),
+                    next: $_('jobs.errors_problem.mqtt_down_next', { default: 'Check its address in Settings → Cameras & connection and that the broker is running.' })
+                };
+            case 'mqtt_not_configured':
+                return {
+                    title: $_('jobs.errors_problem.mqtt_not_configured', { default: 'No MQTT broker is set, so no visits can be recorded.' }),
+                    next: $_('jobs.errors_problem.mqtt_not_configured_next', { default: 'Add one in Settings → Cameras & connection.' })
+                };
+            case 'mqtt_stopped':
+                return {
+                    title: $_('jobs.errors_problem.mqtt_stopped', { default: 'The MQTT service is not running, so no new visits can be recorded.' }),
+                    next: $_('jobs.errors_problem.mqtt_stopped_next', { default: 'Restart YA-WAMF to start it again.' })
+                };
+            case 'frigate_down':
+                return {
+                    title: $_('jobs.errors_problem.frigate_down', { values: { url }, default: 'Frigate at {url} is not answering, so new visits cannot be saved.' }),
+                    next: $_('jobs.errors_problem.frigate_down_next', { default: 'Check its address in Settings → Cameras & connection and that Frigate is running.' })
+                };
+            case 'model_missing':
+                return {
+                    title: $_('jobs.errors_problem.model_missing', { default: 'The chosen identification model is not on this install, so no bird can be named.' }),
+                    next: $_('jobs.errors_problem.model_missing_next', { default: 'Download it, or choose one that is installed, in Settings → Identifying birds.' })
+                };
+        }
     }
 
     function overallSummary(): string {
         const status = overallStatus().toLowerCase();
+        if ((status === 'ok' || status === 'healthy') && connections === null) {
+            return $_('jobs.errors_summary_connections_unread', { default: 'Nothing inside YA-WAMF reports a fault, but the MQTT broker and Frigate connections could not be read.' });
+        }
         if (status === 'ok' || status === 'healthy') {
-            return $_('jobs.errors_summary_healthy', { default: 'All monitored services look healthy right now.' });
+            return $_('jobs.errors_summary_healthy', { default: 'Everything YA-WAMF checks is working.' });
+        }
+        if (statusTone(status) === 'unknown') {
+            return $_('jobs.errors_summary_unknown', { default: 'This reading did not say whether YA-WAMF is working, so no state is claimed.' });
         }
         if (status === 'degraded') {
-            return $_('jobs.errors_summary_degraded', { default: 'Some subsystems are under pressure or recovering, but the app is still serving traffic.' });
+            return $_('jobs.errors_summary_degraded', { default: 'Some parts are busy or recovering. YA-WAMF is still working.' });
         }
-        return $_('jobs.errors_summary_faults', { default: 'The app is reporting active faults that need attention.' });
+        return $_('jobs.errors_summary_faults', { default: 'Something is failing and needs your attention. The problems are listed below.' });
     }
 
+    /** When the verdict was measured; the pill beside it already says what it is. */
     function latestHealthLine(): string {
-        if (!workspaceCapturedAt) return 'No recent workspace snapshot yet.';
-        return $_('jobs.errors_latest_health', {
-            values: {
-                status: statusLabel(overallStatus()),
-                at: formatDateTime(workspaceCapturedAt)
-            },
-            default: 'Latest health: {status} at {at}'
-        });
+        if (!workspaceCapturedAt) return $_('jobs.errors_no_snapshot', { default: 'No health reading yet.' });
+        return $_('jobs.errors_read_at', { values: { at: formatDateTime(workspaceCapturedAt) }, default: 'Read at {at}' });
     }
 
     function eventPipelineStatus(): string {
-        return eventPipelineVerdict(health?.event_pipeline, overallStatus());
+        return pipelineCardStatus(eventPipelineVerdict(health?.event_pipeline, overallStatus()), connections);
     }
 
     function eventPipelineSummary(): string {
@@ -359,10 +622,14 @@
         const criticalFailureActive = pipeline.critical_failure_active === true;
         const criticalFailures = asNumber(pipeline.critical_failures);
         const faults = faultDropCount(pipeline);
+        if (eventPipelineStatus() === 'unknown') {
+            return $_('jobs.errors_pipeline_unmeasured', { default: 'Nothing can arrive while the MQTT broker is not connected, so these counts do not show whether processing works.' });
+        }
         if (criticalFailureActive) return $_('jobs.errors_pipeline_critical', { values: { count: criticalFailures }, default: '{count, plural, one {# critical failure recorded.} other {# critical failures recorded.}}' });
-        if (criticalFailures > 0) return $_('jobs.errors_pipeline_historical', { values: { count: criticalFailures }, default: '{count, plural, one {# historical failure recorded; pipeline has since recovered.} other {# historical failures recorded; pipeline has since recovered.}}' });
-        if (faults > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: faults }, default: '{count, plural, one {# event was dropped by a fault.} other {# events were dropped by a fault.}}' });
-        return $_('jobs.errors_pipeline_ok', { default: 'The ingest pipeline is processing detections normally.' });
+        if (criticalFailures > 0) return $_('jobs.errors_pipeline_historical', { values: { count: criticalFailures }, default: '{count, plural, one {# earlier failure recorded; processing has since recovered.} other {# earlier failures recorded; processing has since recovered.}}' });
+        if (faults > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: faults }, default: '{count, plural, one {# Frigate event was dropped by a fault.} other {# Frigate events were dropped by a fault.}}' });
+        if (asNumber(pipeline.started_events) === 0) return $_('jobs.errors_pipeline_idle', { default: 'Nothing has arrived from Frigate since this instance started.' });
+        return $_('jobs.errors_pipeline_ok', { default: 'What Frigate sends is being processed normally.' });
     }
 
     // Filtering is reported on its own, away from the health verdict: it is useful
@@ -378,7 +645,7 @@
         }
         return $_('jobs.errors_filtered_summary', {
             values: { count },
-            default: '{count, plural, one {# detection did not meet your detection settings.} other {# detections did not meet your detection settings.}} This is the filter working, not a fault.'
+            default: '{count, plural, one {# Frigate event did not pass your identification settings.} other {# Frigate events did not pass your identification settings.}} This is the filter working, not a fault.'
         });
     }
 
@@ -392,21 +659,105 @@
     }
 
     function mqttStatus(): string {
-        return asText(health?.mqtt?.pressure_level, 'unknown');
+        return mqttCardStatus(connections, asText(health?.mqtt?.pressure_level, 'unknown'));
+    }
+
+    function at(value: string | null | undefined): string {
+        const parsed = value ? Date.parse(value) : Number.NaN;
+        return Number.isFinite(parsed) ? formatDateTime(parsed) : $_('common.unknown', { default: 'unknown' });
     }
 
     function mqttSummary(): string {
+        if (!connections) {
+            return $_('jobs.errors_connections_unread', { default: 'The connection could not be read. Refresh to try again.' });
+        }
+        const link = connections.mqtt;
+        const server = `${link.server}:${link.port}`;
+        if (link.state === 'disconnected') {
+            return $_('jobs.errors_mqtt_disconnected', { values: { server, at: at(link.last_attempt_at) }, default: 'Not connected to {server}. Last tried {at}; it keeps retrying.' });
+        }
+        if (link.state === 'connecting') {
+            return $_('jobs.errors_mqtt_connecting', { values: { server }, default: 'Connecting to {server}.' });
+        }
+        if (link.state === 'not_configured') {
+            return $_('jobs.errors_problem.mqtt_not_configured', { default: 'No MQTT broker is set, so no visits can be recorded.' });
+        }
+        if (link.state === 'stopped') {
+            return $_('jobs.errors_problem.mqtt_stopped', { default: 'The MQTT service is not running, so no new visits can be recorded.' });
+        }
+        const connected = $_('jobs.errors_mqtt_connected', { values: { server, at: at(link.connected_since) }, default: 'Connected to {server} since {at}.' });
+        return `${connected} ${mqttLoadSummary()}`;
+    }
+
+    function frigateStatus(): string {
+        return frigateCardStatus(connections);
+    }
+
+    function frigateFailure(kind: string | null | undefined): string {
+        switch (kind) {
+            case 'timeout':
+                return $_('jobs.errors_frigate_failure.timeout', { default: 'it took too long to answer' });
+            case 'unauthorized':
+                return $_('jobs.errors_frigate_failure.unauthorized', { default: 'it refused the access token' });
+            case 'server_error':
+                return $_('jobs.errors_frigate_failure.server_error', { default: 'it reported an error of its own' });
+            default:
+                return $_('jobs.errors_frigate_failure.connection', { default: 'the address could not be reached' });
+        }
+    }
+
+    function frigateSummary(): string {
+        if (!connections) {
+            return $_('jobs.errors_connections_unread', { default: 'The connection could not be read. Refresh to try again.' });
+        }
+        const frigate = connections.frigate;
+        if (frigate.state === 'unreachable') {
+            return $_('jobs.errors_frigate_unreachable', { values: { url: frigate.url, at: at(frigate.checked_at), reason: frigateFailure(frigate.last_failure) }, default: 'Frigate at {url} did not answer at {at}: {reason}.' });
+        }
+        if (frigate.state === 'reachable') {
+            return $_('jobs.errors_frigate_reachable', { values: { url: frigate.url, at: at(frigate.checked_at) }, default: 'Frigate at {url} answered at {at}.' });
+        }
+        return $_('jobs.errors_frigate_unchecked', { values: { url: frigate.url }, default: 'Frigate at {url} has not been asked anything since this instance started.' });
+    }
+
+    function frigateAvailability(): string | null {
+        const availability = connections?.frigate.availability;
+        if (availability === 'online') return $_('jobs.errors_frigate_announced_online', { default: 'Frigate announces itself online over MQTT.' });
+        if (availability === 'offline') return $_('jobs.errors_frigate_announced_offline', { default: 'Frigate announces itself offline over MQTT.' });
+        return null;
+    }
+
+    /** The broker's last failure in words, from its cause code; its own text stays for the details. */
+    function mqttFailureCause(): string | null {
+        const link = connections?.mqtt;
+        if (!link || link.state !== 'disconnected' || !link.last_error) return null;
+        const worded = link.last_error_cause
+            ? connectionCauseMessage(link.last_error_cause, 'mqtt', `${link.server}:${link.port}`)
+            : null;
+        return worded ?? $_('jobs.errors_mqtt_cause_unknown', { default: 'The broker client gave a reason YA-WAMF does not recognise. It is shown under Technical details.' });
+    }
+
+    function videoSummary(): string {
+        if (videoClassifierCard.paused) {
+            return videoClassifierCard.pausedUntil
+                ? $_('jobs.errors_video_paused_until', { values: { at: at(videoClassifierCard.pausedUntil), count: videoClassifierCard.failureCount }, default: 'Video analysis is paused until {at}, after {count, plural, one {# failure} other {# failures}} in a row.' })
+                : $_('jobs.errors_video_paused', { values: { count: videoClassifierCard.failureCount }, default: 'Video analysis is paused after {count, plural, one {# failure} other {# failures}} in a row.' });
+        }
+        return $_('jobs.errors_video_not_paused', { values: { queued: videoClassifierCard.pending.toLocaleString(), running: videoClassifierCard.active.toLocaleString() }, default: 'Video analysis is not paused: {queued} waiting, {running} running.' });
+    }
+
+    function mqttLoadSummary(): string {
         const mqtt = health?.mqtt ?? {};
         const pressure = asText(mqtt.pressure_level, 'unknown').toLowerCase();
         const inFlight = asNumber(mqtt.in_flight);
         const capacity = asNumber(mqtt.in_flight_capacity);
         if (pressure === 'critical' || pressure === 'high') {
-            return $_('jobs.errors_mqtt_pressure', { values: { pressure, inFlight: inFlight.toLocaleString(), capacity: capacity.toLocaleString() }, default: `MQTT handlers are under ${pressure} pressure at ${inFlight}/${capacity} in flight.` });
+            return $_('jobs.errors_mqtt_pressure', { values: { pressure, inFlight: inFlight.toLocaleString(), capacity: capacity.toLocaleString() }, default: `The MQTT connection is under {pressure} load: {inFlight} of {capacity} messages being handled.` });
         }
         const reconnects = asNumber(mqtt.topic_liveness_reconnects);
         return reconnects > 0
-            ? $_('jobs.errors_mqtt_reconnected', { values: { count: reconnects }, default: 'MQTT recovered cleanly after {count, plural, one {# topic reconnect} other {# topic reconnects}}.' })
-            : $_('jobs.errors_mqtt_ok', { default: 'MQTT traffic is flowing normally.' });
+            ? $_('jobs.errors_mqtt_reconnected', { values: { count: reconnects }, default: 'MQTT is working again after {count, plural, one {# reconnect} other {# reconnects}}.' })
+            : $_('jobs.errors_mqtt_ok', { default: 'Messages are handled as they arrive.' });
     }
 
     function liveClassificationStatus(): string {
@@ -420,12 +771,12 @@
         const running = asNumber(live.in_flight);
         const maxConcurrent = asNumber(live.max_concurrent);
         if (live.recovery_active) {
-            return $_('jobs.errors_live_class_recovering', { values: { running: running.toLocaleString(), maxConcurrent: maxConcurrent.toLocaleString() }, default: `Live classification is recovering while ${running}/${maxConcurrent} slots are active.` });
+            return $_('jobs.errors_live_class_recovering', { values: { running: running.toLocaleString(), maxConcurrent: maxConcurrent.toLocaleString() }, default: `Naming is recovering: {running} of {maxConcurrent} running.` });
         }
         if (queued > 0) {
-            return $_('jobs.errors_live_class_queued', { values: { queued: queued.toLocaleString(), running: running.toLocaleString(), maxConcurrent: maxConcurrent.toLocaleString() }, default: `${queued.toLocaleString()} live items are queued behind ${running}/${maxConcurrent} active slots.` });
+            return $_('jobs.errors_live_class_queued', { values: { queued: queued.toLocaleString(), running: running.toLocaleString(), maxConcurrent: maxConcurrent.toLocaleString() }, default: `{queued} waiting to be named, behind {running} of {maxConcurrent} running.` });
         }
-        return $_('jobs.errors_live_class_ok', { default: 'Live classification capacity is currently clear.' });
+        return $_('jobs.errors_live_class_ok', { default: 'Nothing is waiting to be named.' });
     }
 
     function backgroundStatus(): string {
@@ -437,9 +788,9 @@
     function backgroundSummary(): string {
         const background = health?.ml?.background_image ?? {};
         if (background.background_throttled) {
-            return $_('jobs.errors_background_throttled', { values: { queued: asNumber(background.queued).toLocaleString() }, default: `Background work is throttled with ${asNumber(background.queued).toLocaleString()} items waiting.` });
+            return $_('jobs.errors_background_throttled', { values: { queued: asNumber(background.queued).toLocaleString() }, default: `Background work is held back, with {queued} waiting, so new visits are named first.` });
         }
-        return $_('jobs.errors_background_summary', { values: { queued: asNumber(background.queued).toLocaleString(), inFlight: asNumber(background.in_flight).toLocaleString() }, default: `${asNumber(background.queued).toLocaleString()} queued background items, ${asNumber(background.in_flight).toLocaleString()} in flight.` });
+        return $_('jobs.errors_background_plain', { values: { queued: asNumber(background.queued).toLocaleString(), running: asNumber(background.in_flight).toLocaleString() }, default: 'Background work: {queued} waiting, {running} running.' });
     }
 
     function dispatcherStatus(): string {
@@ -456,12 +807,12 @@
         const droppedJobs = asNumber(dispatcher.dropped_jobs);
         const dbWait = asNumber(dbPool.acquire_wait_max_ms);
         if (droppedJobs > 0) {
-            return $_('jobs.errors_dispatcher_dropped', { values: { count: droppedJobs }, default: 'Notification dispatcher dropped {count, plural, one {# job} other {# jobs}}.' });
+            return $_('jobs.errors_dispatcher_dropped', { values: { count: droppedJobs }, default: '{count, plural, one {# notification was not sent because too many were waiting.} other {# notifications were not sent because too many were waiting.}}' });
         }
         if (dbWait >= 5000) {
-            return $_('jobs.errors_dispatcher_db_wait', { values: { ms: dbWait.toLocaleString() }, default: `DB acquire wait reached ${dbWait.toLocaleString()}ms.` });
+            return $_('jobs.errors_dispatcher_db_wait', { values: { ms: dbWait.toLocaleString() }, default: `The longest wait for the database was {ms} ms.` });
         }
-        return $_('jobs.errors_dispatcher_ok', { default: 'Notification dispatch and DB pool look healthy.' });
+        return $_('jobs.errors_dispatcher_ok', { default: 'Notifications are being sent and the database is answering.' });
     }
 
     function startupStatus(): string {
@@ -470,11 +821,11 @@
 
     function startupSummary(): string {
         if (startupWarnings.length <= 0) {
-            return $_('jobs.errors_startup_ok', { default: 'No startup warnings are currently recorded.' });
+            return $_('jobs.errors_startup_ok', { default: 'YA-WAMF started without warnings.' });
         }
         const first = startupWarnings[0] ?? {};
-        const phase = asText((first as Record<string, unknown>).phase, $_('jobs.errors_unknown_phase', { default: 'Unknown phase' }));
-        return $_('jobs.errors_startup_summary', { values: { count: startupWarnings.length, phase }, default: '{count, plural, one {# startup warning recorded.} other {# startup warnings recorded.}} Latest phase: {phase}.' });
+        const phase = asText((first as Record<string, unknown>).phase, $_('jobs.errors_unknown_phase', { default: 'Unknown step' }));
+        return $_('jobs.errors_startup_summary', { values: { count: startupWarnings.length, phase }, default: '{count, plural, one {# start-up warning recorded.} other {# start-up warnings recorded.}} Latest step: {phase}.' });
     }
 
     function namingStatus(): string {
@@ -581,75 +932,157 @@
     function startedAgoText(): string {
         if (instanceWindow === null) return $_('common.unknown', { default: 'unknown' });
         const minutes = Math.floor(instanceWindow / 60000);
-        if (minutes < 60) return $_('about.instance.uptime_minutes', { values: { count: minutes }, default: '{count} min' });
+        if (minutes < 60) return $_('about.instance.uptime_minutes', { values: { count: minutes }, default: '{count} min' });
         const hours = Math.floor(minutes / 60);
-        return $_('about.instance.uptime_hours', { values: { count: hours }, default: '{count} h' });
+        return $_('about.instance.uptime_hours', { values: { count: hours }, default: '{count} h' });
     }
 
     function goToDetection(eventId: string): void {
         if (!eventId) return;
         onNavigate?.(`/events?event=${encodeURIComponent(eventId)}`);
     }
-
-    function refreshedAgoText(): string | null {
-        if (!lastRefreshedAt) return null;
-        const diff = Math.floor((Date.now() - lastRefreshedAt) / 1000);
-        if (diff < 10) return $_('jobs.errors_updated_just_now', { default: 'Updated just now' });
-        if (diff < 60) return $_('jobs.errors_updated_seconds', { values: { count: diff }, default: `Updated ${diff}s ago` });
-        return $_('jobs.errors_updated_minutes', { values: { count: Math.floor(diff / 60) }, default: `Updated ${Math.floor(diff / 60)}m ago` });
-    }
 </script>
+
+{#snippet subsystemHead(title: string, chip: string, tone: string, rawStatus: string)}
+    <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h4 class="text-sm font-bold text-strong">{title}</h4>
+        <!-- The state in words; the tone and its icon only repeat it. -->
+        <StatusChip tone={STATUS_TONE[statusTone(tone)]} label={chip} title={rawStatus} class="shrink-0" />
+    </div>
+{/snippet}
+
+{#snippet metricList(metrics: Array<{ label: string; value: string }>)}
+    <dl class="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
+        {#each metrics as metric (metric.label)}
+            <div class="min-w-0">
+                <dt class="wrap-break-word text-muted">{metric.label}</dt>
+                <dd class="wrap-break-word font-semibold tabular-nums text-strong">{metric.value}</dd>
+            </div>
+        {/each}
+    </dl>
+{/snippet}
+
+{#snippet dismissButton(key: string, titleId: string, entries: DiagnosticDismissalEntry[], card: DismissedCard)}
+    <button
+        type="button"
+        class="btn btn-secondary min-h-11 shrink-0 px-3 py-2 text-xs"
+        aria-describedby="{titleId} health-dismiss-effect"
+        disabled={dismissing !== null || restoring !== null || clearing}
+        onclick={() => dismissItem(key, entries, card)}
+        data-health-dismiss
+        data-health-dismiss-key={key}
+    >
+        {dismissing === key ? $_('jobs.health_dismiss.dismissing', { default: 'Dismissing…' }) : $_('jobs.health_dismiss.dismiss', { default: 'Dismiss' })}
+    </button>
+{/snippet}
+
+{#snippet dismissedFooter(card: DismissedCard, items: DismissedHealthItem[])}
+    {#if dismissNotice?.card === card}
+        <p
+            bind:this={dismissNoticeLines[card]}
+            tabindex="-1"
+            class="mt-4 text-sm font-semibold focus-ring {dismissNotice.tone === 'error' ? 'text-status-fail' : 'text-strong'}"
+            role={dismissNotice.tone === 'error' ? 'alert' : undefined}
+            data-health-dismiss-notice={dismissNotice.tone}
+        >{dismissNotice.message}</p>
+    {/if}
+    <HealthDismissedItems bind:this={dismissedLists[card]} {items} {restoring} onrestore={(item) => restoreItem(item, card)} />
+{/snippet}
+
+{#snippet technicalDetails(lines: string[])}
+    <details class="group mt-1">
+        <summary class="flex min-h-11 cursor-pointer items-center gap-1.5 text-xs font-semibold text-ink focus-ring">
+            <svg class="h-3.5 w-3.5 shrink-0 transition-transform duration-200 group-open:rotate-90" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+            {$_('common.technical_details', { default: 'Technical details' })}
+        </summary>
+        <div class="space-y-1 pb-1 font-mono text-xs wrap-anywhere text-ink">
+            {#each lines as line, index (index)}
+                <p>{line}</p>
+            {/each}
+        </div>
+    </details>
+{/snippet}
 
 <div class="space-y-6">
     <!-- One card for the system: whether it is working, then what the host is doing, then the
          detail behind the verdict. What happened follows as its own card. -->
-    <SystemHealthPanel>
-        {#snippet headerActions()}
-            <div class="flex flex-wrap items-center justify-end gap-2">
-                {#if refreshedAgoText()}
-                    <span class="text-xs text-slate-500 dark:text-slate-400">{refreshedAgoText()}</span>
-                {/if}
-                <button
-                    type="button"
-                    class="btn btn-secondary min-h-11 px-3 py-2 text-xs"
-                    onclick={clearWorkspace}
-                    disabled={clearing || refreshing}
-                >
-                    {clearing ? $_('jobs.errors_clearing', { default: 'Clearing…' }) : $_('jobs.errors_clear', { default: 'Clear Live Errors' })}
-                </button>
-            </div>
-        {/snippet}
-
+    <SystemHealthPanel statusRead={readState !== 'reading'}>
         {#snippet status()}
-            <div class="space-y-4" data-health-status>
-                <div class="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-2xl border px-5 py-4 {heroToneClass(overallStatus())}">
-                    <span class={`inline-flex shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${toneClass(overallStatus())}`} title={overallStatus()} data-health-status-pill>
-                        {statusLabel(overallStatus())}
-                    </span>
-                    <div class="min-w-0 flex-1">
-                        <h3 class="font-display text-lg font-bold text-slate-900 dark:text-white">{$_('jobs.errors_system_status', { default: 'System Status' })}</h3>
-                        <p class="text-sm text-slate-700 dark:text-slate-200">{overallSummary()}</p>
-                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{latestHealthLine()}</p>
+            <div class="space-y-4" data-health-status data-health-read-state={readState}>
+                <!-- Held at its usual height while the first reading is on its way, so its arrival moves nothing. -->
+                <div class="flex min-h-28 flex-wrap items-start gap-x-4 gap-y-2 rounded-2xl border px-4 py-4 sm:px-5 {heroToneClass(verdict())}">
+                    {#if readState !== 'reading' && readState !== 'failed'}
+                        <span class="inline-flex shrink-0" data-health-status-pill>
+                            <StatusChip tone={STATUS_TONE[statusTone(verdict())]} label={statusLabel(verdict())} title={verdict()} size="md" />
+                        </span>
+                    {/if}
+                    <div class="min-w-0 flex-1 wrap-break-word">
+                        <h3 class="font-display text-lg font-bold text-strong">{$_('jobs.errors_system_status', { default: 'System status' })}</h3>
+                        {#if readState === 'reading'}
+                            <p class="text-sm text-ink" data-health-reading>{$_('jobs.errors_reading', { default: 'Reading the latest health…' })}</p>
+                        {:else if readState === 'failed'}
+                            <!-- Nothing was measured, so nothing is claimed: no pill and no fault count. -->
+                            <p class="text-sm font-semibold text-strong" data-health-read-failed>{$_('jobs.errors_read_failed', { default: 'The health reading could not be loaded, so this page claims no state.' })}</p>
+                            <p class="text-sm text-ink">{$_('jobs.errors_read_failed_next', { default: 'Refresh to try again. If it keeps failing, check that the YA-WAMF backend is running.' })}</p>
+                            {@render technicalDetails([refreshError])}
+                        {:else}
+                            {#if openItems.length > 0}
+                                <ul class="mt-1 space-y-2" data-health-problems>
+                                    {#each openItems as item, index (item.key)}
+                                        {#if item.problem}
+                                            {@const text = problemItem(item.problem)}
+                                            <li class="wrap-break-word text-sm" data-health-problem={item.problem}>
+                                                <p class="font-semibold text-strong">{text.title}</p>
+                                                <p class="text-ink">{text.next}</p>
+                                            </li>
+                                        {:else if item.incident}
+                                            {@const text = diagnosticWords(item.incident.primaryReasonCode)}
+                                            {@const titleId = `health-open-${index}`}
+                                            <li class="wrap-break-word text-sm" data-health-open-incident>
+                                                <div class="flex flex-wrap items-start justify-between gap-x-3">
+                                                    <div class="min-w-0 flex-1 basis-48">
+                                                        <p id={titleId} class="font-semibold text-strong">{text.title}</p>
+                                                        {#if text.next}<p class="text-ink">{text.next}</p>{/if}
+                                                    </div>
+                                                    {#if item.incident.live}
+                                                        <!-- A live check shows this open now, so dismissing it could hide a real failure. -->
+                                                        <p class="py-3 text-xs text-ink" data-health-live-incident>{$_('jobs.health_dismiss.live_note', { default: 'Clears by itself when the check passes.' })}</p>
+                                                    {:else}
+                                                        {@render dismissButton(`incident:${item.incident.id}`, titleId, incidentWorkspaceStore.dismissalEntries(item.incident), 'backend')}
+                                                    {/if}
+                                                </div>
+                                                {@render technicalDetails(incidentDetails(item.incident))}
+                                            </li>
+                                        {/if}
+                                    {/each}
+                                </ul>
+                            {:else}
+                                <p class="text-sm text-ink">{overallSummary()}</p>
+                            {/if}
+                            {#if readState === 'stale' && lastReadAt}
+                                <p class="mt-2 text-sm font-semibold text-strong" data-health-stale>
+                                    {$_('jobs.errors_read_stale', { values: { at: formatDateTime(lastReadAt) }, default: 'The latest refresh failed, so this is the reading from {at}. Refresh to try again.' })}
+                                </p>
+                                {@render technicalDetails([refreshError])}
+                            {/if}
+                            <!-- Two lines on a phone, where the dated reading wraps; held so its arrival moves nothing. -->
+                            <p class="mt-1 min-h-8 text-xs text-ink sm:min-h-4">{latestHealthLine()}</p>
+                        {/if}
                     </div>
                 </div>
-                {#if refreshError}
-                    <p class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-800/50 dark:bg-rose-950/30 dark:text-rose-300">
-                        {refreshError}
-                    </p>
-                {/if}
                 {#if frigateMediaAdvisory.elevated}
                     <!-- ── Frigate media-unavailability advisory (Event Not Found guidance) ── -->
-                    <div class="rounded-2xl border border-attention-300/70 bg-attention-50/80 p-4 text-attention-900 dark:border-attention-500/40 dark:bg-attention-950/30 dark:text-attention-200">
+                    <div class="rounded-2xl border border-status-attention-line bg-status-attention-soft p-4 text-status-attention">
                         <div class="flex items-start gap-3">
                             <div class="mt-0.5 shrink-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                                 </svg>
                             </div>
                             <div class="min-w-0 flex-1">
-                                <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.frigate_media_advisory_title', { default: 'Frigate often has no snapshot for a detection' })}</h4>
-                                <p class="mt-1 text-sm font-semibold">{$_('jobs.frigate_media_advisory_body', { values: { percent: frigateMediaDropPercent, dropped: frigateMediaAdvisory.dropped.toLocaleString(), started: frigateMediaAdvisory.started.toLocaleString() }, default: `${frigateMediaDropPercent}% of recent detections (${frigateMediaAdvisory.dropped.toLocaleString()} of ${frigateMediaAdvisory.started.toLocaleString()}) were dropped because Frigate had no snapshot, thumbnail, or recording for them. This usually means briefly-tracked birds that never persist as Frigate events, or short recording retention.` })}</p>
-                                <a href={FRIGATE_MISSING_DOCS_URL} target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-xs font-bold uppercase tracking-widest underline underline-offset-2 hover:opacity-80">
+                                <h4 class="eyebrow text-inherit">{$_('jobs.frigate_media_advisory_title', { default: 'Frigate often has no snapshot for an event' })}</h4>
+                                <p class="mt-1 text-sm font-semibold">{$_('jobs.frigate_media_advisory_body', { values: { percent: frigateMediaDropPercent, dropped: frigateMediaAdvisory.dropped.toLocaleString(), started: frigateMediaAdvisory.started.toLocaleString() }, default: `{percent}% of recent Frigate events ({dropped} of {started}) were dropped because Frigate had no snapshot, thumbnail or recording for them. This usually means birds tracked too briefly for Frigate to keep, or recordings kept for too short a time.` })}</p>
+                                <a href={FRIGATE_MISSING_DOCS_URL} target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-xs font-bold underline underline-offset-2 hover:no-underline">
                                     {$_('jobs.frigate_media_advisory_link', { default: 'How to reduce this →' })}
                                 </a>
                             </div>
@@ -660,498 +1093,421 @@
         {/snippet}
 
         {#snippet details()}
-        <!-- ── Subsystem detail ────────────────────────────────── -->
+        <!-- ── Subsystem detail: one ruled list on the card's own surface. Each row is told apart by
+             its heading and says its state in a worded chip; nothing is tinted and no text is dimmed. ── -->
         <details class="border-t border-line-soft pt-4" data-subsystem-detail>
             <summary class="group flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2 eyebrow focus-ring">
-                <span>{$_('jobs.errors_subsystems_title', { default: 'Subsystem detail' })}</span>
-                <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                <span>{$_('jobs.errors_subsystems_title', { default: 'Detail by part' })}</span>
+                <svg class="h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
             </summary>
-            <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {#if !workspacePayload}
+                <StateBlock class="mt-2" state="not-measured" cause={$_('jobs.errors_subsystems_unread', { default: 'Nothing to show until a health reading has loaded.' })} />
+            {:else}
+            <ul class="mt-2 divide-y divide-line-soft" data-health-subsystems>
+                <li class="py-4" data-health-subsystem="pipeline">
+                    {@render subsystemHead($_('jobs.pipeline_title', { default: 'Pipeline' }), statusLabel(eventPipelineStatus()), eventPipelineStatus(), eventPipelineStatus())}
+                    <p class="mt-1 text-sm text-ink">{eventPipelineSummary()}</p>
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_started', { default: 'Started' }), value: asNumber(health?.event_pipeline?.started_events).toLocaleString() },
+                        { label: $_('jobs.errors_metric_completed', { default: 'Completed' }), value: asNumber(health?.event_pipeline?.completed_events).toLocaleString() },
+                        { label: $_('jobs.errors_metric_dropped', { default: 'Dropped' }), value: asNumber(health?.event_pipeline?.dropped_events).toLocaleString() },
+                        { label: $_('jobs.errors_metric_critical', { default: 'Critical' }), value: asNumber(health?.event_pipeline?.critical_failures).toLocaleString() }
+                    ])}
+                </li>
 
-            <!-- Event Pipeline -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(eventPipelineStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.pipeline_title', { default: 'Event Pipeline' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={eventPipelineStatus()}>{statusLabel(eventPipelineStatus())}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{eventPipelineSummary()}</p>
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_started', { default: 'Started' })}</span><span>{asNumber(health?.event_pipeline?.started_events).toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_completed', { default: 'Completed' })}</span><span>{asNumber(health?.event_pipeline?.completed_events).toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_dropped', { default: 'Dropped' })}</span><span>{asNumber(health?.event_pipeline?.dropped_events).toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_critical', { default: 'Critical' })}</span><span>{asNumber(health?.event_pipeline?.critical_failures).toLocaleString()}</span></div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            <!-- Filtered detections (expected, configuration-driven drops) -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(filteredStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L15 12.414V19a1 1 0 01-.553.894l-4 2A1 1 0 019 21v-8.586L3.293 6.707A1 1 0 013 6V4z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_filtered_title', { default: 'Filtered Detections' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{expectedDropCount(health?.event_pipeline).toLocaleString()}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{filteredSummary()}</p>
-                        {#if expectedDropReasons(health?.event_pipeline).length > 0}
-                            <dl class="mt-4 grid grid-cols-1 gap-2 text-xs font-semibold">
-                                {#each expectedDropReasons(health?.event_pipeline) as entry (entry.reason)}
-                                    <div class="flex items-baseline justify-between gap-3">
-                                        <dt class="min-w-0 truncate uppercase tracking-wider opacity-80">{filteredReasonLabel(entry.reason)}</dt>
-                                        <dd class="shrink-0">{entry.count.toLocaleString()}</dd>
-                                    </div>
-                                {/each}
-                            </dl>
-                            {#if recentFilteredDetections(health?.event_pipeline).length > 0}
-                                <div class="mt-4 border-t border-current/15 pt-3">
-                                    <p class="text-xs font-bold uppercase tracking-wider opacity-70">{$_('jobs.errors_filtered_recent', { default: 'Most recent' })}</p>
-                                    <ul class="mt-2 space-y-1.5 text-xs font-semibold">
-                                        {#each keyedPipelineDetections(recentFilteredDetections(health?.event_pipeline)) as { key, entry } (key)}
-                                            <li
-                                                class="flex items-baseline justify-between gap-3"
-                                                title={`${filteredReasonLabel(entry.reason)}${entry.timestamp ? ` · ${formatDateTime(Date.parse(entry.timestamp))}` : ''} · ${entry.eventId}`}
-                                            >
-                                                <span class="min-w-0 truncate italic">{entry.label ?? $_('common.unknown_species', { default: 'Unknown species' })}</span>
-                                                <span class="shrink-0 tabular-nums opacity-80">{filteredScoreLabel(entry.score)}</span>
-                                            </li>
-                                        {/each}
-                                    </ul>
+                <!-- Filtering is the detection settings working, not a state: its chip is a count in neutral ink. -->
+                <li class="py-4" data-health-subsystem="filtered">
+                    {@render subsystemHead($_('jobs.errors_filtered_title', { default: 'Filtered out' }), expectedDropCount(health?.event_pipeline).toLocaleString(), 'unknown', filteredStatus())}
+                    <p class="mt-1 text-sm text-ink">{filteredSummary()}</p>
+                    {#if expectedDropReasons(health?.event_pipeline).length > 0}
+                        <dl class="mt-2 grid grid-cols-1 gap-1 text-xs sm:max-w-md">
+                            {#each expectedDropReasons(health?.event_pipeline) as entry (entry.reason)}
+                                <div class="flex items-baseline justify-between gap-3">
+                                    <dt class="min-w-0 wrap-break-word text-ink">{filteredReasonLabel(entry.reason)}</dt>
+                                    <dd class="shrink-0 font-semibold tabular-nums text-strong">{entry.count.toLocaleString()}</dd>
                                 </div>
-                            {/if}
-                            <p class="mt-3 text-xs font-semibold opacity-70">{$_('jobs.errors_filtered_hint', { default: 'Adjust the confidence threshold in Settings → Detection to keep more of these.' })}</p>
-                        {/if}
-                    </div>
-                </div>
-            </article>
-
-            <!-- MQTT -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(mqttStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">MQTT</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={mqttStatus()}>{statusLabel(mqttStatus())}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{mqttSummary()}</p>
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_in_flight', { default: 'In Flight' })}</span><span>{asNumber(health?.mqtt?.in_flight).toLocaleString()} / {asNumber(health?.mqtt?.in_flight_capacity).toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_reconnects', { default: 'Reconnects' })}</span><span>{asNumber(health?.mqtt?.topic_liveness_reconnects).toLocaleString()}</span></div>
-                            <div class="col-span-2"><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_last_reconnect', { default: 'Last Reconnect Reason' })}</span><span>{asText(health?.mqtt?.last_reconnect_reason, $_('jobs.errors_no_reconnect_reason', { default: 'None recorded' }))}</span></div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            <!-- Live Classification -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(liveClassificationStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_live_classification', { default: 'Live Classification' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={liveClassificationStatus()}>{statusLabel(liveClassificationStatus())}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{liveClassificationSummary()}</p>
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_queued', { default: 'Queued' })}</span><span>{asNumber(health?.ml?.live_image?.queued).toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_in_flight', { default: 'In Flight' })}</span><span>{asNumber(health?.ml?.live_image?.in_flight).toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_capacity', { default: 'Capacity' })}</span><span>{asNumber(health?.ml?.live_image?.max_concurrent).toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_abandoned', { default: 'Abandoned' })}</span><span>{asNumber(health?.ml?.live_image?.abandoned).toLocaleString()}</span></div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            <!-- Video Classification -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(videoClassifierCard.status)}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_video_classification', { default: 'Video Classification' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={videoClassifierCard.status}>{statusLabel(videoClassifierCard.status)}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{videoClassifierCard.summary}</p>
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_pending', { default: 'Pending' })}</span><span>{videoClassifierCard.pending.toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_active', { default: 'Active' })}</span><span>{videoClassifierCard.active.toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_failures', { default: 'Failures' })}</span><span>{videoClassifierCard.failureCount.toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_open_until', { default: 'Open Until' })}</span><span>{videoClassifierCard.openUntil}</span></div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            <!-- Background Maintenance -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(backgroundStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_background_maintenance', { default: 'Background Maintenance' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={backgroundStatus()}>{statusLabel(backgroundStatus())}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{backgroundSummary()}</p>
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_queued', { default: 'Queued' })}</span><span>{asNumber(health?.ml?.background_image?.queued).toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_in_flight', { default: 'In Flight' })}</span><span>{asNumber(health?.ml?.background_image?.in_flight).toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_abandoned', { default: 'Abandoned' })}</span><span>{asNumber(health?.ml?.background_image?.abandoned).toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_throttled', { default: 'Throttled' })}</span><span>{health?.ml?.background_image?.background_throttled ? $_('common.yes', { default: 'Yes' }) : $_('common.no', { default: 'No' })}</span></div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            <!-- Notifications & DB -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(dispatcherStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_notifications_db', { default: 'Notifications & DB' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={dispatcherStatus()}>{statusLabel(dispatcherStatus())}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{dispatcherSummary()}</p>
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_dropped_jobs', { default: 'Dropped Jobs' })}</span><span>{asNumber(health?.notification_dispatcher?.dropped_jobs).toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_queue_size', { default: 'Queue Size' })}</span><span>{asNumber(health?.notification_dispatcher?.queue_size).toLocaleString()} / {asNumber(health?.notification_dispatcher?.queue_max).toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_db_wait_max', { default: 'DB Wait Max' })}</span><span>{asNumber(health?.db_pool?.acquire_wait_max_ms).toLocaleString()}ms</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_db_timeouts', { default: 'DB Timeouts' })}</span><span>{asNumber(health?.db_pool?.acquire_timeouts).toLocaleString()}</span></div>
-                        </div>
-                    </div>
-                </div>
-            </article>
-
-            <!-- Naming sources -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(namingStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_naming', { default: 'Naming Sources' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={namingStatus()}>{statusLabel(namingStatus())}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{namingSummary()}</p>
-                        <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_offline_species', { default: 'Offline Species' })}</span><span>{asNumber(health?.naming?.species_reference?.taxon_count).toLocaleString()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_languages', { default: 'Languages' })}</span><span>{namingLocales()}</span></div>
-                            <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_catalog', { default: 'Catalogue species' })}</span><span>{catalogSpecies()}</span></div>
-                        </div>
-                        {#if catalogSummary()}
-                            <p class="mt-3 text-xs font-semibold opacity-80">{catalogSummary()}</p>
-                        {/if}
-                        {#if catalogSources().length > 0}
-                            <div class="mt-4 border-t border-current/20 pt-3">
-                                <span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_catalog_sources', { default: 'Catalogue sources' })}</span>
-                                <ul class="mt-2 space-y-2 text-xs">
-                                    {#each catalogSources() as source}
-                                        <li>
-                                            <span class="font-semibold">{source.heading}</span>
-                                            {#if source.citation}
-                                                <span class="mt-0.5 block opacity-70">{source.citation}</span>
-                                            {/if}
-                                        </li>
-                                    {/each}
-                                </ul>
-                                <p class="mt-3 text-xs opacity-70">{$_('jobs.errors_catalog_rollback', { default: 'The catalogue is a separate file from your detection history. Rolling one back changes names, never your recorded sightings, and a backup of the data directory covers both.' })}</p>
-                            </div>
-                        {/if}
-                    </div>
-                </div>
-            </article>
-
-            <!-- Startup Warnings -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(startupStatus())}">
-                <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 opacity-70">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center justify-between gap-2">
-                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_startup_warnings', { default: 'Startup Warnings' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={startupStatus()}>{statusLabel(startupStatus())}</span>
-                        </div>
-                        <p class="mt-2 text-sm font-semibold">{startupSummary()}</p>
-                        <div class="mt-4 space-y-2 text-xs font-semibold">
-                            {#if startupWarnings.length === 0}
-                                <p class="opacity-80">{$_('jobs.errors_no_startup_warnings', { default: 'No startup warnings captured in the current workspace snapshot.' })}</p>
-                            {:else}
-                                {#each startupWarnings.slice(0, 2) as warning}
-                                    <div class="rounded-2xl bg-white/70 px-3 py-2 dark:bg-slate-950/40">
-                                        <p class="text-xs uppercase tracking-wider opacity-80">{asText((warning as Record<string, unknown>).phase, $_('jobs.errors_unknown_phase', { default: 'Unknown phase' }))}</p>
-                                        <p class="mt-1">{asText((warning as Record<string, unknown>).error, $_('jobs.errors_unknown_warning', { default: 'Unknown warning' }))}</p>
-                                    </div>
+                            {/each}
+                        </dl>
+                        {#if recentFilteredDetections(health?.event_pipeline).length > 0}
+                            <p class="mt-3 text-xs font-bold text-ink">{$_('jobs.errors_filtered_recent', { default: 'Most recent' })}</p>
+                            <ul class="mt-1 space-y-1 text-xs sm:max-w-md">
+                                {#each keyedPipelineDetections(recentFilteredDetections(health?.event_pipeline)) as { key, entry } (key)}
+                                    <li
+                                        class="flex items-baseline justify-between gap-3"
+                                        title={`${filteredReasonLabel(entry.reason)}${entry.timestamp ? ` · ${formatDateTime(Date.parse(entry.timestamp))}` : ''} · ${entry.eventId}`}
+                                    >
+                                        <span class="min-w-0 wrap-break-word italic text-strong">{entry.label ?? $_('common.unknown_species', { default: 'Species not named' })}</span>
+                                        <span class="shrink-0 tabular-nums text-ink">{filteredScoreLabel(entry.score)}</span>
+                                    </li>
                                 {/each}
-                            {/if}
-                        </div>
-                    </div>
-                </div>
-            </article>
+                            </ul>
+                        {/if}
+                        <p class="mt-2 text-xs text-ink">{$_('jobs.errors_filtered_hint', { default: 'Lower the minimum confidence floor in Settings → Identifying birds to keep more of these as Unknown bird.' })}</p>
+                    {/if}
+                </li>
 
-            </div>
+                <!-- MQTT: the connection first, then how hard its handlers are working. -->
+                <li class="py-4" data-health-card="mqtt" data-health-card-status={mqttStatus()}>
+                    {@render subsystemHead('MQTT', statusLabel(mqttStatus()), mqttStatus(), mqttStatus())}
+                    <p class="mt-1 wrap-break-word text-sm text-ink">{mqttSummary()}</p>
+                    {#if mqttFailureCause()}
+                        <p class="mt-1 wrap-break-word text-sm text-ink" data-health-mqtt-cause>{mqttFailureCause()}</p>
+                        {@render technicalDetails([connections?.mqtt.last_error ?? ''])}
+                    {/if}
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_handling', { default: 'Messages being handled' }), value: $_('jobs.errors_metric_of', { values: { count: asNumber(health?.mqtt?.in_flight).toLocaleString(), total: asNumber(health?.mqtt?.in_flight_capacity).toLocaleString() }, default: '{count} of {total}' }) },
+                        { label: $_('jobs.errors_metric_reconnects', { default: 'Reconnects' }), value: asNumber(health?.mqtt?.topic_liveness_reconnects).toLocaleString() },
+                        { label: $_('jobs.errors_metric_last_reconnect', { default: 'Last reconnect reason' }), value: asText(health?.mqtt?.last_reconnect_reason, $_('jobs.errors_no_reconnect_reason', { default: 'None recorded' })) }
+                    ])}
+                </li>
+
+                <!-- Frigate: whether its API answered the latest request. -->
+                <li class="py-4" data-health-card="frigate" data-health-card-status={frigateStatus()}>
+                    {@render subsystemHead($_('jobs.errors_card_frigate', { default: 'Frigate' }), statusLabel(frigateStatus()), frigateStatus(), frigateStatus())}
+                    <p class="mt-1 wrap-break-word text-sm text-ink">{frigateSummary()}</p>
+                    {#if frigateAvailability()}
+                        <p class="mt-1 text-sm text-ink">{frigateAvailability()}</p>
+                    {/if}
+                </li>
+
+                <li class="py-4" data-health-subsystem="live">
+                    {@render subsystemHead($_('jobs.errors_card_live_classification', { default: 'Naming new visits' }), statusLabel(liveClassificationStatus()), liveClassificationStatus(), liveClassificationStatus())}
+                    <p class="mt-1 text-sm text-ink">{liveClassificationSummary()}</p>
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_waiting', { default: 'Waiting' }), value: asNumber(health?.ml?.live_image?.queued).toLocaleString() },
+                        { label: $_('jobs.errors_metric_being_named', { default: 'Being named now' }), value: asNumber(health?.ml?.live_image?.in_flight).toLocaleString() },
+                        { label: $_('jobs.errors_metric_at_once', { default: 'At most at once' }), value: asNumber(health?.ml?.live_image?.max_concurrent).toLocaleString() },
+                        { label: $_('jobs.errors_metric_given_up', { default: 'Given up' }), value: asNumber(health?.ml?.live_image?.abandoned).toLocaleString() }
+                    ])}
+                </li>
+
+                <li class="py-4" data-health-subsystem="video">
+                    {@render subsystemHead($_('jobs.errors_card_video_classification', { default: 'Video analysis' }), statusLabel(videoClassifierCard.status), videoClassifierCard.status, videoClassifierCard.status)}
+                    <p class="mt-1 text-sm text-ink">{videoSummary()}</p>
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_waiting', { default: 'Waiting' }), value: videoClassifierCard.pending.toLocaleString() },
+                        { label: $_('jobs.errors_metric_running', { default: 'Running' }), value: videoClassifierCard.active.toLocaleString() },
+                        { label: $_('jobs.errors_metric_failures_in_a_row', { default: 'Failures in a row' }), value: videoClassifierCard.failureCount.toLocaleString() }
+                    ])}
+                </li>
+
+                <li class="py-4" data-health-subsystem="background">
+                    {@render subsystemHead($_('jobs.errors_card_background_maintenance', { default: 'Background work' }), statusLabel(backgroundStatus()), backgroundStatus(), backgroundStatus())}
+                    <p class="mt-1 text-sm text-ink">{backgroundSummary()}</p>
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_waiting', { default: 'Waiting' }), value: asNumber(health?.ml?.background_image?.queued).toLocaleString() },
+                        { label: $_('jobs.errors_metric_running', { default: 'Running' }), value: asNumber(health?.ml?.background_image?.in_flight).toLocaleString() },
+                        { label: $_('jobs.errors_metric_given_up', { default: 'Given up' }), value: asNumber(health?.ml?.background_image?.abandoned).toLocaleString() },
+                        { label: $_('jobs.errors_metric_held_back', { default: 'Held back for live work' }), value: health?.ml?.background_image?.background_throttled ? $_('common.yes', { default: 'Yes' }) : $_('common.no', { default: 'No' }) }
+                    ])}
+                </li>
+
+                <li class="py-4" data-health-subsystem="dispatch">
+                    {@render subsystemHead($_('jobs.errors_card_notifications_db', { default: 'Notifications and database' }), statusLabel(dispatcherStatus()), dispatcherStatus(), dispatcherStatus())}
+                    <p class="mt-1 text-sm text-ink">{dispatcherSummary()}</p>
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_notifications_dropped', { default: 'Notifications dropped' }), value: asNumber(health?.notification_dispatcher?.dropped_jobs).toLocaleString() },
+                        { label: $_('jobs.errors_metric_waiting_to_send', { default: 'Waiting to send' }), value: $_('jobs.errors_metric_of', { values: { count: asNumber(health?.notification_dispatcher?.queue_size).toLocaleString(), total: asNumber(health?.notification_dispatcher?.queue_max).toLocaleString() }, default: '{count} of {total}' }) },
+                        { label: $_('jobs.errors_metric_db_longest_wait', { default: 'Longest wait for the database' }), value: `${asNumber(health?.db_pool?.acquire_wait_max_ms).toLocaleString()} ms` },
+                        { label: $_('jobs.errors_metric_db_waits_timed_out', { default: 'Database waits that timed out' }), value: asNumber(health?.db_pool?.acquire_timeouts).toLocaleString() }
+                    ])}
+                </li>
+
+                <li class="py-4" data-health-subsystem="naming">
+                    {@render subsystemHead($_('jobs.errors_card_naming', { default: 'Naming sources' }), statusLabel(namingStatus()), namingStatus(), namingStatus())}
+                    <p class="mt-1 text-sm text-ink">{namingSummary()}</p>
+                    {@render metricList([
+                        { label: $_('jobs.errors_metric_offline_species', { default: 'Offline species' }), value: asNumber(health?.naming?.species_reference?.taxon_count).toLocaleString() },
+                        { label: $_('jobs.errors_metric_languages', { default: 'Languages' }), value: namingLocales() },
+                        { label: $_('jobs.errors_metric_catalog', { default: 'Catalogue species' }), value: catalogSpecies() }
+                    ])}
+                    {#if catalogSummary()}
+                        <p class="mt-2 text-xs text-ink">{catalogSummary()}</p>
+                    {/if}
+                    {#if catalogSources().length > 0}
+                        <p class="mt-3 text-xs font-bold text-ink">{$_('jobs.errors_catalog_sources', { default: 'Catalogue sources' })}</p>
+                        <ul class="mt-1 space-y-2 text-xs">
+                            {#each catalogSources() as source}
+                                <li>
+                                    <span class="font-semibold text-strong">{source.heading}</span>
+                                    {#if source.citation}
+                                        <span class="mt-0.5 block text-ink">{source.citation}</span>
+                                    {/if}
+                                </li>
+                            {/each}
+                        </ul>
+                        <p class="mt-2 text-xs text-ink">{$_('jobs.errors_catalog_rollback', { default: 'The catalogue is a separate file from your visit history. Rolling one back changes names, never your recorded visits, and a backup of the data folder covers both.' })}</p>
+                    {/if}
+                </li>
+
+                <li class="py-4" data-health-subsystem="startup">
+                    {@render subsystemHead($_('jobs.errors_card_startup_warnings', { default: 'Startup warnings' }), statusLabel(startupStatus()), startupStatus(), startupStatus())}
+                    <p class="mt-1 text-sm text-ink">{startupSummary()}</p>
+                    {#if startupWarnings.length > 0}
+                        <ul class="mt-2 space-y-2 text-xs">
+                            {#each startupWarnings.slice(0, 2) as warning}
+                                <li>
+                                    <p class="text-ink">{asText((warning as Record<string, unknown>).phase, $_('jobs.errors_unknown_phase', { default: 'Unknown step' }))}</p>
+                                    <p class="font-semibold wrap-break-word text-strong">{asText((warning as Record<string, unknown>).error, $_('jobs.errors_unknown_warning', { default: 'Unknown warning' }))}</p>
+                                </li>
+                            {/each}
+                        </ul>
+                    {/if}
+                </li>
+            </ul>
+            {/if}
         </details>
         {/snippet}
     </SystemHealthPanel>
 
-    <!-- ── What happened: one thread of kept visits and filtered frames ── -->
-    <section class="panel" data-health-timeline>
-        <header class="flex flex-wrap items-end justify-between gap-3 pb-1">
-            <div class="min-w-0">
-                <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">
-                    {$_('jobs.errors_activity_title', { default: 'What happened' })}
-                </h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400">
-                    {$_('jobs.errors_activity_subtitle', {
-                        default: 'Recorded visits, filtered detections and pipeline faults, in the order they happened'
-                    })}
-                </p>
-            </div>
-            <span class="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                {$_('jobs.errors_activity_window', {
-                    values: { started: startedAgoText() },
-                    default: 'Since this instance started, {started}'
+    <!-- Everything below the System card comes from the same reading as the verdict, or sits
+         beneath it, so it is shown with that reading: the verdict's length then moves nothing.
+         ── What happened: one thread of kept visits and filtered frames ── -->
+    {#if readState !== 'reading'}
+    <!-- From 1280px what happened takes the main column, and the history and the export, looked up
+         rather than read through, stand in a side column beside it. -->
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-12 xl:items-start">
+        <div class="min-w-0 xl:col-span-8" data-health-main>
+            <Panel
+                title={$_('jobs.errors_activity_title', { default: 'What happened' })}
+                description={$_('jobs.errors_activity_subtitle', {
+                    default: 'Recorded visits, filtered events and faults, in the order they happened'
                 })}
-            </span>
-        </header>
+                data-health-timeline
+            >
+                {#snippet actions()}
+                    <span class="min-w-0 rounded-2xl border border-line px-2.5 py-1 text-xs font-semibold tabular-nums text-muted">
+                        {$_('jobs.errors_activity_window', {
+                            values: { started: startedAgoText() },
+                            default: 'Since this instance started, {started}'
+                        })}
+                    </span>
+                {/snippet}
 
-        {#if instanceWindow === null}
-            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">
-                {$_('jobs.errors_activity_no_window', {
-                    default: 'This instance has not reported when it started, so activity cannot be placed in a window yet.'
-                })}
-            </p>
-        {:else}
-            <div class="mt-3">
-                <HealthActivityTimeline
-                    rows={timelineRows}
-                    emptyMessage={$_('jobs.errors_activity_empty', {
-                        values: { started: startedAgoText() },
-                        default: 'No detection activity has been reported since this instance started {started} ago.'
-                    })}
-                    hiddenCount={timelineHidden}
-                    hiddenLabel={$_('jobs.errors_activity_earlier', {
-                        values: { count: timelineHidden },
-                        default: '{count, plural, one {# earlier event in this window} other {# earlier events in this window}}'
-                    })}
-                    loading={detectionsStore.isLoading && timelineRows.length === 0}
-                    onselect={(detection) => goToDetection(detection.frigate_event)}
-                />
-            </div>
-        {/if}
-    </section>
-
-    <!-- ── Current Issues + Recent Diagnostics ────────────────────── -->
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
-        <section class="panel" data-health-current-issues>
-            <div class="mb-4 flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.current_issues_title', { default: 'Current Issues' })}</h2>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">{$_('jobs.errors_active_incidents_desc', { default: 'Active incidents that need attention.' })}</p>
-                </div>
-                <span class="shrink-0 rounded-full border border-line px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">{currentIssues.length.toLocaleString()} open</span>
-            </div>
-            <div class="space-y-3">
-                {#if currentIssues.length === 0}
-                    <p class="text-sm text-slate-500 dark:text-slate-400">{$_('jobs.current_issues_empty', { default: 'No current incidents detected.' })}</p>
+                {#if !workspacePayload}
+                    <!-- Shown only after the first reading failed: without it the start time is unknown. -->
+                    <StateBlock class="mt-4" state="not-measured" cause={$_('jobs.errors_activity_unread', { default: 'Activity cannot be shown until a health reading has loaded.' })} />
+                {:else if instanceWindow === null}
+                    <StateBlock
+                        class="mt-4"
+                        compact
+                        state="not-measured"
+                        cause={$_('jobs.errors_activity_no_window', {
+                            default: 'This instance has not reported when it started, so activity cannot be placed in a window yet.'
+                        })}
+                    />
                 {:else}
-                    {#each currentIssues as incident (incident.id)}
-                        <article class="rounded-xl border border-line-soft bg-surface-raised/60 px-4 py-3">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <span class={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${toneClass(incident.severity)}`} title={incident.status}>
-                                    {statusLabel(incident.status)}
-                                </span>
-                                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
-                            </div>
-                            <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
-                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-300">{incident.summary}</p>
-                        </article>
-                    {/each}
-                {/if}
-
-                {#if recentIncidents.length > 0}
-                    <div class="pt-3">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">{$_('jobs.recent_incidents_title', { default: 'Recent Incidents' })}</h4>
-                        <div class="mt-3 space-y-2">
-                            {#each recentIncidents.slice(0, 4) as incident (incident.id)}
-                                <article class="rounded-xl border border-line-soft bg-surface-raised/60 px-4 py-3">
-                                    <div class="flex items-center justify-between gap-2">
-                                        <span class={`inline-flex rounded-full border px-2 py-0.5 text-xs font-bold ${toneClass(incident.severity)}`} title={incident.status}>
-                                            {statusLabel(incident.status)}
-                                        </span>
-                                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
-                                    </div>
-                                    <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
-                                </article>
-                            {/each}
-                        </div>
+                    <div class="mt-3">
+                        <HealthActivityTimeline
+                            rows={timelineRows}
+                            emptyMessage={$_('jobs.errors_activity_empty', {
+                                values: { started: startedAgoText() },
+                                default: 'No visits, filtered events or faults have been reported since this instance started {started} ago.'
+                            })}
+                            hiddenCount={timelineHidden}
+                            hiddenLabel={$_('jobs.errors_activity_earlier', {
+                                values: { count: timelineHidden },
+                                default: '{count, plural, one {# earlier event in this window} other {# earlier events in this window}}'
+                            })}
+                            loading={refreshing && timelineRows.length === 0}
+                            onselect={(detection) => goToDetection(detection.frigate_event)}
+                        />
                     </div>
                 {/if}
-            </div>
-        </section>
-
-        <section class="panel" data-health-backend-diagnostics>
-            <div class="mb-4 flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.errors_backend_diagnostics_title', { default: 'Recent Backend Diagnostics' })}</h2>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">{$_('jobs.errors_backend_diagnostics_desc', { default: 'Newest warnings and errors from the backend workspace snapshot.' })}</p>
-                </div>
-                <span class="shrink-0 rounded-full border border-line px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">{backendEvents.length.toLocaleString()} events</span>
-            </div>
-            {#if backendEvents.length === 0}
-                <p class="text-sm text-slate-500 dark:text-slate-400">{$_('jobs.errors_empty', { default: 'No grouped errors recorded yet.' })}</p>
-            {:else}
-                <div class="space-y-3">
-                    {#each backendEvents.slice(0, 8) as event (event.id)}
-                        <article class={`rounded-2xl border px-4 py-3 ${toneClass(event.severity ?? 'warning')}`}>
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex rounded-full border border-current/20 px-2 py-0.5 text-xs font-bold" title={event.severity}>
-                                        {statusLabel(event.severity ?? 'warning')}
-                                    </span>
-                                    <span class="font-mono text-xs opacity-80">
-                                        {event.component} · {event.reason_code}
-                                    </span>
-                                </div>
-                                <span class="text-xs font-semibold uppercase tracking-wider opacity-70">{formatDateTime(Date.parse(event.timestamp))}</span>
-                            </div>
-                            <p class="mt-2 text-sm font-semibold">{event.message}</p>
-                            {#if event.event_id || event.correlation_key}
-                                <p class="mt-2 text-xs opacity-80">
-                                    {#if event.event_id}<span>Event {event.event_id}</span>{/if}
-                                    {#if event.event_id && event.correlation_key}<span> • </span>{/if}
-                                    {#if event.correlation_key}<span>{event.correlation_key}</span>{/if}
-                                </p>
-                            {/if}
-                        </article>
-                    {/each}
-                </div>
-            {/if}
-        </section>
-    </div>
-
-    <!-- ── Diagnostics export ──────────────────────────────────────
-         Engineer-facing plumbing: useful when reporting a problem, noise on a
-         page whose job is to say whether the feeder is working. It sits behind
-         the same disclosure the subsystem detail uses. -->
-    <details class="panel" data-diagnostics-export>
-        <summary class="group flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-3 text-xs font-bold uppercase tracking-widest text-slate-500 focus-ring dark:text-slate-400">
-            <span class="flex items-center gap-2">
-                <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
-                {$_('jobs.errors_export_title', { default: 'Diagnostics export' })}
-            </span>
-            <span class="font-semibold normal-case tracking-normal text-slate-400">
-                {$_('jobs.errors_export_count', {
-                    values: { count: bundles.length.toLocaleString() },
-                    default: '{count} saved'
-                })}
-            </span>
-        </summary>
-
-        <p class="mt-4 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
-            {$_('jobs.errors_export_desc', {
-                default: 'A bundle captures workspace health, backend diagnostics, classifier status, startup warnings and incidents as one JSON file. Attach one when you report a problem.'
-            })}
-        </p>
-
-        <textarea
-            class="input-base mt-4 min-h-16 w-full text-sm"
-            rows="2"
-            bind:value={reportNotes}
-            placeholder={$_('jobs.errors_export_notes_placeholder', { default: 'What went wrong? Included in the bundle.' })}
-            aria-label={$_('jobs.errors_export_notes_placeholder', { default: 'What went wrong? Included in the bundle.' })}
-        ></textarea>
-
-        <div class="mt-3 flex flex-wrap items-center gap-2">
-            <input
-                class="input-base h-11 min-w-0 flex-1 text-sm sm:max-w-sm"
-                type="text"
-                bind:value={captureLabel}
-                placeholder={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
-                aria-label={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
-            />
-            <button type="button" class="btn btn-primary min-h-11 px-4 text-xs" onclick={() => exportCurrent(true)} disabled={exporting || refreshing || clearing}>
-                {$_('jobs.error_bundles_capture', { default: 'Capture Bundle' })}
-            </button>
-            <button type="button" class="btn btn-secondary min-h-11 px-4 text-xs" onclick={() => exportCurrent(false)} disabled={exporting || refreshing || clearing}>
-                {$_('jobs.errors_export_download_now', { default: 'Download without saving' })}
-            </button>
+            </Panel>
         </div>
 
-        {#if exportError}
-            <p class="mt-3 text-sm text-rose-700 dark:text-rose-300" role="alert">{exportError}</p>
-        {/if}
+        <div class="min-w-0 space-y-6 xl:col-span-4" data-health-side>
 
-        {#if bundles.length === 0}
-            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">
-                {$_('jobs.errors_no_bundles', { default: 'No captured bundles available yet.' })}
-            </p>
-        {:else}
-            <ul class="mt-5 divide-y divide-slate-200/70 border-t border-slate-200/70 dark:divide-slate-700/50 dark:border-slate-700/50">
-                {#each bundles as bundle (bundle.id)}
-                    <li class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
-                        <div class="min-w-0 flex-1">
-                            <p class="truncate text-sm font-semibold text-slate-900 dark:text-white">{bundle.label}</p>
-                            <p class="mt-0.5 text-xs tabular-nums text-slate-500 dark:text-slate-400">
-                                {formatDateTime(bundle.createdAt)} · {bundleSummaryText(bundle)}
-                            </p>
-                            {#if bundleNotesPreview(bundle)}
-                                <p class="mt-1 truncate text-xs text-slate-600 dark:text-slate-300">{bundleNotesPreview(bundle)}</p>
-                            {/if}
-                        </div>
-                        <div class="flex shrink-0 items-center gap-1">
-                            <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" onclick={() => downloadBundle(bundle)}>
-                                {$_('jobs.error_bundles_download', { default: 'Download' })}
-                            </button>
-                            <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(bundle.id)}>
-                                {$_('jobs.error_bundles_delete', { default: 'Delete' })}
-                            </button>
-                        </div>
-                    </li>
-                {/each}
-            </ul>
-            <button type="button" class="btn btn-ghost mt-3 min-h-11 px-3 text-xs" onclick={() => jobDiagnosticsStore.clearBundles()}>
-                {$_('jobs.error_bundles_clear', { default: 'Clear Bundles' })}
-            </button>
-        {/if}
-    </details>
+            <!-- ── Earlier incidents + backend warnings ────────────────────── -->
+            <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-1">
+                <Panel
+                    title={$_('jobs.earlier_incidents_title', { default: 'Earlier incidents' })}
+                    description={$_('jobs.earlier_incidents_desc', { default: 'Problems that have since cleared. What is open now is listed with the system status above.' })}
+                    data-health-earlier-incidents
+                >
+                    <!-- The clearing action sits with the history it clears, not above the live status. -->
+                    {#snippet actions()}
+                        <button
+                            type="button"
+                            class="btn btn-secondary min-h-11 px-3 py-2 text-xs"
+                            onclick={clearWorkspace}
+                            disabled={clearing || refreshing}
+                            aria-describedby="health-clear-effect"
+                            data-health-clear
+                        >
+                            {clearing ? $_('jobs.errors_clearing', { default: 'Clearing…' }) : $_('jobs.errors_clear', { default: 'Clear error history' })}
+                        </button>
+                        <span id="health-clear-effect" class="sr-only">{$_('jobs.errors_clear_effect', { default: 'Removes recorded errors and incidents now. Live checks carry on.' })}</span>
+                    {/snippet}
+                    {#if clearError}
+                        <p class="mt-4 text-sm font-semibold text-status-fail" role="alert">{$_('jobs.errors_clear_failed', { default: 'The error history could not be cleared. Try again; if it keeps failing, check that YA-WAMF is running.' })}</p>
+                    {/if}
+                    {#if recentIncidents.length === 0}
+                        <StateBlock class="mt-4" state="empty" cause={dismissedEarlier.length > 0
+                            ? $_('jobs.health_dismiss.earlier_empty_with_dismissed', { values: { count: dismissedEarlier.length }, default: '{count, plural, one {Nothing else has cleared; # dismissed incident is listed below.} other {Nothing else has cleared; # dismissed incidents are listed below.}}' })
+                            : $_('jobs.earlier_incidents_empty', { default: 'Nothing has cleared since the error history was last cleared.' })} />
+                    {:else}
+                        <ul class="mt-4 divide-y divide-line-soft">
+                            {#each recentIncidents.slice(0, 6) as incident, index (incident.id)}
+                                {@const titleId = `health-earlier-${index}`}
+                                <li class="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-2.5" data-health-earlier-incident>
+                                    <div class="min-w-0 flex-1 basis-48">
+                                        <p id={titleId} class="text-sm font-semibold text-strong">{diagnosticWords(incident.primaryReasonCode).title}</p>
+                                        <span class="text-xs tabular-nums text-muted">{formatDateTime(incident.lastSeenAt)}</span>
+                                    </div>
+                                    {@render dismissButton(`incident:${incident.id}`, titleId, incidentWorkspaceStore.dismissalEntries(incident), 'earlier')}
+                                </li>
+                            {/each}
+                        </ul>
+                    {/if}
+                    {@render dismissedFooter('earlier', dismissedEarlier)}
+                </Panel>
+
+                <Panel
+                    title={$_('jobs.errors_backend_diagnostics_title', { default: 'Backend warnings and errors' })}
+                    description={$_('jobs.errors_backend_diagnostics_desc', { default: 'The newest the backend has recorded since the error history was last cleared.' })}
+                    data-health-backend-diagnostics
+                >
+                    {#if backendEvents.length === 0}
+                        <StateBlock class="mt-4" state="empty" cause={dismissedBackend.length > 0
+                            ? $_('jobs.health_dismiss.backend_empty_with_dismissed', { values: { count: dismissedBackend.length }, default: '{count, plural, one {The backend has recorded nothing else; # dismissed item is listed below.} other {The backend has recorded nothing else; # dismissed items are listed below.}} Connection problems are listed at the top of this page, not here.' })
+                            : $_('jobs.errors_backend_empty', { default: 'The backend has recorded no warnings or errors since the error history was last cleared. Connection problems are listed at the top of this page, not here.' })} />
+                    {:else}
+                        <!-- One ruled row per diagnostic: the state in a worded chip, the cause in the reader's
+                             language where it is known, and the backend's own words under Technical details. -->
+                        <ul class="mt-4 divide-y divide-line-soft">
+                            {#each backendEvents.slice(0, 8) as event, index (event.id)}
+                                {@const worded = diagnosticWords(event.reason_code)}
+                                {@const titleId = `health-diagnostic-${index}`}
+                                <li class="py-3" data-health-diagnostic>
+                                    <!-- The state, the time and Dismiss share the top row, so the title below keeps the card's full measure. -->
+                                    <div class="flex flex-wrap items-center justify-between gap-2">
+                                        <StatusChip tone={STATUS_TONE[statusTone(event.severity ?? 'warning')]} label={statusLabel(event.severity ?? 'warning')} title={event.severity} />
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-xs tabular-nums text-ink">{formatDateTime(Date.parse(event.timestamp))}</span>
+                                            {@render dismissButton(`entry:${event.id}`, titleId, [{ id: event.id, count: Math.max(1, event.count ?? 1) }], 'backend')}
+                                        </div>
+                                    </div>
+                                    <p id={titleId} class="mt-2 wrap-break-word text-sm font-semibold text-strong" data-health-diagnostic-title>{worded.title}</p>
+                                    {#if worded.next}
+                                        <p class="mt-0.5 text-sm text-ink">{worded.next}</p>
+                                    {/if}
+                                    {#if (event.count ?? 1) > 1 && event.first_seen && event.last_seen}
+                                        <!-- The backend keeps repeats of one fault as one entry; this says how often and over what span. -->
+                                        <p class="mt-1 text-xs tabular-nums text-ink" data-diagnostic-repeats>
+                                            {$_('jobs.errors_repeated', {
+                                                values: {
+                                                    count: (event.count ?? 1).toLocaleString(),
+                                                    first: formatDateTime(Date.parse(event.first_seen)),
+                                                    last: formatDateTime(Date.parse(event.last_seen))
+                                                },
+                                                default: '×{count}, first {first}, last {last}'
+                                            })}
+                                        </p>
+                                    {/if}
+                                    {@render technicalDetails([
+                                        `${event.component} · ${event.reason_code}`,
+                                        event.message,
+                                        ...(event.event_id ? [`event ${event.event_id}`] : []),
+                                        ...(event.correlation_key ? [event.correlation_key] : [])
+                                    ])}
+                                </li>
+                            {/each}
+                        </ul>
+                    {/if}
+                    {@render dismissedFooter('backend', dismissedBackend)}
+                </Panel>
+            </div>
+
+            <!-- What Dismiss does, and what it did, for screen readers; the visible words are in each card. -->
+            <span id="health-dismiss-effect" class="sr-only">{$_('jobs.health_dismiss.effect', { default: 'Hides this for everyone on this install. Live checks carry on, and it shows again if it happens again.' })}</span>
+            <span class="sr-only" role="status" data-health-dismiss-status>{dismissStatus}</span>
+
+            <!-- ── Diagnostics export ──────────────────────────────────────
+                 Engineer-facing plumbing: useful when reporting a problem, noise on a
+                 page whose job is to say whether the feeder is working. It sits behind
+                 the same disclosure the subsystem detail uses. -->
+            <details class="panel" data-diagnostics-export>
+                <summary class="group flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-3 text-xs font-bold text-muted focus-ring">
+                    <span class="flex items-center gap-2">
+                        <svg class="h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                        {$_('jobs.errors_export_title', { default: 'Diagnostics export' })}
+                    </span>
+                    <span class="font-semibold normal-case tracking-normal text-muted">
+                        {$_('jobs.errors_export_count', {
+                            values: { count: bundles.length.toLocaleString() },
+                            default: '{count} saved'
+                        })}
+                    </span>
+                </summary>
+
+                <p class="mt-4 max-w-prose text-sm text-muted">
+                    {$_('jobs.errors_export_desc', {
+                        default: 'A bundle captures this page, the backend’s warnings and errors, the model’s status, start-up warnings and incidents as one JSON file. Attach one when you report a problem.'
+                    })}
+                </p>
+
+                <textarea
+                    class="input-base mt-4 min-h-16 w-full text-sm"
+                    rows="2"
+                    bind:value={reportNotes}
+                    placeholder={$_('jobs.errors_export_notes_placeholder', { default: 'What went wrong? Included in the bundle.' })}
+                    aria-label={$_('jobs.errors_export_notes_placeholder', { default: 'What went wrong? Included in the bundle.' })}
+                ></textarea>
+
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <input
+                        class="input-base h-11 min-w-0 flex-1 text-sm sm:max-w-sm"
+                        type="text"
+                        bind:value={captureLabel}
+                        placeholder={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
+                        aria-label={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
+                    />
+                    <button type="button" class="btn btn-primary min-h-11 px-4 text-xs" onclick={() => exportCurrent(true)} disabled={exporting || refreshing || clearing}>
+                        {$_('jobs.error_bundles_capture', { default: 'Capture Bundle' })}
+                    </button>
+                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-xs" onclick={() => exportCurrent(false)} disabled={exporting || refreshing || clearing}>
+                        {$_('jobs.errors_export_download_now', { default: 'Download without saving' })}
+                    </button>
+                </div>
+
+                {#if exportError}
+                    <p class="mt-3 text-sm text-status-fail" role="alert">{exportError}</p>
+                {/if}
+
+                {#if bundles.length === 0}
+                    <StateBlock class="mt-4" variant="inline" state="empty" cause={$_('jobs.errors_no_bundles', { default: 'No captured bundles available yet.' })} />
+                {:else}
+                    <ul class="mt-5 divide-y divide-line border-t border-line">
+                        {#each bundles as bundle (bundle.id)}
+                            <li class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
+                                <div class="min-w-0 flex-1">
+                                    <p class="wrap-break-word text-sm font-semibold text-strong">{bundle.label}</p>
+                                    <p class="mt-0.5 text-xs tabular-nums text-muted">
+                                        {formatDateTime(bundle.createdAt)} · {bundleSummaryText(bundle)}
+                                    </p>
+                                    {#if bundleNotesPreview(bundle)}
+                                        <p class="mt-1 wrap-break-word text-xs text-muted">{bundleNotesPreview(bundle)}</p>
+                                    {/if}
+                                </div>
+                                <div class="flex shrink-0 items-center gap-1">
+                                    <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" onclick={() => downloadBundle(bundle)}>
+                                        {$_('jobs.error_bundles_download', { default: 'Download' })}
+                                    </button>
+                                    <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(bundle.id)}>
+                                        {$_('jobs.error_bundles_delete', { default: 'Delete' })}
+                                    </button>
+                                </div>
+                            </li>
+                        {/each}
+                    </ul>
+                    <button type="button" class="btn btn-ghost mt-3 min-h-11 px-3 text-xs" onclick={() => jobDiagnosticsStore.clearBundles()}>
+                        {$_('jobs.error_bundles_clear', { default: 'Clear Bundles' })}
+                    </button>
+                {/if}
+            </details>
+        </div>
+    </div>
+    {/if}
 </div>

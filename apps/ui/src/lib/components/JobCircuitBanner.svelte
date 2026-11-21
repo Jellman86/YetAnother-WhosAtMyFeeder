@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { authStore } from '../stores/auth.svelte';
@@ -18,11 +17,8 @@
     let resetting = $state(false);
     let resetError = $state<string | null>(null);
 
-    // App.svelte ingests this status from the event stream, but a page opened cold has nothing
-    // to show until the first event lands, and a paused queue emits none. One read covers that.
-    onMount(() => {
-        if (isOwner) void analysisQueueStatusStore.refresh();
-    });
+    // The queue arrives with the owner's status: its first read and every push, so a page opened
+    // cold, or a paused queue that announces nothing, still shows it without a read of its own.
 
     async function handleReset() {
         if (resetting) return;
@@ -30,10 +26,10 @@
         resetError = null;
         try {
             await resetVideoCircuit();
-            await analysisQueueStatusStore.refresh();
+            await analysisQueueStatusStore.refresh({ fresh: true });
         } catch {
             resetError = $_('jobs.circuit_reset_failed', {
-                default: 'The queue could not be resumed. Try again.'
+                default: 'The analysis could not be resumed. Try again; if it keeps failing, open Health.'
             });
         } finally {
             resetting = false;
@@ -43,19 +39,19 @@
 
 {#if circuitOpen}
     <div
-        class="rounded-2xl border border-amber-200/80 dark:border-amber-800/60 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3"
+        class="rounded-2xl border border-status-attention-line bg-status-attention-soft px-4 py-3"
         data-job-circuit-banner
     >
-        <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">
-            {$_('jobs.circuit_open_message', { default: 'Reclassification queue paused by circuit breaker.' })}
+        <p class="text-sm font-semibold text-status-attention">
+            {$_('jobs.circuit_open_message', { default: 'Video analysis is paused after repeated failures.' })}
         </p>
-        <p class="mt-1 text-xs text-amber-700/90 dark:text-amber-200/90">
+        <p class="mt-1 text-xs text-status-attention">
             {$_('jobs.circuit_open_detail', {
                 values: {
                     queued: queuedJobs.toLocaleString(),
                     failures: failureCount.toLocaleString()
                 },
-                default: '{queued} queued items are waiting. Recent failures: {failures}.'
+                default: '{queued} waiting. Failures in a row: {failures}.'
             })}
             {#if circuitOpenUntil}
                 · {$_('jobs.circuit_open_until', { default: 'Until' })}: {formatDateTime(circuitOpenUntil)}
@@ -77,11 +73,11 @@
                 {/if}
                 {$_('jobs.circuit_reset_button', { default: 'Try again' })}
             </button>
-            <p class="mt-1 text-3xs text-amber-600/80 dark:text-amber-300/70">
-                {$_('jobs.circuit_reset_confirm', { default: 'This will reopen the video classification queue immediately. Queued jobs will retry.' })}
+            <p class="mt-1 text-3xs text-status-attention">
+                {$_('jobs.circuit_reset_confirm', { default: 'Queued analysis will resume straight away.' })}
             </p>
             {#if resetError}
-                <p class="mt-2 text-xs font-semibold text-rose-700 dark:text-rose-300" role="alert">{resetError}</p>
+                <p class="mt-2 text-xs font-semibold text-status-fail" role="alert">{resetError}</p>
             {/if}
         </div>
     </div>

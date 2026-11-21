@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createLatestRequest } from './latest-request';
+import { createLatestRequest, createSupersedingRead } from './latest-request';
 
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason: unknown) => void } {
     let resolve: (value: T) => void = () => undefined;
@@ -102,5 +102,40 @@ describe('createLatestRequest', () => {
         expect([first.isCurrent(), second.isCurrent()]).toEqual([false, true]);
         latest.supersede();
         expect(second.isCurrent()).toBe(false);
+    });
+});
+
+describe('createSupersedingRead', () => {
+    it('cancels the older read when a newer one begins, and only the newest is current', () => {
+        const reads = createSupersedingRead();
+        const older = reads.begin();
+        const newer = reads.begin();
+        expect(older.signal.aborted).toBe(true);
+        expect(older.isCurrent()).toBe(false);
+        expect(newer.signal.aborted).toBe(false);
+        expect(newer.isCurrent()).toBe(true);
+    });
+
+    it("follows the caller's signal: a closed tab cancels its read", () => {
+        const reads = createSupersedingRead();
+        const tab = new AbortController();
+        const read = reads.begin(tab.signal);
+        tab.abort();
+        expect(read.signal.aborted).toBe(true);
+    });
+
+    it('starts cancelled when the caller has already gone', () => {
+        const reads = createSupersedingRead();
+        const tab = new AbortController();
+        tab.abort();
+        expect(reads.begin(tab.signal).signal.aborted).toBe(true);
+    });
+
+    it('a read cancelled by its caller is still the newest, so it may clear its own loading state', () => {
+        const reads = createSupersedingRead();
+        const tab = new AbortController();
+        const read = reads.begin(tab.signal);
+        tab.abort();
+        expect(read.isCurrent()).toBe(true);
     });
 });

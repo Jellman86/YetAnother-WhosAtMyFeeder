@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import eventsSource from './Events.svelte?raw';
 import filtersSource from '../components/ExplorerFilters.svelte?raw';
 import paginationSource from '../components/Pagination.svelte?raw';
+import sidebarSource from '../components/Sidebar.svelte?raw';
 
 describe('Explorer page layout', () => {
     it('replaces the stacked selects with a token bar and counted facets', () => {
@@ -35,7 +36,8 @@ describe('Explorer page layout', () => {
         expect(filtersSource).toContain('data-explorer-species-facet');
         expect(filtersSource).toContain('data-explorer-species-list');
         expect(filtersSource).toContain('lg:max-h-[calc(100dvh-2rem)]');
-        expect(filtersSource).toContain('lg:overflow-y-auto');
+        // The standing rail scrolls as one; the same filters in the phone's sheet scroll inside it.
+        expect(filtersSource).toMatch(/\{#if rail\}\s*<div\s+id="explorer-facets"\s+class="[^"]*overflow-y-auto overscroll-contain"/);
         // A list scrolling inside the scrolling rail trapped the wheel.
         expect(filtersSource).not.toContain('max-h-64');
         expect(filtersSource.indexOf('data-explorer-date-facet')).toBeLessThan(filtersSource.indexOf('data-explorer-species-facet'));
@@ -53,7 +55,7 @@ describe('Explorer page layout', () => {
         expect(paginationSource).toContain("$_('pagination.showing'");
         expect(paginationSource).not.toContain('Showing <span');
         expect(paginationSource).toContain('sm:hidden');
-        expect(paginationSource).toContain('hidden items-center gap-1 sm:flex');
+        expect(paginationSource).toContain('hidden flex-wrap items-center justify-center gap-1 sm:flex');
     });
 
     it('names the page-size select by its visible label and keeps the arrows at the touch floor', () => {
@@ -64,8 +66,11 @@ describe('Explorer page layout', () => {
     });
 
     it('labels the page-level selection toggle as Multi Select', () => {
-        expect(eventsSource).toContain('{#if authStore.hasOwnerAccess && !gardenOnly}');
+        expect(eventsSource).toContain('const multiSelectAvailable = $derived(authStore.hasOwnerAccess && !gardenOnly);');
+        expect(eventsSource).toContain('{#if multiSelectAvailable}');
         expect(eventsSource).toContain("$_('common.multi_select', { default: 'Multi Select' })");
+        // The way out of selecting is on the selection bar, wherever the switch itself is shown.
+        expect(eventsSource).toContain('onclick={toggleSelectionMode} disabled={bulkDeleting || bulkReclassifying} data-explorer-selection-done');
         expect(eventsSource).not.toContain("selectionMode ? $_('common.cancel') : $_('common.select', { default: 'Select' })");
     });
 
@@ -164,8 +169,15 @@ describe('Explorer page layout', () => {
         expect(eventsSource).toContain('id="events-timeline-scope"');
         expect(eventsSource).toContain('aria-labelledby="events-timeline-scope"');
         expect(eventsSource).toMatch(/role="group"/);
-        expect(eventsSource).toContain("aria-pressed={selectedTimelineBucket === 'all'}");
-        expect(eventsSource).toContain('aria-pressed={selectedTimelineBucket === bucket.key}');
+        expect(eventsSource).toContain('{@const chosen = selectedTimelineBucket === key}');
+        expect(eventsSource).toContain('aria-pressed={chosen}');
+    });
+
+    it('draws a day as its name and a plain count, with nothing nested or decorative inside it', () => {
+        const chip = eventsSource.slice(eventsSource.indexOf('{#snippet dayChip('), eventsSource.indexOf('{/snippet}', eventsSource.indexOf('{#snippet dayChip(')));
+        expect(chip).toContain('<span class="font-normal tabular-nums">{count}</span>');
+        expect(chip).not.toContain('<svg');
+        expect(chip.match(/rounded-full/g)).toHaveLength(1);
     });
 });
 
@@ -175,18 +187,17 @@ it('withdraws stale guest rows and choices before reloading public history', () 
     expect(eventsSource).toContain('const filters = await eventMetadataRefresh.load(forceRefresh);');
 });
 
-describe('Explorer listening history link', () => {
-    it('links to the BirdNET-Go detection history when audio is enabled and visible', () => {
-        expect(eventsSource).toContain("import { toAppPath } from '../app/url-base'");
-        expect(eventsSource).toContain('data-explorer-audio-history-link');
-        expect(eventsSource).toContain("href={toAppPath('/audio')}");
-        expect(eventsSource).toContain("$_('nav.audio_history')");
-        expect(eventsSource).toMatch(/audioHistoryAvailable = \$derived\([\s\S]*?authStore\.canViewAudio/);
-        expect(eventsSource).toContain('{#if audioHistoryAvailable && !heardWanted}');
+describe('the listening history and the Explorer', () => {
+    it('is opened from the sidebar, so the toolbar holds one audio control, not two with one icon', () => {
+        expect(eventsSource).not.toContain('data-explorer-audio-history-link');
+        expect(eventsSource).not.toContain("toAppPath('/audio')");
+        expect(sidebarSource).toMatch(/path: '\/audio', label: \$_\('nav\.audio_history'[^\n]*available: audioHistoryAvailable/);
+        expect(sidebarSource).toMatch(/audioHistoryAvailable = \$derived\([\s\S]*?authStore\.canViewAudio/);
     });
 
-    it('steps aside while heard calls are mixed into the list, which already shows them', () => {
+    it('offers heard calls only where they can be mixed into grouped bird visits', () => {
         expect(eventsSource).toMatch(/heardWanted = \$derived\(audioHistoryAvailable && explorerHeardStore\.enabled/);
+        expect(eventsSource).toContain('const heardToggleAvailable = $derived(audioHistoryAvailable && groupVisits && !selectionMode && !gardenOnly);');
         expect(eventsSource).toContain('data-explorer-heard-toggle');
     });
 });

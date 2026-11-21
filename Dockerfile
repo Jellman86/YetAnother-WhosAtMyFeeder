@@ -23,7 +23,7 @@ RUN set -eux; \
 COPY apps/ui/ .
 RUN npm run build
 
-FROM python:3.12-slim AS backend-builder
+FROM python:3.13-slim AS backend-builder
 
 WORKDIR /app
 
@@ -47,7 +47,45 @@ RUN runtime_arch="${TARGETARCH:-amd64}"; \
         -r /requirements/requirements-base.txt \
         -r "/requirements/$provider_requirements"
 
-FROM python:3.12-slim
+# Garden motion collection decodes a few frames from each 1440p recording. In software
+# that decode was most of the scan's CPU, so the Intel image decodes on the GPU through
+# VA-API. Debian's ffmpeg package would add about 430 MB (LLVM, Mesa, SDL) for that, so
+# this stage builds a minimal LGPL ffmpeg that can only read MP4, list its packet
+# timestamps and decode H.264 and HEVC through VA-API: about 7 MB. Every other flavor builds nothing here and keeps
+# decoding in software through OpenCV.
+FROM python:3.13-slim AS motion-decoder-builder
+
+ARG RUNTIME_FLAVOR=full
+ARG TARGETARCH
+
+COPY --chmod=0755 docker/runtime-flavor.sh /usr/local/bin/yawamf-runtime-flavor
+RUN set -eux; \
+    mkdir -p /out; \
+    if yawamf-runtime-flavor needs-vaapi "$RUNTIME_FLAVOR" "${TARGETARCH:-amd64}"; then \
+        apt-get update; \
+        apt-get install -y --no-install-recommends \
+            build-essential ca-certificates curl libdrm-dev libva-dev nasm pkg-config xz-utils; \
+        FFMPEG_VER=8.1.3; \
+        curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+            -o /tmp/ffmpeg.tar.xz "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VER}.tar.xz"; \
+        echo "7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3  /tmp/ffmpeg.tar.xz" | sha256sum -c -; \
+        tar -xJf /tmp/ffmpeg.tar.xz -C /tmp; \
+        cd "/tmp/ffmpeg-${FFMPEG_VER}"; \
+        ./configure \
+            --disable-everything --disable-autodetect --disable-doc --disable-debug \
+            --disable-ffplay --disable-ffprobe --disable-network --disable-avdevice --disable-swresample \
+            --enable-vaapi --enable-libdrm \
+            --enable-protocol=file,pipe --enable-demuxer=mov --enable-parser=h264,hevc \
+            --enable-decoder=h264,hevc --enable-hwaccel=h264_vaapi,hevc_vaapi \
+            --enable-filter=select,hwdownload,format,scale \
+            --enable-encoder=rawvideo --enable-muxer=framecrc,rawvideo; \
+        make -j"$(nproc)"; \
+        install -m 0755 ffmpeg /out/yawamf-ffmpeg; \
+        strip /out/yawamf-ffmpeg; \
+        /out/yawamf-ffmpeg -hide_banner -hwaccels | grep -qx vaapi; \
+    fi
+
+FROM python:3.13-slim
 
 WORKDIR /app
 
@@ -95,6 +133,11 @@ RUN set -eux; \
         sqlite3 \
         tini \
         zlib1g; \
+    if yawamf-runtime-flavor needs-vaapi "$RUNTIME_FLAVOR" "$runtime_arch"; then \
+        # Debian's iHD driver, installed before Intel's Ubuntu channel is added below so apt
+        # cannot substitute that channel's libva builds. It decodes on Broadwell and newer.
+        apt-get install -y --no-install-recommends intel-media-va-driver libva-drm2; \
+    fi; \
     if yawamf-runtime-flavor needs-intel-runtime "$RUNTIME_FLAVOR" "$runtime_arch"; then \
         install -d -m 0755 /etc/apt/keyrings; \
         curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 https://repositories.intel.com/gpu/intel-graphics.key \
@@ -203,6 +246,16 @@ RUN set -eux; \
 
 # CUDA/cuDNN userspace for ONNX Runtime is installed by the CUDA/full provider requirements.
 # The host still needs NVIDIA Container Toolkit (or equivalent) to provide GPU passthrough.
+
+# Empty for every flavor but Intel, so the COPY adds nothing elsewhere.
+COPY --from=motion-decoder-builder /out/ /usr/local/bin/
+RUN set -eux; \
+    if yawamf-runtime-flavor needs-vaapi "$RUNTIME_FLAVOR" "${TARGETARCH:-amd64}"; then \
+        yawamf-ffmpeg -hide_banner -hwaccels | grep -qx vaapi; \
+        test -f /usr/lib/x86_64-linux-gnu/dri/iHD_drv_video.so; \
+    else \
+        test ! -e /usr/local/bin/yawamf-ffmpeg; \
+    fi
 
 COPY backend/requirements*.txt /requirements/
 RUN --mount=type=bind,from=backend-builder,source=/wheels,target=/wheels,ro \

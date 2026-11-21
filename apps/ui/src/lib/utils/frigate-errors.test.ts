@@ -31,7 +31,7 @@ describe('frigate media error insights', () => {
         expect(hasFrigateMediaIssue(detection)).toBe(false);
 
         const insight = getVideoFailureInsight(detection, t);
-        expect(insight.summary).toBe('Frigate event metadata is gone, but cached media is still available in YA-WAMF.');
+        expect(insight.summary).toBe('Frigate no longer has this event, but YA-WAMF still has its media.');
         expect(insight.isFrigateRelated).toBe(true);
     });
 
@@ -43,5 +43,20 @@ describe('frigate media error insights', () => {
         const insight = getVideoFailureInsight(detection, t);
         expect(insight.summary).toBe('Event not found in Frigate.');
         expect(insight.isFrigateRelated).toBe(true);
+    });
+
+    it('does not report an event as missing when Frigate could not be asked', () => {
+        const detection = buildDetection({
+            has_clip: true,
+            has_snapshot: true,
+            has_frigate_event: false,
+            frigate_event_check: 'unreachable',
+            video_classification_error: null
+        });
+
+        expect(hasFrigateMediaIssue(detection)).toBe(false);
+        const insight = getVideoFailureInsight(detection, t);
+        expect(insight.summary).not.toContain('gone');
+        expect(insight.summary).not.toBe('Event not found in Frigate.');
     });
 });

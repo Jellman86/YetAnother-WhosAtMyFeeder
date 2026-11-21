@@ -45,10 +45,10 @@ def main() -> int:
     coverage = [sys.executable, "-m", "coverage"]
     commands = [
         ([*coverage, "erase"], 30),
-        ([*coverage, "run", "-m", "pytest", "tests/pure", "-q", "--tb=short"], PURE_TEST_TIMEOUT_SECONDS),
+        ([*coverage, "run", "-m", "pytest", "tests/pure", "-v", "--tb=short"], PURE_TEST_TIMEOUT_SECONDS),
         (
             [*coverage, "run", "--append", "-m", "pytest", "tests/", "--ignore=tests/pure"]
-            + ["-q", "--tb=short", "--durations=20"],
+            + ["-v", "--tb=short", "--durations=20"],
             TEST_TIMEOUT_SECONDS,
         ),
         ([*coverage, "report"], 30),

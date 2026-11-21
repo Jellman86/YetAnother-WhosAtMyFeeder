@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     enabledChannelNames,
     formatChannelList,
+    policyChannels,
     presetSentenceKey,
     speciesSummaryKey,
     type PolicyChannel,
@@ -57,5 +58,25 @@ describe('notification policy sentence helpers', () => {
 
     it('falls back to a comma join when the locale is unusable', () => {
         expect(formatChannelList(['Discord', 'Email'], 'not-a-locale-!!')).toBe('Discord, Email');
+    });
+});
+
+describe('policyChannels', () => {
+    const draft = {
+        discord: { enabled: true, webhook: '', webhookSaved: true },
+        pushover: { enabled: false, user: 'u', userSaved: false, token: '', tokenSaved: false },
+        telegram: { enabled: false, token: '', tokenSaved: true, chatId: '', chatIdSaved: true },
+        email: { enabled: true, useOAuth: true, connectedEmail: '', smtpHost: 'smtp', toEmail: 'a@b' }
+    };
+
+    it('names every channel and says whether it can send, saved secrets included', () => {
+        const channels = policyChannels(draft, (id) => id.toUpperCase());
+        expect(channels.map((channel) => [channel.id, channel.label, channel.enabled, channel.configured])).toEqual([
+            ['discord', 'DISCORD', true, true],
+            ['pushover', 'PUSHOVER', false, false],
+            ['telegram', 'TELEGRAM', false, true],
+            // Signed-in email needs the connected address, not the SMTP fields.
+            ['email', 'EMAIL', true, false]
+        ]);
     });
 });

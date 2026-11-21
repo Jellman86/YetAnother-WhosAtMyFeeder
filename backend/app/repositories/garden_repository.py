@@ -1175,7 +1175,11 @@ class GardenRepository:
     async def next_media_to_keep(
         self, cameras: list[str], *, since: str | None, clips: bool, now: str
     ) -> GardenCapture | None:
-        """The newest confirmed capture with media still to keep or a retry that is due."""
+        """The newest confirmed capture with media still to keep or a retry that is due.
+
+        A domestic bird moved from bird history whose photo was recorded missing before YA-WAMF
+        looked for its own copy is due once more; that look settles it (see ``own_copy_due``).
+        """
         if not cameras:
             return None
         placeholders = ",".join("?" for _ in cameras)
@@ -1187,7 +1191,10 @@ class GardenRepository:
                     AND (k.retry_after IS NULL OR k.retry_after <= ?)
                     AND (k.photo_state='retry' OR k.clip_state='retry'
                       OR (? AND k.clip_state IS NULL AND garden_captures.frigate_event IS NOT NULL
-                          AND NOT EXISTS (SELECT 1 FROM garden_motion_sources WHERE capture_id=id)))))
+                          AND NOT EXISTS (SELECT 1 FROM garden_motion_sources WHERE capture_id=id))
+                      OR (k.photo_state='missing' AND k.photo_source='frigate_snapshot'
+                          AND EXISTS (SELECT 1 FROM garden_domestic_routes r WHERE r.capture_id=id
+                            AND r.origin='moved_from_birds' AND r.detection_id IS NOT NULL)))))
                 ORDER BY observed_at DESC, id DESC LIMIT 1""",
             (*cameras, since, since, now, clips),
         ) as cursor:

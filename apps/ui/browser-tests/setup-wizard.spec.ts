@@ -74,8 +74,18 @@ class FakeBackend {
     unexpected: string[] = [];
     allowExtraReads = false;
     frigateTestFails = false;
+    /** The cause code the broker test answers with, when it fails. */
+    mqttFailure: string | null = null;
     evalWarnings: Json[] = [];
     frigateConfigFails = false;
+    /** Weights on disk, labels unreadable: the server reports the classifier could not load. */
+    modelFailedToLoad = false;
+    /** Downloads and hardware checks the server reports as in progress, whoever started them. */
+    activity: Json = {};
+    /** Fields laid over the classifier's report, to make one the readiness fixture names. */
+    statusOverride: Json = {};
+    /** While set, Frigate's camera list does not answer: a Frigate that is down hangs like this. */
+    frigateConfigHeld: Promise<void> | null = null;
     downloadDone = false;
     evalState: 'idle' | 'running' | 'done' | 'error' = 'idle';
     evalError = '';
@@ -84,6 +94,8 @@ class FakeBackend {
     activationError: string | null = null;
     settingsError: string | null = null;
     downloadError: string | null = null;
+    /** What the server last measured of the saved broker and Frigate: null when not yet measured. */
+    connectionReading: 'connected' | 'unreachable' | null = null;
 
     constructor(options: FakeOptions = {}) {
         this.needsInitialSetup = options.firstRun ?? false;
@@ -139,12 +151,18 @@ class FakeBackend {
         this.evalError = message;
     }
 
+    /** The server's one reading of whether the running model's files are here. */
+    private activeModelInstalled(): boolean {
+        return this.installed.some((m) => m.id === this.activeModelId && m.ready);
+    }
+
     private status(): Json {
         const active = this.installed.find((m) => m.id === this.activeModelId);
         return {
-            loaded: true, error: null, labels_count: 100, enabled: true,
+            loaded: !this.modelFailedToLoad, error: this.modelFailedToLoad ? 'labels.txt: No such file or directory' : null, labels_count: 100, enabled: true,
             active_model_id: this.activeModelId, effective_model_id: this.activeModelId,
-            image_flavor: 'intel', runtime_source: 'worker',
+            active_model_installed: this.activeModelInstalled(),
+            image_flavor: 'intel', runtime_source: this.modelFailedToLoad ? 'in_process' : 'worker',
             available_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
             host_available_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
             packaged_inference_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
@@ -152,7 +170,8 @@ class FakeBackend {
             selected_provider: this.settings.inference_provider, active_provider: 'intel_cpu',
             provider_preference_order: active?.provider_preference_order ?? [],
             active_model_validated_providers: active?.validated_inference_providers ?? [],
-            validated_provider_preference_order: active?.provider_preference_order ?? []
+            validated_provider_preference_order: active?.provider_preference_order ?? [],
+            ...this.statusOverride
         };
     }
 
@@ -173,14 +192,26 @@ class FakeBackend {
         return {
             initial_setup_complete: !this.needsInitialSetup,
             sections: [
-                { id: 'account', status: this.needsInitialSetup ? 'attention' : 'ok', detail_code: this.authEnabled ? 'account_password_protected' : 'account_auth_disabled' },
-                s.frigate_url && s.mqtt_server
-                    ? { id: 'connection', status: 'ok', detail_code: 'connection_ready', detail_values: { url: String(s.frigate_url) } }
-                    : { id: 'connection', status: 'attention', detail_code: 'connection_missing', detail_values: { items: 'frigate_url,mqtt_broker' } },
+                this.needsInitialSetup
+                    ? { id: 'account', status: 'attention', detail_code: 'account_not_configured' }
+                    : this.authEnabled
+                      ? { id: 'account', status: 'ok', detail_code: 'account_password_protected' }
+                      : { id: 'account', status: 'optional', detail_code: 'account_auth_disabled' },
+                !(s.frigate_url && s.mqtt_server)
+                    ? { id: 'connection', status: 'attention', detail_code: 'connection_missing', detail_values: { items: 'frigate_url,mqtt_broker' } }
+                    : this.connectionReading === 'unreachable'
+                      ? { id: 'connection', status: 'attention', detail_code: 'connection_unreachable', detail_values: { items: 'mqtt,frigate' } }
+                      : this.connectionReading === 'connected'
+                        ? { id: 'connection', status: 'ok', detail_code: 'connection_connected', detail_values: { url: String(s.frigate_url) } }
+                        : { id: 'connection', status: 'ok', detail_code: 'connection_ready', detail_values: { url: String(s.frigate_url) } },
                 cameras.length
                     ? { id: 'cameras', status: 'ok', detail_code: 'cameras_count', detail_values: { count: cameras.length } }
                     : { id: 'cameras', status: 'ok', detail_code: 'cameras_all' },
-                { id: 'model', status: 'ok', detail_code: 'model_selected', detail_values: { model: String(MODELS[this.activeModelId]?.name ?? this.activeModelId) }, detail: this.activeModelId },
+                this.modelFailedToLoad
+                    ? { id: 'model', status: 'attention', detail_code: 'model_failed', detail_values: { model: String(MODELS[this.activeModelId]?.name ?? this.activeModelId) }, detail: this.activeModelId }
+                    : this.activeModelInstalled()
+                    ? { id: 'model', status: 'ok', detail_code: 'model_running', detail_values: { model: String(MODELS[this.activeModelId]?.name ?? this.activeModelId) }, detail: this.activeModelId }
+                    : { id: 'model', status: 'attention', detail_code: 'model_missing', detail_values: { model: String(MODELS[this.activeModelId]?.name ?? this.activeModelId) }, detail: this.activeModelId },
                 { id: 'quality', status: 'optional', detail_code: s.media_cache_high_quality_event_snapshots ? 'quality_best' : 'quality_standard' },
                 { id: 'integrations', status: 'optional', detail_code: 'integrations_none' }
             ]
@@ -238,13 +269,22 @@ class FakeBackend {
             return json({ status: 'success' });
         }
         if (path === '/api/frigate/test') return this.frigateTestFails ? json({ detail: 'Frigate authentication failed.' }, 401) : json({ status: 'ok', version: '0.16.0' });
-        if (path === '/api/settings/mqtt/test-publish') return json({ status: 'ok', message: 'Test message published' });
+        if (path === '/api/settings/mqtt/test-publish') {
+            return this.mqttFailure
+                ? json({ status: 'error', cause: this.mqttFailure, service: 'mqtt', address: 'mqtt.invalid:1883', message: 'English fallback sentence.' }, 502)
+                : json({ status: 'ok', message: 'Test message published' });
+        }
         if (path === '/api/audio/sources') return json([]);
+        if (path === '/api/frigate/config' && this.frigateConfigHeld) {
+            await this.frigateConfigHeld;
+            return route.abort().catch(() => undefined);
+        }
         if (path === '/api/frigate/config') return this.frigateConfigFails ? json({ detail: 'unreachable' }, 502) : json({ cameras: { feeder: {}, nestbox: {} } });
         if (path === '/api/backfill/status') return json(null);
         if (path === '/api/backfill/async' && method === 'POST') return json({ id: 'history-job', status: 'running', processed: 0, total: 20, message: 'Scanning Frigate event history' });
         if (path.startsWith('/api/frigate/camera/')) return route.fulfill({ status: 404, body: '' });
         if (path === '/api/classifier/status') return json(this.status());
+        if (path === '/api/models/activity') return json({ activity: this.activity });
         if (path === '/api/models/available') return json([MODELS[MOBILENET], MODELS[DINO], MODELS[BROKEN], MODELS.small_birds]);
         if (path === '/api/models/families/resolved') return json({ small_birds: { effective_region: this.settings.bird_model_region_override === 'eu' ? 'eu' : 'na' } });
         if (path === '/api/models/installed') return json(this.installedResponse());
@@ -296,7 +336,7 @@ class FakeBackend {
         }
         if (path === `/api/diagnostics/model-eval/runs/${RUN_ID}`) {
             if (this.evalState === 'running') return json({ run_id: RUN_ID, finished_at: null });
-            if (this.evalState === 'error') return json({ run_id: RUN_ID, finished_at: null, error: this.evalError });
+            if (this.evalState === 'error') return json({ run_id: RUN_ID, finished_at: null, error_code: this.evalError });
             const passed = PROVIDER_ORDER.filter((p) => !this.evalFailedProviders.includes(p));
             return json({
                 run_id: RUN_ID, finished_at: '2026-10-10T12:05:00Z',
@@ -351,10 +391,10 @@ async function openRerun(page: Page, fake: FakeBackend): Promise<string[]> {
 
 const continueButton = (page: Page) => wizard(page).getByRole('button', { name: 'Continue', exact: true });
 const modelSelect = (page: Page) => wizard(page).getByLabel('Model', { exact: true });
-const providerSelect = (page: Page) => wizard(page).getByLabel('Inference Provider', { exact: true });
+const providerSelect = (page: Page) => wizard(page).getByLabel('Identification model runs on', { exact: true });
 const latitude = (page: Page) => wizard(page).getByLabel('Latitude', { exact: true });
 const longitude = (page: Page) => wizard(page).getByLabel('Longitude', { exact: true });
-const validateButton = (page: Page) => wizard(page).getByRole('button', { name: 'Validate on my hardware' });
+const validateButton = (page: Page) => wizard(page).getByRole('button', { name: 'Check it runs on this machine' });
 
 for (const importHistory of [false, true]) {
 test(`first run walks every step to Finish with history import ${importHistory} and isolated settings saves`, async ({ page }) => {
@@ -362,10 +402,10 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     const fake = new FakeBackend({ firstRun: true });
     const errors = await openFixture(page, fake);
 
-    await expectStep(page, 'Welcome to YA-WAMF');
+    await expectStep(page, 'Set up YA-WAMF');
     await wizard(page).getByRole('button', { name: 'Get started' }).click();
 
-    await expectStep(page, 'Admin account & access');
+    await expectStep(page, 'Owner account and access');
     await wizard(page).getByLabel('Password', { exact: true }).fill('feeder2026');
     await wizard(page).getByLabel('Confirm password').fill('feeder2026');
     await continueButton(page).click();
@@ -379,14 +419,14 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     await expect(wizard(page).getByText('Connected to Frigate 0.16.0')).toBeVisible();
     await continueButton(page).click();
 
-    await expectStep(page, 'Cameras & detection');
+    await expectStep(page, 'Cameras');
     await wizard(page).getByRole('checkbox', { name: 'feeder', exact: true }).check();
     await wizard(page).getByRole('checkbox', { name: 'nestbox', exact: true }).check();
     await continueButton(page).click();
 
-    await expectStep(page, 'Classifier model & hardware');
+    await expectStep(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
-    await expect(wizard(page).getByText('Download and verify this model here before validating it on this hardware.')).toBeVisible();
+    await expect(wizard(page).getByText('Download this model first. Then check that it runs on this machine.')).toBeVisible();
     await expect(continueButton(page)).toBeDisabled();
     await expect(wizard(page).getByRole('group', { name: 'Feeder location' })).toBeVisible();
 
@@ -395,13 +435,13 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     await expect(continueButton(page)).toBeDisabled();
     fake.downloadDone = true;
     await expect(wizard(page).getByText('Downloaded and verified.')).toBeVisible({ timeout: 10_000 });
-    await expect(wizard(page).getByText('Validate this model on the current image and hardware before continuing.')).toBeVisible();
+    await expect(wizard(page).getByText('Check that this model runs on this machine before continuing.')).toBeVisible();
     await expect(continueButton(page)).toBeDisabled();
 
     await latitude(page).fill(LAT);
     await longitude(page).fill(LON);
     await validateButton(page).click();
-    await expect(wizard(page).getByRole('progressbar', { name: 'Validate on my hardware' })).toBeVisible();
+    await expect(wizard(page).getByRole('progressbar', { name: 'Check it runs on this machine' })).toBeVisible();
     await expect(continueButton(page)).toBeDisabled();
     await expect(modelSelect(page)).toBeDisabled();
     await expect(wizard(page).getByText('Leaving this step does not stop the check.', { exact: false })).toBeVisible();
@@ -416,7 +456,7 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     expect(fake.requests[runStart].body).toMatchObject({ sweep_devices: true, compat_only: true, model_ids: [DINO] });
 
     fake.finishEval();
-    await expect(wizard(page).getByText('Best validated provider: Intel NPU (OpenVINO), 42 ms per image')).toBeVisible({ timeout: 10_000 });
+    await expect(wizard(page).getByText('Best device that passed: Intel NPU (OpenVINO), 42 ms a photo')).toBeVisible({ timeout: 10_000 });
     await expect(wizard(page).getByText('It did not measure accuracy', { exact: false })).toBeVisible();
     await expect(wizard(page).getByText('999')).toHaveCount(0);
     await expect(providerSelect(page)).toHaveValue('intel_npu');
@@ -433,19 +473,19 @@ test(`first run walks every step to Finish with history import ${importHistory} 
 
     await expectStep(page, 'Integrations');
     await continueButton(page).click();
-    await expectStep(page, 'Import existing detections');
+    // The two optional closing questions share one screen.
+    await expectStep(page, 'Optional extras');
+    await expect(wizard(page).getByRole('checkbox', { name: /share anonymous usage stats/i })).not.toBeChecked();
     if (importHistory) {
-        await wizard(page).getByRole('checkbox', { name: 'Import retained Frigate bird events' }).check();
-        await wizard(page).getByText('Last Week', { exact: true }).click();
+        await wizard(page).getByRole('checkbox', { name: 'Import the bird events Frigate still keeps' }).check();
+        await wizard(page).getByText('Last week', { exact: true }).click();
         await wizard(page).getByRole('button', { name: 'Import & continue' }).click();
     } else {
-        await wizard(page).getByRole('button', { name: 'Continue without importing' }).click();
+        await continueButton(page).click();
     }
-    await expectStep(page, 'Share anonymous usage stats?');
-    await continueButton(page).click();
 
     await expectStep(page, 'Review setup');
-    await expect(wizard(page).getByRole('listitem').filter({ hasText: 'Classifier model & hardware' })).toContainText('DINOv2 B/14 with location');
+    await expect(wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' })).toContainText('DINOv2 B/14 with location');
     await wizard(page).getByRole('button', { name: 'Finish' }).click();
     await expect(page.getByRole('heading', { name: 'App opened' })).toBeVisible();
     await expect(wizard(page)).toHaveCount(0);
@@ -471,8 +511,8 @@ test(`first run walks every step to Finish with history import ${importHistory} 
 test('a re-run edits one section and leaves every other setting alone', async ({ page }) => {
     const fake = new FakeBackend({ settings: { location_latitude: 10, location_longitude: 20, frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', cameras: ['feeder'] } });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
-    await expectStep(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
+    await expectStep(page, 'Model and hardware');
     await expect(modelSelect(page)).toHaveValue(MOBILENET);
     // Location input is offered only for a model that reads it.
     await expect(wizard(page).getByRole('group', { name: 'Feeder location' })).toHaveCount(0);
@@ -484,7 +524,7 @@ test('a re-run edits one section and leaves every other setting alone', async ({
     expect(fake.settingsWrites()).toEqual([{ inference_provider: 'cpu' }]);
     expect(fake.posts(`/api/models/${MOBILENET}/activate`)).toEqual([]);
 
-    await openSectionFromReview(page, 'Cameras & detection');
+    await openSectionFromReview(page, 'Cameras');
     await expect(wizard(page).getByRole('checkbox', { name: 'feeder', exact: true })).toBeChecked();
     await wizard(page).getByRole('button', { name: 'Back' }).click();
     await expectStep(page, 'Review setup');
@@ -504,11 +544,11 @@ test('feeder coordinates must be a whole valid pair; zero is valid and empty mea
         settings: { location_latitude: 10, location_longitude: 20, inference_provider: 'intel_npu' }
     });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await expect(modelSelect(page)).toHaveValue(DINO);
     await expect(latitude(page)).toHaveValue('10');
     await expect(longitude(page)).toHaveValue('20');
-    await expect(wizard(page).getByText('Validating or continuing saves these coordinates first', { exact: false })).toBeVisible();
+    await expect(wizard(page).getByText('Checking or continuing saves these coordinates first', { exact: false })).toBeVisible();
 
     await latitude(page).fill('');
     await expect(wizard(page).getByRole('alert').filter({ hasText: 'Enter both latitude and longitude, or leave both empty.' })).toBeVisible();
@@ -530,7 +570,7 @@ test('feeder coordinates must be a whole valid pair; zero is valid and empty mea
     expect(fake.settingsWrites()).toEqual([{ location_latitude: 0, location_longitude: 0 }]);
     expect(fake.posts(`/api/models/${DINO}/activate`)).toEqual([]);
 
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await expect(latitude(page)).toHaveValue('0');
     await latitude(page).fill('');
     await longitude(page).fill('');
@@ -548,7 +588,7 @@ test('feeder coordinates must be a whole valid pair; zero is valid and empty mea
 test('a failed check is said in words and keeps Continue disabled', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated: false, validated_inference_providers: [], provider_preference_order: [], preferred_inference_provider: null }] });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await expect(wizard(page).getByText('No location will be used: this model identifies birds without it.')).toBeVisible();
     await expect(continueButton(page)).toBeDisabled();
@@ -558,8 +598,9 @@ test('a failed check is said in words and keeps Continue disabled', async ({ pag
     // Nothing to save: no location was entered and none was saved.
     expect(fake.settingsWrites()).toEqual([]);
 
-    fake.failEval('The ONNX session could not be created on this host.');
-    await expect(wizard(page).getByRole('alert').filter({ hasText: 'The ONNX session could not be created on this host.' })).toBeVisible({ timeout: 10_000 });
+    // The server answers with a code. What it raised is in its log, not on the screen.
+    fake.failEval('models_not_ready');
+    await expect(wizard(page).getByRole('alert').filter({ hasText: 'A model chosen for this check is not installed and ready. Look at it in Settings → Identifying birds, then start again.' })).toBeVisible({ timeout: 10_000 });
     await expect(continueButton(page)).toBeDisabled();
     await expect(validateButton(page)).toBeEnabled();
     expect(fake.posts(`/api/models/${DINO}/activate`)).toEqual([]);
@@ -569,14 +610,14 @@ test('a failed check is said in words and keeps Continue disabled', async ({ pag
 test('an explicit provider choice survives the check when it passes', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated_inference_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'], provider_preference_order: PROVIDER_ORDER, preferred_inference_provider: 'intel_npu' }] });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     // Activation saves the model's recommendation, so the form shows it rather than an Auto it would not keep.
     await expect(providerSelect(page)).toHaveValue('intel_npu');
     await providerSelect(page).selectOption('intel_gpu');
     await validateButton(page).click();
     fake.finishEval();
-    await expect(wizard(page).getByText('Best validated provider: Intel NPU (OpenVINO), 42 ms per image')).toBeVisible({ timeout: 10_000 });
+    await expect(wizard(page).getByText('Best device that passed: Intel NPU (OpenVINO), 42 ms a photo')).toBeVisible({ timeout: 10_000 });
     await expect(providerSelect(page)).toHaveValue('intel_gpu');
     await continueButton(page).click();
     await expectStep(page, 'Review setup');
@@ -589,13 +630,13 @@ test('an explicit provider choice survives the check when it passes', async ({ p
 test('an explicit provider that fails the check is replaced and the change is explained', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated_inference_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'], provider_preference_order: PROVIDER_ORDER, preferred_inference_provider: 'intel_npu' }] });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await providerSelect(page).selectOption('intel_npu');
     await validateButton(page).click();
     fake.finishEval(['intel_npu']);
     await expect(wizard(page).getByText('Intel NPU (OpenVINO) did not pass the check for this model, so Intel GPU (OpenVINO) is selected instead.')).toBeVisible({ timeout: 10_000 });
-    await expect(wizard(page).getByText('Failed: Intel NPU (OpenVINO)')).toBeVisible();
+    await expect(wizard(page).getByText('Did not pass: Intel NPU (OpenVINO)')).toBeVisible();
     await expect(providerSelect(page)).toHaveValue('intel_gpu');
     await continueButton(page).click();
     await expectStep(page, 'Review setup');
@@ -607,13 +648,13 @@ test('a failed activation stays on the model step and can be retried', async ({ 
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated_inference_providers: ['cpu', 'intel_npu'], provider_preference_order: ['intel_npu', 'cpu'], preferred_inference_provider: 'intel_npu' }] });
     fake.activationError = 'The model files are locked by another process.';
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await latitude(page).fill(LAT);
     await longitude(page).fill(LON);
     await continueButton(page).click();
     await expect(wizard(page).getByRole('alert').filter({ hasText: 'The model files are locked by another process.' })).toBeVisible();
-    await expectStep(page, 'Classifier model & hardware');
+    await expectStep(page, 'Model and hardware');
     expect(fake.activeModelId).toBe(MOBILENET);
     // The location was saved first; the provider is not written for a model that did not activate.
     expect(fake.settingsWrites()).toEqual([{ location_latitude: 12.5, location_longitude: -45.25 }]);
@@ -633,10 +674,10 @@ for (const leave of ['Back', 'Skip'] as const) {
     test(`a check still running after ${leave} cannot change the wizard or the saved settings`, async ({ page }) => {
         const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated: false, validated_inference_providers: [], provider_preference_order: [], preferred_inference_provider: null }] });
         const errors = await openRerun(page, fake);
-        await openSectionFromReview(page, 'Classifier model & hardware');
+        await openSectionFromReview(page, 'Model and hardware');
         await modelSelect(page).selectOption(DINO);
         await validateButton(page).click();
-        await expect(wizard(page).getByRole('progressbar', { name: 'Validate on my hardware' })).toBeVisible();
+        await expect(wizard(page).getByRole('progressbar', { name: 'Check it runs on this machine' })).toBeVisible();
         await wizard(page).getByRole('button', { name: leave === 'Skip' ? 'Skip step' : leave, exact: true }).click();
         await expectStep(page, 'Review setup');
 
@@ -650,7 +691,7 @@ for (const leave of ['Back', 'Skip'] as const) {
         await expectStep(page, 'Review setup');
 
         // Coming back reads the finished check from the server.
-        await openSectionFromReview(page, 'Classifier model & hardware');
+        await openSectionFromReview(page, 'Model and hardware');
         await modelSelect(page).selectOption(DINO);
         await expect(continueButton(page)).toBeEnabled();
         expect(errors).toEqual([]);
@@ -660,7 +701,7 @@ for (const leave of ['Back', 'Skip'] as const) {
 test('an incomplete install cannot be continued with and offers a fresh download', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: BROKEN, ready: false, reason: 'missing_labels', validated: true }] });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(BROKEN);
     await expect(wizard(page).getByText('This model install is incomplete.', { exact: false })).toBeVisible();
     await expect(continueButton(page)).toBeDisabled();
@@ -671,12 +712,12 @@ test('an incomplete install cannot be continued with and offers a fresh download
 test('an explicit Auto choice is saved instead of the activation recommendation', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated_inference_providers: ['cpu', 'intel_npu'], provider_preference_order: ['intel_npu', 'cpu'], preferred_inference_provider: 'intel_npu' }] });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await providerSelect(page).selectOption('auto');
     await validateButton(page).click();
     fake.finishEval();
-    await expect(wizard(page).getByText('Best validated provider: Intel NPU (OpenVINO), 42 ms per image')).toBeVisible({ timeout: 10_000 });
+    await expect(wizard(page).getByText('Best device that passed: Intel NPU (OpenVINO), 42 ms a photo')).toBeVisible({ timeout: 10_000 });
     await expect(providerSelect(page)).toHaveValue('auto');
     await continueButton(page).click();
     await expectStep(page, 'Review setup');
@@ -689,7 +730,7 @@ test('a failed location save prevents validation and keeps the entered coordinat
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated: false }] });
     fake.settingsError = 'The configuration volume is read-only.';
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await latitude(page).fill(LAT);
     await longitude(page).fill(LON);
@@ -711,7 +752,7 @@ test('a failed download stays on the model step and can be retried', async ({ pa
     const fake = new FakeBackend();
     fake.downloadError = 'Model checksum verification failed.';
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await wizard(page).getByRole('button', { name: 'Download model' }).click();
     await expect(wizard(page).getByRole('alert').filter({ hasText: fake.downloadError })).toBeVisible({ timeout: 10_000 });
@@ -729,7 +770,7 @@ test('a failed download stays on the model step and can be retried', async ({ pa
 test('a validation response already in flight cannot refresh a step after Back', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: MOBILENET }, { id: DINO, validated: false }] });
     const errors = await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     const held: { route?: Route } = {};
     await page.route(`**/api/diagnostics/model-eval/runs/${RUN_ID}`, route => { held.route = route; });
@@ -739,6 +780,8 @@ test('a validation response already in flight cannot refresh a step after Back',
     await expect.poll(() => Boolean(held.route)).toBe(true);
     await wizard(page).getByRole('button', { name: 'Back', exact: true }).click();
     await expectStep(page, 'Review setup');
+    // The review reads the classifier once for its own model row; what follows is the late response.
+    await expect(wizard(page).locator('[data-setup-readiness]')).toHaveAttribute('data-setup-readiness', 'running');
     const atLeave = fake.requests.length;
     if (!held.route) throw new Error('Validation response was not held');
     await held.route.fulfill({ json: { run_id: RUN_ID, finished_at: '2026-10-10T12:05:00Z', models: [] } });
@@ -779,11 +822,11 @@ for (const change of ['location', 'cameras', 'quality', 'integrations'] as const
         await slider.fill('0.75');
         await page.locator('[data-setup-wizard-action]:visible').click();
         if (change === 'location') {
-            await openSectionFromReview(page, 'Classifier model & hardware');
+            await openSectionFromReview(page, 'Model and hardware');
             await latitude(page).fill(LAT);
             await longitude(page).fill(LON);
         } else if (change === 'cameras') {
-            await openSectionFromReview(page, 'Cameras & detection');
+            await openSectionFromReview(page, 'Cameras');
             await wizard(page).getByRole('checkbox', { name: 'feeder', exact: true }).check();
             await wizard(page).getByRole('checkbox', { name: 'nestbox', exact: true }).check();
         } else if (change === 'quality') {
@@ -797,7 +840,7 @@ for (const change of ['location', 'cameras', 'quality', 'integrations'] as const
         await expectStep(page, 'Review setup');
         await wizard(page).getByRole('button', { name: 'Done', exact: true }).click();
         await expect(slider).toHaveValue('0.75');
-        await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+        await page.getByRole('button', { name: 'Save changes', exact: true }).click();
         await expect.poll(() => fake.settingsWrites().length).toBeGreaterThan(1);
         const save = fake.settingsWrites().at(-1);
         expect(save?.classification_threshold).toBe(0.75);
@@ -812,7 +855,7 @@ for (const change of ['location', 'cameras', 'quality', 'integrations'] as const
 test('in first run, a section opened from Review goes straight back to Review', async ({ page }) => {
     const fake = new FakeBackend({ firstRun: true });
     await openFixture(page, fake);
-    await expectStep(page, 'Welcome to YA-WAMF');
+    await expectStep(page, 'Set up YA-WAMF');
     await wizard(page).getByRole('button', { name: 'Get started' }).click();
     await wizard(page).getByRole('checkbox').check();
     await continueButton(page).click();
@@ -822,14 +865,14 @@ test('in first run, a section opened from Review goes straight back to Review', 
     await wizard(page).getByRole('button', { name: 'Save & test connection' }).click();
     await expect(wizard(page).getByText('Connected to Frigate 0.16.0')).toBeVisible();
     await continueButton(page).click();
-    await expectStep(page, 'Cameras & detection');
+    await expectStep(page, 'Cameras');
     await continueButton(page).click();
-    await expectStep(page, 'Classifier model & hardware');
+    await expectStep(page, 'Model and hardware');
     await wizard(page).getByRole('button', { name: 'Skip step' }).click();
     await wizard(page).getByRole('button', { name: 'Skip step' }).click();
     await wizard(page).getByRole('button', { name: 'Skip step' }).click();
-    await wizard(page).getByRole('button', { name: 'Continue without importing' }).click();
-    await wizard(page).getByRole('button', { name: 'Skip step' }).click();
+    await expectStep(page, 'Optional extras');
+    await continueButton(page).click();
     await openSectionFromReview(page, 'Best available snapshots');
     await continueButton(page).click();
     await expectStep(page, 'Review setup');
@@ -873,7 +916,7 @@ test('a failed Frigate test says how to give it a token', async ({ page }) => {
 test('a failed check is not also reported as a green completion', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: DINO, ready: true, validated: false }] });
     await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption(DINO);
     await validateButton(page).click();
     await expect(wizard(page).getByText('Checking this model on each device…').or(wizard(page).getByText('Starting the check…')).first()).toBeVisible();
@@ -881,14 +924,14 @@ test('a failed check is not also reported as a green completion', async ({ page 
     fake.finishEval(['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu']);
     await expect(wizard(page).getByRole('alert')).toContainText('did not pass the check');
     await expect(wizard(page).locator('[data-setup-model-warning]')).toHaveText('The model could not be loaded on this host.');
-    await expect(wizard(page).getByText('Hardware validation completed')).toHaveCount(0);
+    await expect(wizard(page).getByText('The check finished')).toHaveCount(0);
     await expect(wizard(page).getByText(/Runtime:|providers:/)).toHaveCount(0);
 });
 
 test('cameras come from Frigate, and a saved name it does not have is flagged', async ({ page }) => {
     const fake = new FakeBackend({ settings: { cameras: ['feedr'] } });
     await openRerun(page, fake);
-    await openSectionFromReview(page, 'Cameras & detection');
+    await openSectionFromReview(page, 'Cameras');
     const choices = wizard(page).locator('[data-setup-camera-choices]');
     await expect(choices.getByRole('checkbox')).toHaveCount(3);
     await expect(wizard(page).getByLabel('Cameras (comma-separated)')).toHaveCount(0);
@@ -905,7 +948,7 @@ test('typing cameras is only offered when Frigate cannot be read, and says the n
     const fake = new FakeBackend({});
     fake.frigateConfigFails = true;
     await openRerun(page, fake);
-    await openSectionFromReview(page, 'Cameras & detection');
+    await openSectionFromReview(page, 'Cameras');
     await expect(wizard(page).locator('[data-setup-camera-unread]')).toContainText('could not be read');
     await wizard(page).getByLabel('Cameras (comma-separated)').fill('feeder, feeder, nestbox');
     fake.frigateConfigFails = false;
@@ -920,14 +963,14 @@ test('typing cameras is only offered when Frigate cannot be read, and says the n
 test('a regional model says which species list it will use, and validating runs the region chosen', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: 'small_birds', ready: true, validated: false }] });
     await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     await modelSelect(page).selectOption('small_birds');
     const region = wizard(page).locator('[data-setup-model-region]');
     await expect(region.getByRole('status')).toContainText('No country is saved, so Auto uses the North American species list');
     await region.getByLabel('Bird model region').selectOption('eu');
     await expect(region.getByRole('status')).toContainText('This model will use the species list for Europe.');
     await expect.poll(() => fake.settingsWrites()).toContainEqual({ bird_model_region_override: 'eu' });
-    await expect(wizard(page).getByText('is saved but', { exact: false })).toHaveCount(0);
+    await expect(wizard(page).getByText('Saved:', { exact: false })).toHaveCount(0);
     await validateButton(page).click();
     await expect.poll(() => fake.posts('/api/diagnostics/model-eval/runs').length).toBe(1);
     expect(fake.requestIndex(r => r.method === 'POST' && r.path === '/api/settings')).toBeLessThan(
@@ -942,11 +985,358 @@ test('a saved country names the species list, and a model that is not regional a
         settings: { location_country: 'France', bird_model_region_override: 'eu' }
     });
     await openRerun(page, fake);
-    await openSectionFromReview(page, 'Classifier model & hardware');
+    await openSectionFromReview(page, 'Model and hardware');
     // Only once the step has loaded does an absent control mean anything.
     await expect(modelSelect(page)).toHaveValue(MOBILENET);
     await expect(wizard(page).locator('[data-setup-model-region]')).toHaveCount(0);
     await modelSelect(page).selectOption('small_birds');
     await wizard(page).getByLabel('Bird model region').selectOption('auto');
     await expect(wizard(page).locator('[data-setup-model-region]').getByRole('status')).toContainText('Your saved country selects the species list');
+});
+
+test('the review names what it measured: no password is a choice, and a saved connection that fails is not ready', async ({ page }) => {
+    const fake = new FakeBackend({ settings: { frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt' } });
+    fake.connectionReading = 'unreachable';
+    const errors = await openRerun(page, fake);
+    const account = wizard(page).getByRole('listitem').filter({ hasText: 'Owner account and access' });
+    await expect(account.locator('[data-setup-status]')).toHaveText('No password');
+    await expect(account).toContainText('Authentication disabled');
+    await expect(account).not.toContainText('Configured');
+    const connection = wizard(page).getByRole('listitem').filter({ hasText: 'Frigate & MQTT connection' });
+    await expect(connection.locator('[data-setup-status]')).toHaveText('Not reachable');
+    await expect(connection).toContainText('Could not reach: MQTT broker, Frigate.');
+    expect(errors).toEqual([]);
+});
+
+test('the review says connected only once the connection was measured working', async ({ page }) => {
+    const fake = new FakeBackend({ settings: { frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt' } });
+    fake.connectionReading = 'connected';
+    await openRerun(page, fake);
+    const connection = wizard(page).getByRole('listitem').filter({ hasText: 'Frigate & MQTT connection' });
+    await expect(connection.locator('[data-setup-status]')).toHaveText('Connected');
+});
+
+test('first run opens on the step, not on the control that abandons setup', async ({ page }) => {
+    const fake = new FakeBackend({ firstRun: true });
+    await openFixture(page, fake);
+    await expectStep(page, 'Set up YA-WAMF');
+    // Enter on arrival must never head for "Skip setup".
+    await expect(wizard(page).getByRole('heading', { level: 2, name: 'Set up YA-WAMF' })).toBeFocused();
+    await expect(wizard(page).locator('[data-setup-welcome-covers] li')).toHaveCount(4);
+});
+
+test('a disabled Continue says why, and an unreachable Frigate can be set up later', async ({ page }) => {
+    const fake = new FakeBackend({ firstRun: true });
+    fake.frigateTestFails = true;
+    const errors = await openFixture(page, fake);
+    await wizard(page).getByRole('button', { name: 'Get started' }).click();
+    await wizard(page).getByRole('checkbox').check();
+    await continueButton(page).click();
+    await expectStep(page, 'Frigate & MQTT connection');
+
+    // Nothing saved yet: Continue is disabled, and the reason is on screen and tied to the button.
+    await expect(continueButton(page)).toBeDisabled();
+    const reason = wizard(page).locator('[data-setup-continue-blocked]');
+    await expect(reason).toHaveText('Save and test the connection to continue, or choose “Set up later”.');
+    await expect(continueButton(page)).toHaveAttribute('aria-describedby', 'setup-continue-blocked');
+    // What waits on the connection is stated before the choice is made.
+    await expect(wizard(page).locator('[data-setup-connection-later]')).toContainText('no visits arrive, no photos or clips can be fetched');
+
+    // A failed test is a red row that states its outcome in a word, not a colour alone.
+    await wizard(page).getByLabel('Frigate URL').fill('http://frigate.invalid:5000');
+    await wizard(page).getByLabel('MQTT broker').fill('mqtt.invalid');
+    await wizard(page).getByRole('button', { name: 'Save & test connection' }).click();
+    const failed = wizard(page).locator('[data-setup-connection-result="failed"]');
+    await expect(failed).toContainText('Frigate API');
+    await expect(failed).toContainText('Failed');
+    await expect(wizard(page).getByRole('button', { name: 'Test again' })).toBeVisible();
+
+    // The MQTT switch is the same control Settings uses.
+    await expect(wizard(page).getByRole('switch', { name: 'MQTT authentication' })).toHaveAttribute('aria-checked', 'false');
+
+    await wizard(page).getByRole('button', { name: 'Set up later' }).click();
+    await expectStep(page, 'Cameras');
+    expect(errors).toEqual([]);
+});
+
+test('the model step opens with a model selected even when the running model is not in the catalogue', async ({ page }) => {
+    // The bundled fallback runs under an id no catalogue entry has, and nothing else is installed.
+    const fake = new FakeBackend({ installed: [], activeModelId: 'model.tflite' });
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Model and hardware');
+    await expect(modelSelect(page)).toHaveValue(MOBILENET);
+    await expect(continueButton(page)).toBeDisabled();
+    await expect(wizard(page).locator('[data-setup-continue-blocked]')).toContainText('Download this model to continue, or skip this step');
+});
+
+test('a failed broker test is worded from its cause code in the page language', async ({ page }) => {
+    const fake = new FakeBackend({});
+    fake.mqttFailure = 'host_not_found';
+    await page.addInitScript(() => localStorage.setItem('preferred-language', 'de'));
+    await openFixture(page, fake);
+    await page.getByRole('button', { name: 'Open setup wizard' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('listitem').filter({ hasText: 'Frigate' }).first().getByRole('button').click();
+    await dialog.locator('#setup-frigate-url').fill('http://frigate:5000');
+    await dialog.locator('#setup-mqtt-server').fill('mqtt.invalid');
+    await dialog.locator('#setup-mqtt-server').press('Tab');
+    await dialog.getByRole('button', { name: /test/i }).click();
+    const failed = dialog.locator('[data-setup-connection-result="failed"]');
+    await expect(failed).toContainText('Der Hostname in mqtt.invalid:1883 wurde nicht gefunden. Prüfen Sie die Adresse.');
+    await expect(failed).toContainText('MQTT-Broker');
+    await expect(dialog).not.toContainText('English fallback sentence.');
+});
+
+test('the cameras step says it is waiting for Frigate, lets setup continue, and stops waiting after 8 seconds', async ({ page }, testInfo) => {
+    // Real time: a held clock also holds the step's fade and the step bar's colours, which made
+    // the captures look half drawn. The wait is 8 seconds, so the test allows for it.
+    test.setTimeout(45_000);
+    const fake = new FakeBackend({ settings: { cameras: ['feeder'] } });
+    let release = (): void => {};
+    fake.frigateConfigHeld = new Promise<void>((resolve) => { release = resolve; });
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Cameras');
+    await expectStep(page, 'Cameras');
+
+    // The settings have loaded; what is still outstanding is Frigate, and the step says so.
+    const waiting = wizard(page).locator('[data-setup-camera-reading]');
+    await expect(waiting).toHaveText("Asking Frigate for its cameras, for up to 8 seconds. You can continue without waiting: the cameras already saved stay as they are.");
+    await expect(wizard(page).getByText('Loading your saved settings…')).toHaveCount(0);
+    await expect(continueButton(page)).toBeEnabled();
+    await expect(wizard(page).locator('[data-setup-continue-blocked]')).toHaveCount(0);
+    // The fade and the bar's colour change have ended once the step stops animating.
+    await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === 'running' && !(animation.effect?.getComputedTiming().iterations === Infinity)).length)).toBe(0);
+    await page.screenshot({ path: testInfo.outputPath('cameras-waiting-for-frigate.png') });
+
+    await expect(wizard(page).locator('[data-setup-camera-unread]')).toContainText('Frigate did not answer within 8 seconds, so these names cannot be checked.', { timeout: 12_000 });
+    await expect(waiting).toHaveCount(0);
+    await expect(wizard(page).getByLabel('Cameras (comma-separated)')).toHaveValue('feeder');
+    await page.screenshot({ path: testInfo.outputPath('cameras-frigate-timed-out.png') });
+    release();
+});
+
+test('continuing while Frigate is still being asked keeps the saved cameras', async ({ page }) => {
+    const fake = new FakeBackend({ settings: { cameras: ['feeder'] } });
+    fake.frigateConfigHeld = new Promise<void>(() => {});
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Cameras');
+    await expect(wizard(page).locator('[data-setup-camera-reading]')).toBeVisible();
+    await continueButton(page).click();
+    await expectStep(page, 'Review setup');
+    expect(fake.settingsWrites()).toContainEqual({ cameras: ['feeder'] });
+});
+
+for (const section of ['Model and hardware', 'Cameras']) {
+    test(`${section}: Back and Continue stay inside the card at 1440x900 while the step scrolls`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        const fake = new FakeBackend({});
+        await openRerun(page, fake);
+        await openSectionFromReview(page, section);
+        await expectStep(page, section);
+        const action = section === 'Model and hardware' ? validateButton(page) : continueButton(page);
+        const footer = wizard(page).locator('[data-setup-footer]');
+        await expect(footer).toBeVisible();
+        const inside = async (): Promise<boolean> => {
+            const card = await wizard(page).boundingBox();
+            const bar = await footer.boundingBox();
+            if (!card || !bar) return false;
+            return bar.y >= card.y && bar.y + bar.height <= card.y + card.height + 1 && card.y >= 0 && card.y + card.height <= 900;
+        };
+        await expect.poll(inside).toBe(true);
+        // The footer is not part of what scrolls.
+        const scroller = wizard(page).locator('[data-setup-scroll]');
+        await scroller.evaluate((element) => { element.scrollTop = element.scrollHeight; });
+        await expect.poll(inside).toBe(true);
+        expect(await footer.evaluate((element) => element.closest('[data-setup-scroll]') === null)).toBe(true);
+        await expect(action).toBeAttached();
+        await expect.poll(() => page.evaluate(() => document.getAnimations().filter((animation) => animation.playState === 'running' && !(animation.effect?.getComputedTiming().iterations === Infinity)).length)).toBe(0);
+        await page.screenshot({ path: testInfo.outputPath(`footer-pinned-${section.split(' ')[0].toLowerCase()}.png`) });
+    });
+}
+
+test('the review and the model step read the same state for a model that is not on this install', async ({ page }, testInfo) => {
+    const fake = new FakeBackend({ installed: [] });
+    const errors = await openRerun(page, fake);
+    const model = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' });
+    await expect(model.locator('[data-setup-status]')).toHaveText('Needs a download');
+    await expect(model).toContainText('MobileNet V2 birds is not on this install, so nothing is naming birds yet.');
+    await expect(model).not.toContainText('Configured');
+    await page.screenshot({ path: testInfo.outputPath('review-model-needs-download.png') });
+
+    await model.getByRole('button', { name: 'Review', exact: true }).click();
+    await expect(wizard(page).locator('[data-identification-status="missing"]')).toContainText('Nothing is naming birds yet');
+    expect(errors).toEqual([]);
+});
+
+test('the review words a working model from its runtime report', async ({ page }) => {
+    await openRerun(page, new FakeBackend({}));
+    const model = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' });
+    await expect(model.locator('[data-setup-status]')).toHaveText('Running');
+    // The word comes from the classifier's own report, the one the model step reads.
+    await expect(model.locator('[data-setup-status]')).toHaveAttribute('data-setup-readiness', 'running');
+});
+
+test('the review does not call a model ready when its files are here but it could not be loaded', async ({ page }, testInfo) => {
+    const fake = new FakeBackend({});
+    fake.modelFailedToLoad = true;
+    await openRerun(page, fake);
+    const model = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' });
+    await expect(model.locator('[data-setup-status]')).toHaveText('Could not load');
+    await expect(model).toContainText('MobileNet V2 birds is installed but could not be loaded, so nothing is naming birds.');
+    await page.screenshot({ path: testInfo.outputPath('review-model-could-not-load.png') });
+});
+
+test('the step bar marks the steps done, the current one and those ahead differently', async ({ page }) => {
+    await openRerun(page, new FakeBackend({ settings: { cameras: ['feeder'] } }));
+    await openSectionFromReview(page, 'Cameras');
+    await expectStep(page, 'Cameras');
+    const segments = wizard(page).getByRole('list', { name: 'Setup steps' }).getByRole('listitem');
+    await expect(segments).toHaveCount(9);
+    await expect(segments.nth(3)).toHaveAttribute('aria-current', 'step');
+    // Colours settle after a 300ms transition; read them once they stop changing.
+    const colours = async (): Promise<string[]> => segments.evaluateAll((items) => items.map((item) => getComputedStyle(item).backgroundColor));
+    await expect.poll(async () => new Set((await colours()).slice(4)).size).toBe(1);
+    const drawn = await colours();
+    // Step 4 of 9: three done, one current, five ahead. The ones ahead are not filled like the rest.
+    expect(new Set(drawn.slice(0, 3)).size).toBe(1);
+    expect(drawn[4]).not.toBe(drawn[3]);
+    expect(drawn[4]).not.toBe(drawn[0]);
+    expect(drawn[3]).not.toBe(drawn[0]);
+});
+
+test('the review says "Not reported" when the classifier answers with no evidence, not "Chosen" or an old "Running"', async ({ page }, testInfo) => {
+    const fake = new FakeBackend({});
+    // A report that names the model and says nothing of a worker, a plan or a load.
+    fake.statusOverride = { runtime_source: null, loaded: null };
+    await openRerun(page, fake);
+    const status = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' }).locator('[data-setup-status]');
+    await expect(status).toHaveText('Not reported');
+    await expect(status).toHaveAttribute('data-setup-readiness', 'unknown');
+    // Neutral: nothing was measured, so it is neither green nor a call to act.
+    await expect(status).toHaveAttribute('data-setup-tone', 'optional');
+    await page.screenshot({ path: testInfo.outputPath('review-model-not-reported.png') });
+});
+
+test('the review says a model that is still loading is loading', async ({ page }) => {
+    const fake = new FakeBackend({});
+    fake.statusOverride = { runtime_source: 'in_process', loaded: null };
+    await openRerun(page, fake);
+    const status = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' }).locator('[data-setup-status]');
+    await expect(status).toHaveText('Loading');
+    await expect(status).toHaveAttribute('data-setup-tone', 'optional');
+});
+
+test('the review shows a download the server reports, and reads the model again when it ends', async ({ page }) => {
+    const fake = new FakeBackend({ installed: [] });
+    fake.activity = { [MOBILENET]: 'downloading' };
+    await openRerun(page, fake);
+    const status = wizard(page).getByRole('listitem').filter({ hasText: 'Model and hardware' }).locator('[data-setup-status]');
+    await expect(status).toHaveText('Downloading');
+    await expect(status).toHaveAttribute('data-setup-tone', 'optional');
+    // The download ends on the server; nobody presses anything on this page.
+    fake.installed.push({ id: MOBILENET, ready: true, reason: 'ready', validated: true, validated_inference_providers: ['cpu'], provider_preference_order: ['cpu'], preferred_inference_provider: 'cpu' });
+    fake.activity = {};
+    await expect(status).toHaveText('Running', { timeout: 10_000 });
+});
+
+/**
+ * A phone or small tablet held sideways: every action of the step on screen stays fully in view,
+ * inside the window and the card, and the page never scrolls sideways (round-5 brief: 1024 × 600
+ * and 844 × 390 landscape without hidden actions).
+ */
+async function expectActionsInView(page: Page, scope: string): Promise<void> {
+    const viewport = page.viewportSize();
+    if (!viewport) throw new Error('No viewport');
+    const card = await wizard(page).boundingBox();
+    expect(card, `${scope}: the card`).not.toBeNull();
+    expect((card?.y ?? 0) + (card?.height ?? 0), `${scope}: the card ends inside the window`).toBeLessThanOrEqual(viewport.height + 1);
+    const actions = wizard(page).locator('[data-setup-footer] button:visible, [role="alertdialog"] button:visible');
+    expect(await actions.count(), `${scope}: there are actions`).toBeGreaterThan(0);
+    for (const action of await actions.all()) {
+        const box = await action.boundingBox();
+        const name = (await action.textContent())?.trim();
+        expect(box, `${scope}: ${name}`).not.toBeNull();
+        expect(box && box.y >= 0 && box.y + box.height <= viewport.height + 1 && box.x >= 0 && box.x + box.width <= viewport.width + 1, `${scope}: "${name}" is fully in view`).toBe(true);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), `${scope}: no sideways scroll`).toBeLessThanOrEqual(0);
+}
+
+for (const size of [{ width: 1024, height: 600 }, { width: 844, height: 390 }]) {
+    test(`at ${size.width} × ${size.height} every step keeps its actions in view, the skip prompt included`, async ({ page }) => {
+        test.setTimeout(60_000);
+        await page.setViewportSize(size);
+        const fake = new FakeBackend({ firstRun: true });
+        await openFixture(page, fake);
+        await expectStep(page, 'Set up YA-WAMF');
+        await expectActionsInView(page, 'welcome');
+        await wizard(page).getByRole('button', { name: 'Get started' }).click();
+        await expectStep(page, 'Owner account and access');
+        await expectActionsInView(page, 'account');
+        await wizard(page).getByLabel('Password', { exact: true }).fill('feeder2026');
+        await wizard(page).getByLabel('Confirm password').fill('feeder2026');
+        await continueButton(page).click();
+        await expectStep(page, 'Frigate & MQTT connection');
+        await expectActionsInView(page, 'connection');
+        // The skip prompt adds itself above the step: its own buttons and the step's stay in view.
+        await wizard(page).getByRole('button', { name: 'Skip setup' }).click();
+        await expect(wizard(page).getByRole('alertdialog')).toBeVisible();
+        await expectActionsInView(page, 'skip prompt');
+    });
+
+    test(`at ${size.width} × ${size.height} a re-run's Review and Model steps keep their actions in view`, async ({ page }) => {
+        await page.setViewportSize(size);
+        const fake = new FakeBackend({ settings: { location_latitude: 10, location_longitude: 20, frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', cameras: ['feeder'] } });
+        await openRerun(page, fake);
+        await expectActionsInView(page, 'review');
+        await openSectionFromReview(page, 'Model and hardware');
+        await expectStep(page, 'Model and hardware');
+        await expectActionsInView(page, 'model');
+    });
+}
+
+test('at 1024 × 600 the wizard tightens: the step heading sits near the top of the card, and the step icon gives way', async ({ page }) => {
+    const fake = new FakeBackend({ firstRun: true });
+    await page.setViewportSize({ width: 1024, height: 600 });
+    await openFixture(page, fake);
+    await expectStep(page, 'Set up YA-WAMF');
+    // The header, the step's padding and its icon tighten or give way, so the heading starts high in the card.
+    const card = await wizard(page).boundingBox();
+    const heading = await wizard(page).getByRole('heading', { level: 2, name: 'Set up YA-WAMF', exact: true }).boundingBox();
+    expect(card && heading && heading.y - card.y).toBeLessThan(110);
+    await expect(wizard(page).locator('[data-setup-step-icon]')).toBeHidden();
+    // A screen with room shows the step's mark again.
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await expect(wizard(page).locator('[data-setup-step-icon]')).toBeVisible();
+});
+
+test('at 844 × 390 with larger text a failed skip says so in view, above the buttons, outside the scrolling words', async ({ page }) => {
+    await page.setViewportSize({ width: 844, height: 390 });
+    const fake = new FakeBackend({ firstRun: true });
+    await openFixture(page, fake);
+    // A reader's larger text size: the prompt's words alone now fill its scrolling box.
+    await page.addStyleTag({ content: ':root { font-size: 22px !important; }' });
+    await page.route('**/api/auth/initial-setup', (route) => route.fulfill({ status: 503, json: { detail: 'Service unavailable' } }));
+    await expectStep(page, 'Set up YA-WAMF');
+    await wizard(page).getByRole('button', { name: 'Skip setup' }).click();
+    const prompt = wizard(page).getByRole('alertdialog');
+    await expect(prompt).toBeVisible();
+    const skip = prompt.getByRole('button', { name: 'Skip and open the app' });
+    await skip.click();
+    const alert = prompt.getByRole('alert');
+    await expect(alert).toHaveCount(1);
+    await expect(skip).toBeEnabled();
+    // The error is fully on screen, without scrolling anything, and above the button that was pressed.
+    const viewport = page.viewportSize();
+    const alertBox = await alert.boundingBox();
+    const buttonBox = await skip.boundingBox();
+    const promptBox = await prompt.boundingBox();
+    expect(alertBox && viewport && alertBox.y >= 0 && alertBox.y + alertBox.height <= viewport.height, 'the error is in the window').toBe(true);
+    expect(alertBox && promptBox && alertBox.y >= promptBox.y && alertBox.y + alertBox.height <= promptBox.y + promptBox.height, 'the error is inside the prompt').toBe(true);
+    expect(alertBox && buttonBox && alertBox.y + alertBox.height <= buttonBox.y + 1, 'the error is above the buttons').toBe(true);
+    // Not inside the scrolling words, which take a tab stop so the keyboard can scroll them anywhere.
+    const words = prompt.locator('[data-skip-setup-text]');
+    await expect(words).toHaveAttribute('tabindex', '0');
+    expect(await words.locator('[role="alert"]').count()).toBe(0);
+    // The wizard stays open on the step it was on.
+    await expectStep(page, 'Set up YA-WAMF');
 });

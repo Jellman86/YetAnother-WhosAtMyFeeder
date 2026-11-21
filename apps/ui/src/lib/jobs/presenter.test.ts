@@ -63,8 +63,8 @@ describe('jobs presenter', () => {
 
         const presented = presentPipelineKindRow(makeRow({ running: 0 }), analysisStatus, t);
 
-        expect(presented.activityLabel).toBe('Paused by circuit breaker');
-        expect(presented.blockerLabel).toBe('Recent failures paused reclassification work');
+        expect(presented.activityLabel).toBe('Paused after repeated failures');
+        expect(presented.blockerLabel).toBe('Repeated failures paused the analysis');
     });
 
     it('surfaces queue depth and free-capacity labels for throughput rows', () => {
@@ -107,18 +107,18 @@ describe('jobs presenter', () => {
             (kind) => kind === 'reclassify' ? 'Reclassification' : kind
         );
 
-        expect(presented.title).toBe('Analyze Unknowns');
+        expect(presented.title).toBe('Naming Unknown bird visits');
         expect(presented.stateLabel).toBe('Running');
         expect(presented.runningLabel).toBe('2 running');
         expect(presented.queuedLabel).toBe('18 queued');
         expect(presented.capacityLabel).toBe('2 of 2 worker slots busy');
-        expect(presented.batchLabel).toBe('Batching up to 50 at a time; newest 200 scanned');
-        expect(presented.candidateLabel).toBe('132 more candidates may remain');
+        expect(presented.batchLabel).toBe('Up to 50 at a time, from the newest 200');
+        expect(presented.candidateLabel).toBe('132 more may remain');
     });
 
-    it('gives the batch lane its own name instead of a second Analyze Unknowns', () => {
+    it('gives the batch lane its own name instead of a second copy of the lane name', () => {
         // Both reclassify kinds share queue telemetry, so both lanes were titled
-        // "Analyze Unknowns" and the same work read as two unrelated jobs.
+        // the lane name and the same work read as two unrelated jobs.
         const presented = presentWorkLane(
             makeRow({ kind: 'reclassify_batch', queued: 4, running: 1 }),
             null,
@@ -178,9 +178,63 @@ describe('jobs presenter', () => {
         );
 
         expect(summary.headline).toBe('2 jobs running');
-        expect(summary.subline).toBe('1 running • 12 queued • capacity 1 / 2');
+        // The subline says what the leading job is doing; the headline already holds the counts.
+        expect(summary.subline).toBe('Reclassification: analysing clips');
+        // No common total, so no bar and no placeholder words standing in for progress.
         expect(summary.determinate).toBe(false);
-        expect(summary.progressLabel).toBe('Multiple jobs in progress');
+        expect(summary.progressLabel).toBeNull();
+    });
+
+    it('counts the server\'s work from its own totals, not from the hundred jobs the snapshot lists', () => {
+        // 151 queued video analyses; the snapshot lists only the newest 100 of them.
+        const listed = Array.from({ length: 100 }, (_, index) =>
+            makeJob({ id: `video:${index}`, kind: 'video_analysis', status: 'queued', current: 0, total: 0 })
+        );
+        const rows = new Map([
+            ['video_analysis', makeRow({ kind: 'video_analysis', queued: 151, running: 0 })]
+        ]);
+        const summary = buildGlobalProgressSummary(listed, rows, null, 125_000, t, () => 'Video analysis', {
+            running: 0,
+            queued: 151,
+            progress: null,
+            browserOnly: []
+        });
+
+        expect(summary.headline).toBe('151 jobs queued');
+        expect(summary.headline).not.toContain('100');
+    });
+
+    it('adds the work only this browser is following to the server\'s counts', () => {
+        const browserOnly = [makeJob({ id: 'model-download:x', kind: 'model_download', status: 'running', total: 0 })];
+        const summary = buildGlobalProgressSummary(
+            [makeJob({ id: 'backfill:1', kind: 'backfill', current: 40, total: 100 }), ...browserOnly],
+            new Map([['backfill', makeRow({ kind: 'backfill', queued: 3, running: 1 })]]),
+            null,
+            125_000,
+            t,
+            (kind) => kind,
+            { running: 1, queued: 3, progress: { current: 40, total: 100, unit: 'detections' }, browserOnly }
+        );
+
+        expect(summary.headline).toBe('5 jobs: 2 running, 3 queued');
+        // Unlike work shares no total, so no bar is drawn.
+        expect(summary.determinate).toBe(false);
+    });
+
+    it('shows the server\'s progress when the server holds all the work', () => {
+        const summary = buildGlobalProgressSummary(
+            [makeJob({ id: 'backfill:1', kind: 'backfill', current: 40, total: 100 })],
+            new Map([['backfill', makeRow({ kind: 'backfill', queued: 0, running: 1 })]]),
+            null,
+            125_000,
+            t,
+            (kind) => kind,
+            { running: 1, queued: 0, progress: { current: 40, total: 100, unit: 'detections' }, browserOnly: [] }
+        );
+
+        expect(summary.headline).toBe('1 job running');
+        expect(summary.determinate).toBe(true);
+        expect(summary.percent).toBe(40);
     });
 
     it('shows queue-only analyze unknowns work in the global banner', () => {
@@ -201,9 +255,9 @@ describe('jobs presenter', () => {
             (kind) => kind === 'reclassify' ? 'Reclassification' : kind
         );
 
-        expect(summary.headline).toBe('Analyze Unknowns queued');
-        expect(summary.subline).toBe('0 running • 18 queued • capacity 0 / 2');
-        expect(summary.progressLabel).toBe('Batching up to 50 at a time; newest 200 scanned');
+        expect(summary.headline).toBe('Naming Unknown bird visits: queued');
+        expect(summary.subline).toBe('0 running · 18 queued');
+        expect(summary.progressLabel).toBe('Up to 50 at a time, from the newest 200');
         expect(summary.determinate).toBe(false);
     });
 
@@ -227,7 +281,7 @@ describe('jobs presenter', () => {
             (kind) => kind === 'reclassify' ? 'Reclassification' : 'Backfill'
         );
 
-        expect(summary.subline).toBe('1 running • 12 queued • capacity 1 / 2');
+        expect(summary.subline).toBe('Reclassification: analysing clips');
     });
 
 
@@ -307,6 +361,40 @@ describe('jobs presenter', () => {
             t,
             () => 'Reclassification'
         );
-        expect(mixed.headline).toBe('2 jobs running');
+        expect(mixed.headline).toBe('3 jobs: 2 running, 1 not responding');
+    });
+
+    it('counts restored work waiting for Frigate as one running and the rest queued, and names the wait', () => {
+        const restored = [
+            makeJob({ id: 'video:a', kind: 'video_analysis', status: 'running', phase: 'waiting_for_frigate', current: 0, total: 15, unit: 'frames' }),
+            makeJob({ id: 'video:b', kind: 'video_analysis', status: 'queued', phase: 'waiting', current: 0, total: 15, unit: 'frames' }),
+            makeJob({ id: 'video:c', kind: 'video_analysis', status: 'queued', phase: 'waiting', current: 0, total: 15, unit: 'frames' }),
+            makeJob({ id: 'video:d', kind: 'video_analysis', status: 'queued', phase: 'waiting', current: 0, total: 15, unit: 'frames' })
+        ];
+        const summary = buildGlobalProgressSummary(
+            restored,
+            new Map([['video_analysis', makeRow({ kind: 'video_analysis', queued: 3, running: 1, maxConcurrentConfigured: 1, maxConcurrentEffective: 1 })]]),
+            null,
+            125_000,
+            t,
+            () => 'Video analysis'
+        );
+
+        expect(summary.headline).toBe('4 jobs: 1 running, 3 queued');
+        expect(summary.subline).toBe('Video analysis: waiting for Frigate to answer');
+        expect(summary.headline).not.toMatch(/capacity/i);
+        expect(summary.subline).not.toMatch(/capacity/i);
+    });
+
+    it('says queued work is queued, not running', () => {
+        const summary = buildGlobalProgressSummary(
+            [makeJob({ id: 'a', status: 'queued' }), makeJob({ id: 'b', status: 'queued' })],
+            new Map([['reclassify', makeRow({ queued: 2, running: 0 })]]),
+            null,
+            125_000,
+            t,
+            () => 'Reclassification'
+        );
+        expect(summary.headline).toBe('2 jobs queued');
     });
 });

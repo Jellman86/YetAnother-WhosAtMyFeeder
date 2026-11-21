@@ -1,5 +1,5 @@
 {
   "completed": "Last completed run: {device} · {time}",
   "fallback": "CPU fallback: the requested accelerator did not complete its current check or inference successfully.",
-  "unreported": "No completed run has reported its device yet. A recommendation is not an execution record."
+  "unreported": "No check has finished on this host yet, so the device it runs on is not known."
 }

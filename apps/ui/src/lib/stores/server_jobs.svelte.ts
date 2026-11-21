@@ -1,12 +1,8 @@
 import { get } from 'svelte/store';
 import { _, locale } from 'svelte-i18n';
-import { fetchJobsSnapshot, type JobsSnapshot, type ServerJob } from '../api/jobs';
+import type { JobsSnapshot, ServerJob } from '../api/jobs';
 import type { QueueTelemetryByKind } from '../jobs/pipeline';
-import { authStore } from './auth.svelte';
 import type { JobProgressItem } from './job_progress.svelte';
-
-const ACTIVE_REFRESH_MS = 5_000;
-const IDLE_REFRESH_MS = 30_000;
 
 function parseTimestamp(value: string | null | undefined, fallback: number): number {
     if (!value) return fallback;
@@ -29,7 +25,8 @@ function detailForJob(job: ServerJob): string | undefined {
     const phaseLabels: Record<string, { key: string; fallback: string }> = {
         updating_photo: { key: 'jobs.phase_updating_photo', fallback: 'Updating photograph' },
         waiting_for_clip: { key: 'jobs.phase_waiting_for_clip', fallback: 'Waiting for recording clip' },
-        waiting_for_worker: { key: 'jobs.phase_waiting_for_worker', fallback: 'Waiting for worker recovery' }
+        waiting_for_worker: { key: 'jobs.phase_waiting_for_worker', fallback: 'Waiting for worker recovery' },
+        waiting_for_frigate: { key: 'jobs.phase_waiting_for_frigate', fallback: 'Waiting for Frigate to answer' }
     };
     const label = phaseLabels[job.phase ?? ''];
     const phase = label
@@ -88,17 +85,21 @@ function correlationEventId(job: JobProgressItem): string | null {
     return null;
 }
 
+/** The server's jobs, as the pushed status snapshot last reported them. */
 export class ServerJobsStore {
-    snapshot = $state<JobsSnapshot | null>(null);
-    loading = $state(false);
-    error = $state<string | null>(null);
-    private retainCount = 0;
-    private timer: ReturnType<typeof setTimeout> | null = null;
-    private request: Promise<void> | null = null;
+    snapshot = $state.raw<JobsSnapshot | null>(null);
     private materializedSnapshot: JobsSnapshot | null = null;
     private materializedActive: JobProgressItem[] = [];
     private materializedHistory: JobProgressItem[] = [];
     private previousById = new Map<string, JobProgressItem>();
+
+    ingest(snapshot: JobsSnapshot): void {
+        this.snapshot = snapshot;
+    }
+
+    clear(): void {
+        this.snapshot = null;
+    }
 
     private materializeSnapshot(): void {
         const snapshot = this.snapshot;
@@ -175,64 +176,33 @@ export class ServerJobsStore {
                 etaSeconds: localJob.etaSeconds ?? serverJob.etaSeconds
             };
         });
-        const serverEventIds = new Set(reconciledServerJobs.map(correlationEventId).filter((id): id is string => Boolean(id)));
-        const serverIds = new Set(reconciledServerJobs.map((job) => job.id));
-        const local = localJobs.filter((job) => {
+        return [...reconciledServerJobs, ...this.withoutServerJobs(localJobs, reconciledServerJobs)];
+    }
+
+    /**
+     * The jobs only this browser owns: rows that follow no server job. Ownership is carried by the
+     * row (`serverJobId`, set where the row starts following server work), never inferred from a
+     * job's absence in the server's list, which stops at a hundred while its lane totals count
+     * every job. The banner adds these to the server's own totals.
+     */
+    browserOnlyActive(localJobs: JobProgressItem[]): JobProgressItem[] {
+        return localJobs.filter((job) => !job.serverJobId);
+    }
+
+    private withoutServerJobs(localJobs: JobProgressItem[], serverJobs: JobProgressItem[]): JobProgressItem[] {
+        const serverEventIds = new Set(serverJobs.map(correlationEventId).filter((id): id is string => Boolean(id)));
+        const serverIds = new Set(serverJobs.map((job) => job.id));
+        return localJobs.filter((job) => {
             if (serverIds.has(job.id)) return false;
             const eventId = correlationEventId(job);
             return !eventId || !serverEventIds.has(eventId);
         });
-        return [...reconciledServerJobs, ...local];
     }
 
     mergeHistory(localJobs: JobProgressItem[]): JobProgressItem[] {
         const byId = new Map(localJobs.map((job) => [job.id, job]));
         for (const job of this.historyJobs) byId.set(job.id, job);
         return [...byId.values()];
-    }
-
-    async refresh(): Promise<void> {
-        if (!authStore.showSettings) {
-            this.snapshot = null;
-            this.error = null;
-            this.loading = false;
-            this.scheduleNext();
-            return;
-        }
-        if (this.request) return this.request;
-        this.loading = this.snapshot === null;
-        this.request = (async () => {
-            try {
-                this.snapshot = await fetchJobsSnapshot(true);
-                this.error = null;
-            } catch (error) {
-                this.error = error instanceof Error ? error.message : 'Jobs status is temporarily unavailable.';
-            } finally {
-                this.loading = false;
-                this.request = null;
-                this.scheduleNext();
-            }
-        })();
-        return this.request;
-    }
-
-    retain(): () => void {
-        this.retainCount += 1;
-        if (this.retainCount === 1) void this.refresh();
-        return () => {
-            this.retainCount = Math.max(0, this.retainCount - 1);
-            if (this.retainCount === 0 && this.timer) {
-                clearTimeout(this.timer);
-                this.timer = null;
-            }
-        };
-    }
-
-    private scheduleNext(): void {
-        if (this.retainCount <= 0) return;
-        if (this.timer) clearTimeout(this.timer);
-        const delay = this.activeJobs.length > 0 ? ACTIVE_REFRESH_MS : IDLE_REFRESH_MS;
-        this.timer = setTimeout(() => void this.refresh(), delay);
     }
 }
 

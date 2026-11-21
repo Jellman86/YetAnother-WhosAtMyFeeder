@@ -1,0 +1,20 @@
+{
+  "vague-error": {
+    "es/detection": 1,
+    "fr/detection": 1,
+    "it/detection": 1,
+    "ja/detection": 1,
+    "ja/error": 1,
+    "ja/model_eval": 1,
+    "pt/detection": 1,
+    "ru/detection": 1,
+    "ru/model_eval": 1,
+    "ru/video_player": 1,
+    "zh/detection": 1,
+    "zh/events": 1,
+    "zh/garden": 1
+  },
+  "unit-spacing": {
+    "fr/jobs": 1
+  }
+}

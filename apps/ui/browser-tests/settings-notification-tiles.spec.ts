@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { openMoreOptions } from './settings-page-mock';
 
-// The Notification option tiles hide their radios; the tile itself must show where
-// keyboard focus is (WCAG 2.4.7).
+// Each Notification option is a row holding its radio; the whole row shows where keyboard
+// focus is (WCAG 2.4.7). The ring follows :focus-visible, so the test arrives by keyboard.
 test('the notification option tiles show keyboard focus', async ({ page }) => {
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ body: '' }));
     await page.route('https://fonts.gstatic.com/**', route => route.abort());
@@ -19,13 +20,17 @@ test('the notification option tiles show keyboard focus', async ({ page }) => {
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    await page.getByRole('link', { name: 'Notifications', exact: true }).click();
+    await page.getByRole('link', { name: 'Alerts', exact: true }).click();
+    // The link and species choices are under Alerts' More options.
+    await openMoreOptions(page);
 
     for (const group of ['notification-link-target', 'notification-species-filter-mode']) {
         const tile = page.locator('label', { has: page.locator(`input[name="${group}"]`) }).first();
         const radio = tile.locator('input');
         await expect(tile).toHaveCSS('box-shadow', 'none');
         await radio.focus();
+        await page.keyboard.press('Shift+Tab');
+        await page.keyboard.press('Tab');
         await expect(radio).toBeFocused();
         await expect(tile).not.toHaveCSS('box-shadow', 'none');
     }

@@ -9,14 +9,14 @@
   "settings": "设置",
   "setup_wizard": "设置向导",
   "about": "关于",
-  "toggle_menu": "切换菜单",
+  "toggle_menu": "菜单",
   "collapse_sidebar": "收起侧边栏",
   "expand_sidebar": "展开侧边栏",
   "jobs": "任务",
   "close_menu": "关闭菜单",
   "close_language_selector": "关闭语言选择器",
-  "events": "事件",
   "notifications": "通知",
   "species": "物种",
-  "navigation": "主导航"
+  "navigation": "主导航",
+  "health": "运行状况"
 }

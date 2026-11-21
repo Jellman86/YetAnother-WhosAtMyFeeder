@@ -1,6 +1,7 @@
 {
   "no_wiki": "この種に関するウィキペディア情報はありません。",
   "no_info": "この種に関する参考情報はありません。",
+  "summary_language_note": "ウィキペディア（{language}）の説明",
   "avg_confidence": "平均信頼度",
   "first_seen": "初観測",
   "last_seen": "最終観測",
@@ -13,7 +14,7 @@
   "seasonality_global": "グローバル季節性",
   "range_map": "分布マップ",
   "range_unavailable": "分布マップは利用できません。",
-  "range_map_hint": "ドラッグで移動・スクロールでズーム",
+  "range_map_hint": "ドラッグで移動、+ と − で拡大・縮小します。",
   "video_unavailable": "動画クリップは利用できません",
   "no_recent_sightings": "最近の観察はありません。",
   "count_label": "件数",
@@ -24,5 +25,15 @@
   "month": "月",
   "copy_diagnostics_bundle": "診断バンドルをコピー",
   "no_local_visits_title": "あなたのフィーダーへの来訪はまだありません",
-  "no_local_visits_body": "カメラはこの鳥をまだ記録していません。以下の情報はすべて公開されている参考資料によるものです。"
+  "no_local_visits_body": "カメラはこの鳥をまだ記録していません。以下の情報はすべて公開されている参考資料によるものです。",
+  "reclassify_clip": "クリップから再分類",
+  "detections_all_time": "検出数（全期間）",
+  "detections_shared": "検出数（共有中の履歴）",
+  "visits_day": "訪問数（過去24時間）",
+  "visits_week": "訪問数（過去7日間）",
+  "visits_month": "訪問数（過去30日間）",
+  "detections_note": "識別された撮影は1件ずつ数えます。1回の訪問に複数の撮影が含まれることがあるため、ランキングの訪問数はこれより少なくなります。",
+  "recent_captures": "最近の撮影",
+  "unknown_bird_actions": "種まで識別されていません。写真またはクリップでモデルを再実行するか、エクスプローラーで開いて名前を変更してください。",
+  "daily_totals_time_of_day": "日別の合計には時刻がないため、時間帯は保存済みのキャプチャだけを数えます。"
 }

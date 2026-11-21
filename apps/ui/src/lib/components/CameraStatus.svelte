@@ -1,10 +1,14 @@
 <script lang="ts">
+    import DialogCloseButton from './DialogCloseButton.svelte';
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
-    import { fetchSettings } from '../api/settings';
+    import { startVisiblePoll } from '../app/visible-poll';
+    import { settingsStore } from '../stores/settings.svelte';
+    import { systemStatusStore } from '../stores/system_status.svelte';
+    import type { SystemStatus } from '../api/status';
     import { fetchEventFilters } from '../api/events';
     import {
-        fetchCameraStatuses,
+        readCameraStatuses,
         fetchLatestCameraSnapshot,
         type CameraStatusResponse
     } from '../api/media';
@@ -15,7 +19,6 @@
     type FrameState = { url: string | null; loading: boolean; error: boolean };
     type OverallTone = 'ok' | 'mixed' | 'down' | 'checking' | 'idle';
 
-    const HEALTH_REFRESH_MS = 15_000;
     const FRAME_REFRESH_MS = 15_000;
 
     let cameras = $state<string[]>([]);
@@ -30,8 +33,11 @@
     let rootEl: HTMLDivElement | null = $state(null);
     let triggerEl: HTMLButtonElement | null = $state(null);
     let viewerEl: HTMLDivElement | null = $state(null);
-    let healthTimer: ReturnType<typeof setInterval> | null = null;
-    let frameTimer: ReturnType<typeof setInterval> | null = null;
+    // Camera health arrives with the pushed status; this stops following it.
+    let stopFollowingStatus: (() => void) | null = null;
+    // The mount bootstrap awaits several reads; a poll started after destroy would never stop.
+    let destroyed = false;
+    let stopFramePoll: (() => void) | null = null;
     let healthController: AbortController | null = null;
     let frameController: AbortController | null = null;
     let healthPromise: Promise<void> | null = null;
@@ -40,6 +46,8 @@
 
     let selectedCamera = $derived(cameras[selectedIndex] ?? '');
     let selectedFrame = $derived(selectedCamera ? frames[selectedCamera] : undefined);
+    /** No picture and none on its way: the viewer shows words instead of a frame. */
+    let frameMessage = $derived(!selectedFrame?.url && !selectedFrame?.loading);
     let selectedHealth = $derived(selectedCamera ? cameraHealth[selectedCamera] : undefined);
     let selectedHealthState = $derived<HealthState>(selectedHealth?.status ?? 'unknown');
     let onlineCount = $derived(cameras.reduce((count, camera) => count + (cameraHealth[camera]?.status === 'online' ? 1 : 0), 0));
@@ -56,16 +64,16 @@
 
     let toneDotClass = $derived.by(() => {
         switch (statusTone) {
-            case 'ok': return 'bg-emerald-500 ring-emerald-500/35';
-            case 'mixed': return 'bg-amber-400 ring-amber-400/35';
-            case 'down': return 'bg-rose-500 ring-rose-500/35';
-            default: return 'bg-slate-400 ring-slate-400/35';
+            case 'ok': return 'bg-status-ok-line ring-status-ok-line/35';
+            case 'mixed': return 'bg-status-attention-line ring-status-attention-line/35';
+            case 'down': return 'bg-status-fail-line ring-status-fail-line/35';
+            default: return 'bg-status-neutral-line ring-status-neutral-line/35';
         }
     });
 
     let selectedDotClass = $derived.by(() => {
         switch (selectedHealthState) {
-            case 'online': return 'bg-emerald-400';
+            case 'online': return 'bg-success-400';
             case 'offline': return 'bg-rose-400';
             default: return 'bg-slate-400';
         }
@@ -96,7 +104,7 @@
 
     async function loadCameras(): Promise<void> {
         try {
-            const settings = await fetchSettings();
+            const settings = await settingsStore.read();
             const configured = viewerCameraNames({
                 cameras: cameraNames(settings.cameras),
                 garden_cameras: cameraNames(settings.garden_cameras),
@@ -120,6 +128,29 @@
         }
     }
 
+    function applyCameraHealth(reading: CameraStatusResponse | null): void {
+        if (!reading) {
+            // Frigate did not answer the last stats request: say so rather than show old health.
+            cameraHealth = {};
+            healthUnavailable = true;
+            healthChecked = true;
+            healthLoading = false;
+            return;
+        }
+        cameraHealth = Object.fromEntries(reading.cameras.map((camera) => [camera.camera, camera]));
+        if (monitorAllCameras && reading.cameras.length > 0) {
+            replaceCameraList(reading.cameras.map((camera) => camera.camera));
+        }
+        healthUnavailable = false;
+        healthChecked = true;
+        healthLoading = false;
+    }
+
+    function applyStatus(snapshot: SystemStatus): void {
+        applyCameraHealth(snapshot.cameras ?? null);
+    }
+
+    /** One direct reading, for the first paint before any status and when the viewer opens. */
     async function refreshHealth(): Promise<void> {
         if (healthPromise || document.hidden) return healthPromise ?? Promise.resolve();
         const controller = new AbortController();
@@ -128,14 +159,9 @@
 
         const currentRefresh = (async () => {
             try {
-                const response = await fetchCameraStatuses(controller.signal);
+                const response = await readCameraStatuses(controller.signal);
                 if (controller.signal.aborted) return;
-                cameraHealth = Object.fromEntries(response.cameras.map((camera) => [camera.camera, camera]));
-                if (monitorAllCameras && response.cameras.length > 0) {
-                    replaceCameraList(response.cameras.map((camera) => camera.camera));
-                }
-                healthUnavailable = false;
-                healthChecked = true;
+                applyCameraHealth(response);
             } catch (error) {
                 if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) return;
                 cameraHealth = {};
@@ -183,26 +209,27 @@
         }
     }
 
-    function startHealthRefresh(refreshNow = true): void {
-        if (refreshNow) void refreshHealth();
-        if (!healthTimer) healthTimer = setInterval(() => void refreshHealth(), HEALTH_REFRESH_MS);
+    /** Health follows the pushed status from here on, so the shell makes no camera requests while idle. */
+    function followStatus(): void {
+        if (destroyed) return;
+        stopFollowingStatus ??= systemStatusStore.subscribe(applyStatus);
     }
 
     function stopHealthRefresh(): void {
-        if (healthTimer) clearInterval(healthTimer);
-        healthTimer = null;
+        stopFollowingStatus?.();
+        stopFollowingStatus = null;
         healthController?.abort();
         healthController = null;
     }
 
     function startFrameRefresh(): void {
-        void refreshSelectedFrame();
-        if (!frameTimer) frameTimer = setInterval(() => void refreshSelectedFrame(), FRAME_REFRESH_MS);
+        if (destroyed) return;
+        stopFramePoll ??= startVisiblePoll({ read: refreshSelectedFrame, delayMs: () => FRAME_REFRESH_MS });
     }
 
     function stopFrameRefresh(): void {
-        if (frameTimer) clearInterval(frameTimer);
-        frameTimer = null;
+        stopFramePoll?.();
+        stopFramePoll = null;
         frameController?.abort();
         frameController = null;
     }
@@ -210,6 +237,7 @@
     function open(): void {
         if (popoverOpen) return;
         popoverOpen = true;
+        void refreshHealth();
         startFrameRefresh();
         requestAnimationFrame(() => viewerEl?.focus());
     }
@@ -253,29 +281,24 @@
         if (document.hidden) {
             healthController?.abort();
             frameController?.abort();
-            return;
         }
-        const pendingHealth = healthPromise;
-        if (pendingHealth) {
-            void pendingHealth.finally(() => {
-                if (!document.hidden) void refreshHealth();
-            });
-        } else {
-            void refreshHealth();
-        }
-        if (popoverOpen) void refreshSelectedFrame();
     }
 
     onMount(() => {
         void (async () => {
             await loadCameras();
-            await refreshHealth();
+            const pushed = systemStatusStore.snapshot;
+            // An owner's status carries camera health and is already on its way; only a page
+            // without it asks Frigate's stats directly. Until it lands the widget says "checking".
+            if (pushed) applyStatus(pushed);
+            else if (!systemStatusStore.following) await refreshHealth();
             await loadFallbackCameras();
-            startHealthRefresh(false);
+            followStatus();
         })();
     });
 
     onDestroy(() => {
+        destroyed = true;
         stopHealthRefresh();
         stopFrameRefresh();
         for (const entry of Object.values(frames)) {
@@ -295,7 +318,7 @@
         type="button"
         bind:this={triggerEl}
         onclick={toggle}
-        class="relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors duration-200 motion-reduce:transition-none focus-ring"
+        class="relative p-2.5 rounded-xl hover:bg-surface-raised text-muted transition-colors duration-200 motion-reduce:transition-none focus-ring"
         aria-haspopup="dialog"
         aria-expanded={popoverOpen}
         aria-controls={menuId}
@@ -337,7 +360,7 @@
     {#if popoverOpen}
         <div
             bind:this={viewerEl}
-            class="group/viewer fixed inset-x-4 top-[8.75rem] w-auto overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-2xl shadow-slate-950/25 z-[60] animate-in fade-in zoom-in-95 md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-[min(34rem,calc(100vw-2rem))] dark:border-slate-700"
+            class="group/viewer fixed inset-x-4 top-35 w-auto max-h-[calc(100dvh-9.75rem)] overflow-y-auto rounded-2xl border border-line bg-slate-950 shadow-2xl shadow-slate-950/25 z-60 animate-in fade-in zoom-in-95 md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-[min(34rem,calc(100vw-2rem))]"
             id={menuId}
             role="dialog"
             aria-modal="false"
@@ -345,16 +368,22 @@
             tabindex="-1"
         >
             {#if cameras.length === 0}
-                <div class="flex aspect-video max-h-[calc(100dvh-9.75rem)] flex-col items-center justify-center gap-3 px-6 text-center text-slate-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <div class="flex aspect-video flex-col items-center justify-center gap-3 px-6 text-center text-slate-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                     <p class="max-w-sm text-sm font-semibold">
-                        {$_('header.cameras_empty', { default: 'No cameras configured. Add cameras in Settings → Connection.' })}
+                        {$_('header.cameras_empty', { default: 'No cameras configured. Add cameras in Settings → Cameras & connection.' })}
                     </p>
                 </div>
             {:else}
-                <div class="relative aspect-video max-h-[calc(100dvh-9.75rem)] w-full bg-slate-950">
+                <!-- A frame is 16:9 with its labels laid over it. A message has no picture to lay them over:
+                     the camera's name, the message and the counter stack in flow, so the box is as tall as
+                     its words at any text size and nothing is clipped or covered. -->
+                <div
+                    class="relative flex w-full flex-col bg-slate-950 {frameMessage ? '' : 'aspect-video max-h-[calc(100dvh-9.75rem)] justify-center'}"
+                    data-camera-frame={frameMessage ? 'message' : 'picture'}
+                >
                     {#if selectedFrame?.url}
                         <img
                             src={selectedFrame.url}
@@ -366,13 +395,13 @@
                             <div class="h-7 w-7 animate-spin rounded-full border-2 border-white/30 border-t-white motion-reduce:animate-none"></div>
                         </div>
                     {:else}
-                        <div class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-slate-300">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                        <div class="flex flex-col items-center gap-2 px-4 pb-3 text-slate-300 sm:gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="hidden h-8 w-8 shrink-0 text-muted sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.73 5H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-3m0-4l2.553-1.276A1 1 0 0121 9.618v4.764a1 1 0 01-.553.894M15 8v-.999a2 2 0 00-2-2h-1" />
                             </svg>
-                            <span class="text-xs font-bold uppercase tracking-widest">
+                            <span class="text-center text-xs font-bold">
                                 {selectedFrame?.error
-                                    ? $_('header.cameras_frame_unavailable', { default: 'Frame unavailable' })
+                                    ? $_('header.cameras_frame_unavailable', { default: 'This frame could not be loaded' })
                                     : $_('header.cameras_no_frame', { default: 'No frame' })}
                             </span>
                             <button
@@ -382,6 +411,11 @@
                             >
                                 {$_('header.cameras_retry', { default: 'Retry' })}
                             </button>
+                            {#if selectedFrame?.error}
+                                <p class="max-w-xs text-center text-xs leading-snug" data-camera-frame-help>
+                                    {$_('header.cameras_frame_help', { default: 'Retry asks Frigate for the frame again. If it keeps failing, Health shows whether Frigate is answering.' })}
+                                </p>
+                            {/if}
                         </div>
                     {/if}
 
@@ -389,9 +423,9 @@
                         <div class="absolute right-16 top-4 h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white motion-reduce:animate-none" aria-label={$_('common.loading')}></div>
                     {/if}
 
-                    <div class="absolute left-3 top-3 flex max-w-[calc(100%-4.5rem)] items-center gap-2 rounded-full border border-white/15 bg-slate-950/70 px-3 py-2 text-white shadow-lg backdrop-blur-md" aria-live="polite">
+                    <div class="flex max-w-[calc(100%-4.5rem)] {frameMessage ? 'order-first m-3 flex-wrap self-start' : 'absolute left-3 top-3'} items-center gap-2 rounded-full border border-white/15 bg-slate-950/70 px-3 py-2 text-white shadow-lg backdrop-blur-md" aria-live="polite">
                         <span class="h-2 w-2 shrink-0 rounded-full {selectedDotClass}" aria-hidden="true"></span>
-                        <span class="truncate text-xs font-bold">{selectedCamera}</span>
+                        <span class="wrap-break-word text-xs font-bold">{selectedCamera}</span>
                         <span class="text-3xs font-semibold text-slate-300">
                             {selectedHealthState === 'online'
                                 ? $_('header.cameras_status_online', { default: 'Online' })
@@ -403,17 +437,7 @@
                         </span>
                     </div>
 
-                    <button
-                        type="button"
-                        onclick={() => close(true)}
-                        class="absolute right-2 top-2 flex min-h-11 min-w-11 items-center justify-center rounded-full border border-white/15 bg-slate-950/45 text-white/85 shadow-lg backdrop-blur-md transition-colors hover:bg-slate-950/75 hover:text-white focus-ring motion-reduce:transition-none"
-                        aria-label={$_('common.close')}
-                        title={$_('common.close')}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    <DialogCloseButton tone="media" class="absolute right-2 top-2" onclick={() => close(true)} />
 
                     {#if cameras.length > 1}
                         <button
@@ -440,7 +464,7 @@
                         </button>
                     {/if}
 
-                    <div class="absolute bottom-3 right-3 rounded-full border border-white/10 bg-slate-950/65 px-2.5 py-1 text-3xs font-bold tabular-nums text-slate-200 backdrop-blur-md">
+                    <div class="{frameMessage ? 'mb-3 mr-3 self-end' : 'absolute bottom-3 right-3'} rounded-full border border-white/10 bg-slate-950/65 px-2.5 py-1 text-3xs font-bold tabular-nums text-slate-200 backdrop-blur-md">
                         {selectedIndex + 1} / {cameras.length}
                     </div>
                 </div>

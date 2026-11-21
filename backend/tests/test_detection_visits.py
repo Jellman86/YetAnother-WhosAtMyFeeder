@@ -220,14 +220,16 @@ async def test_guest_groups_real_cameras_and_cannot_expand_hidden_or_old_capture
     from app.auth import AuthContext, get_auth_context_with_legacy
     from app.config import settings
     from app.main import app
-    from app.routers import events, visits
+    from app.routers import events
+    from app.utils import public_access
 
     monkeypatch.setattr(settings.public_access, "enabled", True)
     monkeypatch.setattr(settings.public_access, "show_historical_days", 0)
     monkeypatch.setattr(settings.public_access, "historical_days_mode", "fixed")
     monkeypatch.setattr(settings.public_access, "show_camera_names", False)
     monkeypatch.setattr(events, "batch_check_clips", AsyncMock(return_value={}))
-    monkeypatch.setattr(visits, "public_utc_day", lambda: START.date())
+    # Every guest history route reads its allowance from this one clock.
+    monkeypatch.setattr(public_access, "public_utc_day", lambda now=None: START.date())
     await capture(repo, 0, 0)
     await capture(repo, 1, 10, camera="patio")
     await capture(repo, 2, 20, hidden=1)
@@ -422,7 +424,8 @@ async def test_guest_multi_species_flag_is_ignored_on_visits_events_and_counts(r
     from app.auth import create_access_token
     from app.config import settings
     from app.main import app
-    from app.routers import events, visits
+    from app.routers import events
+    from app.utils import public_access
 
     monkeypatch.setattr(settings.auth, "enabled", True)
     monkeypatch.setattr(settings.auth, "session_secret", "visit-regression-secret-with-enough-characters")
@@ -431,8 +434,7 @@ async def test_guest_multi_species_flag_is_ignored_on_visits_events_and_counts(r
     monkeypatch.setattr(settings.public_access, "show_historical_days", 0)
     monkeypatch.setattr(settings.public_access, "historical_days_mode", "fixed")
     monkeypatch.setattr(settings.public_access, "show_camera_names", False)
-    monkeypatch.setattr(events, "public_utc_day", lambda: START.date())
-    monkeypatch.setattr(visits, "public_utc_day", lambda: START.date())
+    monkeypatch.setattr(public_access, "public_utc_day", lambda now=None: START.date())
     monkeypatch.setattr(events, "batch_check_clips", AsyncMock(return_value={}))
     single = await capture(repo, 0, 0)
     multiple = await capture(repo, 1, 120)

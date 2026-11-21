@@ -31,6 +31,7 @@ from app.services.frigate_client import frigate_client
 from app.services.detection_service import DetectionService, NonBirdSaveRejection
 from app.services.audio.audio_service import audio_service
 from app.services.weather_service import weather_service
+from app.services.ha_weather import illuminance_at_detection
 from app.services.notification_orchestrator import NotificationOrchestrator
 from app.services.notification_dispatcher import notification_dispatcher
 from app.services.taxonomy.taxonomy_service import taxonomy_service
@@ -234,6 +235,8 @@ class EventProcessor:
         self._stage_timeouts: Counter[str] = Counter()
         self._stage_failures: Counter[str] = Counter()
         self._stage_fallbacks: Counter[str] = Counter()
+        # Events Frigate announced and then kept no snapshot for: expected, so counted rather than warned.
+        self._snapshot_not_found_events = 0
         self._drop_reasons: Counter[str] = Counter()
         self._recent_outcomes: deque[dict[str, Any]] = deque(maxlen=50)
         self._last_stage_timeout: dict[str, Any] | None = None
@@ -423,6 +426,7 @@ class EventProcessor:
             "stage_timeouts": stage_timeouts,
             "stage_failures": stage_failures,
             "stage_fallbacks": stage_fallbacks,
+            "snapshot_not_found_events": self._snapshot_not_found_events,
             "drop_reasons": drop_reasons,
             "expected_drops": sum(expected_drop_reasons.values()),
             "fault_drops": sum(fault_drop_reasons.values()),
@@ -785,7 +789,9 @@ class EventProcessor:
             event.frigate_score,
             event.sub_label_score,
         )
-        if await self._route_declared_domestic_bird(event, results[0] if results else None, top, started):
+        if await self._route_declared_domestic_bird(
+            event, results[0] if results else None, top, started, snapshot_data, snapshot_source
+        ):
             return
         if not top:
             top_candidate = results[0] if results else {}
@@ -887,7 +893,13 @@ class EventProcessor:
         )
 
     async def _route_declared_domestic_bird(
-        self, event: EventData, top: dict | None, accepted: dict | None, started: float
+        self,
+        event: EventData,
+        top: dict | None,
+        accepted: dict | None,
+        started: float,
+        snapshot: bytes | None,
+        snapshot_source: str | None,
     ) -> bool:
         """Domestic birds the owner keeps become Garden animals here, before bird admission.
 
@@ -906,6 +918,8 @@ class EventProcessor:
             has_snapshot=not event.not_retained_by_frigate(),
             top=top,
             accepted=accepted,
+            snapshot=snapshot,
+            snapshot_source=snapshot_source,
         )
         if routed:
             self._mark_classification_decided_tombstone(event.frigate_event)
@@ -1428,6 +1442,14 @@ class EventProcessor:
                     camera=getattr(event, "camera", None),
                     start_time_ts=getattr(event, "start_time_ts", None),
                 )
+                if last_snapshot_error == "snapshot_not_found":
+                    self._snapshot_not_found_events += 1
+                    log.info(
+                        "Frigate has no snapshot for this event",
+                        event_id=event.frigate_event,
+                        reason=last_snapshot_error,
+                        fallback=snapshot_source,
+                    )
                 snapshot_provenance = cached_snapshot_input_provenance({"source": snapshot_source})
                 if snapshot_source == "frigate_recording_snapshot" and snapshot_data:
                     # The fallback's source label cannot carry alignment. Verify
@@ -1755,6 +1777,7 @@ class EventProcessor:
             "weather_precipitation": weather.get("precipitation"),
             "weather_rain": weather.get("rain"),
             "weather_snowfall": weather.get("snowfall"),
+            "illuminance_lux": weather.get("illuminance_lux"),
         }
 
     async def _enqueue_notification_flow(
@@ -1843,6 +1866,12 @@ class EventProcessor:
                     return
 
         weather_fields = self._extract_weather_fields(context)
+        measured_lux = weather_fields["illuminance_lux"]
+        if measured_lux is not None:
+            # The sensor was read now; it describes this event only if the event is recent.
+            measured_lux = illuminance_at_detection(
+                measured_lux, detected_at=event.detection_dt, now=datetime.now(timezone.utc)
+            )
 
         # Save detection (upsert)
         outcome = await self.detection_service.save_detection(
@@ -1864,6 +1893,7 @@ class EventProcessor:
             weather_precipitation=weather_fields["weather_precipitation"],
             weather_rain=weather_fields["weather_rain"],
             weather_snowfall=weather_fields["weather_snowfall"],
+            illuminance_lux=measured_lux,
         )
 
         if isinstance(outcome, NonBirdSaveRejection):

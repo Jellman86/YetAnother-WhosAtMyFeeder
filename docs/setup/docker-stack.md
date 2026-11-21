@@ -168,7 +168,7 @@ YA-WAMF can accelerate its ONNX classifier models with:
 
 Recommended flow:
 
-1. Start with `Auto` under **Settings → Detection → Inference Provider**.
+1. Start with `Auto` under **Settings → Identifying birds → More options → Hardware → Inference provider**.
 2. Check **Image**, **Packaged**, **Selected**, and **Active** under
    **Runtime diagnostics**.
 3. If fallback occurs, use the diagnostics shown in the UI and backend logs before forcing a provider.

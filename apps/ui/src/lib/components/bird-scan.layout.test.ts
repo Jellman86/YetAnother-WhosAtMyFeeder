@@ -5,9 +5,16 @@ import page from '../pages/Settings.svelte?raw';
 
 describe('additional bird controls', () => {
     it('exposes an owner action on an explicit scan frame', () => {
+        // The record owns the scan, bound to the explicit scan frame, and only for an owner.
+        expect(modal).toContain('candidateId: scanFrameCandidate?.candidate_id ?? null');
+        expect(modal).toMatch(/new BirdScan\(\s*\(\) => hasOwnerDetectionActions/);
         const component = modal.slice(modal.indexOf('<BirdScanControl'), modal.indexOf('<BirdScanControl') + 600);
-        expect(component).toContain('candidateId={scanFrameCandidate?.candidate_id ?? null}');
-        expect(modal.slice(modal.indexOf('<BirdScanControl') - 100, modal.indexOf('<BirdScanControl'))).toContain('{#if hasOwnerDetectionActions}');
+        expect(component).toContain('scan={birdScan}');
+        // It stands in the owner-only block that holds the identification actions, not on the photograph.
+        const control = modal.indexOf('<BirdScanControl');
+        const ownerBlock = modal.slice(modal.lastIndexOf('{#if hasOwnerDetectionActions}', control), control);
+        expect(ownerBlock).toContain('data-detection-identification-actions');
+        expect(modal.slice(modal.indexOf('{#snippet visitStrip()}'), modal.indexOf('{#snippet decision()}'))).not.toContain('<BirdScanControl');
         const completion = modal.slice(modal.indexOf('async function refreshBirdsAfterScan'), modal.indexOf('async function handleGenerateSnapshotCandidates'));
         expect(completion).toContain('countedBirds = response.birds');
         expect(completion).not.toContain('handleApplySnapshot');

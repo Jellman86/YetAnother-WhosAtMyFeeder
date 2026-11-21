@@ -283,14 +283,14 @@
 {/snippet}
 
 {#snippet authorityAfter(kind: 'common' | 'scientific')}
-    {#if authority && kind === 'scientific'}<span class="font-normal not-italic text-slate-500 dark:text-slate-400" data-taxon-authority>{` ${authority}`}</span>{/if}
+    {#if authority && kind === 'scientific'}<span class="font-normal not-italic text-slate-600 dark:text-slate-400" data-taxon-authority>{` ${authority}`}</span>{/if}
 {/snippet}
 
 {#if anchor && taxon && names && position}
     <div
         use:portal
         bind:this={card}
-        class="pointer-events-auto fixed z-[90] w-80 overflow-hidden rounded-xl border border-line bg-surface text-left shadow-lg"
+        class="pointer-events-auto fixed z-90 w-80 overflow-hidden rounded-xl border border-line bg-surface text-left shadow-lg"
         style:left="{position.left}px"
         style:top="{position.top}px"
         style:max-width="calc(100vw - {MARGIN * 2}px)"
@@ -329,7 +329,7 @@
                             {:else if shown.kind === 'loading'}
                                 <div class="h-full w-full animate-pulse bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></div>
                             {:else}
-                                <div class="flex h-full w-full flex-col items-center justify-center gap-1 text-slate-500 dark:text-slate-400" data-taxon-card-no-picture>
+                                <div class="flex h-full w-full flex-col items-center justify-center gap-1 text-slate-600 dark:text-slate-400" data-taxon-card-no-picture>
                                     <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 18 9 13l3 3 2-2 6 6M15 8h.01M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z" stroke-linecap="round" stroke-linejoin="round" /></svg>
                                     <span class="text-2xs">{shown.text}</span>
                                 </div>
@@ -377,13 +377,13 @@
 
                         <section class="space-y-1.5 border-t border-line-soft pt-3" aria-label={$_('taxonomy.facts.heading', { default: 'Recorded here' })} data-taxon-card-facts>
                             {#if seenLine()}
-                                <p class="text-xs tabular-nums {seenSpecies > 0 ? 'font-semibold text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}" data-taxon-card-seen>{seenLine()}</p>
+                                <p class="text-xs tabular-nums {seenSpecies > 0 ? 'font-semibold text-success-700 dark:text-success-300' : 'text-slate-600 dark:text-slate-400'}" data-taxon-card-seen>{seenLine()}</p>
                             {/if}
                             {#if visits.kind === 'loading'}
                                 <div class="space-y-1.5" aria-busy="true" data-taxon-card-facts-loading>
                                     <span class="sr-only">{$_('taxonomy.facts.loading', { default: 'Loading what was recorded here' })}</span>
-                                    <div class="h-3 w-3/4 animate-pulse rounded bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></div>
-                                    <div class="h-3 w-1/2 animate-pulse rounded bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></div>
+                                    <div class="h-3 w-3/4 animate-pulse rounded-sm bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></div>
+                                    <div class="h-3 w-1/2 animate-pulse rounded-sm bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></div>
                                 </div>
                             {:else if visits.kind === 'failed'}
                                 <p class="flex flex-wrap items-center gap-x-2 text-xs text-slate-600 dark:text-slate-300" data-taxon-card-facts-failed>
@@ -393,7 +393,7 @@
                                     </button>
                                 </p>
                             {:else if visits.kind === 'none'}
-                                <p class="text-xs text-slate-500 dark:text-slate-400" data-taxon-card-visits>{$_('taxonomy.facts.no_visits', { default: 'No visits recorded' })}</p>
+                                <p class="text-xs text-slate-600 dark:text-slate-400" data-taxon-card-visits>{$_('taxonomy.facts.no_visits', { default: 'No visits recorded' })}</p>
                             {:else if visits.kind === 'seen'}
                                 <!-- Label above figure, as the day bar sets its figures: the eye reads across one row. -->
                                 <dl class="grid grid-cols-3 gap-x-3" data-taxon-card-visits>
@@ -409,25 +409,25 @@
                                 </dl>
                             {/if}
                             {#if visits.kind === 'seen' || visits.kind === 'none'}
-                                {#if scopeLine()}<p class="text-3xs text-slate-500 dark:text-slate-400" data-taxon-card-scope>{scopeLine()}</p>{/if}
+                                {#if scopeLine()}<p class="text-3xs text-slate-600 dark:text-slate-400" data-taxon-card-scope>{scopeLine()}</p>{/if}
                             {/if}
                         </section>
 
                         {#if pictureName && (isSpecies || describedRank)}
                             {#if referenceLoading}
                                 <div class="space-y-1.5 border-t border-line-soft pt-3" aria-hidden="true">
-                                    <div class="h-3 w-full animate-pulse rounded bg-slate-100 motion-reduce:animate-none dark:bg-slate-800"></div>
-                                    <div class="h-3 w-5/6 animate-pulse rounded bg-slate-100 motion-reduce:animate-none dark:bg-slate-800"></div>
+                                    <div class="h-3 w-full animate-pulse rounded-sm bg-slate-100 motion-reduce:animate-none dark:bg-slate-800"></div>
+                                    <div class="h-3 w-5/6 animate-pulse rounded-sm bg-slate-100 motion-reduce:animate-none dark:bg-slate-800"></div>
                                 </div>
                             {:else if reference?.state === 'failed'}
-                                <p class="border-t border-line-soft pt-3 text-2xs text-slate-500 dark:text-slate-400" data-taxon-card-description-failed>
+                                <p class="border-t border-line-soft pt-3 text-2xs text-slate-600 dark:text-slate-400" data-taxon-card-description-failed>
                                     {$_('taxonomy.description_failed', { default: 'The description could not load.' })}
                                 </p>
                             {:else if description}
                                 <div class="space-y-1 border-t border-line-soft pt-3" data-taxon-card-description>
                                     <p class="line-clamp-3 text-xs leading-relaxed text-slate-700 dark:text-slate-300">{description}</p>
                                     {#if reference?.state === 'ready' && reference.summarySource}
-                                        <p class="text-3xs text-slate-500 dark:text-slate-400" data-taxon-card-description-source>
+                                        <p class="text-3xs text-slate-600 dark:text-slate-400" data-taxon-card-description-source>
                                             {$_('taxonomy.description_from', { values: { source: reference.summarySource }, default: 'From {source}' })}
                                         </p>
                                     {/if}
@@ -437,23 +437,23 @@
 
                         {#if isSpecies}
                             {#if namesResult === null}
-                                <div class="h-3 w-2/5 animate-pulse rounded bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></div>
+                                <div class="h-3 w-2/5 animate-pulse rounded-sm bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></div>
                             {:else if namesResult.state === 'failed'}
-                                <p class="text-2xs text-slate-500 dark:text-slate-400" data-taxon-card-names-failed>{$_('taxonomy.names_failed', { default: 'Other names could not load.' })}</p>
+                                <p class="text-2xs text-slate-600 dark:text-slate-400" data-taxon-card-names-failed>{$_('taxonomy.names_failed', { default: 'Other names could not load.' })}</p>
                             {:else if nameGroups.length > 0}
                                 <details class="group border-t border-line-soft" data-taxon-card-names>
-                                    <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-md text-xs font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-200 [&::-webkit-details-marker]:hidden">
+                                    <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-md text-xs font-semibold text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-200 [&::-webkit-details-marker]:hidden">
                                         {$_('taxonomy.names_count', { values: { count: nameGroups.length }, default: '{count, plural, one {Names in # language} other {Names in # languages}}' })}
-                                        <svg class="h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-180 motion-reduce:transition-none" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                                        <svg class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400 transition-transform group-open:rotate-180 motion-reduce:transition-none" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke-linecap="round" stroke-linejoin="round" /></svg>
                                     </summary>
                                     <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 pb-1 text-xs">
                                         {#each nameGroups as group (group.language)}
-                                            <dt class="text-slate-500 dark:text-slate-400" lang={$locale ?? undefined}>{group.label}</dt>
+                                            <dt class="text-slate-600 dark:text-slate-400" lang={$locale ?? undefined}>{group.label}</dt>
                                             <dd class="text-slate-800 dark:text-slate-100" lang={group.language}>{group.names.join(', ')}</dd>
                                         {/each}
                                     </dl>
                                     {#if namesResult.names.truncated}
-                                        <p class="pb-1 text-3xs text-slate-500 dark:text-slate-400">{$_('taxonomy.names_truncated', { default: 'The catalogue holds more names than are shown.' })}</p>
+                                        <p class="pb-1 text-3xs text-slate-600 dark:text-slate-400">{$_('taxonomy.names_truncated', { default: 'The catalogue holds more names than are shown.' })}</p>
                                     {/if}
                                 </details>
                             {/if}
@@ -464,7 +464,7 @@
         {/key}
         {#if overflowing && !scrolledToEnd}
             <!-- In the surface colour of either theme, over the last lines, never catching the pointer. -->
-            <div class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface to-transparent" aria-hidden="true" data-taxon-card-more></div>
+            <div class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-linear-to-t/srgb from-surface to-transparent" aria-hidden="true" data-taxon-card-more></div>
         {/if}
     </div>
 {/if}

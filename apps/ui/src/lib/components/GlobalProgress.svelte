@@ -3,24 +3,23 @@
     import { slide } from 'svelte/transition';
     import { _ } from 'svelte-i18n';
     import { jobProgressStore } from '../stores/job_progress.svelte';
-    import { authStore } from '../stores/auth.svelte';
     import { buildJobsPipelineModel } from '../jobs/pipeline';
     import { buildGlobalProgressSummary, presentWorkLane, type JobsTranslateFn } from '../jobs/presenter';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { backfillStatusStore } from '../stores/backfill_status.svelte';
     import { toAppPath } from '../app/url-base';
     import { serverJobsStore } from '../stores/server_jobs.svelte';
+    import { systemStatusStore } from '../stores/system_status.svelte';
     let { onNavigate }: { onNavigate?: (path: string) => void } = $props();
 
     let nowTs = $state(Date.now());
     let showDetails = $state(false);
-    let container = $state<HTMLDivElement | null>(null);
+    let container = $state<HTMLElement | null>(null);
     const detailLimit = 4;
     onMount(() => {
         const tick = setInterval(() => {
             nowTs = Date.now();
         }, 1000);
-        const releaseServerJobs = serverJobsStore.retain();
         const closeOnEscape = (event: KeyboardEvent) => {
             if (event.key === 'Escape') showDetails = false;
         };
@@ -35,7 +34,6 @@
         return () => {
             window.removeEventListener('keydown', closeOnEscape);
             window.removeEventListener('pointerdown', closeOnOutsidePress);
-            releaseServerJobs();
             clearInterval(tick);
         };
     });
@@ -44,7 +42,6 @@
     let hasRunningBackfill = $derived(activeJobs.some((item) =>
         item.status === 'running' && (item.kind === 'backfill' || item.kind === 'weather_backfill')
     ));
-    let staleJobs = $derived(activeJobs.filter((item) => item.status === 'stale'));
     let queueByKind = $derived({
         ...analysisQueueStatusStore.queueByKind,
         ...Object.fromEntries(
@@ -66,22 +63,27 @@
     function kindLabel(kind: string): string {
         if (kind === 'reclassify') return $_('jobs.kind_reclassify', { default: 'Reclassification' });
         if (kind === 'reclassify_batch') return $_('settings.data.batch_analysis_title', { default: 'Batch Analysis' });
-        if (kind === 'backfill') return $_('jobs.kind_backfill', { default: 'Detection Backfill' });
-        if (kind === 'weather_backfill') return $_('jobs.kind_weather_backfill', { default: 'Weather Backfill' });
-        if (kind === 'taxonomy_sync') return $_('jobs.kind_taxonomy_sync', { default: 'Taxonomy Sync' });
+        if (kind === 'backfill') return $_('jobs.kind_backfill', { default: 'Import of missed visits' });
+        if (kind === 'weather_backfill') return $_('jobs.kind_weather_backfill', { default: 'Filling in missing weather' });
+        if (kind === 'taxonomy_sync') return $_('jobs.kind_taxonomy_sync', { default: 'Taxonomy sync' });
         if (kind === 'video_analysis') return $_('jobs.kind_video_analysis', { default: 'Video analysis' });
         return kind.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
     }
 
-    let aggregate = $derived(buildGlobalProgressSummary(activeJobs, rowsByKind, analysisStatus, nowTs, t, kindLabel));
+    // The server's counts are its own lane totals, the same numbers the lane detail shows; the
+    // banner adds only the work this browser follows that the server does not report.
+    let serverCounts = $derived.by(() => {
+        const summary = systemStatusStore.snapshot?.jobs_summary;
+        if (!summary) return undefined;
+        const browserOnly = serverJobsStore.browserOnlyActive(jobProgressStore.activeJobs)
+            .filter((job) => job.status !== 'completed' && job.status !== 'failed');
+        return { running: summary.running, queued: summary.queued, progress: summary.progress ?? null, browserOnly };
+    });
+    let aggregate = $derived(buildGlobalProgressSummary(activeJobs, rowsByKind, analysisStatus, nowTs, t, kindLabel, serverCounts));
 
     $effect(() => {
         if (!hasRunningBackfill) return;
         return backfillStatusStore.retain();
-    });
-
-    $effect(() => {
-        if (authStore.showSettings) void serverJobsStore.refresh();
     });
 
     function openJobsPage() {
@@ -94,37 +96,36 @@
 </script>
 
 {#if activeJobs.length > 0 || pipeline.kinds.length > 0}
-    <div
+    <!-- A named region: the banner sits above the page's main landmark, and content outside every
+         landmark is skipped by people who move through a page by its regions. -->
+    <section
         bind:this={container}
-        class="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 overflow-hidden relative shrink-0"
+        aria-label={$_('jobs.title', { default: 'Jobs' })}
+        class="w-full bg-surface border-b border-line-soft overflow-hidden relative shrink-0"
         transition:slide={{ duration: 300 }}
     >
-        <div class="absolute inset-0 bg-brand-500/5 pointer-events-none"></div>
-
         <div class="px-4 sm:px-6 lg:px-8 2xl:px-12 py-3 relative z-10">
             <div class="flex flex-col gap-2">
                 <div class="flex items-center justify-between gap-3">
                     <button
                         type="button"
-                        class="flex min-h-11 items-center gap-3 min-w-0 flex-1 text-left bg-transparent focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg"
+                        class="flex min-h-11 items-center gap-3 min-w-0 flex-1 text-left bg-transparent focus:outline-hidden focus:ring-2 focus:ring-focus rounded-lg"
                         onclick={() => showDetails = !showDetails}
                         aria-expanded={showDetails}
                         aria-controls="global-progress-details"
                     >
-                        <div class="w-6 h-6 rounded-lg bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400 flex-shrink-0">
+                        <div class="w-6 h-6 rounded-lg bg-accent-soft flex items-center justify-center text-accent-ink shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 {pipeline.lanes.running > 0 ? 'motion-safe:animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                         </div>
-                        <div class="min-w-0">
-                            <p class="text-xs font-bold text-slate-900 dark:text-white truncate">
+                        <!-- Wraps rather than truncates: the reason a job is waiting is the useful part. -->
+                        <div class="min-w-0 wrap-break-word">
+                            <p class="text-xs font-bold text-strong" data-global-progress-headline>
                                 {aggregate.headline}
                             </p>
-                            <p class="text-xs text-slate-600 dark:text-slate-300 truncate">
+                            <p class="text-xs text-muted" data-global-progress-subline>
                                 {aggregate.subline}
-                                {#if staleJobs.length > 0}
-                                    · {$_('notifications.global_progress_stale', { values: { count: staleJobs.length }, default: '{count} stale' })}
-                                {/if}
                             </p>
                         </div>
                     </button>
@@ -138,45 +139,48 @@
                     </button>
                 </div>
 
-                <p class="text-xs font-semibold text-slate-500 dark:text-slate-300">{aggregate.progressLabel}</p>
+                {#if aggregate.progressLabel}
+                    <p class="text-xs font-semibold text-muted">{aggregate.progressLabel}</p>
+                {/if}
 
-                <div
-                    class="h-2 w-full bg-brand-100 dark:bg-brand-950/60 rounded-full overflow-hidden relative"
-                    role="progressbar"
-                    aria-label={aggregate.progressLabel}
-                    aria-valuemin={0}
-                    aria-valuemax={aggregate.determinate ? 100 : undefined}
-                    aria-valuenow={aggregate.determinate && aggregate.percent !== null ? aggregate.percent : undefined}
-                >
-                    {#if aggregate.determinate && aggregate.percent !== null}
+                <!-- A bar only for a measured total. Work without one gets no bar at all, because any
+                     fixed fill would read as a share done. -->
+                {#if aggregate.determinate && aggregate.percent !== null}
+                    <div
+                        class="h-2 w-full bg-accent-soft rounded-full overflow-hidden relative"
+                        role="progressbar"
+                        aria-label={aggregate.progressLabel ?? aggregate.headline}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={aggregate.percent}
+                        data-global-progress-bar
+                    >
                         <div
-                            class="h-full w-full origin-left bg-brand-500 transition-transform duration-200 ease-out motion-reduce:transition-none"
+                            class="h-full w-full origin-left bg-status-info-line transition-transform duration-200 ease-out motion-reduce:transition-none"
                             style="transform: scaleX({aggregate.percent / 100})"
                         ></div>
-                    {:else}
-                        <div class="h-full w-2/5 bg-brand-500/70 motion-safe:animate-pulse"></div>
-                    {/if}
-                </div>
+                    </div>
+                {/if}
 
                 {#if showDetails}
-                    <div id="global-progress-details" class="pt-2 border-t border-slate-100 dark:border-slate-800/50 mt-1 grid grid-cols-1 gap-2 max-h-[40vh] overflow-auto pr-1">
+                    <div id="global-progress-details" class="pt-2 border-t border-line-soft mt-1 grid grid-cols-1 gap-2 max-h-[40vh] overflow-auto pr-1">
                         {#each detailLanes as item (item.row.kind)}
                             {@const presentation = item.presentation}
-                            <div class="rounded-xl border border-slate-200/80 dark:border-slate-700/60 px-3 py-2 bg-white/80 dark:bg-slate-900/60">
-                                <div class="flex items-center justify-between gap-2">
-                                    <p class="text-3xs font-bold uppercase tracking-wide text-slate-800 dark:text-slate-100 truncate">{presentation.title}</p>
-                                    <span class="text-3xs font-bold uppercase tracking-widest {item.row.running > 0 ? 'text-brand-600 dark:text-brand-300' : 'text-slate-500 dark:text-slate-400'}">
+                            <div class="rounded-xl border border-line px-3 py-2 bg-surface">
+                                <div class="flex flex-wrap items-center justify-between gap-x-2">
+                                    <p class="text-3xs font-bold text-strong">{presentation.title}</p>
+                                    <span class="text-3xs font-bold {item.row.running > 0 ? 'text-accent-ink' : 'text-muted'}">
                                         {presentation.stateLabel}
                                     </span>
                                 </div>
-                                <p class="mt-1 text-3xs font-semibold text-slate-700 dark:text-slate-200 truncate">
+                                <p class="mt-1 text-3xs font-semibold text-ink">
                                     {presentation.runningLabel} · {presentation.queuedLabel}
                                     {#if presentation.capacityLabel}
                                         · {presentation.capacityLabel}
                                     {/if}
                                 </p>
                                 {#if presentation.batchLabel || presentation.blockerLabel || presentation.candidateLabel}
-                                    <p class="mt-1 text-3xs font-semibold {presentation.blockerLabel ? 'text-amber-600 dark:text-amber-300' : 'text-slate-400 dark:text-slate-400'} truncate">
+                                    <p class="mt-1 text-3xs font-semibold {presentation.blockerLabel ? 'text-status-attention' : 'text-muted'}">
                                         {presentation.blockerLabel ?? presentation.batchLabel}
                                         {#if presentation.candidateLabel && !presentation.blockerLabel}
                                             · {presentation.candidateLabel}
@@ -188,7 +192,7 @@
                         {#if pipeline.kinds.length > detailLimit}
                             <button
                                 type="button"
-                                class="text-left text-3xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-300 hover:underline"
+                                class="text-left text-3xs font-bold text-accent-ink hover:underline"
                                 onclick={openJobsPage}
                             >
                                 {$_('jobs.more_lanes', { values: { count: pipeline.kinds.length - detailLimit }, default: '+{count, plural, one {# more work lane} other {# more work lanes}}' })}
@@ -198,5 +202,5 @@
                 {/if}
             </div>
         </div>
-    </div>
+    </section>
 {/if}

@@ -1,13 +1,18 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchCameraStatuses, fetchClassifierStatus } from '../api';
+    import { readCameraStatuses, readClassifierStatus } from '../api';
     import type { CameraStatusResponse, ClassifierStatus } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { serviceConnectionsStore } from '../stores/service_connections.svelte';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
-    import { pipelineClassifierState, type PipelineClassifierState } from '../utils/pipeline-classifier-state';
+    import { describeRuntime } from '../utils/instance-facts';
+    import { pipelineClassifierStep } from '../utils/pipeline-classifier-state';
+    import { identificationModelLabel } from '../settings/identification-models';
+    import { readinessLabel, reportedModelId } from '../settings/model-readiness';
+    import { modelActivityStore } from '../stores/model_activity.svelte';
     import { _ } from 'svelte-i18n';
 
     /**
@@ -17,14 +22,17 @@
 
     type Tone = 'ok' | 'off' | 'unknown';
 
+    const translate = (key: string, options?: { default?: string; values?: Record<string, string | number> }): string => $_(key, options);
+
     interface Step {
         key: string;
-        kind: 'local' | 'optional' | 'external';
         detail: string;
         state: string | null;
         tone: Tone;
-        /** The detail is a literal identifier, such as a model id, not words. */
-        identifier?: boolean;
+        /** A muted second line under the detail, such as the runtime a model runs on. */
+        note?: string | null;
+        /** A second reading beside the state, such as inference health; never part of the state. */
+        health?: string | null;
     }
 
     let cameraStatus = $state<CameraStatusResponse | null>(null);
@@ -42,7 +50,7 @@
 
         void (async () => {
             try {
-                cameraStatus = await fetchCameraStatuses(controller.signal);
+                cameraStatus = await readCameraStatuses(controller.signal);
             } catch (error) {
                 if (controller.signal.aborted) return;
                 cameraFailed = true;
@@ -60,9 +68,10 @@
     onMount(() => {
         const controller = new AbortController();
 
-        void (async () => {
+        const readClassifier = async (): Promise<void> => {
             try {
-                classifier = await fetchClassifierStatus();
+                classifier = await readClassifierStatus();
+                classifierFailed = false;
             } catch (error) {
                 if (controller.signal.aborted) return;
                 classifierFailed = true;
@@ -72,18 +81,25 @@
                     logger.error('Failed to fetch classifier status', error);
                 }
             }
-        })();
+        };
+        void readClassifier();
+        // Work on the model is the server's to report, and only an owner may read it. When a
+        // download or check ends, the model's own report is read again.
+        const stopWatching = isGuestView ? null : modelActivityStore.watch(() => void readClassifier());
 
-        return () => controller.abort();
+        return () => {
+            controller.abort();
+            stopWatching?.();
+        };
     });
 
-    const unknown = $_('about.pipeline.unknown', { default: 'unknown' });
+    const unknown = $_('about.pipeline.unknown', { default: 'Unknown' });
     const noReading = $_('about.pipeline.no_reading', { default: 'no reading from here' });
     // Steps with no health endpoint to probe. Saying so beats an empty space that reads as a fault.
-    const notChecked = $_('about.pipeline.not_checked', { default: 'not checked' });
+    const notChecked = $_('about.pipeline.not_checked', { default: 'Not checked' });
     // Readings the backend reserves for the owner. Guests see whose reading it is,
     // not an "unknown" that looks like a fault in a healthy install.
-    const ownerOnly = $_('about.pipeline.owner_only', { default: 'owner only' });
+    const ownerOnly = $_('about.pipeline.owner_only', { default: 'Owner only' });
     const ownerOnlyDetail = $_('about.pipeline.owner_only_detail', {
         default: 'reading visible to the owner'
     });
@@ -105,7 +121,13 @@
 
     const cameraSummary = $derived.by(() => {
         if (isGuestView) return { detail: ownerOnlyDetail, state: ownerOnly, tone: 'off' as Tone };
-        if (cameraFailed) return { detail: noReading, state: unknown, tone: 'unknown' as Tone };
+        if (cameraFailed) {
+            // The camera list failing is not a reading; Frigate measured as not answering is.
+            const frigateDown = serviceConnectionsStore.connections?.frigate.state === 'unreachable';
+            return frigateDown
+                ? { detail: noReading, state: $_('status.state_not_connected', { default: 'Not connected' }), tone: 'off' as Tone }
+                : { detail: noReading, state: unknown, tone: 'unknown' as Tone };
+        }
         if (!cameraStatus) return { detail: '…', state: null, tone: 'unknown' as Tone };
         const cameras = cameraStatus.cameras ?? [];
         const online = cameras.filter((camera) => camera.status === 'online').length;
@@ -116,8 +138,8 @@
             }),
             state:
                 cameras.length > 0 && online === cameras.length
-                    ? $_('about.pipeline.online', { default: 'online' })
-                    : $_('about.pipeline.degraded', { default: 'check' }),
+                    ? $_('status.state_connected', { default: 'Connected' })
+                    : $_('about.pipeline.degraded', { default: 'Check' }),
             tone: (cameras.length > 0 && online === cameras.length ? 'ok' : 'off') as Tone
         };
     });
@@ -125,66 +147,83 @@
     const classifierSummary = $derived.by(() => {
         if (classifierFailed) return { detail: noReading, state: unknown, tone: 'unknown' as Tone };
         if (!classifier) return { detail: '…', state: null, tone: 'unknown' as Tone };
-        const model = classifier.effective_model_id ?? classifier.active_model_id ?? '—';
-        const provider = classifier.active_provider ?? classifier.inference_backend ?? '';
-        const reading = pipelineClassifierState(classifier);
-        const states: Record<PipelineClassifierState, { state: string; tone: Tone }> = {
-            loaded: { state: $_('about.pipeline.loaded', { default: 'loaded' }), tone: 'ok' },
-            standby: { state: $_('about.pipeline.standby', { default: 'loads on first detection' }), tone: 'off' },
-            check: { state: $_('about.pipeline.degraded', { default: 'check' }), tone: 'off' },
-            unknown: { state: unknown, tone: 'unknown' }
-        };
+        // The model's names as the Models tab and Model evaluation give them. Its file id belongs in the issue report.
+        const catalogueName = classifier.effective_model_name?.trim() || null;
+        const modelId = reportedModelId(classifier);
+        const modelName = modelId
+            ? identificationModelLabel({ id: modelId, name: catalogueName }, translate)
+            : catalogueName;
+        const runtime = describeRuntime(classifier)?.runtime ?? null;
+        // The model's state by the rule every other surface uses, with work this app started on it.
+        const step = pipelineClassifierStep(classifier, modelActivityStore.phase(reportedModelId(classifier)));
         return {
-            detail: provider ? `${model} · ${provider}` : String(model),
-            identifier: true,
-            ...states[reading]
+            detail: modelName ?? runtime ?? noReading,
+            note: modelName ? runtime : null,
+            health: step.health === 'unhealthy'
+                ? $_('about.pipeline.inference_unhealthy', { default: 'Recent photos could not be named' })
+                : step.health === 'degraded'
+                  ? $_('about.pipeline.inference_degraded', { default: 'Some recent photos could not be named' })
+                  : null,
+            state: readinessLabel(step.readiness, $_),
+            tone: step.tone as Tone,
+            readiness: step.readiness
         };
+    });
+
+    const audioListening = $derived(serviceConnectionsStore.connections?.mqtt.state === 'connected');
+
+    // The broker session as the server measured it; guests are not told, and an owner's
+    // unread state stays "not checked" rather than borrowing a neighbour's green.
+    const mqttSummary = $derived.by((): { state: string; tone: Tone } => {
+        if (isGuestView) return { state: ownerOnly, tone: 'off' };
+        const state = serviceConnectionsStore.connections?.mqtt.state;
+        if (state === 'connected') return { state: $_('status.state_connected', { default: 'Connected' }), tone: 'ok' };
+        if (state === 'disconnected' || state === 'not_configured' || state === 'stopped') {
+            return { state: $_('status.state_not_connected', { default: 'Not connected' }), tone: 'off' };
+        }
+        return { state: notChecked, tone: 'unknown' };
     });
 
     const steps = $derived<Step[]>([
         {
             key: 'frigate',
-            kind: 'external',
             detail: cameraSummary.detail,
             state: cameraSummary.state,
             tone: cameraSummary.tone
         },
         {
             key: 'mqtt',
-            kind: 'external',
             detail: $_('about.pipeline.mqtt_detail', { default: 'frigate/events' }),
-            // No status endpoint for the broker, so this step reports that it was never probed
-            // rather than borrowing a neighbour's green.
-            state: notChecked,
-            tone: 'unknown'
+            state: mqttSummary.state,
+            tone: mqttSummary.tone
         },
         {
             key: 'classifier',
-            kind: 'local',
             detail: classifierSummary.detail,
-            identifier: 'identifier' in classifierSummary,
+            note: 'note' in classifierSummary ? classifierSummary.note : null,
+            health: 'health' in classifierSummary ? classifierSummary.health : null,
             state: classifierSummary.state,
             tone: classifierSummary.tone
         },
         {
             key: 'audio',
-            kind: 'optional',
-            detail: $_('about.pipeline.audio_detail', { default: 'BirdNET-Go correlation' }),
-            state: birdnetEnabled
-                ? $_('about.pipeline.enabled', { default: 'enabled' })
-                : $_('about.pipeline.off', { default: 'off' }),
-            tone: (birdnetEnabled ? 'ok' : 'off') as Tone
+            detail: $_('about.pipeline.audio_detail', { default: 'matches calls to visits' }),
+            // The sidebar's own words for the same reading: on is only "Listening" while the broker is connected.
+            state: !birdnetEnabled
+                ? $_('status.state_off', { default: 'Off' })
+                : audioListening
+                  ? $_('status.state_listening', { default: 'Listening' })
+                  : $_('status.state_not_listening', { default: 'Not listening' }),
+            tone: (birdnetEnabled && audioListening ? 'ok' : 'off') as Tone
         },
         {
             key: 'store',
-            kind: 'local',
-            detail: $_('about.pipeline.store_detail', { default: 'SQLite under /data' }),
+            detail: $_('about.pipeline.store_detail', { default: 'one file in your data folder' }),
             state: notChecked,
             tone: 'unknown'
         },
         {
             key: 'notify',
-            kind: 'optional',
             // Notification channels are only reported in owner settings; a guest
             // reading "off" would be a guess presented as a measurement.
             detail: isGuestView
@@ -195,47 +234,47 @@
             state: isGuestView
                 ? ownerOnly
                 : notificationsEnabled
-                  ? $_('about.pipeline.enabled', { default: 'enabled' })
-                  : $_('about.pipeline.off', { default: 'off' }),
+                  ? $_('status.state_on', { default: 'On' })
+                  : $_('status.state_off', { default: 'Off' }),
             tone: (isGuestView ? 'off' : notificationsEnabled ? 'ok' : 'off') as Tone
         },
         {
             key: 'browser',
-            kind: 'external',
-            detail: $_('about.pipeline.browser_detail', { default: 'live updates over SSE' }),
+            detail: $_('about.pipeline.browser_detail', { default: 'updates as they happen' }),
+            // "Live" is a claim about camera events; this step measures only the page's own stream.
             state: detectionsStore.connected
-                ? $_('about.pipeline.streaming', { default: 'streaming' })
-                : $_('about.pipeline.offline', { default: 'offline' }),
+                ? $_('status.state_connected', { default: 'Connected' })
+                : $_('status.state_not_connected', { default: 'Not connected' }),
             tone: (detectionsStore.connected ? 'ok' : 'off') as Tone
         }
     ]);
 
     function toneClass(tone: Tone): string {
-        if (tone === 'ok') return 'text-emerald-700 dark:text-emerald-300';
-        if (tone === 'off') return 'text-slate-500 dark:text-slate-400';
-        return 'text-slate-400 dark:text-slate-500';
+        if (tone === 'ok') return 'text-status-ok';
+        if (tone === 'off') return 'text-muted';
+        return 'text-muted';
     }
 
-    function kindClass(kind: Step['kind']): string {
-        if (kind === 'local') return 'border-brand-300 bg-brand-50/70 dark:border-brand-800 dark:bg-brand-950/30';
-        if (kind === 'optional') return 'border-dashed border-slate-300 dark:border-slate-600';
-        return 'border-slate-200 dark:border-slate-700';
+    /** The dot beside the state word: filled when measured working, a ring otherwise. The word carries the meaning. */
+    function toneDot(tone: Tone): string {
+        return tone === 'ok' ? 'bg-status-ok' : 'border border-line-strong';
     }
 </script>
 
-<div class="space-y-4" data-about-pipeline>
-    <ol class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+<div class="@container space-y-4" data-about-pipeline>
+    <ol class="grid grid-cols-1 gap-2 @lg:grid-cols-2 @2xl:grid-cols-4 @6xl:grid-cols-7">
         {#each steps as step, index (step.key)}
             <li
-                class="pipeline-step relative overflow-hidden rounded-xl border p-3 {kindClass(step.kind)}"
+                class="pipeline-step relative overflow-hidden rounded-xl border border-line-soft p-3"
                 style="--flow-index: {index}"
+                data-pipeline-step={step.key}
             >
                 <!-- The pulse sweeps each card in turn, so the eye is carried along the chain in the
                      direction the data actually moves. Decorative: the order is already in the DOM. -->
                 <span class="pipeline-flow pointer-events-none absolute inset-0" aria-hidden="true"></span>
                 {#if index > 0}
                     <span
-                        class="pipeline-arrow absolute -left-[9px] top-1/2 hidden -translate-y-1/2 text-slate-300 xl:block dark:text-slate-600"
+                        class="pipeline-arrow absolute -left-2.5 top-1/2 hidden -translate-y-1/2 text-subtle @6xl:block"
                         aria-hidden="true"
                     >
                         <svg class="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -244,40 +283,31 @@
                     </span>
                 {/if}
                 {#if step.state}
-                    <span class="relative block text-3xs font-bold uppercase tracking-[0.12em] {toneClass(step.tone)}">
+                    <!-- One card style for every step: the state is a dot and a word, never a border. -->
+                    <span class="relative flex items-center gap-1.5 text-3xs font-bold wrap-anywhere {toneClass(step.tone)}">
+                        <i class="h-1.5 w-1.5 shrink-0 rounded-full {toneDot(step.tone)}" aria-hidden="true"></i>
                         {step.state}
                     </span>
                 {/if}
-                <span class="relative mt-0.5 block text-sm font-semibold text-slate-900 dark:text-white">
+                <span class="relative mt-0.5 block text-sm font-semibold text-strong wrap-anywhere">
                     {$_(`about.pipeline.${step.key}`)}
                 </span>
-                <!-- A model id has no spaces, so it may break anywhere rather than be cut mid-word. -->
-                <span class="relative mt-0.5 block text-2xs leading-snug text-slate-500 dark:text-slate-400 {step.identifier ? 'font-mono break-all' : ''}">
+                <span class="relative mt-0.5 block text-2xs leading-snug text-muted wrap-anywhere">
                     {step.detail}
                 </span>
+                {#if step.note}
+                    <span class="relative block text-2xs leading-snug text-muted wrap-anywhere" data-pipeline-note>{step.note}</span>
+                {/if}
+                {#if step.health}
+                    <span class="relative block text-2xs font-medium leading-snug text-ink wrap-anywhere" data-pipeline-health>{step.health}</span>
+                {/if}
             </li>
         {/each}
     </ol>
 
-    <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-2xs text-slate-500 dark:text-slate-400">
-        <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-2.5 rounded-sm border border-brand-300 bg-brand-50 dark:border-brand-800 dark:bg-brand-950/40" aria-hidden="true"></i>
-            {$_('about.pipeline.legend_local', { default: 'runs on your hardware' })}
-        </span>
-        <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-2.5 rounded-sm border border-dashed border-slate-400 dark:border-slate-500" aria-hidden="true"></i>
-            {$_('about.pipeline.legend_optional', { default: 'optional' })}
-        </span>
-        <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-2.5 rounded-sm border border-slate-300 dark:border-slate-600" aria-hidden="true"></i>
-            {$_('about.pipeline.legend_external', { default: 'your broker and browser' })}
-        </span>
-        <span class="sm:ml-auto">
-            {$_('about.pipeline.legend_note', {
-                default: 'Nothing leaves your network except the calls listed below.'
-            })}
-        </span>
-    </div>
+    <p class="text-2xs text-muted">
+        {$_('about.pipeline.legend_note', { default: 'What leaves your network is listed below.' })}
+    </p>
 
 </div>
 

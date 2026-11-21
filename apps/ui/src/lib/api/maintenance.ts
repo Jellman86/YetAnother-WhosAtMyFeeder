@@ -1,5 +1,7 @@
-import { API_BASE, apiFetch, handleResponse } from './core';
-import type { paths } from './generated/openapi';
+import { API_BASE, apiFetch, handleResponse, requestScope } from './core';
+import type { components, paths } from './generated/openapi';
+import { createSharedRead, STATUS_SHARE_MS } from './shared-read';
+import { ResetCountChanged } from '../settings/reset-history';
 
 export type CacheStats = paths['/api/cache/stats']['get']['response'];
 
@@ -29,6 +31,15 @@ export type TaxonomySyncStatus = paths['/api/maintenance/taxonomy/status']['get'
 export type TimezoneRepairPreview = paths['/api/maintenance/timezone-repair/preview']['get']['response'];
 
 export type TimezoneRepairApplyResult = paths['/api/maintenance/timezone-repair/apply']['post']['response'];
+
+export type MaintenanceLastRun = components['schemas']['MaintenanceLastRun'];
+
+/** When each Maintenance job last ran and what it found; a job with no entry has no recorded run. */
+export async function fetchMaintenanceLastRuns(): Promise<MaintenanceLastRun[]> {
+    const response = await apiFetch(`${API_BASE}/maintenance/last-runs`);
+    const body = await handleResponse<Partial<components['schemas']['MaintenanceLastRunsResponse']> | null>(response);
+    return body?.runs ?? [];
+}
 
 /** With `previewRetentionDays`, the stats also count what that window would delete. Read-only. */
 export async function fetchMaintenanceStats(previewRetentionDays?: number): Promise<MaintenanceStats> {
@@ -65,14 +76,52 @@ export async function fetchAnalysisStatus(): Promise<AnalysisStatus> {
     return handleResponse<AnalysisStatus>(response);
 }
 
+// The shell's queue reading and the Notifications banner both read this as a page opens.
+const sharedAnalysisStatus = createSharedRead(fetchAnalysisStatus, { shareForMs: STATUS_SHARE_MS, scope: () => requestScope() });
+
+/** The analysis queue as it stands; readers asking at the same moment share one request. */
+export function readAnalysisStatus(): Promise<AnalysisStatus> {
+    return sharedAnalysisStatus.read();
+}
+
+/** The owner changed the queue: the next reader asks the server. */
+export function invalidateAnalysisStatus(): void {
+    sharedAnalysisStatus.invalidate();
+}
+
 export async function resetVideoCircuit(): Promise<{ status: string; message: string }> {
     const response = await apiFetch(`${API_BASE}/maintenance/video-classification/reset-circuit`, { method: 'POST' });
     return handleResponse<{ status: string; message: string }>(response);
 }
 
-export async function resetDatabase(): Promise<ResetDatabaseResult> {
-    const response = await apiFetch(`${API_BASE}/backfill/reset`, { method: 'DELETE' });
+export type ResetPreview = paths['/api/backfill/reset/preview']['get']['response'];
+
+/** How many detections a reset would delete now: every row, hidden ones included. */
+export async function fetchResetPreview(): Promise<ResetPreview> {
+    const response = await apiFetch(`${API_BASE}/backfill/reset/preview`);
+    return handleResponse<ResetPreview>(response);
+}
+
+/**
+ * Deletes all history. With `expectedCount` the server deletes only if that is still the number of
+ * detections; otherwise it refuses, and this throws `ResetCountChanged` with the count it reported.
+ */
+export async function resetDatabase(expectedCount: number | null = null): Promise<ResetDatabaseResult> {
+    const query = expectedCount === null ? '' : `?expected_count=${encodeURIComponent(expectedCount)}`;
+    const response = await apiFetch(`${API_BASE}/backfill/reset${query}`, { method: 'DELETE' });
+    if (response.status === 409) {
+        const refusal: unknown = await response.clone().json().catch(() => null);
+        const count = resetCountFromRefusal(refusal);
+        if (count !== null) throw new ResetCountChanged(count);
+    }
     return handleResponse<ResetDatabaseResult>(response);
+}
+
+function resetCountFromRefusal(body: unknown): number | null {
+    if (!body || typeof body !== 'object' || !('detail' in body)) return null;
+    const detail = body.detail;
+    if (!detail || typeof detail !== 'object' || !('code' in detail) || detail.code !== 'reset_count_changed') return null;
+    return 'detection_count' in detail && typeof detail.detection_count === 'number' ? detail.detection_count : null;
 }
 
 export async function clearClassificationFeedback(): Promise<ClearFeedbackResult> {
@@ -237,16 +286,14 @@ export async function testMQTTPublish(options: MQTTTestRequest = {}): Promise<{ 
     return handleResponse<{ status: string; message: string }>(response);
 }
 
-export interface HaWeatherTestResult {
-    status: string;
-    message: string;
-    readings?: Record<string, unknown>;
-}
+export type HaWeatherTestResult = components['schemas']['HaWeatherTestResponse'];
 
 export async function testHaWeather(options: {
     baseUrl?: string;
     accessToken?: string;
     weatherEntity?: string;
+    illuminanceEntity?: string;
+    scope?: components['schemas']['HaWeatherTestRequest']['scope'];
 } = {}): Promise<HaWeatherTestResult> {
     const response = await apiFetch(`${API_BASE}/settings/ha-weather/test`, {
         method: 'POST',
@@ -254,7 +301,9 @@ export async function testHaWeather(options: {
         body: JSON.stringify({
             base_url: options.baseUrl || undefined,
             access_token: options.accessToken || undefined,
-            weather_entity: options.weatherEntity || undefined
+            weather_entity: options.weatherEntity || undefined,
+            illuminance_entity: options.illuminanceEntity || undefined,
+            scope: options.scope
         })
     });
     return handleResponse<HaWeatherTestResult>(response);

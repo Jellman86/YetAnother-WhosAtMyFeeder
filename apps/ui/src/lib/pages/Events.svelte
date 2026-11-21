@@ -1,4 +1,7 @@
 <script lang="ts">
+    import { prefersReducedMotion } from '../stores/accessibility_applied.svelte';
+    import { formatCalendarDay } from '../utils/datetime';
+    import Separator from '../components/Separator.svelte';
     import VisitCaptures from '../components/VisitCaptures.svelte';
     import HeardBandRow from '../components/HeardBandRow.svelte';
     import HeardBandCard from '../components/HeardBandCard.svelte';
@@ -56,6 +59,7 @@
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { _ } from 'svelte-i18n';
     import Pagination from '../components/Pagination.svelte';
+    import Segmented from '../components/ui/Segmented.svelte';
     import DetectionCard from '../components/DetectionCard.svelte';
     import DetectionRow from '../components/DetectionRow.svelte';
     import LazyModal from '../components/LazyModal.svelte';
@@ -71,7 +75,8 @@
     import { explorerCameraOptions, seenGardenCameras } from '../utils/explorer-cameras';
     import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
 
-    import { getBirdNames } from '../naming';
+    import { birdNames } from '../naming';
+    import { videoHeadingFor, type VideoHeading } from '../components/video-heading';
     import { createEventMetadataRefresh } from './event-metadata-refresh';
     import { EVENTS_PAGE_REQUEST_KEYS } from './events-request-keys';
     import { createLatestRequest } from '../utils/latest-request';
@@ -193,7 +198,7 @@
         if (!selectedEvent) return { primary: '', secondary: null };
         const showCommon = settingsStore.displayCommonNames;
         const preferSci = settingsStore.scientificNamePrimary;
-        return getBirdNames(selectedEvent, showCommon, preferSci);
+        return $birdNames(selectedEvent, showCommon, preferSci);
     });
 
     let modalReclassifyProgress = $derived(selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined);
@@ -226,7 +231,7 @@
     }
 
     function speciesOptionNames(item: EventFilterSpecies): { primary: string; secondary: string | null } {
-        const naming = getBirdNames({
+        const naming = $birdNames({
             display_name: item.display_name,
             scientific_name: item.scientific_name ?? undefined,
             common_name: item.common_name ?? undefined
@@ -256,9 +261,24 @@
 
     async function loadEvents() {
         const load = eventsLoad.begin();
-        writeAddress();
         loading = true;
         error = null;
+        // Whether Garden can be read is an owner setting. Reading before it is known sent a Garden
+        // link to bird visits, then labelled them an empty Garden queue, so an owner's read waits
+        // for a successful settings read and stops, saying why, when there is none. Visitors read
+        // the public projection and never load owner settings.
+        // The settings store alone decides whether settings are known: its read joins one in
+        // flight, answers from the copy it holds, and rejects when there is none to be had.
+        if (authStore.hasOwnerAccess) {
+            const settingsKnown = await settingsStore.read().then(() => true, () => false);
+            if (!load.isCurrent()) return;
+            if (!settingsKnown) {
+                error = $_('events.settings_unavailable', { default: 'Your settings could not be loaded, so the Explorer cannot tell which visitors to show. Nothing was changed. Try again in a moment.' });
+                loading = false;
+                return;
+            }
+        }
+        writeAddress();
         try {
             const range = dateRange;
             let newEvents: Detection[];
@@ -345,13 +365,35 @@
                 nextTotal = countRes.count;
             }
             if (!load.isCurrent()) return;
+            // The first page is drawn once, with its Garden captures already in their places. Drawn
+            // in two steps, the captures land between visits a moment later and every card after
+            // them jumps. A page that replaces one on screen keeps its visits unblocked.
+            // The wait is bounded: a slow or unreachable Garden read must not hold back visits
+            // that are already here.
+            const firstPage = events.length === 0;
+            if (firstPage) {
+                const gardenRead = readGarden({ visits: nextVisits, previous: nextPrevious, total: nextTotal });
+                const inTime = await Promise.race([
+                    gardenRead,
+                    new Promise<null>((resolve) => setTimeout(() => resolve(null), GARDEN_FIRST_PAINT_WAIT_MS))
+                ]);
+                if (!load.isCurrent()) return;
+                if (inTime) {
+                    applyGarden(inTime);
+                } else {
+                    lateGarden = { state: 'reading' };
+                    void gardenRead.then((read) => {
+                        if (load.isCurrent() && lateGarden) holdGarden(read);
+                    });
+                }
+            }
             events = newEvents;
             pageVisits = nextVisits;
             previousVisit = nextPrevious;
             totalCount = nextTotal;
             measured = true;
             void loadHeard();
-            void loadGarden();
+            if (!firstPage) void loadGarden();
             if (pendingEventId) {
                 const target = newEvents.find((event) => event.frigate_event === pendingEventId);
                 if (target) {
@@ -491,7 +533,7 @@
     function revealResultsTop(): void {
         const count = countElement;
         if (!count) return;
-        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+        const reduceMotion = prefersReducedMotion();
         count.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
         count.focus({ preventScroll: true });
     }
@@ -1013,6 +1055,7 @@
 
     let showVideo = $state(false);
     let videoEventId = $state<string | null>(null);
+    let videoHeading = $state<VideoHeading | null>(null);
     let videoShareToken = $state<string | null>(null);
     let videoPlayIntent = $state<'auto' | 'user'>('auto');
 
@@ -1027,8 +1070,7 @@
     }
 
     function formatTimelineBucketLabel(bucket: string): string {
-        const date = new Date(`${bucket}T00:00:00`);
-        return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        return formatCalendarDay(bucket);
     }
 
     let timelineBuckets = $derived.by(() => {
@@ -1241,9 +1283,10 @@
      * clips are on, and for a visitor only while the owner shares video. The Garden record closes
      * before it plays, as a bird record does, so the player is the only dialog.
      */
-    function playGardenClip(capture: GardenCapture): void {
+    function playGardenClip(capture: GardenCapture, title?: string): void {
         if (!capture.clip_event) return;
         videoEventId = capture.clip_event;
+        videoHeading = { name: title || $_('garden.explorer.eyebrow_capture', { default: 'Garden capture' }), at: capture.observed_at };
         videoShareToken = null;
         videoPlayIntent = 'user';
         showVideo = true;
@@ -1252,6 +1295,7 @@
 
     function playClip(detection: Detection) {
         videoEventId = detection.frigate_event;
+        videoHeading = videoHeadingFor(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames);
         videoShareToken = null;
         videoPlayIntent = 'user';
         showVideo = true;
@@ -1323,13 +1367,13 @@
 
             const names = speciesPickerNames(selection);
             toastStore.success(
-                `${$_('actions.manual_tag')}: ${names.primary || appliedSpecies} (${result.updated_count})`
+                $_('events.bulk_tag_applied', { values: { species: names.primary || appliedSpecies, count: result.updated_count } })
             );
             if (result.failed_count > 0 || result.missing_count > 0) {
                 toastStore.warning(
                     $_('events.bulk_tag_partial', {
                         values: { count: result.failed_count + result.missing_count },
-                        default: '{count, plural, one {# selected event was not updated.} other {# selected events were not updated.}}'
+                        default: '{count, plural, one {# selected record was not updated.} other {# selected records were not updated.}}'
                     })
                 );
             }
@@ -1345,12 +1389,12 @@
         if (selectedEventIds.length === 0) return;
         const count = selectedEventIds.length;
         const confirmed = await confirmAction({
-            title: $_('actions.delete_selected', { default: 'Delete Selected' }),
+            title: $_('actions.delete_selected', { default: 'Delete selected' }),
             message: $_('events.bulk_delete_confirm', {
                 values: { count },
-                default: 'Delete {count, plural, one {# detection} other {# detections}}? This cannot be undone.'
+                default: 'Delete {count, plural, one {# record} other {# records}}? This cannot be undone.'
             }),
-            confirmLabel: $_('actions.delete_selected', { default: 'Delete Selected' })
+            confirmLabel: $_('actions.delete_selected', { default: 'Delete selected' })
         });
         if (!confirmed) return;
         bulkDeleting = true;
@@ -1361,13 +1405,13 @@
                 events = events.filter(e => !result.deleted_event_ids.includes(e.frigate_event));
                 toastStore.success($_('events.bulk_delete_success', {
                     values: { count: result.deleted_count },
-                    default: 'Deleted {count, plural, one {# detection} other {# detections}}.'
+                    default: 'Deleted {count, plural, one {# record} other {# records}}.'
                 }));
             }
             if (result.missing_count > 0) {
                 toastStore.warning($_('events.bulk_delete_missing', {
                     values: { count: result.missing_count },
-                    default: '{count, plural, one {# detection was not found.} other {# detections were not found.}}'
+                    default: '{count, plural, one {# record was not found.} other {# records were not found.}}'
                 }));
             }
             selectedEventIds = [];
@@ -1402,7 +1446,7 @@
             if (failed === 0) {
                 toastStore.success($_('events.bulk_reclassify_success', {
                     values: { count: queued },
-                    default: 'Queued {count, plural, one {# detection} other {# detections}} for video analysis.'
+                    default: 'Queued {count, plural, one {# record} other {# records}} for video analysis.'
                 }));
             } else {
                 toastStore.warning($_('events.bulk_reclassify_partial', {
@@ -1539,32 +1583,56 @@
     const gardenInTimeline = $derived(subjects === 'all' && gardenNotice === null);
     const GARDEN_WINDOW_LIMIT = 200;
 
-    async function loadGarden(): Promise<void> {
-        if (gardenOnly) return;
+    /** The bird page the Garden captures are read around; the page on screen unless one is given. */
+    interface GardenAnchorPage { visits: DetectionVisit[]; previous: DetectionVisit | null; total: number }
+
+    type GardenTimelinePage = Awaited<ReturnType<typeof fetchGardenVisits>>;
+    /** What one Garden read found. Nothing is drawn until it is applied. */
+    type GardenRead =
+        | { kind: 'superseded' }
+        | { kind: 'off' }
+        | { kind: 'none' }
+        | { kind: 'page'; page: GardenTimelinePage }
+        | { kind: 'failed' };
+
+    /**
+     * How long the first page's visits, already read, wait for their Garden captures so both are
+     * drawn together. On the same host the Garden read answers in tens of milliseconds, so this is
+     * rarely reached; 300 ms is short enough to pass as the tail of the page's own loading state
+     * rather than as a second wait. Past it the visits are shown and the captures are offered.
+     */
+    const GARDEN_FIRST_PAINT_WAIT_MS = 300;
+
+    /**
+     * A Garden read that outlasted that wait. Its captures belong between visits already on screen,
+     * and dropping them in would move every card after them, so one row of fixed height says where
+     * the read stands and the reader chooses when the captures are shown.
+     */
+    type LateGarden =
+        | { state: 'reading' }
+        | { state: 'ready'; read: GardenRead; count: number }
+        | { state: 'none' }
+        | { state: 'failed' };
+    let lateGarden = $state.raw<LateGarden | null>(null);
+
+    async function readGarden(page: GardenAnchorPage): Promise<GardenRead> {
+        if (gardenOnly) return { kind: 'superseded' };
         const generation = ++gardenLoadGeneration;
-        if (!gardenInTimeline) {
-            gardenItems = null;
-            gardenFailed = false;
-            return;
-        }
+        if (!gardenInTimeline) return { kind: 'off' };
         const sort = sortOrder === 'oldest' ? 'oldest' : 'newest';
         const span = gardenWindow({
-            visits: pageVisits,
+            visits: page.visits,
             sort,
-            previous: previousVisit,
-            hasNextPage: currentPage * pageSize < totalCount,
-            birdTotal: totalCount,
+            previous: page.previous,
+            hasNextPage: currentPage * pageSize < page.total,
+            birdTotal: page.total,
             rangeStart: localDayBound(dateRange.start, false),
             rangeEnd: localDayBound(dateRange.end, true),
             now: new Date()
         });
-        if (!span) {
-            gardenItems = [];
-            gardenTotal = 0;
-            return;
-        }
+        if (!span) return { kind: 'none' };
         try {
-            const page = await fetchGardenVisits({
+            const timeline = await fetchGardenVisits({
                 start: localDayBound(dateRange.start, false)?.toISOString() ?? null,
                 end: localDayBound(dateRange.end, true)?.toISOString(),
                 pageStart: span.start?.toISOString(),
@@ -1574,21 +1642,69 @@
                 order: sort,
                 limit: GARDEN_WINDOW_LIMIT
             });
-            if (generation !== gardenLoadGeneration) return;
-            serverGardenVisits = page.visits;
-            gardenItems = page.visits.map((visit) => visit.representative);
-            gardenCamerasSeen = seenGardenCameras(gardenCamerasSeen, gardenItems);
-            gardenCaptureTotal = page.capture_total;
-            gardenAwaitingCheck = page.awaiting_check ?? 0;
-            gardenTotal = page.total;
-            gardenFailed = false;
+            return generation === gardenLoadGeneration ? { kind: 'page', page: timeline } : { kind: 'superseded' };
         } catch (e) {
-            if (generation !== gardenLoadGeneration) return;
-            if (e instanceof Error && e.name === 'AbortError') return;
+            if (generation !== gardenLoadGeneration) return { kind: 'superseded' };
+            if (e instanceof Error && e.name === 'AbortError') return { kind: 'superseded' };
+            console.error('Failed to load Garden captures', e);
+            return { kind: 'failed' };
+        }
+    }
+
+    function applyGarden(read: GardenRead): void {
+        if (read.kind === 'superseded') return;
+        if (read.kind === 'off') {
+            gardenItems = null;
+            gardenFailed = false;
+        } else if (read.kind === 'none') {
+            gardenItems = [];
+            gardenTotal = 0;
+        } else if (read.kind === 'failed') {
             gardenItems = null;
             gardenFailed = true;
-            console.error('Failed to load Garden captures', e);
+        } else {
+            serverGardenVisits = read.page.visits;
+            gardenItems = read.page.visits.map((visit) => visit.representative);
+            gardenCamerasSeen = seenGardenCameras(gardenCamerasSeen, gardenItems);
+            gardenCaptureTotal = read.page.capture_total;
+            gardenAwaitingCheck = read.page.awaiting_check ?? 0;
+            gardenTotal = read.page.total;
+            gardenFailed = false;
         }
+    }
+
+    /** Where a read stands for the held row. Only a read with nothing to draw is applied under the reader. */
+    function holdGarden(read: GardenRead): void {
+        if (read.kind === 'superseded') return;
+        if (read.kind === 'off') {
+            applyGarden(read);
+            lateGarden = null;
+        } else if (read.kind === 'failed') {
+            lateGarden = { state: 'failed' };
+        } else if (read.kind === 'page' && read.page.visits.length > 0) {
+            lateGarden = { state: 'ready', read, count: read.page.visits.length };
+        } else {
+            applyGarden(read);
+            lateGarden = { state: 'none' };
+        }
+    }
+
+    function showLateGarden(): void {
+        if (lateGarden?.state !== 'ready') return;
+        applyGarden(lateGarden.read);
+        lateGarden = null;
+    }
+
+    async function loadGarden(page: GardenAnchorPage = { visits: pageVisits, previous: previousVisit, total: totalCount }): Promise<void> {
+        const read = await readGarden(page);
+        // Once the visits have been shown without their captures, later reads feed the held row too.
+        if (lateGarden) holdGarden(read);
+        else applyGarden(read);
+    }
+
+    async function retryLateGarden(): Promise<void> {
+        lateGarden = { state: 'reading' };
+        await loadGarden();
     }
 
     function gardenCaptureScope(): { start: string | null; end?: string; camera?: string; taxon?: number; status: GardenReview } {
@@ -1695,7 +1811,7 @@
         } catch (failure) {
             if (signal.aborted) return;
             console.error('Failed to open the searched detection', failure);
-            toastStore.warning($_('events.search.record_open_failed', { default: 'This detection could not be opened. It may have been removed.' }));
+            toastStore.warning($_('events.search.record_open_failed', { default: 'This record could not be opened. It may have been removed.' }));
         }
     }
 
@@ -1733,7 +1849,7 @@
         const known = taxonChoice?.id === taxonFilter ? taxonChoice : null;
         if (!known) return $_('events.search.taxon_token_unnamed', { default: 'Chosen group of species' });
         const name = known.rank === 'species'
-            ? getBirdNames({ display_name: known.name ?? known.scientificName, common_name: known.name ?? undefined, scientific_name: known.scientificName }, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
+            ? $birdNames({ display_name: known.name ?? known.scientificName, common_name: known.name ?? undefined, scientific_name: known.scientificName }, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
             : known.name ?? known.scientificName;
         return $_('events.search.taxon_token', { values: { rank: $_(`taxonomy.rank.${known.rank}`, { default: known.rank }), name }, default: '{rank}: {name}' });
     });
@@ -1792,7 +1908,7 @@
         try {
             const result = await reviewGardenBatch(undo.ids, 'restore');
             gardenUndo = null;
-            toastStore.success($_('garden.batch_restored', { default: '{count, plural, one {# photo returned to review.} other {# photos returned to review.}}', values: { count: result.updated_ids.length } }));
+            toastStore.success($_('garden.batch_restored', { default: '{count, plural, one {# photo returned to Needs your call.} other {# photos returned to Needs your call.}}', values: { count: result.updated_ids.length } }));
             await loadEvents();
         } catch (failure) {
             toastStore.error(failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' }));
@@ -1903,6 +2019,9 @@
     // filters, and stays when they are hidden. A phone keeps it above the results in the rail.
     // Tailwind's lg, so the header and the rail switch at the same width as the layout.
     const wideExplorer = new MediaQuery('min-width: 1024px', false);
+    // Heard calls belong to grouped bird visits; choosing captures is the owner's, and birds only.
+    const heardToggleAvailable = $derived(audioHistoryAvailable && groupVisits && !selectionMode && !gardenOnly);
+    const multiSelectAvailable = $derived(authStore.hasOwnerAccess && !gardenOnly);
     const pane = $derived(explorerPane({ loading, failed: error !== null, measured, entries: entries.length, filtered: hasActiveExplorerFilters }));
 
     function openPeakCapture(visit: DetectionVisit | undefined): (() => void) | undefined {
@@ -1923,146 +2042,147 @@
     />
 {/snippet}
 
+<!-- The page's own controls. A desktop holds them all in the header row. On a narrower screen the
+     view switch sits beside the Filters button and the two used less often open with the filters,
+     so three rows of buttons no longer stand between the title and the first photo. -->
+{#snippet heardToggle()}
+    {#if heardToggleAvailable}
+        <button
+            type="button"
+            class="btn min-h-11 px-3 text-xs focus-visible:ring-2 focus-visible:ring-focus {explorerHeardStore.enabled
+                ? 'border border-accent-line bg-accent-soft text-accent-ink'
+                : 'btn-secondary'}"
+            aria-pressed={explorerHeardStore.enabled}
+            use:explanation={$_('events.heard.toggle_hint', { default: 'Show BirdNET-Go calls between the camera visits. Off until you turn it on; this device remembers the choice.' })}
+            onclick={() => setHeard(!explorerHeardStore.enabled)}
+            data-explorer-heard-toggle
+        >
+            <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
+            </svg>
+            {$_('events.heard.toggle', { default: 'Heard calls' })}
+        </button>
+    {/if}
+{/snippet}
+
+{#snippet viewSwitch()}
+    <!-- The shared choose-one track: at the largest text size on a phone the two choices wrap
+         inside it rather than off the screen. -->
+    <Segmented
+        value={explorerView}
+        options={[{ value: 'cards', label: $_('settings.explorer_view.cards') }, { value: 'list', label: $_('settings.explorer_view.list') }]}
+        onchange={(next) => explorerViewStore.set(next as 'cards' | 'list')}
+        labelledBy="explorer-view-label"
+        width="content"
+        size="sm"
+        optionAttribute="data-explorer-view-toggle"
+    />
+    <span id="explorer-view-label" class="sr-only">{$_('settings.explorer_view.label')}</span>
+{/snippet}
+
+{#snippet multiSelectToggle()}
+    {#if multiSelectAvailable}
+        <button
+            type="button"
+            class="btn min-h-11 px-3 py-2 text-xs {selectionMode
+                ? 'border border-accent-line bg-accent-soft text-accent-ink'
+                : 'btn-secondary'}"
+            onclick={toggleSelectionMode}
+        >
+            <span>{selectionMode ? $_('common.cancel') : $_('common.multi_select', { default: 'Multi Select' })}</span>
+        </button>
+    {/if}
+{/snippet}
+
+{#snippet sheetControls()}
+    <div class="flex flex-wrap items-center gap-2" data-explorer-sheet-controls>
+        {@render heardToggle()}
+        {@render multiSelectToggle()}
+    </div>
+{/snippet}
+
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
         {#if wideExplorer.current}
             <div class="min-w-0 max-w-2xl flex-1 basis-80" data-explorer-header-search>{@render explorerSearch()}</div>
         {/if}
-        <!-- A key for the source badges on cards; a phone's narrow toolbar needs the room more. Beneath the
-             search and toolbar on a desktop, where the search takes the start of the row. -->
-        <p class="hidden text-xs text-slate-500 sm:block lg:order-last lg:basis-full dark:text-slate-400">{$_('events.classification_legend')}</p>
-        <div class="flex flex-wrap items-center gap-2">
-            <!-- A count is stated only once measured; paging moves focus here so the new page is announced. -->
+        <!-- The count arrives after the page is drawn and its length depends on what was found, so
+             it has a line of its own: beside the controls, a long count wrapped them under the
+             search and moved the whole page. It follows the search in reading order; a desktop
+             shows it beneath the header row, a phone above the search.
+             A count is stated only once measured; paging moves focus here so the new page is announced. -->
+        <div class="basis-full lg:order-last" data-explorer-count-line>
             <div
                 bind:this={countElement}
-                class="mr-1 basis-full rounded text-sm text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:basis-auto dark:text-slate-400"
+                class="w-fit max-w-full rounded-sm text-sm text-muted focus:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
                 role="status"
                 tabindex="-1"
                 data-explorer-count={pane.count}
             >
                 {#if pane.count === 'pending'}
                     <span class="sr-only">{$_('events.results_loading', { default: 'Loading results…' })}</span>
-                    <span class="inline-block h-3 w-20 rounded bg-slate-200/80 align-middle animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" aria-hidden="true" data-loading-placeholder></span>
+                    <span class="inline-block h-3 w-20 rounded-sm bg-line align-middle animate-pulse motion-reduce:animate-none" aria-hidden="true" data-loading-placeholder></span>
                 {:else if pane.count === 'unavailable'}
-                    <span class="font-semibold text-slate-700 dark:text-slate-200">{$_('events.count_unavailable', { default: 'Count unavailable' })}</span>
+                    <span class="font-semibold text-ink">{$_('events.count_unavailable', { default: 'Count unavailable' })}</span>
                 {:else}
-                <span class="font-semibold text-slate-700 dark:text-slate-200">{gardenOnly
+                <span class="font-semibold text-ink">{gardenOnly
                     ? $_('garden.explorer.entry_total', { values: { count: totalCount, captures: gardenCaptureTotal }, default: '{count, plural, one {# Garden visit} other {# Garden visits}} · {captures, plural, one {# capture} other {# captures}}' })
                     : groupVisits && !selectionMode
                     ? $_('visits.total', { values: { count: totalCount }, default: '{count} visits' })
                     : $_('visits.total_captures', { values: { count: totalCount }, default: '{count} captures' })}</span>
                 {/if}
                 {#if pane.count === 'measured' && gardenAwaitingCheck > 0 && authStore.hasOwnerAccess}
-                    <span aria-hidden="true">&middot;</span>
+                    <Separator />
                     <span data-garden-awaiting-check>{$_('garden.explorer.awaiting_check', { values: { count: gardenAwaitingCheck }, default: '{count, plural, one {# camera capture waiting for the automatic check} other {# camera captures waiting for the automatic check}}' })}</span>
                 {/if}
-                {#if pane.count === 'measured' && gardenInTimeline && gardenItems !== null}
-                    <span aria-hidden="true">&middot;</span>
+                <!-- Said only when there is one: "0 Garden visits on this page" read as a fault. -->
+                {#if pane.count === 'measured' && gardenInTimeline && gardenItems !== null && shownGarden.length > 0}
+                    <Separator />
                     {$_('garden.explorer.count_on_page', { values: { count: shownGarden.length }, default: '{count, plural, one {# Garden visit on this page} other {# Garden visits on this page}}' })}
                 {/if}
                 {#if pane.count === 'measured' && heardActive && heardGroups !== null}
-                    <span aria-hidden="true">&middot;</span>
+                    <Separator />
                     {$_('events.heard.count_on_page', { values: { count: heardShownCalls }, default: '{count} calls heard on this page' })}
                 {/if}
             </div>
-            <!-- With heard calls mixed into the list, the listening history is already here. -->
-            {#if audioHistoryAvailable && !heardWanted}
-                <a
-                    data-explorer-audio-history-link
-                    href={toAppPath('/audio')}
-                    class="btn btn-secondary inline-flex min-h-11 items-center gap-2 px-3 text-xs focus-visible:ring-2 focus-visible:ring-brand-500"
-                >
-                    <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
-                    </svg>
-                    {$_('nav.audio_history')}
-                </a>
-            {/if}
-            {#if audioHistoryAvailable && groupVisits && !selectionMode && !gardenOnly}
-                <button
-                    type="button"
-                    class="btn min-h-11 px-3 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {explorerHeardStore.enabled
-                        ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
-                        : 'btn-secondary'}"
-                    aria-pressed={explorerHeardStore.enabled}
-                    use:explanation={$_('events.heard.toggle_hint', { default: 'Show BirdNET-Go calls between the camera visits. Off until you turn it on; this device remembers the choice.' })}
-                    onclick={() => setHeard(!explorerHeardStore.enabled)}
-                    data-explorer-heard-toggle
-                >
-                    <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
-                    </svg>
-                    {$_('events.heard.toggle', { default: 'Heard calls' })}
-                </button>
-            {/if}
-            <button
-                class="btn btn-secondary hidden min-h-11 px-3 py-2 text-xs lg:inline-flex"
-                aria-expanded={!explorerFiltersStore.collapsed}
-                aria-controls="explorer-filter-rail"
-                onclick={() => explorerFiltersStore.set(!explorerFiltersStore.collapsed)}
-                data-explorer-rail-toggle
-            >
-                <svg
-                    class="h-3.5 w-3.5 transition-transform duration-200 {explorerFiltersStore.collapsed ? '' : 'rotate-180'}"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    aria-hidden="true"
-                >
-                    <path d="M12 5 7 10l5 5" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-                {explorerFiltersStore.collapsed
-                    ? $_('events.filters.show_rail', { default: 'Show filters' })
-                    : $_('events.filters.hide_rail', { default: 'Hide filters' })}
-            </button>
-            <!-- At the largest text size on a phone the two choices wrap inside the frame rather than off the screen. -->
-            <div
-                class="inline-flex min-h-11 items-stretch max-w-full flex-wrap rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/80"
-                role="group"
-                aria-label={$_('settings.explorer_view.label')}
-            >
-                {#each [{ value: 'cards', label: $_('settings.explorer_view.cards') }, { value: 'list', label: $_('settings.explorer_view.list') }] as option (option.value)}
-                    <button
-                        type="button"
-                        aria-pressed={explorerView === option.value}
-                        onclick={() => explorerViewStore.set(option.value as 'cards' | 'list')}
-                        data-explorer-view-toggle={option.value}
-                        class="inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500
-                               {explorerView === option.value
-                            ? 'bg-brand-700 text-white'
-                            : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
-                    >
-                        {#if option.value === 'cards'}
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-                        {:else}
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-                        {/if}
-                        {option.label}
-                    </button>
-                {/each}
-            </div>
-            {#if authStore.hasOwnerAccess && !gardenOnly}
-                <button
-                    type="button"
-                    class="btn min-h-11 px-3 py-2 text-xs {selectionMode
-                        ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
-                        : 'btn-secondary'}"
-                    onclick={toggleSelectionMode}
-                >
-                    <span>{selectionMode ? $_('common.cancel') : $_('common.multi_select', { default: 'Multi Select' })}</span>
-                </button>
-            {/if}
         </div>
+        {#if wideExplorer.current}
+            <div class="flex flex-wrap items-center gap-2" data-explorer-controls>
+                {@render heardToggle()}
+                <button
+                    class="btn btn-secondary hidden min-h-11 px-3 py-2 text-xs lg:inline-flex"
+                    aria-expanded={!explorerFiltersStore.collapsed}
+                    aria-controls="explorer-filter-rail"
+                    onclick={() => explorerFiltersStore.set(!explorerFiltersStore.collapsed)}
+                    data-explorer-rail-toggle
+                >
+                    <svg
+                        class="h-3.5 w-3.5 transition-transform duration-200 {explorerFiltersStore.collapsed ? '' : 'rotate-180'}"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        aria-hidden="true"
+                    >
+                        <path d="M12 5 7 10l5 5" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                    {explorerFiltersStore.collapsed
+                        ? $_('events.filters.show_rail', { default: 'Show filters' })
+                        : $_('events.filters.hide_rail', { default: 'Hide filters' })}
+                </button>
+                {@render viewSwitch()}
+                {@render multiSelectToggle()}
+            </div>
+        {/if}
     </div>
 
     {#if authStore.hasOwnerAccess && selectionMode}
-        <div class="card-base rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-brand-200/80 dark:border-brand-500/30 bg-brand-50/70 dark:bg-brand-500/10">
+        <div class="card-base rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-accent-line bg-accent-soft">
             <div>
-                <p class="text-sm font-semibold text-brand-800 dark:text-brand-100">
+                <p class="text-sm font-semibold text-accent-ink">
                     {$_('common.multi_select', { default: 'Multi-Select' })}
                 </p>
-                <p class="text-xs text-brand-700/80 dark:text-brand-100/80" role="status" data-explorer-selection-count>
+                <p class="text-xs text-accent-ink" role="status" data-explorer-selection-count>
                     {$_('events.selection_count', {
                         values: { count: selectedEventIds.length },
                         default: '{count, plural, =0 {No captures selected} one {# capture selected} other {# captures selected}}'
@@ -2084,7 +2204,7 @@
                     onclick={handleBulkReclassify}
                     disabled={selectedEventIds.length === 0 || bulkReclassifying || bulkDeleting}
                 >
-                    {bulkReclassifying ? $_('common.working', { default: 'Working…' }) : $_('actions.reclassify_selected', { default: 'Reclassify Selected' })}
+                    {bulkReclassifying ? $_('common.working', { default: 'Working…' }) : $_('actions.reclassify_selected', { default: 'Reclassify selected' })}
                 </button>
                 <button
                     type="button"
@@ -2100,7 +2220,11 @@
                     onclick={handleBulkDelete}
                     disabled={selectedEventIds.length === 0 || bulkDeleting || bulkReclassifying}
                 >
-                    {bulkDeleting ? $_('common.working', { default: 'Working…' }) : $_('actions.delete_selected', { default: 'Delete Selected' })}
+                    {bulkDeleting ? $_('common.working', { default: 'Working…' }) : $_('actions.delete_selected', { default: 'Delete selected' })}
+                </button>
+                <!-- The way out is on the bar itself: on a phone the switch that started this is behind Filters. -->
+                <button type="button" class="btn btn-ghost px-3 py-2 text-xs" onclick={toggleSelectionMode} disabled={bulkDeleting || bulkReclassifying} data-explorer-selection-done>
+                    {$_('events.selection_done', { default: 'Done' })}
                 </button>
             </div>
         </div>
@@ -2187,6 +2311,8 @@
             }}
             onrefresh={() => refreshEventMetadata(true, true)}
             search={wideExplorer.current ? undefined : explorerSearch}
+            beside={wideExplorer.current ? undefined : viewSwitch}
+            controls={wideExplorer.current || !(heardToggleAvailable || multiSelectAvailable) ? undefined : sheetControls}
         />
         </div>
 
@@ -2198,11 +2324,11 @@
             <!-- With nothing to show the failure takes the pane; earlier results stay, dimmed, beneath it. -->
             <div
                 role="alert"
-                class="card-base flex rounded-2xl border border-red-200 bg-red-50/80 dark:border-red-800/70 dark:bg-red-950/30
+                class="flex rounded-2xl border border-status-fail-line bg-status-fail-soft
                     {pane.state === 'error' ? 'flex-col items-center px-6 py-10 text-center' : 'mb-4 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3'}"
                 data-explorer-error={pane.state}
             >
-                <span class="flex min-w-0 items-start gap-2 text-sm font-semibold text-red-800 dark:text-red-200 {pane.state === 'error' ? 'flex-col items-center' : 'flex-1'}">
+                <span class="flex min-w-0 items-start gap-2 text-sm font-semibold text-status-fail {pane.state === 'error' ? 'flex-col items-center' : 'flex-1'}">
                     <svg class="{pane.state === 'error' ? 'h-8 w-8' : 'mt-0.5 h-4 w-4'} shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
                     </svg>
@@ -2214,7 +2340,12 @@
             </div>
         {/if}
 
-        {#if pane.state === 'results' && timelineBuckets.length > 0}
+        <!-- The first read's placeholders and the results that replace them are separate panes: what
+             was drawn while loading is taken away whole, so a day strip or a notice arriving above
+             the results moves nothing that was already on screen. -->
+        {#key pane.state === 'first-load'}
+        <!-- With one day on the page the strip would only repeat the count above it, so it is left out. -->
+        {#if pane.state === 'results' && timelineBuckets.length > 1}
             <section data-events-timeline class="pb-4 pt-1 transition-opacity motion-reduce:transition-none {pane.stale ? 'opacity-60' : ''}">
                 <!--
                     These chips group the loaded page, and clicking one narrows to that
@@ -2225,131 +2356,112 @@
                 <p
                     id="events-timeline-scope"
                     data-events-timeline-scope
-                    class="mb-2 text-2xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                    class="mb-2 text-2xs font-semibold text-muted"
                 >
                     {$_('events.timeline_scope', { default: 'Days on this page' })}
                 </p>
                 <!-- One scrolling row on a phone, so a long page of days does not push the visits down. -->
-                <div class="flex items-center gap-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="group" aria-labelledby="events-timeline-scope">
-                    <button
-                        type="button"
-                        class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
-                            {selectedTimelineBucket === 'all'
-                                ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
-                                : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
-                        onclick={() => selectedTimelineBucket = 'all'}
-                        aria-pressed={selectedTimelineBucket === 'all'}
-                    >
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                            <circle cx="10" cy="10" r="6"></circle>
-                            <path d="M4.5 10h11"></path>
-                        </svg>
-                        <span>{$_('common.all', { default: 'All' })}</span>
-                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-3xs font-bold normal-case tracking-normal
-                            {selectedTimelineBucket === 'all'
-                                ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
-                                : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
-                        >
-                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <path d="M4 14h12"></path>
-                                <path d="M7 14V9M10 14V6M13 14v-3"></path>
-                            </svg>
-                            {events.length + ((gardenOnly || gardenInTimeline) ? (gardenItems?.length ?? 0) : 0)}
-                        </span>
-                    </button>
-                    {#each timelineBuckets as bucket}
+                <div class="flex items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-none sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="group" aria-labelledby="events-timeline-scope">
+                    {#snippet dayChip(key: string, label: string, count: number)}
+                        {@const chosen = selectedTimelineBucket === key}
+                        <!-- The name and its count as plain text: one outline per choice, nothing drawn inside it. -->
                         <button
                             type="button"
-                            class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
-                                {selectedTimelineBucket === bucket.key
-                                    ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
-                                    : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
-                            onclick={() => selectedTimelineBucket = bucket.key}
-                            aria-pressed={selectedTimelineBucket === bucket.key}
+                            class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus
+                                {chosen
+                                    ? 'bg-accent-soft border-accent-line text-accent-ink shadow-xs'
+                                    : 'bg-surface border-line text-ink hover:bg-surface-raised'}"
+                            onclick={() => selectedTimelineBucket = key}
+                            aria-pressed={chosen}
+                            data-events-timeline-day={key}
                         >
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                <rect x="3" y="4" width="14" height="13" rx="2"></rect>
-                                <path d="M3 8h14"></path>
-                            </svg>
-                            <span>{bucket.label}</span>
-                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-3xs font-bold normal-case tracking-normal
-                                {selectedTimelineBucket === bucket.key
-                                    ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
-                                    : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
-                            >
-                                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                    <path d="M4 14h12"></path>
-                                    <path d="M7 14V9M10 14V6M13 14v-3"></path>
-                                </svg>
-                                {bucket.count}
-                            </span>
+                            <span>{label}</span>
+                            <span class="font-normal tabular-nums">{count}</span>
                         </button>
+                    {/snippet}
+                    {@render dayChip('all', $_('common.all', { default: 'All' }), events.length + ((gardenOnly || gardenInTimeline) ? (gardenItems?.length ?? 0) : 0))}
+                    {#each timelineBuckets as bucket (bucket.key)}
+                        {@render dayChip(bucket.key, bucket.label, bucket.count)}
                     {/each}
                 </div>
-                <p class="mt-2 hidden items-center gap-1.5 text-2xs text-slate-500 dark:text-slate-400 sm:inline-flex">
-                    <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                        <path d="M6 7h8M6 10h8M6 13h5"></path>
-                        <rect x="3" y="4" width="14" height="12" rx="2"></rect>
-                    </svg>
-                    {$_('events.timeline_keyboard_hint', { default: 'Timeline keyboard: [ previous day, ] next day, 0 reset' })}
-                </p>
             </section>
         {/if}
 
         {#if heardBlocker}
-            <p class="mb-4 flex items-start gap-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-heard-notice>
-                <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
+            <p class="mb-4 flex items-start gap-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-explorer-heard-notice>
+                <svg class="mt-0.5 h-4 w-4 shrink-0 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
                 <span>{heardBlocker}</span>
             </p>
         {:else if heardActive && heardFailed}
-            <p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-slate-600 dark:text-slate-300" role="alert" data-explorer-heard-notice>
+            <p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-muted" role="alert" data-explorer-heard-notice>
                 {$_('events.heard.load_failed', { default: 'Could not load the heard calls. The visits are unaffected.' })}
                 <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void loadHeard()}>{$_('common.retry', { default: 'Retry' })}</button>
             </p>
         {:else if heardActive && heardGroups !== null && heardGroups.length === 0 && pageVisits.length > 0}
             <!-- Nothing stored is not the same as nothing heard: BirdNET-Go may have been offline. -->
-            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-heard-notice>
-                {$_('events.heard.none_stored', { default: 'No BirdNET-Go calls are stored for the time these visits cover. If calls were expected, check that BirdNET-Go is running in Settings, Integrations.' })}
+            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-explorer-heard-notice>
+                {$_('events.heard.none_stored', { default: 'No BirdNET-Go calls are stored for the time these visits cover. If calls were expected, check that BirdNET-Go is running in Settings, Cameras & connection, More options.' })}
             </p>
         {:else if heardActive && heardTruncated}
-            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-heard-notice>
+            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-explorer-heard-notice>
                 {$_('events.heard.truncated', { default: 'This page spans more calls than can be shown at once, so the oldest calls are left out. Narrow the dates to see them.' })}
             </p>
         {/if}
 
         {#if gardenNoticeText}
-            <p class="mb-4 flex items-start gap-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-notice>
-                <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
+            <p class="mb-4 flex items-start gap-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-explorer-garden-notice>
+                <svg class="mt-0.5 h-4 w-4 shrink-0 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
                 <span>{gardenNoticeText}</span>
             </p>
         {/if}
         {#if gardenRequested && authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === false}
-            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-garden-beta-off>
+            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-garden-beta-off>
                 <span class="min-w-0 flex-1">{$_('garden.beta_off_desc', { default: 'Garden animals is a beta feature. Turn it on in Settings, Beta features, to collect and review non-bird visitors. Saved captures are kept while it is off.' })}</span>
                 <a href={toAppPath('/settings/beta')} class="btn btn-secondary inline-flex min-h-11 items-center px-3 text-xs">{$_('garden.beta_off_action', { default: 'Open Beta features' })}</a>
             </div>
         {/if}
         {#if gardenUndo}
-            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-undo>
+            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-muted" role="status" data-explorer-garden-undo>
                 <span class="min-w-0 flex-1">
                     {$_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: gardenUndo.ids.length } })}
                     {#if gardenUndo.skipped > 0}{' '}{$_('garden.batch_skipped', { default: '{count, plural, one {# photo was unchanged because its review or availability changed.} other {# photos were unchanged because their review or availability changed.}}', values: { count: gardenUndo.skipped } })}{/if}
                     {' '}{gardenUndo.returnToReview
-                        ? $_('garden.visit_return_help', { default: 'Returning photos to review does not reconfirm presence or the species name. Dismissed photos may make room for new captures.' })
+                        ? $_('garden.visit_return_help', { default: 'Returning photos to Needs your call does not reconfirm presence or the species name. Dismissed photos may make room for new captures.' })
                         : $_('garden.batch_undo_help', { default: 'Undo is available while photos remain. Dismissed photos may make room for new captures.' })}
                 </span>
                 <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-3 text-xs" onclick={undoGardenGroup}>{gardenUndo.returnToReview
-                    ? $_('garden.visit_return', { default: 'Return captures to review' })
+                    ? $_('garden.visit_return', { default: 'Return captures to Needs your call' })
                     : $_('garden.batch_undo', { default: 'Undo group dismissal' })}</button>
             </div>
         {/if}
+        {#if lateGarden && gardenInTimeline}
+            <!-- One height in every state, so the read finishing moves nothing beneath it. -->
+            <div class="mb-4 flex h-16 items-center gap-x-3 rounded-xl border border-line-soft bg-surface px-3 text-sm text-muted" role="status" data-explorer-garden-late={lateGarden.state}>
+                <span class="line-clamp-2 min-w-0 flex-1">
+                    {#if lateGarden.state === 'reading'}
+                        {$_('garden.explorer.late_reading', { default: 'Reading Garden captures…' })}
+                    {:else if lateGarden.state === 'ready'}
+                        {$_('garden.explorer.late_ready', { values: { count: lateGarden.count }, default: '{count, plural, one {# Garden capture on this page was read after the visits.} other {# Garden captures on this page were read after the visits.}}' })}
+                    {:else if lateGarden.state === 'failed'}
+                        {$_('garden.explorer.load_failed', { default: 'Could not load the Garden captures. The visits are unaffected.' })}
+                    {:else}
+                        {$_('garden.explorer.late_none', { default: 'No Garden captures on this page.' })}
+                    {/if}
+                </span>
+                {#if lateGarden.state === 'ready'}
+                    <button type="button" class="btn btn-secondary min-h-11 shrink-0 px-3 text-xs" onclick={showLateGarden}>{$_('garden.explorer.late_show', { default: 'Show Garden captures' })}</button>
+                {:else if lateGarden.state === 'failed'}
+                    <button type="button" class="btn btn-secondary min-h-11 shrink-0 px-3 text-xs" onclick={() => void retryLateGarden()}>{$_('common.retry', { default: 'Retry' })}</button>
+                {/if}
+            </div>
+        {/if}
         {#if gardenInTimeline && gardenFailed}
-            <p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-slate-600 dark:text-slate-300" role="alert" data-explorer-garden-notice>
+            <p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-muted" role="alert" data-explorer-garden-notice>
                 {$_('garden.explorer.load_failed', { default: 'Could not load the Garden captures. The visits are unaffected.' })}
                 <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void loadGarden()}>{$_('common.retry', { default: 'Retry' })}</button>
             </p>
         {:else if gardenInTimeline && gardenItems !== null && gardenTotal > gardenItems.length}
-            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-notice>
+            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-explorer-garden-notice>
                 {$_('garden.explorer.truncated', { values: { shown: gardenItems.length, total: gardenTotal }, default: 'This page spans {total} Garden visits; {shown} are shown. Choose Garden animals to page through them all.' })}
             </p>
         {/if}
@@ -2363,34 +2475,34 @@
         {#if pane.state === 'error' || pane.state === 'idle'}
             <!-- The failure is stated above; with no read asked for, nothing is claimed. -->
         {:else if pane.state === 'empty' && gardenOnly && authStore.hasOwnerAccess && gardenCameraCount === 0}
-            <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-garden-empty>
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('garden.explorer.no_cameras_title', { default: 'No camera has Garden animals turned on' })}</h3>
-                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.' })}</p>
+            <div class="border-y border-dashed border-line py-12 text-center" data-explorer-garden-empty>
+                <h2 class="text-lg font-semibold text-strong">{$_('garden.explorer.no_cameras_title', { default: 'No camera has Garden animals turned on' })}</h2>
+                <p class="mt-2 text-sm text-muted">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and the captures that need your call appear here.' })}</p>
                 <a href={toAppPath('/settings/beta')} class="btn btn-secondary mt-4 inline-flex min-h-11 items-center px-4">{$_('garden.open_settings', { default: 'Garden settings' })}</a>
             </div>
         {:else if pane.state === 'empty' && gardenOnly}
-            <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-garden-empty>
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
+            <div class="border-y border-dashed border-line py-12 text-center" data-explorer-garden-empty>
+                <h2 class="text-lg font-semibold text-strong">
                     {gardenReview === 'pending'
-                        ? $_('garden.explorer.empty_pending', { default: 'No Garden captures need review' })
+                        ? $_('garden.explorer.empty_pending', { default: 'No Garden captures need your call' })
                         : gardenReview === 'confirmed'
                           ? $_('garden.explorer.empty_confirmed', { default: 'No confirmed animals yet' })
                           : gardenReview === 'dismissed'
                             ? $_('garden.explorer.empty_dismissed', { default: 'No dismissed Garden captures' })
                             : $_('garden.explorer.empty_title', { default: 'No Garden captures yet' })}
-                </h3>
+                </h2>
                 {#if gardenAwaitingCheck > 0 && authStore.hasOwnerAccess}
-                    <p class="mt-2 text-sm text-slate-600 dark:text-slate-300" data-garden-awaiting-check-empty>
+                    <p class="mt-2 text-sm text-muted" data-garden-awaiting-check-empty>
                         {$_('garden.explorer.awaiting_check_empty', { values: { count: gardenAwaitingCheck }, default: '{count, plural, one {# camera capture is waiting for the automatic check.} other {# camera captures are waiting for the automatic check.}} Animals it names go to Confirmed animals, photos without one go to Dismissed, and any it cannot decide appear here.' })}
                     </p>
                 {/if}
-                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{authStore.hasOwnerAccess
-                    ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures waiting for review appear here. Dismissed captures are under Review, Dismissed.' })
+                <p class="mt-2 text-sm text-muted">{authStore.hasOwnerAccess
+                    ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures that need your call appear here. Dismissed captures are under Garden status, Dismissed.' })
                     : $_('garden.explorer.empty_guest_desc', { default: 'Animals confirmed on the Garden cameras appear here.' })}</p>
             </div>
         {:else if pane.state === 'empty' || pane.state === 'empty-filtered'}
-            <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-empty={pane.state}>
-                <svg class="mx-auto mb-4 h-10 w-10 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <div class="border-y border-dashed border-line py-12 text-center" data-explorer-empty={pane.state}>
+                <svg class="mx-auto mb-4 h-10 w-10 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.5 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.3-2.3L2 20" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3m4-3.25V21M7 18a6 6 0 0 0 3.8-10.6" />
                 </svg>
@@ -2399,8 +2511,8 @@
                          filters, never about the feeder (#301): saying "no events
                          yet" here told an owner their history was gone. A failed read
                          is neither; explorerPane() keeps it out of both empty states. -->
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_filtered_title', { default: 'No visits match these filters' })}</h3>
-                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_filtered_desc', { default: 'Your history is still here. Widen the date range or remove a filter to see it.' })}</p>
+                    <h2 class="text-lg font-semibold text-strong">{$_('events.empty_filtered_title', { default: 'No visits match these filters' })}</h2>
+                    <p class="text-sm text-muted mt-2">{$_('events.empty_filtered_desc', { default: 'Your history is still here. Widen the date range or remove a filter to see it.' })}</p>
                     <button
                         type="button"
                         class="btn btn-secondary mt-4 min-h-11 px-4"
@@ -2423,15 +2535,15 @@
                         {$_('events.empty_filtered_clear', { default: 'Clear all filters' })}
                     </button>
                 {:else}
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_title')}</h3>
-                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_desc')}</p>
+                    <h2 class="text-lg font-semibold text-strong">{$_('events.empty_title')}</h2>
+                    <p class="text-sm text-muted mt-2">{$_('events.empty_desc')}</p>
                 {/if}
             </div>
         {:else if explorerView === 'list'}
             <!-- Visits are divided from each other; inside one, only its captures footer is. -->
             <!-- The list takes the page's width like every other surface (#663); a capped column left
                  half of a large display empty beside it. -->
-            <div class="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white/80 dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900/50" data-explorer-list>
+            <div class="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line-soft bg-surface" data-explorer-list>
                 {#if pane.state === 'first-load'}
                     <ExplorerPlaceholders view="list" />
                 {/if}
@@ -2443,7 +2555,7 @@
                     {:else}
                         {@const event = entry.event}
                         {@const visit = entry.visit}
-                        <div class="[&>[data-detection-row]]:border-b-0" data-explorer-visit={visit?.visit_id}>
+                        <div class="*:data-detection-row:border-b-0" data-explorer-visit={visit?.visit_id}>
                         <DetectionRow
                             detection={event}
                             onclick={() => handleEventCardClick(event)}
@@ -2508,6 +2620,7 @@
             </div>
         {/if}
         </div>
+        {/key}
 
         <!-- An emptied later page keeps its way back. -->
         {#if pane.state === 'results' || ((pane.state === 'empty' || pane.state === 'empty-filtered') && totalCount > 0)}
@@ -2568,6 +2681,7 @@
                     }}
                     onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
                         videoEventId = frigateEvent;
+                        videoHeading = selectedEvent ? videoHeadingFor(selectedEvent, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames) : null;
                         videoShareToken = null;
                         videoPlayIntent = playIntent;
                         showVideo = true;
@@ -2596,7 +2710,7 @@
                     onchanged={gardenChanged}
                     onselect={(capture) => (selectedGarden = capture)}
                     ongroupdismissed={gardenGroupDismissed}
-                    onplay={(capture) => { closeGardenRecord(); playGardenClip(capture); }}
+                    onplay={(capture, title) => { closeGardenRecord(); playGardenClip(capture, title); }}
                 />
             {/if}
         {/snippet}
@@ -2611,7 +2725,7 @@
 {/if}
 {#if authStore.hasOwnerAccess && showBulkTagModal}
     <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-media/60 backdrop-blur-xs p-4"
         onclick={(e) => {
             if (e.target === e.currentTarget && !bulkTagging) {
                 showBulkTagModal = false;
@@ -2626,13 +2740,13 @@
         role="button"
         tabindex="0"
     >
-        <div class="w-full max-w-md mx-2 bg-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" aria-busy={bulkTagging}>
-            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+        <div class="w-full max-w-md mx-2 bg-surface rounded-2xl shadow-2xl border border-line overflow-hidden" aria-busy={bulkTagging}>
+            <div class="px-5 py-4 border-b border-line-soft flex items-center justify-between">
                 <div>
-                    <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    <h2 class="text-sm font-semibold text-strong">
                         {$_('actions.manual_tag')}
-                    </h4>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    </h2>
+                    <p class="mt-1 text-xs text-muted">
                         {$_('events.selection_count', {
                             values: { count: selectedEventIds.length },
                             default: '{count, plural, =0 {No captures selected} one {# capture selected} other {# captures selected}}'
@@ -2643,18 +2757,18 @@
                     type="button"
                     onclick={() => showBulkTagModal = false}
                     disabled={bulkTagging}
-                    class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                    class="text-xs font-bold text-muted hover:text-ink"
                 >
                     {$_('common.cancel')}
                 </button>
             </div>
-            <div class="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+            <div class="p-4 border-b border-line-soft bg-surface-raised">
                 <input
                     type="text"
                     bind:value={bulkTagSearchQuery}
                     disabled={bulkTagging}
                     placeholder={$_('detection.tagging.search_placeholder')}
-                    class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none"
+                    class="w-full px-4 py-2 text-sm rounded-xl input-base"
                 />
             </div>
             <div class="max-h-72 overflow-y-auto overscroll-contain p-1">
@@ -2665,24 +2779,24 @@
                         type="button"
                         onclick={() => applyBulkManualTag(result)}
                         disabled={bulkTagging}
-                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-600 dark:hover:text-brand-400 disabled:opacity-60 disabled:cursor-wait text-slate-600 dark:text-slate-300"
+                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-accent-soft hover:text-accent-ink disabled:opacity-60 disabled:cursor-wait text-muted"
                     >
                         <span class="block text-sm leading-tight">
                             {names.primary}
                             {#if isPending}
-                                <span class="ml-2 inline-flex items-center gap-1 text-3xs font-semibold text-brand-500">
+                                <span class="ml-2 inline-flex items-center gap-1 text-3xs font-semibold text-accent-ink">
                                     <span class="inline-block h-2 w-2 rounded-full border border-current border-t-transparent animate-spin"></span>
                                     {$_('common.saving')}
                                 </span>
                             {/if}
                         </span>
                         {#if names.secondary}
-                            <span class="block text-2xs text-slate-400 dark:text-slate-400 italic">{names.secondary}</span>
+                            <span class="block text-2xs text-muted italic">{names.secondary}</span>
                         {/if}
                     </button>
                 {/each}
                 {#if bulkSearchResults.length === 0}
-                    <p class="px-4 py-6 text-sm text-slate-400 italic text-center">
+                    <p class="px-4 py-6 text-sm text-muted italic text-center">
                         {bulkSearching ? $_('common.loading') : $_('detection.tagging.no_results')}
                     </p>
                 {/if}
@@ -2696,6 +2810,7 @@
             {#if videoEventId}
                 <VideoPlayer
                     frigateEvent={videoEventId}
+                    heading={videoHeading}
                     shareToken={videoShareToken}
                     playIntent={videoPlayIntent}
                     initialFullVisitPromoted={fullVisitFetchState[videoEventId] === 'ready'}

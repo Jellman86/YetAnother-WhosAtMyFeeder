@@ -1,3 +1,5 @@
+import type { Tone } from '../components/ui/tone';
+
 /**
  * One tone and one label for a reported system or job status (layout-patterns.md §1.3, §1.5).
  *
@@ -6,6 +8,7 @@
  * every theme. A status we did not recognise or could not measure stays slate: it is never
  * rounded up to healthy.
  */
+
 export type StatusTone = 'running' | 'attention' | 'failure' | 'healthy' | 'unknown';
 
 const TONE_BY_STATUS: Readonly<Record<string, StatusTone>> = {
@@ -29,6 +32,14 @@ const TONE_BY_STATUS: Readonly<Record<string, StatusTone>> = {
     clear: 'healthy',
     resolved: 'healthy',
     recovered: 'healthy',
+    connected: 'healthy',
+    reachable: 'healthy',
+    connecting: 'running',
+    disconnected: 'attention',
+    unreachable: 'attention',
+    not_configured: 'attention',
+    stopped: 'attention',
+    unchecked: 'unknown',
     unknown: 'unknown'
 };
 
@@ -53,20 +64,20 @@ export function statusLabelKey(value: string | null | undefined): string | null 
     return status in TONE_BY_STATUS ? `jobs.status.${status}` : null;
 }
 
-/** A pill or a subsystem card: edge, fill and text. */
-export const STATUS_PILL: Readonly<Record<StatusTone, string>> = {
-    running: 'border-brand-200/80 bg-brand-50 text-brand-700 dark:border-brand-800/60 dark:bg-brand-900/30 dark:text-brand-300',
-    attention: 'border-attention-200/80 bg-attention-50 text-attention-800 dark:border-attention-800/60 dark:bg-attention-950/30 dark:text-attention-200',
-    failure: 'border-rose-200/80 bg-rose-50 text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-200',
-    healthy: 'border-success-200/80 bg-success-50 text-success-700 dark:border-success-800/60 dark:bg-success-950/30 dark:text-success-200',
-    unknown: 'border-slate-200/80 bg-slate-50 text-slate-700 dark:border-slate-700/60 dark:bg-slate-900/50 dark:text-slate-200'
+/** The design system's tone for a status: StatusChip and StateBlock draw it, always with its words. */
+export const STATUS_TONE: Readonly<Record<StatusTone, Tone>> = {
+    running: 'info',
+    attention: 'attention',
+    failure: 'fail',
+    healthy: 'ok',
+    unknown: 'neutral'
 };
 
-/** The verdict card, which takes the colour as a whole rather than a pill on neutral ground. */
+/** The verdict card, which takes the tone as a whole: its soft ground and its edge. */
 export const STATUS_SURFACE: Readonly<Record<StatusTone, string>> = {
-    running: 'border-brand-200/80 bg-brand-50/70 dark:border-brand-800/50 dark:bg-brand-950/30',
-    attention: 'border-attention-200/80 bg-attention-50/70 dark:border-attention-800/50 dark:bg-attention-950/30',
-    failure: 'border-rose-200/80 bg-rose-50/70 dark:border-rose-800/50 dark:bg-rose-950/30',
-    healthy: 'border-success-200/80 bg-success-50/70 dark:border-success-800/50 dark:bg-success-950/30',
-    unknown: 'border-slate-200/80 bg-slate-50/70 dark:border-slate-700/60 dark:bg-slate-900/60'
+    running: 'border-status-info-line bg-status-info-soft',
+    attention: 'border-status-attention-line bg-status-attention-soft',
+    failure: 'border-status-fail-line bg-status-fail-soft',
+    healthy: 'border-status-ok-line bg-status-ok-soft',
+    unknown: 'border-line-soft bg-surface-sunken'
 };

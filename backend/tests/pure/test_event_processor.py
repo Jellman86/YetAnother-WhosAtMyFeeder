@@ -2040,3 +2040,122 @@ async def test_final_nonbird_save_rejection_is_an_expected_drop_without_post_com
     assert processor.get_status()["expected_drop_reasons"]["filter_non_bird"] == 1
     assert processor.get_status()["fault_drop_reasons"] == {}
     processor.detection_service.is_known_nonbird.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("age_seconds, expected", [(20, 900.0), (3600, None)])
+async def test_measured_light_is_saved_only_with_an_event_it_was_measured_for(age_seconds, expected):
+    """A lux reading is taken when the event is processed, so a replayed backlog gets none (#945)."""
+    from datetime import datetime, timedelta, timezone
+
+    processor = EventProcessor(MagicMock())
+    processor.detection_service.save_detection = AsyncMock(return_value=(True, True))
+    detected = datetime.now(timezone.utc) - timedelta(seconds=age_seconds)
+    event = SimpleNamespace(
+        frigate_event="evt-lux",
+        camera="birdcam",
+        start_time_ts=detected.timestamp(),
+        detection_dt=detected,
+        frigate_score=0.9,
+        sub_label=None,
+    )
+
+    await processor._save_detection(
+        event,
+        {"label": "Robin", "score": 0.9, "audio_confirmed": False, "audio_species": None, "audio_score": None},
+        {"weather_data": {"temperature": 9.0, "illuminance_lux": 900.0}, "audio_match": None},
+    )
+
+    saved = processor.detection_service.save_detection.await_args.kwargs
+    assert saved["illuminance_lux"] == expected
+    # The weather is unaffected by the age of the event, as before.
+    assert saved["temperature"] == 9.0
+
+
+def _frigate_discarded_event(event_id: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        frigate_event=event_id,
+        camera="greenhousecam",
+        start_time_ts=1700000000.0,
+        sub_label=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+
+async def _classify_with_frigate_missing_the_snapshot(processor, event, *, recording_frame: bytes | None):
+    from structlog.testing import capture_logs
+
+    from app.services.error_diagnostics import ErrorDiagnosticsHistory
+
+    history = ErrorDiagnosticsHistory()
+    image_mock = MagicMock()
+    image_mock.convert.return_value = image_mock
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.mqtt_service") as mock_mqtt,
+        patch("app.services.event_processor.media_cache") as mock_cache,
+        patch("app.services.event_processor.high_quality_snapshot_service") as mock_hqss,
+        patch("app.services.event_processor.error_diagnostics_history", history),
+        patch(
+            "app.services.event_processor.settings.frigate.recording_frame_classification_fallback", True, create=True
+        ),
+        patch("app.services.event_processor.Image.open", return_value=image_mock),
+        patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()),
+        capture_logs() as records,
+    ):
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(None, "snapshot_not_found"))
+        mock_frigate.get_thumbnail = AsyncMock(return_value=None)
+        mock_cache.get_snapshot = AsyncMock(return_value=None)
+        mock_frigate.get_recording_clip_with_error = AsyncMock(
+            return_value=(b"clip-bytes", None) if recording_frame else (None, "recording_not_found")
+        )
+        mock_hqss._extract_snapshot_from_clip = MagicMock(return_value=recording_frame)
+        mock_mqtt.get_status.return_value = {
+            "last_reconnect_reason": None,
+            "intentional_reconnect_pending": False,
+            "stall_recovery_warning_active": False,
+            "topic_last_message_age_seconds": {"frigate": 1.0, "birdnet": 1.0},
+            "frigate_topic_stale_seconds": 300.0,
+        }
+        result = await processor._classify_snapshot(event)
+    return result, records, history
+
+
+@pytest.mark.asyncio
+async def test_a_snapshot_frigate_discarded_is_logged_once_at_info_and_never_reaches_health():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Sparrow", "score": 0.95, "index": 1}])
+    processor = EventProcessor(classifier)
+
+    result, records, history = await _classify_with_frigate_missing_the_snapshot(
+        processor, _frigate_discarded_event("1794988555.071635-1tgeb3"), recording_frame=b"recording-frame"
+    )
+
+    assert result is not None and result[2] == "frigate_recording_frame"
+    missing = [record for record in records if record.get("reason") == "snapshot_not_found"]
+    assert len(missing) == 1
+    assert missing[0]["log_level"] == "info"
+    assert missing[0]["event_id"] == "1794988555.071635-1tgeb3"
+    assert [record for record in records if record.get("log_level") in {"warning", "error", "critical"}] == []
+    assert history.snapshot()["total_events"] == 0
+    status = processor.get_status()
+    assert status["snapshot_not_found_events"] == 1
+    assert status["stage_fallbacks"] == {"classify_snapshot": 1}
+
+
+@pytest.mark.asyncio
+async def test_a_snapshot_frigate_discarded_with_no_fallback_left_is_still_reported_lost():
+    """Only the expected half is quiet: an event every fallback failed for cost a detection."""
+    processor = EventProcessor(MagicMock())
+
+    result, records, _history = await _classify_with_frigate_missing_the_snapshot(
+        processor, _frigate_discarded_event("evt-lost"), recording_frame=None
+    )
+
+    assert result is None
+    assert processor.get_status()["snapshot_not_found_events"] == 1
+    with patch("app.services.event_processor.error_diagnostics_history") as mock_history:
+        processor._record_drop("evt-lost", "classify_snapshot_unavailable")
+    assert mock_history.record.call_args.kwargs["severity"] == "error"

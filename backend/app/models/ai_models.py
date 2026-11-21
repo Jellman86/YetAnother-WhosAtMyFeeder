@@ -95,6 +95,8 @@ class InstalledModel(YAWAMFBaseModel):
     validated_inference_providers: List[str] = Field(default_factory=list)
     provider_preference_order: List[str] = Field(default_factory=list)
     preferred_inference_provider: Optional[str] = None
+    # Shipped inside the image rather than downloaded, so it needs no download on this install.
+    bundled: bool = False
     metadata: Optional[ModelMetadata] = None
 
 

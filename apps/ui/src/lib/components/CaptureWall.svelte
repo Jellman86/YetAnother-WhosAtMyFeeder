@@ -4,6 +4,7 @@
     import { shareSegments, spotlightGroups, type ShowcaseRow } from '../leaderboard/showcase';
     import { packTiles, readableInk, WALL_MINIMUM, type WallTile } from '../leaderboard/wall';
     import { formatDateTime } from '../utils/datetime';
+    import { SCORE_FILL, scoreBand } from '../utils/score-tone';
     import VisitFilm from './VisitFilm.svelte';
 
     /**
@@ -83,17 +84,24 @@
     const target = $derived(width < 520 ? 56 : width < 900 ? 68 : 78);
     const columns = $derived(Math.max(4, Math.round((width - FRAME * 2 + GAP) / (target + GAP))));
     const cell = $derived(Math.max(24, (width - FRAME * 2 - GAP * (columns - 1)) / columns));
-    const rowCount = $derived(opened ? OPENED_ROWS : width < 520 ? 8 : 6);
+    // The first screen keeps a short contact sheet so the rankings the page is named for are in reach;
+    // "Show more visits" opens the full wall. Each photograph is a request, so this also bounds a load.
+    const CLOSED_ROWS = 3;
+    const CLOSED_ROWS_NARROW = 4;
+    const rowCount = $derived(opened ? OPENED_ROWS : width < 520 ? CLOSED_ROWS_NARROW : CLOSED_ROWS);
+    const tilePixels = (tile: WallTile): number => Math.round(large(tile) ? cell * 2 + GAP : cell);
 
     let failed = $state<Set<string>>(new Set());
     function markFailed(event: string): void {
         failed = new Set([...failed, event]);
     }
-    const usable = $derived(tiles.slice(0, maxTiles ?? tiles.length).filter((tile) => !failed.has(tile.frigateEvent)));
+    // A visit whose picture fails keeps its cell: the wall is packed once and nothing moves after load.
+    const usable = $derived(tiles.slice(0, maxTiles ?? tiles.length));
     const shown = $derived(width === 0 ? [] : packTiles(usable, columns, rowCount));
     const hasMore = $derived(!opened && usable.length > shown.length);
     const large = (tile: WallTile): boolean => tile.featured && columns >= 4;
-    const skeleton = $derived(Array.from({ length: columns * 3 }, (_unused, index) => index));
+    // As many rows as a full wall draws, so the page beneath does not move when the photographs land.
+    const skeleton = $derived(Array.from({ length: columns * rowCount }, (_unused, index) => index));
 
     // The tiles rise into place once, on first paint; a wall that reflows later does not replay it.
     let introDone = $state(false);
@@ -300,8 +308,10 @@
         };
     });
 
+    // Out of the wall's clipping box, but inside the page's main landmark, so the preview is read as
+    // part of the page it belongs to (axe `region`). It is fixed, so where it sits in main does not move it.
     function portal(node: HTMLElement) {
-        document.body.appendChild(node);
+        (document.getElementById('main-content') ?? document.body).appendChild(node);
         return { destroy: () => node.remove() };
     }
 
@@ -348,7 +358,9 @@
         return rowByKey(key)?.displayName ?? key;
     }
     function segmentLabel(segment: { key: string; kind: Kind; count: number }): string {
-        return `${segmentName(segment.key, segment.kind)}, ${segment.count.toLocaleString()} ${countLabel(segment.count)}, ${percentOfTotal(segment.count)}`;
+        // In the order the segment shows them (name, share, count), so the name a screen reader
+        // hears contains the words on screen.
+        return `${segmentName(segment.key, segment.kind)}, ${percentOfTotal(segment.count)}, ${segment.count.toLocaleString()} ${countLabel(segment.count)}`;
     }
     const CHECK_COLOUR = '#f59e0b';
     function segmentColour(segment: { key: string; kind: Kind }): string {
@@ -377,16 +389,16 @@
     {#if leader}
         <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
             <div class="min-w-0">
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{eyebrow}</p>
+                <p class="text-xs font-semibold text-muted">{eyebrow}</p>
                 <div class="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                    <h2 class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white sm:text-4xl">{leader.displayName}</h2>
-                    <p class="text-sm tabular-nums text-slate-600 dark:text-slate-300">
-                        <span class="font-semibold text-slate-900 dark:text-white">{leader.count.toLocaleString()}</span>
+                    <h2 class="font-display text-3xl font-bold leading-tight text-strong sm:text-4xl sm:leading-10">{leader.displayName}</h2>
+                    <p class="text-sm tabular-nums text-muted">
+                        <span class="font-semibold text-strong">{leader.count.toLocaleString()}</span>
                         {countLabel(leader.count)}
                     </p>
                 </div>
                 {#if leader.subName}
-                    <p class="text-sm italic text-slate-500 dark:text-slate-400">{leader.subName}</p>
+                    <p class="text-sm italic text-muted">{leader.subName}</p>
                 {/if}
             </div>
             {#if pinnedRow}
@@ -399,13 +411,12 @@
 
     {#if segments.length > 0}
         <ul
-            class="share flex h-12 gap-1 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-900"
+            class="share flex h-12 gap-1 overflow-hidden rounded-xl bg-surface-raised"
             aria-label={$_('leaderboard.spotlight_share_heading', { default: 'Share by species' })}
             data-capture-wall-share
         >
             {#each segments as segment, index (`${segment.key}|${index}`)}
                 {@const colour = segmentColour(segment)}
-                {@const out = activeSegment === segment.key}
                 <li class="segment" style:flex-grow={segmentGrow(segment)}>
                     <button
                         type="button"
@@ -421,13 +432,19 @@
                         onblur={() => segmentLeave(segment.key)}
                         onclick={() => pickSegment(segment.key, segment.kind)}
                     >
-                        {#if segment.percent >= 14 || out}
-                            <span class="segment-name">{segmentName(segment.key, segment.kind)}</span>
-                            <span class="segment-meta">
-                                {#if out}{percentOfTotal(segment.count)} · {segment.count.toLocaleString()} {countLabel(segment.count)}{:else}{percentOfTotal(segment.count)}{/if}
-                            </span>
-                        {/if}
+                        <span class="segment-share">{percentOfTotal(segment.count)}</span>
                     </button>
+                </li>
+            {/each}
+        </ul>
+        <!-- The key says in words what each colour is, in the bar's order, with nothing to hover.
+             It is hidden from a screen reader, which hears the same words as each segment's name. -->
+        <ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink" aria-hidden="true" data-capture-wall-key>
+            {#each segments as segment, index (`${segment.key}|${index}`)}
+                <li class="min-w-0 wrap-break-word {activeSegment === segment.key ? 'font-bold text-strong underline' : ''}">
+                    <span class="mr-1 inline-block h-2.5 w-2.5 rounded-xs align-baseline" style:background-color={segmentColour(segment)}></span>
+                    {segmentName(segment.key, segment.kind)}
+                    <span class="tabular-nums text-muted">{percentOfTotal(segment.count)} · {segment.count.toLocaleString()} {countLabel(segment.count)}</span>
                 </li>
             {/each}
         </ul>
@@ -436,7 +453,7 @@
     {#if loading || usable.length >= WALL_MINIMUM}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
-            class="wall relative overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100/70 p-[3px] dark:border-slate-700/60 dark:bg-slate-950/60 {lit !== null ? 'has-active' : ''}"
+            class="wall relative overflow-hidden rounded-2xl border border-line bg-surface-raised p-[3px] {lit !== null ? 'has-active' : ''}"
             bind:clientWidth={width}
             onpointerleave={scheduleClose}
             data-capture-wall-grid
@@ -479,15 +496,24 @@
                             onkeydown={moveFocus}
                             onclick={() => pickTile(tile)}
                         >
-                            <img
-                                src={getReelImageUrl(tile.frigateEvent)}
-                                alt=""
-                                loading="lazy"
-                                decoding="async"
-                                draggable="false"
-                                class="tile-photo"
-                                use:photo={() => markFailed(tile.frigateEvent)}
-                            />
+                            {#if failed.has(tile.frigateEvent)}
+                                <!-- The picture is gone; the visit is not. A neutral cell that names the bird. -->
+                                <span class="tile-missing flex h-full w-full items-center justify-center bg-surface-raised p-1 text-center text-3xs font-semibold leading-tight text-ink" data-capture-wall-missing>
+                                    <span class="line-clamp-3 wrap-break-word">{tile.name}</span>
+                                </span>
+                            {:else}
+                                <img
+                                    src={getReelImageUrl(tile.frigateEvent, large(tile) ? 'card' : 'tile')}
+                                    alt=""
+                                    width={tilePixels(tile)}
+                                    height={tilePixels(tile)}
+                                    loading="lazy"
+                                    decoding="async"
+                                    draggable="false"
+                                    class="tile-photo"
+                                    use:photo={() => markFailed(tile.frigateEvent)}
+                                />
+                            {/if}
                             {#if tile.hasClip}
                                 <span class="clip-badge" aria-hidden="true">
                                     <svg viewBox="0 0 16 16" class="h-2.5 w-2.5" fill="currentColor"><path d="M4 2.5v11l9-5.5z" /></svg>
@@ -501,7 +527,7 @@
 
         {#if shown.length > 0}
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <p class="text-xs text-slate-500 dark:text-slate-400">
+                <p class="text-xs text-muted">
                     {$_('leaderboard.wall_footer', { values: { count: shown.length }, default: '{count, plural, one {# recent visit. It opens its species.} other {# recent visits. Each opens its species.}}' })}
                 </p>
                 {#if hasMore || opened}
@@ -520,7 +546,7 @@
         id={popoutId}
         use:portal
         role="tooltip"
-        class="wall-popout fixed z-[70] rounded-2xl border border-slate-200 bg-surface p-2.5 shadow-2xl dark:border-slate-700 {place.side}"
+        class="wall-popout fixed z-70 rounded-2xl border border-line bg-surface p-2.5 shadow-2xl {place.side}"
         style:left="{place.left}px"
         style:top="{place.top}px"
         style:width="{POPOUT_WIDTH}px"
@@ -538,46 +564,46 @@
                 >
                     <VisitFilm frigateEvent={open.frigateEvent} poster={getReelImageUrl(open.frigateEvent)} film={open.film} class="h-full w-full" />
                     {#if open.rank !== null}
-                        <span class="absolute left-2 top-2 rounded-full bg-slate-950/70 px-2 py-0.5 text-2xs font-bold tabular-nums text-white backdrop-blur-sm">
+                        <span class="absolute left-2 top-2 rounded-full photo-chip px-2 py-0.5 text-2xs font-bold tabular-nums">
                             {$_('leaderboard.wall_rank', { values: { rank: open.rank }, default: 'Rank {rank}' })}
                         </span>
                     {/if}
                     {#if open.film || open.hasClip}
-                        <span class="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-slate-950/70 px-2 py-0.5 text-2xs font-semibold text-white backdrop-blur-sm">
+                        <span class="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full photo-chip px-2 py-0.5 text-2xs font-semibold">
                             <svg viewBox="0 0 16 16" class="h-2.5 w-2.5" fill="currentColor" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" /></svg>
                             {$_('leaderboard.wall_clip', { default: 'Clip' })}
                         </span>
                     {/if}
                 </div>
                 <div class="px-1 pb-1 pt-2.5">
-                    <p class="flex items-center gap-2 font-display text-lg font-bold leading-tight text-slate-900 dark:text-white">
+                    <p class="flex items-center gap-2 font-display text-lg font-bold leading-tight text-strong">
                         <span class="h-2.5 w-2.5 shrink-0 rounded-full" style:background-color={colourFor(open.speciesKey)} aria-hidden="true"></span>
-                        <span class="min-w-0 truncate">{open.name}</span>
+                        <span class="min-w-0 wrap-break-word">{open.name}</span>
                     </p>
                     {#if open.subName}
-                        <p class="truncate text-sm italic text-slate-500 dark:text-slate-400">{open.subName}</p>
+                        <p class="wrap-break-word text-sm italic text-muted">{open.subName}</p>
                     {/if}
                     <dl class="mt-2.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-                        <dt class="text-slate-500 dark:text-slate-400">{$_('leaderboard.wall_confidence', { default: 'Confidence' })}</dt>
-                        <dd class="flex items-center gap-2 font-semibold tabular-nums text-slate-900 dark:text-white">
+                        <dt class="text-muted">{$_('leaderboard.wall_confidence', { default: 'Confidence' })}</dt>
+                        <dd class="flex items-center gap-2 font-semibold tabular-nums text-strong">
                             {percent(open.score)}
-                            <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" aria-hidden="true">
-                                <span class="block h-full rounded-full bg-accent-500" style:width={percent(open.score)}></span>
+                            <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-line" aria-hidden="true">
+                                <span class="block h-full rounded-full {SCORE_FILL[scoreBand(open.score)]}" style:width={percent(open.score)}></span>
                             </span>
                         </dd>
-                        <dt class="text-slate-500 dark:text-slate-400">{$_('leaderboard.wall_seen', { default: 'Seen' })}</dt>
-                        <dd class="text-slate-800 dark:text-slate-100">{formatDateTime(open.at)}</dd>
+                        <dt class="text-muted">{$_('leaderboard.wall_seen', { default: 'Seen' })}</dt>
+                        <dd class="text-strong">{formatDateTime(open.at)}</dd>
                         {#if open.camera}
-                            <dt class="text-slate-500 dark:text-slate-400">{$_('leaderboard.wall_camera', { default: 'Camera' })}</dt>
-                            <dd class="truncate text-slate-800 dark:text-slate-100">{open.camera}</dd>
+                            <dt class="text-muted">{$_('leaderboard.wall_camera', { default: 'Camera' })}</dt>
+                            <dd class="wrap-break-word text-strong">{open.camera}</dd>
                         {/if}
-                        <dt class="text-slate-500 dark:text-slate-400">{$_('leaderboard.wall_visit', { default: 'Visit' })}</dt>
-                        <dd class="text-slate-800 dark:text-slate-100">
-                            {$_('leaderboard.wall_frames', { values: { count: open.captures }, default: '{count, plural, one {# frame} other {# frames}}' })}
+                        <dt class="text-muted">{$_('leaderboard.wall_visit', { default: 'Visit' })}</dt>
+                        <dd class="text-strong">
+                            {$_('leaderboard.wall_frames', { values: { count: open.captures }, default: '{count, plural, one {# capture} other {# captures}}' })}
                         </dd>
                     </dl>
                     {#if open.speciesKey}
-                        <p class="mt-2.5 border-t border-slate-200 pt-2 text-2xs font-semibold text-brand-700 dark:border-slate-700 dark:text-brand-300">
+                        <p class="mt-2.5 border-t border-line pt-2 text-2xs font-semibold text-accent-ink">
                             {$_('leaderboard.wall_open', { values: { name: open.name }, default: 'Open {name}' })}
                         </p>
                     {/if}
@@ -594,6 +620,8 @@
         flex-basis: 0;
         flex-shrink: 1;
         min-width: 24px;
+        container-type: inline-size;
+        font-size: var(--text-xs);
         transition: flex-grow 0.38s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
@@ -604,7 +632,7 @@
         flex-direction: column;
         justify-content: center;
         overflow: hidden;
-        padding: 0 10px;
+        padding: 0 0.5em;
         text-align: left;
         white-space: nowrap;
         cursor: pointer;
@@ -626,21 +654,18 @@
         box-shadow: inset 0 -4px 0 currentColor;
     }
 
-    .segment-name {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        font-size: 0.8125rem;
+    /* A segment says its share only where the figure fits whole at the reader's text size; the key
+       under the bar always says it. */
+    .segment-share {
+        display: none;
         font-weight: 700;
-        line-height: 1.15;
+        font-variant-numeric: tabular-nums;
     }
 
-    .segment-meta {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        font-size: 0.75rem;
-        font-weight: 600;
-        line-height: 1.15;
-        font-variant-numeric: tabular-nums;
+    @container (width >= 4.5em) {
+        .segment-share {
+            display: block;
+        }
     }
 
     .wall-grid {

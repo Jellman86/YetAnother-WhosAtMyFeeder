@@ -1,9 +1,15 @@
 from app.models.classification_evidence import ClassificationEvidence
-from pydantic import BaseModel, Field, field_serializer, field_validator
-from datetime import datetime
+from pydantic import BaseModel, Field, PrivateAttr, computed_field, field_serializer, field_validator
+from datetime import date, datetime
+from urllib.parse import urlparse
+from typing import Literal
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.reference_images import bounded_reference_thumbnail
 from app.utils.reference_text import reference_plain_text
+
+# What Frigate answered when YA-WAMF asked about one event. Only `not_found` is evidence
+# that the event is gone; the rest are a question that went unanswered.
+FrigateEventCheck = Literal["found", "not_found", "unreachable", "timed_out", "unauthorized", "failed", "not_checked"]
 
 
 class OAuthAuthorizeResponse(BaseModel):
@@ -71,6 +77,8 @@ class Detection(APIModel):
     weather_precipitation: float | None = None
     weather_rain: float | None = None
     weather_snowfall: float | None = None
+    # Measured light level in lx from a Home Assistant sensor; null when none was measured.
+    illuminance_lux: float | None = None
     # Taxonomy fields
     scientific_name: str | None = None
     common_name: str | None = None
@@ -122,6 +130,9 @@ class DetectionResponse(Detection):
     has_clip: bool = False  # Clip availability from Frigate
     has_snapshot: bool = True  # Snapshot availability from Frigate
     has_frigate_event: bool = True  # Event still exists in Frigate
+    # What Frigate answered when asked about the event. Only `not_found` means it is gone;
+    # `has_frigate_event` is also false when Frigate could not be asked.
+    frigate_event_check: FrigateEventCheck = "not_checked"
     observation_notes: str | None = None
     observation_latitude: float | None = None
     observation_longitude: float | None = None
@@ -148,6 +159,7 @@ class DetectionListItemResponse(APIModel):
     has_clip: bool = False
     has_snapshot: bool = True
     has_frigate_event: bool = True
+    frigate_event_check: FrigateEventCheck = "not_checked"
     audio_species: str | None = None
     audio_score: float | None = None
     audio_confirmed: bool = False
@@ -200,6 +212,20 @@ class CameraStats(APIModel):
     percentage: float
 
 
+class DailyTotalsCoverage(BaseModel):
+    """How far back a chart's counts come from sealed daily totals instead of stored captures (#949).
+
+    `totals_through` is the last such day (null when the chart reads only stored captures).
+    `partial` is true when some of those days were sealed after older captures were already
+    removed, before daily totals were kept; `complete_from` is then the first day whose total is
+    whole, if any.
+    """
+
+    totals_through: date | None = None
+    complete_from: date | None = None
+    partial: bool = False
+
+
 class SpeciesStats(APIModel):
     species_name: str
     scientific_name: str | None = None
@@ -216,6 +242,9 @@ class SpeciesStats(APIModel):
     max_confidence: float
     min_confidence: float
     recent_sightings: list[Detection]
+    # The first day this species is counted on, from stored captures or sealed daily totals.
+    history_first_day: date | None = None
+    daily_totals: DailyTotalsCoverage = Field(default_factory=DailyTotalsCoverage)
 
 
 class SpeciesInfo(APIModel):
@@ -232,6 +261,28 @@ class SpeciesInfo(APIModel):
     conservation_status: str | None = None
     taxa_id: int | None = None
     cached_at: datetime | None = None
+    # The description was accepted as this taxon's when it was fetched. Kept with the cached row,
+    # never sent: a client is shown a description or none.
+    _identity_checked: bool = PrivateAttr(default=False)
+
+    @computed_field(
+        description="The language the description is written in, when its source says: a Wikipedia edition's code such as `en`. It can differ from the language asked for."
+    )
+    @property
+    def summary_language(self) -> str | None:
+        """Read from the summary's own address, so a cached row says it too, with nothing more stored."""
+        if not self.extract or (self.summary_source or "").casefold() != "wikipedia":
+            return None
+        host = (urlparse(self.summary_source_url or "").hostname or "").casefold()
+        edition, _, site = host.partition(".")
+        return edition if site == "wikipedia.org" and edition.replace("-", "").isalpha() else None
+
+    @property
+    def identity_checked(self) -> bool:
+        return self._identity_checked
+
+    def mark_identity_checked(self, checked: bool = True) -> None:
+        self._identity_checked = checked
 
     @field_validator("extract", "description")
     @classmethod

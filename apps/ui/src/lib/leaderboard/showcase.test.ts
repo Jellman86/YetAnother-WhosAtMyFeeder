@@ -38,8 +38,9 @@ describe('the leaderboard showcase rows', () => {
             portraits,
             referenceFor: (species) => (species === 'Coal Tit' ? { url: 'https://ref/coal.jpg', source: 'wikipedia' } : { url: null, source: null })
         });
-        expect(rows[0]).toMatchObject({ key: 'Coal Tit', photo: null, reference: 'https://ref/coal.jpg' });
-        expect(rows[1]).toMatchObject({ key: 'Dunnock', photo: '/api/about/showcase/d1.jpg', scientificName: null, taxaId: 13988, reference: null });
+        expect(rows[0]).toMatchObject({ key: 'Coal Tit', photo: null, photoEvent: null, reference: 'https://ref/coal.jpg' });
+        // The visit the photograph is from, so a small slot can ask for the tile-size image.
+        expect(rows[1]).toMatchObject({ key: 'Dunnock', photo: '/api/about/showcase/d1.jpg', photoEvent: 'd1', scientificName: null, taxaId: 13988, reference: null });
     });
 
     it('keeps every ranked species with its table rank', () => {

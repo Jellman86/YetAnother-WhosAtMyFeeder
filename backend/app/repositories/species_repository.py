@@ -1,6 +1,7 @@
 """Persistence operations for species taxonomy, search, and information caches."""
 
 from datetime import datetime
+from collections.abc import Sequence
 
 import aiosqlite
 
@@ -51,17 +52,59 @@ class SpeciesRepository:
         return next(iter(matches.values())) if len(matches) == 1 else None
 
     async def lookup_taxonomy(self, candidate: str, language: str) -> tuple[str | None, str | None, int | None] | None:
+        return await self.lookup_taxonomy_for_names([candidate], language)
+
+    async def lookup_taxonomy_for_names(
+        self, names: Sequence[str], language: str
+    ) -> tuple[str | None, str | None, int | None] | None:
+        """The species the first resolvable name stands for, named in the reader's language.
+
+        Every name is tried against the cache's own names before any is tried as a translation, so
+        a label shaped "Local name (Scientific name)" keeps its scientific identity even when the
+        local name means another species in some language. A not-found placeholder is the last
+        resort: it records that iNaturalist had no answer, not what the name means.
+
+        A translation never overrules a scientific name the label states itself: "Probmes (Probus
+        novus)" stays unresolved rather than becoming the species "Probmes" means in another
+        language, even while Probus novus is not cached yet.
+        """
+        stated_scientific_names = {name.strip().casefold() for name in names if looks_like_scientific_name(name)}
+        placeholder = None
+        for name in names:
+            row = await self._lookup_cached_name(name)
+            if row is None:
+                continue
+            if row[4]:
+                placeholder = placeholder or row
+                continue
+            return await self._name_for_reader(row, language)
+        for name in names:
+            row = await self._lookup_taxonomy_by_translated_name(name, language)
+            if row is None:
+                continue
+            # Only another part of the same label can veto: "Sikora bogatka" on its own looks like a
+            # scientific name but is the Polish common name being translated.
+            vetoing_names = stated_scientific_names - {name.strip().casefold()}
+            if vetoing_names and str(row[0] or "").strip().casefold() not in vetoing_names:
+                continue
+            return await self._name_for_reader(row, language)
+        if placeholder is not None:
+            return await self._name_for_reader(placeholder, language)
+        return None
+
+    async def _lookup_cached_name(self, name: str) -> aiosqlite.Row | None:
         async with self.db.execute(
             """SELECT scientific_name, COALESCE(manual_common_name, common_name), taxa_id,
-                      manual_common_name FROM taxonomy_cache
+                      manual_common_name, COALESCE(is_not_found, 0) FROM taxonomy_cache
                WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)
-                  OR LOWER(manual_common_name) = LOWER(?) LIMIT 1""",
-            (candidate, candidate, candidate),
+                  OR LOWER(manual_common_name) = LOWER(?)
+               ORDER BY COALESCE(is_not_found, 0) ASC LIMIT 1""",
+            (name, name, name),
         ) as cursor:
-            row = await cursor.fetchone()
-        if not row:
-            return None
-        scientific_name, common_name, taxa_id, manual_common_name = row
+            return await cursor.fetchone()
+
+    async def _name_for_reader(self, row: aiosqlite.Row, language: str) -> tuple[str | None, str | None, int | None]:
+        scientific_name, common_name, taxa_id, manual_common_name = row[0], row[1], row[2], row[3]
         if language != "en" and taxa_id and not manual_common_name:
             async with self.db.execute(
                 "SELECT common_name FROM taxonomy_translations WHERE taxa_id = ? AND language_code = ?",
@@ -72,9 +115,35 @@ class SpeciesRepository:
                 common_name = translated[0]
         return scientific_name, common_name, taxa_id
 
+    async def _lookup_taxonomy_by_translated_name(self, candidate: str, language: str) -> aiosqlite.Row | None:
+        """The cached species a stored translated common name ("Большая синица") stands for.
+
+        Labels can keep the name a model or an earlier owner wrote in another language. A name is
+        trusted only when it points at one species: in the reader's own language first, then across
+        every language. A name two species share is left unresolved rather than guessed.
+        """
+        async with self.db.execute(
+            "SELECT DISTINCT taxa_id, language_code FROM taxonomy_translations WHERE LOWER(common_name) = LOWER(?)",
+            (candidate,),
+        ) as cursor:
+            matches = await cursor.fetchall()
+        in_reader_language = {taxa_id for taxa_id, language_code in matches if language_code == language}
+        every_language = {taxa_id for taxa_id, _ in matches}
+        candidates = in_reader_language or every_language
+        if len(candidates) != 1:
+            return None
+        async with self.db.execute(
+            """SELECT scientific_name, COALESCE(manual_common_name, common_name), taxa_id, manual_common_name,
+                      COALESCE(is_not_found, 0)
+               FROM taxonomy_cache WHERE taxa_id = ? AND COALESCE(is_not_found, 0) = 0 LIMIT 1""",
+            (next(iter(candidates)),),
+        ) as cursor:
+            return await cursor.fetchone()
+
     async def get_cached_info(self, *, species_name: str, taxa_id: int | None, language: str) -> aiosqlite.Row | None:
         columns = """title, description, extract, thumbnail_url, wikipedia_url, source, source_url,
-                     summary_source, summary_source_url, scientific_name, conservation_status, cached_at, taxa_id"""
+                     summary_source, summary_source_url, scientific_name, conservation_status, cached_at, taxa_id,
+                     identity_checked"""
         if taxa_id:
             cursor = await self.db.execute(
                 f"SELECT {columns} FROM species_info_cache WHERE taxa_id = ? AND language = ? ORDER BY cached_at DESC LIMIT 1",
@@ -98,6 +167,7 @@ class SpeciesRepository:
         language: str,
         values: dict[str, object],
         cached_at: datetime,
+        identity_checked: bool = False,
     ) -> None:
         existing = None
         if taxa_id:
@@ -123,6 +193,7 @@ class SpeciesRepository:
             values.get("scientific_name"),
             values.get("conservation_status"),
             cached_at,
+            1 if identity_checked else 0,
         )
         if existing:
             cursor = await self.db.execute(
@@ -136,22 +207,24 @@ class SpeciesRepository:
             await self.db.execute(
                 """UPDATE species_info_cache SET species_name=?, language=?, title=?, taxa_id=?, description=?,
                    extract=?, thumbnail_url=?, wikipedia_url=?, source=?, source_url=?, summary_source=?,
-                   summary_source_url=?, scientific_name=?, conservation_status=?, cached_at=? WHERE id=?""",
+                   summary_source_url=?, scientific_name=?, conservation_status=?, cached_at=?, identity_checked=?
+                   WHERE id=?""",
                 (*payload, existing[0]),
             )
         else:
             await self.db.execute(
                 """INSERT INTO species_info_cache
                    (species_name, language, title, taxa_id, description, extract, thumbnail_url, wikipedia_url,
-                    source, source_url, summary_source, summary_source_url, scientific_name, conservation_status, cached_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    source, source_url, summary_source, summary_source_url, scientific_name, conservation_status, cached_at,
+                    identity_checked)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(species_name, language) DO UPDATE SET language=excluded.language,
                     title=excluded.title, taxa_id=excluded.taxa_id, description=excluded.description,
                     extract=excluded.extract, thumbnail_url=excluded.thumbnail_url,
                     wikipedia_url=excluded.wikipedia_url, source=excluded.source, source_url=excluded.source_url,
                     summary_source=excluded.summary_source, summary_source_url=excluded.summary_source_url,
                     scientific_name=excluded.scientific_name, conservation_status=excluded.conservation_status,
-                    cached_at=excluded.cached_at""",
+                    cached_at=excluded.cached_at, identity_checked=excluded.identity_checked""",
                 payload,
             )
         await self.db.commit()

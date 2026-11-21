@@ -8,9 +8,13 @@ from collections import deque
 from app.config import settings
 from app.database import get_db
 from app.repositories.audio_history_repository import AudioHistoryRepository
+from app.services.broadcaster import broadcaster
 from app.utils.birdnet_payload import extract_birdnet_id
 
 log = structlog.get_logger()
+
+# Sent to owner pages when a new call is stored. An invalidation only: it carries no detection.
+AUDIO_DETECTED = "audio_detected"
 
 
 @dataclass
@@ -288,11 +292,26 @@ class AudioService:
                     buffered=buffered,
                 )
 
+            if inserted:
+                await self._announce_new_call()
             return True
 
         except Exception as e:
             log.error("Failed to process audio detection", error=str(e))
             return False
+
+    @staticmethod
+    async def _announce_new_call() -> None:
+        """Tell open owner pages a call was heard, so they read it instead of polling for it.
+
+        The message carries no detection: pages read the history routes, which apply the
+        owner's visibility rules. Guests never receive this type.
+        """
+        try:
+            await broadcaster.broadcast({"type": AUDIO_DETECTED})
+        except Exception as e:
+            # The call is stored; a page that missed the message reads it on its next refresh.
+            log.warning("Failed to announce audio detection", error=str(e))
 
     async def set_hidden(self, detection_id: int, hidden: bool) -> bool:
         async with self._lock:

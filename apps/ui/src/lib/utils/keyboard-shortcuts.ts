@@ -17,12 +17,8 @@ export function initKeyboardShortcuts(handlers: Record<string, ShortcutHandler>)
 
         const key = e.key;
 
-        // Special handling for Shift + / = ?
-        if (e.shiftKey && key === '/') {
-            e.preventDefault();
-            shortcuts.get('?')?.();
-            return;
-        }
+        // "?" is matched as the key the keyboard reports, below. "/" with Shift is not "?": German,
+        // Spanish, Italian, Portuguese and French keyboards type "/" that way, and a page's search takes it.
 
         // Handle Escape key
         if (key === 'Escape') {

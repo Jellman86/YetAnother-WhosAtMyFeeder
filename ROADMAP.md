@@ -939,7 +939,7 @@ in-app and in docs; the release makes them final.
   examples, CI, and reverse-proxy guidance assume the monolith by default.
   (Already flagged: [`docs/setup/migrate-split-to-monolith.md`](docs/setup/migrate-split-to-monolith.md).)
 - **API-key auth removed.** Optional `X-API-Key` authentication is removed in favour of the
-  password-based auth already available under Settings → Security. The deprecation notice is
+  password-based auth already available under Settings → Sharing & integrations. The deprecation notice is
   live today (`backend/app/auth.py`: *"API key support will be removed in v3.0"*); `3.0`
   deletes the code path.
 - **Retired comparison-model downloads removed.** MogaNet-S EU, ConvNeXt-V1 Tiny EU,
