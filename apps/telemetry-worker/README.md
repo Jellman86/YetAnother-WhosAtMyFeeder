@@ -135,6 +135,7 @@ Use `?days=7`, `?days=30`, or `?days=90` to change the reporting window.
 - **`GET /dashboard`**: Returns the current public aggregate HTML dashboard.
 - **`GET /stats/summary`**: Returns a JSON summary of active installs, versions, and model usage.
 - **`GET /stats/health-issues`**: Returns aggregate health issue summaries from the separate health D1 database.
+- **`GET /version`**: Returns the latest published version for each channel (`stable`, `dev` and other branches) for the in-app update prompt. It takes no telemetry payload, so installs with telemetry off can still check for updates.
 
 Both POST endpoints reject bodies larger than 128 KiB before JSON parsing. Cloudflare's native rate-limit bindings provide per-location, eventually consistent best-effort limits keyed by source IP and installation (heartbeat: 6/minute; health issues: 1/minute) before D1 writes. They are not global ceilings. An atomic account-wide budget in the usage D1 is the hard write guard and limits estimated indexed writes to 40,000 units/day across both endpoints; exhausted requests receive `503` before telemetry rows are written. The estimate deliberately leaves substantial headroom below Cloudflare Free's 100,000 rows-written/day allowance.
 

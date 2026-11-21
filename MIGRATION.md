@@ -31,11 +31,12 @@ workflow instead. See [Unraid](docs/setup/unraid.md) and
 
 1. Wait for the container health check, then open the dashboard.
 2. Confirm your saved cameras, recent detections and photographs are present.
-3. Open **Settings → Identifying birds → Runtime diagnostics**. Check the image family,
-   selected provider, actual active provider and any fallback reason.
+3. Open **Settings → Identifying birds → More options → Hardware** and expand
+   **Runtime report**. Its **Runtime diagnostics** show the image family, selected
+   provider, actual active provider and any fallback reason.
 4. If model/runtime/hardware validation is stale, let automatic recovery finish or
    run the model compatibility check. Compatibility is not a species-accuracy score.
-5. Check the **Health** and **Jobs** pages for failed or waiting work.
+5. Check the **Health** and **Notifications** pages for failed or waiting work.
    Network errors during a switch/router outage do not by themselves prove a model fault.
 
 Unsuffixed image tags remain the full compatibility image. Optional `-cpu`,
@@ -57,7 +58,7 @@ On the first load of an older configuration:
   `FRIGATE__RECORDING_CLIP_ENABLED` environment override takes precedence.
 
 This avoids silently enabling expensive media work that the old switches prevented.
-Review **Settings → Storage & upkeep → Snapshot quality** and **Settings → Cameras & connection → Full-visit clips**
+Review **Settings → Storage & upkeep → Snapshot quality** and **Settings → Cameras & connection → More options → Full-visit clips**
 if you want those options on. Save settings once to persist the one-time marker and
 remove retired keys from `config.json`. Remove `MEDIA_CACHE__ENABLED` and
 `MEDIA_CACHE__CACHE_SNAPSHOTS` from your deployment environment; startup warnings
@@ -84,7 +85,7 @@ with a downloaded catalogue seed. See the
 [October model catalogue](docs/features/model-catalogue-2026-10.md).
 
 DINOv2 reads the saved feeder latitude and longitude at runtime. The setup wizard
-and **Settings → Sharing & integrations → Location** edit the same values. Missing coordinates
+and **Settings → Sharing & integrations → Your feeder’s location** edit the same values. Missing coordinates
 use neutral metadata; date and location uncertainty are not supplied. Changing
 coordinates reloads classifier workers.
 
@@ -94,10 +95,10 @@ Password authentication and read-only public access were introduced in v2.6.0.
 An existing installation without authentication remains accessible until you enable
 it; do that before exposing the UI or API beyond your trusted network.
 
-1. Open **Settings → Sharing & integrations**, set an owner username and password, and enable
-   **Authentication**.
-2. Select **Apply settings** and confirm you can sign in.
-3. Enable **Public Access** only if you want a guest view, then review its separate
+1. Open **Settings → Sharing & integrations**, turn on **Sign-in**, and fill in
+   **Owner user name**, **New password** and **Confirm password**.
+2. Select **Save changes** and confirm you can sign in.
+3. Turn on **Public access** only if you want a guest view, then review its separate
    photograph, video, audio and history permissions.
 
 The legacy `YA_WAMF_API_KEY` is still supported but deprecated. Confirm owner-login

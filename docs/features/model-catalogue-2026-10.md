@@ -76,7 +76,7 @@ not baked into the downloadable graph. Date and uncertainty remain absent. Missi
 coordinates produce an all-zero metadata vector, while a real `(0, 0)` has a presence flag.
 Changing or importing the location reloads classifier workers so they use the saved setting.
 Model Manager explains this for location-aware models and links to **Settings → Sharing & integrations →
-Location**. Switching there within Settings preserves unsaved edits; save the coordinates before
+Your feeder’s location** (**Open location settings**). Switching there within Settings preserves unsaved edits; save the coordinates before
 expecting them to change inference. The setup wizard's model step can also collect the coordinate
 pair and saves it before hardware validation. It blocks partial or invalid pairs while accepting
 zero coordinates, and **Continue** saves the displayed provider. Wizard saves update untouched

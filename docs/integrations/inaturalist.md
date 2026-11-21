@@ -31,11 +31,10 @@ YA-WAMF opens the sign-in window synchronously from your click so browser popup 
 mistake it for an unsolicited window; if popups are blocked, the UI tells you to allow them and
 retry. Saved credentials remain redacted and can be reused without re-entering them.
 
-## Preview Mode (No OAuth)
-If you do not have App Owner approval yet, you can still preview the submission UI:
-
-1. Enable **Debug UI** (`SYSTEM__DEBUG_UI_ENABLED=true` or `system.debug_ui_enabled`).
-2. Open a detection details card to see the submission panel.
+## Before you connect
+The submission panel appears in a visit's record only when iNaturalist is turned on and your
+account is connected. There is no preview without OAuth: the earlier Debug UI preview has been
+removed, so you need App Owner approval before you can see the panel.
 
 ## Reliability
 YA-WAMF supports OAuth token refresh. Revoked access, changed credentials, provider policy or network failures can still require reconnection. Review the draft, photograph and location before submission: submitting sends those details to your connected iNaturalist account.

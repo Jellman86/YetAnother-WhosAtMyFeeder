@@ -70,7 +70,7 @@ the hostname to your network. It assumes NPM terminates browser HTTPS. `$scheme`
 records the connection that NPM received; behind another TLS-terminating proxy,
 configure a trusted upstream header policy instead. Never blindly trust a public
 client's `X-Forwarded-Proto` or `X-Forwarded-For`. Add the actual proxy addresses to
-**Settings → Sharing & integrations → Trusted Proxy Hosts** (or `SYSTEM__TRUSTED_PROXY_HOSTS`).
+**Settings → Sharing & integrations → Sign-in → Session & reverse proxy → Trusted proxy hosts** (or `SYSTEM__TRUSTED_PROXY_HOSTS`).
 
 ```nginx
 # Docker DNS Resolver (Required for dynamic container resolution)
@@ -274,7 +274,7 @@ your-domain.com {
 
 ## Troubleshooting
 
-### "System Offline" / Red Status Icon
+### Live updates keep showing "Reconnecting…"
 *   **Cause:** Connection dropping between heartbeats (20s).
 * **Fix:** Confirm buffering is disabled and each proxy's active-response read timeout
   exceeds the 20-second heartbeat interval. Test the direct app address as well as
@@ -283,7 +283,7 @@ your-domain.com {
 ### "Authentication enabled over HTTP" Warning
 *   **Cause:** Backend sees `X-Forwarded-Proto: http` instead of `https`.
 * **Fix:** Forward the real browser-facing scheme from a trusted proxy, and configure
-  **Trusted Proxy Hosts** for that proxy. Use `$scheme` where the proxy terminates
+  **Trusted proxy hosts** for that proxy. Use `$scheme` where the proxy terminates
   HTTPS; behind a tunnel or another proxy, preserve only that trusted hop's scheme.
   Do not hardcode HTTPS for a route that also accepts unprotected HTTP.
 

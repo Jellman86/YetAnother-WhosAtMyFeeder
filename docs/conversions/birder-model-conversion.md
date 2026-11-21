@@ -10,16 +10,19 @@ You want a wider bird vocabulary than the existing `medium_birds` family or a
 different architecture profile (DaViT, MViT, PVT, etc.). You're willing to do
 empirical iGPU validation through the model evaluation harness afterward. Older OpenVINO stacks
 often produced NaN logits, wrong predictions, or process crashes for larger architectures, while
-current Quark/OpenVINO validation shows that some of those results are runtime-specific. ConvNeXt
-Large, for example, failed on OpenVINO 2025.4.1 but matches CPU on the current 2026.2.1 stack.
-Two recently-converted candidates that both **fail on iGPU** are documented
-in the legacy OpenVINO diagnostic tests under `backend/tests/additional/`:
+later Quark/OpenVINO validation showed that some of those results are runtime-specific. ConvNeXt
+Large, for example, failed on OpenVINO 2025.4.1 but matched CPU on 2026.2.1. The images now pin
+OpenVINO 2026.4.1 or later, so repeat the check on the version you ship.
 
-- `davit_tiny_il_all` — clean compile, NaN output on iGPU. CPU-only.
-- `mvit_v2_t_il_all` — process crash (`CL_OUT_OF_RESOURCES`) on iGPU. CPU-only.
+Two earlier conversions show how iGPU can fail even when CPU works:
 
-Both work fine on CPU. Validate any new candidate the same way before declaring
-iGPU support in the registry.
+- `davit_tiny_il_all`: a clean compile, then NaN output on iGPU.
+- `mvit_v2_t_il_all`: a process crash on iGPU.
+
+Both were later dropped from the registry because an existing model did better on every measure.
+The legacy OpenVINO diagnostic tests (`backend/tests/test_model_openvino_gpu.py`, run only with
+`YAWAMF_LEGACY_HARDWARE_DIAGNOSTICS=1`) are exploratory. Validate any new candidate with the
+provider gate below before declaring iGPU support in the registry.
 
 ## Export in an isolated workspace
 

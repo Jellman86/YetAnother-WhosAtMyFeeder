@@ -99,6 +99,47 @@ Image build contexts exclude local `.env` files; example templates remain availa
 monolith and standalone frontend use `npm ci` with the committed lockfile. Supply runtime secrets
 through the deployment's variable store rather than including them in an image build context.
 
+## Release steps
+
+1. Cut `release/vX.Y.Z` from current `dev`.
+2. Bump `VERSION`, then regenerate the OpenAPI artifacts (see the checklist below).
+3. [Fold the changelog](#fold-the-changelog).
+4. Write `docs/releases/vX.Y.Z.md` from the template, link it from `docs/index.md`, and update
+   `CONTRIBUTORS.md`.
+5. Open a pull request from the release branch into `main`. Once its checks are green,
+   squash-merge it, so `main` gains one release commit.
+6. Tag that commit with an annotated tag named after the version and push the tag:
+
+   ```bash
+   git fetch origin
+   git tag -a vX.Y.Z -m "YA-WAMF X.Y.Z" origin/main
+   git push origin vX.Y.Z
+   ```
+
+7. The tag push starts **Build and Push Docker Images**
+   ([`build-and-push.yml`](../../.github/workflows/build-and-push.yml)). It runs the backend,
+   frontend and monolith tests, builds the full, CPU, Intel and CUDA images (and the Raspberry Pi
+   image), then `verify-monolith-flavor-switch` switches full to CPU and back on shared state, and
+   `promote-monolith-flavors` moves the `vX.Y.Z` and `latest*` tags. Publish the GitHub Release
+   from `docs/releases/vX.Y.Z.md` only after that run is green.
+
+## Bring the release back to dev
+
+The squash leaves `main`'s release commit outside `dev`'s history. Bring it back with a merge
+commit, or the next release pull request conflicts with `main` on every release file.
+
+1. Create `chore/back-merge-vX.Y.Z` from `origin/main`.
+2. Join `dev`:
+   - If `dev` has not moved since you cut the release branch, run `git merge -s ours origin/dev`.
+     The tree stays exactly `main`'s, and `git diff origin/main` shows nothing.
+   - If `dev` has moved, run a plain `git merge origin/dev`. It brings back the fragments the
+     release folded, because `dev` still has them. Delete those again, keep `main`'s `VERSION`
+     and `CHANGELOG.md`, keep any fragment added on `dev` after the cut, and regenerate the
+     OpenAPI artifacts if `dev` changed the API.
+3. Open a pull request into `dev` and merge it with a merge commit. Never squash it.
+4. Confirm `main` is now part of `dev`: `git fetch origin && git merge-base --is-ancestor
+   origin/main origin/dev` exits with status 0.
+
 ## Publish checklist
 
 - [ ] The release title and tag match the application version.

@@ -42,8 +42,10 @@ python -m ruff format --check .
 python backend/scripts/run_regression_gate.py
 npm --prefix apps/ui run check
 npm --prefix apps/ui run lint:dead
+npm --prefix apps/ui run lint:tokens
 npm --prefix apps/ui test
 npm --prefix apps/ui run build
+npm --prefix apps/ui run check:cache
 npm --prefix apps/telemetry-worker test
 python backend/scripts/docs_consistency_check.py
 ```

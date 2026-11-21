@@ -24,18 +24,18 @@ keyboard focus can show.
 | A name for a few rows inside a card (a channel, "Garden animals") | `SettingsSubheading`; its level follows the card it sits in |
 | A text / number / url / password / email field | `SettingsInput`; pass `field` (the saved setting's API name) so a refused save marks it and shows the reason under it |
 | A multi-line text field (mono for JSON / templates, sans otherwise) | `SettingsTextarea` |
-| Hide power-user knobs behind "Advanced" — collapsed by default, persists per-browser | `AdvancedSection` |
+| Hide power-user knobs behind "Show advanced options", collapsed by default; Settings keeps it open for the rest of the visit | `AdvancedSection` |
 | The page itself: load failure with retry, and the save bar (count, tabs, Discard changes, Save changes, refused fields) | `SettingsPage` |
 | A refused value's reason under a hand-built input | `FieldRefusal`, with the input's `aria-invalid` and `aria-describedby` set from the same refusal |
 
 ## Conventions baked into the primitives
 
-- **One card chrome**: `card-base rounded-3xl p-6 md:p-8 backdrop-blur-md`. Don't reintroduce per-tab coloured icon tiles — the leading tile is monochrome by design.
-- **One inner row chrome**: `rounded-2xl p-4 bg-slate-50 dark:bg-slate-900/50` with a 1px border.
-- **One accent colour**: teal. Status colours (amber, red, emerald) signal warning / danger / success only — they aren't decoration.
+- **One card chrome**: a `SettingsCard` is a display-face heading over one raised panel of rows (`card-base settings-section-body`). There is no icon tile, band or box inside it.
+- **One inner row chrome**: rows are not boxed. They sit in that panel, separated by hairline dividers (`divide-line-soft`), each with `py-4`.
+- **One accent colour**: the `brand` token, which follows the colour theme (teal in Classic). Status colours signal warning / danger / success only; they aren't decoration.
 - **One typography ramp**: the open section's `h2` (`text-2xl`, bold, kept in view by `SettingsPage`), a card's `h3` (`text-xl`, display face, semibold; `h4` at `text-lg` when `nested` under More options), a `SettingsSubheading` inside a card (reading face, semibold, one level below its card), the row label (`text-base`, semibold) and the row description (`text-sm`, muted, regular). Values, links and statuses are regular. Don't add another step, and don't write a heading tag by hand: `settings-reading-hierarchy.layout.test.ts` fails on one.
 - **Every row and card is findable**: give a `SettingsRow` a static `labelId`, a `SettingsSlider` its `id` and a `SettingsCard` an `id`, and add the entry to `src/lib/settings/settings-search-index.ts`. The index test names what is missing.
-- **One focus ring**: `focus:ring-2 focus:ring-teal-400`.
+- **One focus ring**: the `focus-ring` utility from `app.css` (`ring-focus`, keyboard focus only).
 - **Selects draw their own box**: `SettingsSelect` uses `appearance-none`, `min-h-11` and a decorative chevron, because desktop WebKit's native menu list discards padding and height (a 22px control). Below `sm` it uses `pl-2 pr-5` with the chevron at `right-1.5`, so a 320px screen at 200% text still shows part of the value; from `sm` up it uses `pl-4 pr-8`. The option picker stays native.
 
 ## Basic vs Advanced taxonomy
@@ -48,16 +48,16 @@ The rule we apply when deciding what goes behind `AdvancedSection`:
 
 Concrete examples already applied:
 
-- **Connection**: MQTT port and recording-clip seconds-before/after → Advanced. Frigate URL, MQTT broker, MQTT auth, clips on/off → Basic.
+- **Connection**: full-visit clip seconds before/after → Advanced. Frigate URL, MQTT address and port, MQTT auth → Basic. Fetching video clips sits under the section's **More options**.
 - **AI**: prompt template overrides and pricing JSON registry → Advanced. Provider, API key, model → Basic.
 - **Integrations**: per-channel API tunables (eBird radius/days/locale, BirdNET buffer hours / correlation seconds, iNat default lat/lon/place) → Advanced.
-- **Data**: maintenance concurrency, HQ snapshot JPEG quality, weather backfill → Advanced. Retention window, manual purge, cache on/off → Basic.
-- **Detection**: video classifier delay/retries/concurrency/frames, OpenVINO/CUDA diagnostics, crop overrides → Advanced. Confidence threshold, "Trust Frigate sublabels", auto-video on/off → Basic.
+- **Data**: maintenance concurrency, HQ snapshot JPEG quality, weather backfill → Advanced. Retention window, manual purge, storage limit → Basic.
+- **Detection**: video classifier delay/retries/concurrency/frames, OpenVINO/CUDA diagnostics, crop overrides → Advanced. Naming threshold and minimum confidence floor → Basic. "Trust Frigate sublabels" and auto video analysis sit under the section's **More options**.
 - **Notifications**: Pushover priority + per-device targeting, Email "only on event end" + dashboard URL → Advanced. Channel API keys, recipient addresses, test buttons → Basic.
 
-`AdvancedSection`'s open/closed state is persisted in `localStorage` under
-`yawamf:settings:advanced:<id>`, so once a user opens an Advanced section it
-stays open across reloads on that browser.
+`AdvancedSection`'s open/closed state is not stored. Inside Settings the page
+keeps it by its `id` for the rest of the visit, so it stays open while
+you move between sections, and a reload closes it again.
 
 ## Adding a new primitive
 

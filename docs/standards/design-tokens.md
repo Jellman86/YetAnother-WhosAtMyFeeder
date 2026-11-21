@@ -35,7 +35,7 @@ All are Tailwind 4 theme colours, so they work with every colour utility (`bg-`,
 
 ### Depth
 
-Depth comes from light, and it has four parts, each a kit class in `app.css`. Use them together;
+Depth comes from light, and it has five parts, each a kit class in `app.css`. Use them together;
 do not write a shadow or a backdrop colour in a component.
 
 | Class | What it is |
@@ -131,7 +131,9 @@ npm run tokens:baseline    # lower the baseline after migrating a file; refuses 
 ```
 
 The few places that genuinely need a literal colour sit in the test's `ALLOWLIST`, each with its
-reason: the colour-theme picker's swatches, and the categorical CPU-share segments on the Health page.
+reason: the colour-theme picker's swatches, a score drawn over a photograph or the video player
+(always a dark ground), the orange missing-upstream mark on Explorer cards and rows, and the
+categorical CPU-share segments on the Health page.
 In `app.css` the high-contrast repaint rules name the older classes in order to override them
 inside the mode. They are nested in one top-level `.high-contrast { … }` rule, and the ratchet
 parses the stylesheet with postcss and skips only the selectors of rules nested in that one rule

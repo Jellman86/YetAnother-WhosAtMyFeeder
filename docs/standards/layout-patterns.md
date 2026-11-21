@@ -921,9 +921,12 @@ build something better."*
   default. Touch targets use the `11` spacing step, which is `max(2.75rem, 44px)`: never write a
   target size that a smaller text size could take below 44px.
 - **Finish**: flat. Panels are a hairline (`line-soft`) and a fill (`surface`), with no shadow, blur
-  or gradient wash; `surface-raised` fills a well inside a panel. These tokens are set per mode and
-  theme in `app.css`, so a component never names a theme. Gradients remain only where they do a
-  job: a scrim that keeps a caption legible over a photo, a scroll fade, a loading shimmer.
+  or gradient wash; `surface-raised` fills a well inside a panel. The exceptions are the depth kit
+  classes ([`design-tokens.md`](design-tokens.md#depth)): the record dialog and the video player
+  are lifted off a scrim, the record's panels stand on its well, and a Settings card takes the
+  small panel lift. These tokens are set per mode and theme in `app.css`, so a component never
+  names a theme. Gradients remain only where they do a job: a scrim that keeps a caption legible
+  over a photo, a scroll fade, a loading shimmer.
 - **Labels and controls**: a small label (`.eyebrow`) names a group or a window. Like every control,
   heading and label it is in sentence case at normal tracking: it stays below its heading by size,
   weight and a muted ink, never by capitals. Nothing forces capitals with CSS

@@ -314,11 +314,11 @@ than image success, while its looping viewer fetches only the selected camera an
 or hidden.
 The remaining audit is focused on page-owned empty, error, refresh, and destructive states.
 
-✅ **Background-work and Jobs pass:** the Jobs workspace now uses a canonical owner-only server
+✅ **Background-work and Jobs pass:** background work now uses a canonical owner-only server
 snapshot for automatic video analysis, HQ snapshots, full-visit clips, and backfills instead of
 depending only on browser-local progress. Queue depth, actual worker concurrency, waiting phases,
 and blockers remain distinct; queued work is not counted as running. The global banner includes
-only prominent owner-triggered work, while routine per-detection work remains available in Jobs.
+only prominent owner-triggered work, while routine per-detection work remains available in Notifications.
 The surface uses one divided information region, accessible progress semantics, translated status
 copy, explicit retry feedback, and no control that merely hides server-owned active work. Historical
 bird imports now use the same acceptance gate as live detections. Completed snapshots are fetched in
@@ -466,7 +466,11 @@ day-bucket timeline strip with keyboard nav. Remaining:
 - Highlight scoring (confidence, rarity, activity) and clip stitching/preview thumbnails.
 
 #### One flow for choosing the frame and the identification 🖼️
-**Priority:** P2 | **Effort:** M | **Status:** ☐ Needs a design decision
+**Priority:** P2 | **Effort:** M | **Status:** ✅ Shipped in 2.20.0; #256 closed September 12
+
+The detection record now has one strip of the visit's moments beneath its photograph, and
+"Use this frame" changes the photograph and never the identification. The rest of this entry
+records the original problem and acceptance criteria.
 
 Tracked in [#256](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/256). A person
 choosing the most representative photograph of a visit does not care whether it came from Frigate's

@@ -171,7 +171,11 @@ subsequent centre crop retains the proposal's full extent. It never widens the
 source crop toward neighbouring birds. A caller must bind that result to the
 model, catalogue fingerprint and exact crop checksum before applying the policy.
 
-This policy and preparation helper are not yet enabled in capture counting.
-Existing saved counts and finder defaults are unchanged. Enabling confirmation
-still requires service integration, honest unresolved outcomes, history and
-cancellation tests, frozen scene qualification, and provider and cost checks.
+With the RF-DETR finder loaded, whole-frame scans apply this policy from
+detector evidence alone: a box scoring 0.60 or higher is counted, and weaker or
+overlapping boxes are kept as unconfirmed regions, so the scan reports an
+incomplete lower bound. YOLOX-Tiny keeps the earlier count, and scans saved
+before this change stay as they were. Own-pixel classifier evidence and the
+preparation helper are not wired into counting yet. Using them still requires
+service integration, history and cancellation tests, frozen scene
+qualification, and provider and cost checks.

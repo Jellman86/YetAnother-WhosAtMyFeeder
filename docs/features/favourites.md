@@ -42,8 +42,8 @@ and choosing a different photograph for a favourite is archived again behind it.
 
 A visit favourited while it is still happening shows **Archiving photo and clip** until Frigate has
 written the clip, which it does after the event ends; the worker checks again on its half-hourly
-pass. Under the missing-event policy's *delete* setting a favourite is marked missing instead of
-deleted, so a Frigate rotation never removes a favourite or its archive.
+pass. Under the missing-event policy's **Delete records YA-WAMF has no photo for** setting a
+favourite is marked missing instead of deleted, so a Frigate rotation never removes a favourite or its archive.
 
 ## Finding a favourite in a grouped visit
 
@@ -92,8 +92,8 @@ Review the [data settings](../setup/configuration.md) before changing retention.
 
 Cleanup keeps how many birds each day saw even after it deletes the captures. Before it removes
 any capture from a day, it writes that day's captures and visits for each species, from the
-stored captures, and seals the day. This applies to the scheduled cleanup and to **Purge Old
-Records** alike: both delete through the same step, and if the totals cannot be saved nothing is
+stored captures, and seals the day. This applies to the scheduled cleanup and to **Purge old
+records** alike: both delete through the same step, and if the totals cannot be saved nothing is
 deleted and Health says "Retention paused". The Leaderboard's chart and each species' weekday and
 month charts then count sealed days from these totals, so seasonal trends reach back past your
 retention period. Photos, clips and individual records for those days are gone; the charts say
@@ -105,8 +105,8 @@ from which day their counts come from daily totals.
   changes the counts while the day is live. A day is sealed as soon as cleanup starts removing its
   captures, so corrections to the ones still stored on it (kept favourites, or the later captures
   on the oldest day kept) no longer change its totals.
-- A capture Frigate no longer has, removed under **Delete** for missing events, is kept as its
-  own record in the same step as the delete. Its day stays live and correctable, and the lost
+- A capture Frigate no longer has, removed under **Delete records YA-WAMF has no photo for** for
+  missing events, is kept as its own record in the same step as the delete. Its day stays live and correctable, and the lost
   capture still counts on it, today included, until cleanup folds it into the day's total.
 - Totals start when you upgrade. A day that began before then may already have lost captures
   without a record (to an earlier cleanup or to missing-event deletes), so it is marked as

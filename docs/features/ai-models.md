@@ -40,8 +40,8 @@ by the connection tests — with three stages:
 3. **Enable for selection** — makes the model active, restoring the previous model if validation
    fails. Only after activation succeeds is the still-eligible recommendation applied.
 
-A model that has never been validated on this host shows **Validate to enable** instead of **Use
-this model**, and the API rejects activating it (`409`). The model already running and bundled
+A model that has never been validated on this host shows **Validate to enable** instead of
+**Activate**, and the API rejects activating it (`409`). The model already running and bundled
 models are grandfathered, so upgrading never blocks a working install. Validation works on every
 image flavor and tests only providers that image actually owns. Evidence is scoped to the model
 artifact, inference runtime/kernel, visible accelerator hardware, and exact image flavor, so a
@@ -52,11 +52,11 @@ Detection Diagnostics.
 ## Inference Providers (CPU / CUDA / Intel OpenVINO)
 
 For ONNX models, YA-WAMF supports a provider selector under
-**Settings → Identifying birds → More options → Hardware → Inference provider**:
+**Settings → Identifying birds → More options → Hardware → Identification model runs on**:
 
-- `Auto` (recommended): uses the selected model's measured passing order on this installation and
+- `Auto (recommended)`: uses the selected model's measured passing order on this installation and
   otherwise remains within its globally safe provider contract.
-- `CPU`: ONNX Runtime CPU execution.
+- `CPU (ONNX Runtime)`: ONNX Runtime CPU execution.
 - `NVIDIA CUDA`: ONNX Runtime with CUDA; initialization can use an available CPU fallback when CUDA is unavailable.
 - `Intel GPU (OpenVINO)`: OpenVINO GPU plugin; initialization can try OpenVINO CPU when the GPU is unavailable.
 - `Intel CPU (OpenVINO)`: OpenVINO CPU execution.
@@ -87,7 +87,7 @@ successful load does not prove that the route can finish a live workload within 
   access to the saved provider, subject to host and model validation.
 - CUDA and OpenVINO availability are probed separately from model loading, then validated again during runtime initialization.
 - **Selected** is the saved preference; **Active** describes loaded workers. If no worker has loaded
-  yet, the UI marks the provider as planned rather than claiming it is active. The Models tab
+  yet, the UI marks the provider as planned rather than claiming it is active. The **Models** card
   refreshes this status after validation, activation and saving, periodically while visible and
   when you return to the browser. An explicit unsaved provider choice is kept; an untouched field
   follows a newly saved server preference so a later unrelated save cannot switch it back.
@@ -139,7 +139,7 @@ host-gated provider limits.
 ![The identification model in use in Settings → Identifying birds: the location-aware DINOv2 model, with what it is, its memory estimate and its location guidance](../images/model-manager-dino.png)
 
 DINOv2 uses the saved feeder coordinates at inference time. Set them in **Settings → Sharing & integrations
-→ Location**, or in the setup wizard's model step, before validating. A complete `(0, 0)` is valid;
+→ Your feeder’s location**, or in the setup wizard's model step, before validating. A complete `(0, 0)` is valid;
 a missing location is explicitly represented as absent. The setup wizard saves coordinates before
 the check, blocks incomplete pairs, and shows the provider it will save on **Continue**. Changing
 the saved location reloads classifier workers. Date metadata remains absent.
@@ -162,7 +162,7 @@ frames before they are identified and counted. It does not name species. The cho
 automatic fallback. Each option shows its download size, estimated RAM, and the device it runs on:
 a graphics or NPU device only after it passed a device check on this host, otherwise the CPU. When
 it is on the CPU, the card names the graphics or NPU devices it could use here, and the chosen
-finder offers **Check *devices* for *finder***. That check covers only the finder, compares each
+finder offers **Check devices for the bird finder**. That check covers only the finder, compares each
 device with the CPU on bird photos and does not change the identification model.
 
 A host kernel, driver or image update makes earlier device results stale. After startup, YA-WAMF
@@ -203,7 +203,7 @@ For advanced insights, YA-WAMF can send high-confidence snapshots to a Large Lan
 
 The LLM analyzes the image context (weather, behavior, plumage) and provides a short, educational summary of what the bird is doing. This feature requires an API key.
 
-Use **Settings → Sharing & integrations → More options → Test AI Connection** to check credentials, vision support and a representative
+Use **Test AI connection** under **Settings → Sharing & integrations → More options → AI provider** to check credentials, vision support and a representative
 five-frame request before analysing detections. The dialog keeps failures and retry guidance
 visible. A successful connection test is not a latency benchmark or a guarantee against later
 provider outages. Optional AI analysis sends selected images to the configured external provider.

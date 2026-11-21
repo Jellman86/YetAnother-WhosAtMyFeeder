@@ -4,18 +4,18 @@ YA-WAMF sends detection alerts through Discord, Pushover, Telegram, and email.
 
 ## Notification history
 
-The bell icon in the header opens the notification centre; **Notifications** in the sidebar opens
-the full page. Both show one history, filtered by category: **Everything**, **Birds**, **Updates**,
-**Jobs**, and **Errors**. The **Jobs** and **Errors** categories are owner-only.
+The bell icon in the header opens the **Notifications** page (or press `g` then `j`). It shows one
+history, filtered by category: **Everything**, **Birds**, **Updates**, **Jobs**, and **Errors**. The
+**Jobs** and **Errors** categories are owner-only.
 
-**Clear notifications** empties the history on this browser at once. A toast then offers **Undo**
+**Clear all notifications** empties the history on this browser at once. A toast then offers **Undo**
 for ten seconds, which puts the cleared items back beside anything that arrived meanwhile.
 
 The **Jobs** category separates queued, running, and recent work. Video analysis, best-quality
 snapshots, full-visit clips, and backfills stay distinct, so a queued item is never presented as a
 running worker. A job that stops reporting for three quarters of an hour is shown as **stopped**,
 with how far it got and when it went quiet, a grey bar that no longer moves, and its own
-**Dismiss**; it leaves the history a day after it stopped. The top progress bar counts such a job
+**Remove from this list**; it leaves the history a day after it stopped. The top progress bar counts such a job
 as "not responding" for that window and then drops it.
 
 The compact progress bar across the top of the application is reserved for prominent work you
@@ -32,8 +32,8 @@ Opening Settings restores the last detection and weather backfill results withou
 them again. A backfill observed running on that page announces its completion or failure once;
 returning to Settings or reloading it does not replay the result.
 
-For a support report, follow **Health · Diagnostics export** to the **Health** page and expand
-**Diagnostics export**. **Capture Bundle** saves a snapshot; **Download without saving** exports
+For a support report, follow **Open Health** to the **Health** page and expand
+**Diagnostics export**. **Capture bundle** saves a snapshot; **Download without saving** exports
 one directly. Both request current server evidence, even with no browser errors. These actions
 require owner access and do not send a report automatically. A saved bundle retains its original
 capture time. See [Diagnostics](../troubleshooting/diagnostics.md#capture-current-evidence-for-a-report).
@@ -44,23 +44,26 @@ capture time. See [Diagnostics](../troubleshooting/diagnostics.md#capture-curren
 Sends rich embeds with snapshot previews to a Discord channel.
 
 - **Webhook URL:** Create a webhook in your Discord server settings.
-- **Bot Username:** Custom name for the bot (default: "YA-WAMF").
-- **Snapshots:** Option to include the detection image.
+- **Bot username:** Custom name for the bot (default: "YA-WAMF").
+- **Snapshots:** Includes the detection image. On by default; there is no switch for it in
+  Settings, so set `NOTIFICATIONS__DISCORD__INCLUDE_SNAPSHOT=false` to send text only.
 
 ### Pushover
 Sends push notifications to your mobile device via the Pushover app.
 
-- **User Key:** Your user identifier.
-- **API Token:** Create a new application in Pushover to get this.
+- **User key:** Your user identifier.
+- **API token:** Create a new application in Pushover to get this.
 - **Priority:** Adjust the alert priority (-2 to 2).
-- **Snapshots:** Attach images to notifications.
+- **Snapshots:** Attaches the detection image. On by default; set
+  `NOTIFICATIONS__PUSHOVER__INCLUDE_SNAPSHOT=false` to send text only.
 
 ### Telegram
 Sends messages or photos to a Telegram chat.
 
-- **Bot Token:** From `@BotFather`.
+- **Bot token:** From `@BotFather`.
 - **Chat ID:** The user or group ID to send messages to.
-- **Snapshots:** Send as a photo message (with caption) or just text.
+- **Snapshots:** Sends a photo message with a caption. On by default; set
+  `NOTIFICATIONS__TELEGRAM__INCLUDE_SNAPSHOT=false` to send just text.
 
 ### Email
 Send rich HTML emails with optional snapshots.
@@ -68,11 +71,11 @@ Send rich HTML emails with optional snapshots.
 - **OAuth (Gmail/Outlook):** Authorize YA-WAMF to send email on your behalf.
 - **SMTP:** Configure your server hostname, port, TLS, and optional auth.
 - **From/To:** Set sender and recipient addresses.
-- **Snapshots:** Attach the detection image in the email.
+- **Snapshots:** **Include snapshot image** attaches the detection image in the email.
 
 ## Linking back to the detection
 
-Set **Instance address** under **Settings → Alerts** to the address you use to open
+Set **Instance address** under **Settings → Alerts → More options** to the address you use to open
 YA-WAMF, for example `https://feeder.example.com`. Every notification then links to the detection
 it announces, at `<address>/events?event=<id>`:
 
@@ -83,9 +86,10 @@ it announces, at `<address>/events?event=<id>`:
 
 **Notification link opens** chooses the target. **This YA-WAMF** (the default) opens the detection
 as above. **Frigate** opens the same tracked object in Frigate's Explore page instead, at
-`<Frigate public URL>/explore?event_id=<id>`, using the public URL saved under
-**Settings → Cameras & connection**; it needs Frigate 0.15 or newer. With Frigate chosen and no public URL
-saved, notifications carry no link and the settings card says so, with a shortcut to Connection.
+`<Frigate public URL>/explore?event_id=<id>`, using the **Public Frigate URL** saved under
+**Settings → Cameras & connection → More options → Frigate details**; it needs Frigate 0.15 or newer.
+With Frigate chosen and no public URL saved, notifications carry no link and the settings card says
+so, with an **Open Connection** shortcut.
 A preview line under the choice shows the exact address the next notification will carry.
 
 Either address must start with `http://` or `https://`; saving one without a scheme is refused
@@ -106,7 +110,7 @@ a control:
 
 > Tell me about **new visits** that are at least **70% sure** of **any species** on **Discord**
 
-![Settings → Alerts: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", then the Channels card with Discord, Pushover, Telegram and email](../images/settings-notifications.png)
+![Settings → Alerts: the Global notification filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", then the Channels card with Discord, Pushover, Telegram and email](../images/settings-notifications.png)
 
 ### Minimum confidence
 Only alert at or above this score (default `0.7`). Raise it to reduce alerts for lower-confidence
@@ -119,7 +123,8 @@ evidence, but both models can still make mistakes. Visits without matching audio
 an alert. The sentence changes to **"70% sure and heard"** when it is on.
 
 ### Species filter
-Three modes, chosen with the tiles under **Species filter**:
+Three modes, chosen with the tiles under **Species filter** in **Settings → Alerts → More options**.
+The species part of the sentence links there:
 
 | Mode | Effect |
 |---|---|
@@ -131,7 +136,8 @@ Species are matched on taxonomic identity rather than on display text, so a name
 different UI language does not quietly break your filter.
 
 ### Notification cooldown
-A minimum gap in minutes between notifications, across all channels (default `0`, disabled).
+A minimum gap in minutes between notifications, across all channels, set under **Settings →
+Alerts → More options** (off by default, stored as `0`).
 Use it to reduce notification frequency when the feeder is busy.
 
 When enabled, only one delivery can begin at a time, even when separate visits
@@ -143,13 +149,19 @@ it cannot guarantee whether a remote service accepted a request interrupted in t
 
 ## Notification Modes
 
-Choose a delivery mode in **Settings → Alerts**:
+Choose a delivery mode with the first highlighted part of the sentence in **Settings → Alerts**:
 
-- **Final-only:** Notify only when Frigate ends the event and video analysis (if enabled) completes.
-- **Standard:** Notify when a confirmed detection is created.
-- **Realtime:** Notify as early as possible and allow update notifications as detections evolve.
-- **Silent:** Disable all notifications.
-- **Advanced controls:** Turn on to choose the exact triggers yourself.
+- **new visits** (Standard, the default): notify once a visit is confirmed.
+- **confirmed visits** (Final-only): notify only when Frigate ends the event and video analysis
+  (if enabled) completes. This choice also offers **Video fallback timeout override**.
+- **every update** (Realtime): notify as early as possible and allow update notifications as the
+  visit goes on.
+- **silent**: disable all notifications. The sentence then reads "Stay silent and keep recording
+  visits".
+
+A configuration that sets the triggers itself (`mode` `custom` with `notify_on_insert`,
+`notify_on_update` and `delay_until_video`) shows **custom rules** in the sentence. Settings has no
+controls for those triggers; choosing one of the modes above replaces them.
 
 Delayed video notifications wait for the associated photo work within the notification
 timeout. They use the visit's accepted identification and current audio confirmation,

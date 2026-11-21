@@ -48,7 +48,6 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | --- | --- | --- |
 | `YA_WAMF_API_KEY` | _(unset)_ | Deprecated owner API-key authentication, accepted via `X-API-Key`. Prefer the owner login; public/auth routes follow their own access rules. |
 | `CONFIG_FILE` | `/config/config.json` | Path to the persisted config file. |
-| `LOG_LEVEL` | `INFO` | Log verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
 | `DB_PRE_MIGRATION_BACKUP_RETENTION` | `10` | Number of newest automatic pre-migration database backups to keep; values below `1` still retain one restore point. Manual backups are unaffected. |
 | `DB_POOL_SIZE` | `5` | Database connections shared by every request. Each carries its own 64 MB page cache, so raising this costs memory. |
 | `DB_POOL_ACQUIRE_TIMEOUT_SECONDS` | `60` | How long a request waits for a free connection before being refused with `503`. Unless set explicitly, derives twice `DB_BUSY_TIMEOUT_MS` in seconds; an overloaded request may still exhaust that wait. Detection ingest always waits regardless of this setting. `0` waits indefinitely. |
@@ -126,7 +125,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `CLASSIFICATION__LIVE_EVENT_STALE_DROP_SECONDS` | `30.0` | Drop live events older than this. |
 | `CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS` | `5.0` | Image worker heartbeat timeout. A live or background worker silent for longer is replaced. |
 | `CLASSIFICATION__VIDEO_WORKER_HEARTBEAT_TIMEOUT_SECONDS` | `30.0` | Video worker heartbeat timeout (`1.0`–`300.0`). A video analysis is one long native job, so its worker is allowed a longer silence; the video hard deadline still ends a hung one. |
-| `CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS` | `60.0` | Live worker hard deadline, in seconds (`1.0`–`300.0`). |
+| `CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS` | `35.0` | Live worker hard deadline, in seconds (`1.0`–`300.0`). |
 | `CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS` | `120.0` | Background worker hard deadline, in seconds (`1.0`–`600.0`). |
 | `CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS` | `60.0` | Worker start-up readiness timeout. Start-up includes hardware probes and, on an accelerator, a model compile. |
 | `CLASSIFICATION__WORKER_RESTART_WINDOW_SECONDS` | `60.0` | Window for counting worker restarts. |
@@ -149,7 +148,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `MEDIA_CACHE__BIRD_SCAN_MODE` | `intensive` | `standard` or `intensive` additional-bird search. Controls scan effort, not an upper limit on the bird count. |
 | `MAINTENANCE__RETENTION_DAYS` | `0` | Days to keep detection history (`0` = keep forever). |
 | `MAINTENANCE__CLEANUP_ENABLED` | `true` | Run the periodic cleanup job. |
-| `MAINTENANCE__MAX_CONCURRENT` | `1` | Per-kind maintenance capacity (`1`–`8`). Different kinds can overlap within the total limit; see [maintenance concurrency](configuration.md#maintenance-concurrency). |
+| `MAINTENANCE__MAX_CONCURRENT` | `1` | Per-kind maintenance capacity (`1`–`8`). Different kinds can overlap within the total limit; see [Jobs at once](configuration.md#jobs-at-once). |
 | `MAINTENANCE__AUTO_DELETE_MISSING_CLIPS` | `false` | Prune records whose Frigate clip is gone. Legacy: while `MAINTENANCE__FRIGATE_MISSING_BEHAVIOR` is unset it selects `delete`, so a record whose photo YA-WAMF still holds is marked missing instead. |
 | `MAINTENANCE__FRIGATE_MISSING_BEHAVIOR` | `mark_missing` | How to treat a detection whose Frigate event or media has gone: `mark_missing` (flag it, keep the row), `keep` (do nothing), or `delete` (**permanently remove** the detection, unless YA-WAMF still holds its photo or it is a favourite, in which case it is marked missing). |
 
@@ -287,6 +286,10 @@ Discord / Pushover / Telegram / Email:
 | --- | --- | --- |
 | `SYSTEM__DEBUG_UI_ENABLED` | `false` | Show the developer tools: a troubleshooting switch under **Settings → Identifying birds → More options → Hardware → Memory and isolation** and the iNaturalist submission preview. |
 | `SYSTEM__BETA_GARDEN_ANIMALS` | `false` | Turn on the Garden animals beta feature. |
+| `FRIGATE__GARDEN_MOTION_CONFIDENCE` | `0.5` | Minimum animal score for a new motion review photo, `0.5` to `0.95`. Shown in Settings as **Suggest a motion photo when this sure it shows an animal**. |
+| `FRIGATE__GARDEN_AUTOMATIC_NAMING` | `true` | Name a Garden animal automatically when the automatic check's species score reaches the naming threshold. |
+| `FRIGATE__GARDEN_NAMING_THRESHOLD` | `0.8` | Garden naming threshold, `0.7` to `0.99`. Shown in Settings as **Name an animal when this sure which one it is**. |
+| `FRIGATE__GARDEN_DOMESTIC_BIRDS` | `[]` | JSON list of domestic birds you keep, for example `["chicken"]`. They are recorded as Garden animals on every camera, never as bird detections. |
 | `FRIGATE__GARDEN_NOTIFICATIONS_ENABLED` | `false` | Opt in to separate Garden alerts while the beta is enabled. |
 | `FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS` | _(derived)_ | `true` sends Garden alerts on the bird channels that are switched on and configured; `false` uses `FRIGATE__GARDEN_NOTIFICATION_CHANNELS`. Unset, a saved choice wins, otherwise it is `true` unless channels were chosen. |
 | `FRIGATE__GARDEN_NOTIFICATION_CHANNELS` | `[]` | Explicit JSON channel array, for example `["telegram"]`; supports `discord`, `telegram`, `pushover`, `email`. Reuses saved credentials independently of bird switches. |
@@ -333,6 +336,8 @@ override** — they're per-install data rather than deployment config:
   under `ha_weather`, and the optional `illuminance_entity`. `ENABLED`, `BASE_URL`, `ACCESS_TOKEN`, and `WEATHER_ENTITY`
   are env-configurable; the per-measurement overrides are not.
 - **Selected cameras**, their feeder/nest roles, Frigate ingest labels, and the audio source mapping.
+- **Garden cameras**, motion review cameras and Garden animal labels (`garden_cameras`,
+  `garden_motion_cameras` and `garden_labels` under `frigate`).
 - **Audio tuning:** correlation window, buffer age and minimum audio confidence.
 - **Maintenance tuning:** total concurrency, per-kind capacities and automatic unknown-bird analysis.
 - **Text size:** a per-browser preference rather than a server environment setting.

@@ -32,6 +32,11 @@ reads **Health** while nothing is open, and **2 issues need attention** (with th
 the Health page lists open items in its verdict (a failed connection or an unresolved incident); the
 two always count the same thing.
 
+The status never disappears when the window is short. The card first gives up its readings (they
+scroll inside the card, with the Health line kept at its foot), then becomes one line that says the
+state or the number of open issues, then a compact version of that line. Only where not even that
+fits does the **Health** item in the sidebar carry a mark for the open issues.
+
 ## Repeated faults are one entry
 
 A fault that keeps happening is kept as one entry in **Backend warnings and errors**, marked with how
@@ -81,15 +86,15 @@ is otherwise answering is still logged as a warning.
 
 ## Capture current evidence for a report
 
-1. Sign in as the owner and open the **Health** page. The **Health · Diagnostics export** link
-   under **Notifications → Jobs** takes you to the same page.
+1. Sign in as the owner and open the **Health** page. The **Open Health** link on the
+   **Notifications** page takes you to the same page.
 2. Expand **Diagnostics export** and add the approximate time, camera, action and expected result
    in the notes. Include recent network or camera changes when relevant.
-3. Select **Capture Bundle** to save a named bundle in this browser, or **Download without saving**
+3. Select **Capture bundle** to save a named bundle in this browser, or **Download without saving**
    to download one immediately.
 4. Check the capture time and attach the JSON file to the report after reviewing its contents.
 
-![Diagnostics export with an issue-note field and separate Capture Bundle and Download without saving controls](../images/support-bundle.png)
+![Diagnostics export with an issue-note field and separate Capture bundle and Download without saving controls](../images/support-bundle.png)
 
 Both actions request fresh server health, classifier status, startup warnings and backend
 incident evidence even when the browser has no local errors. If that refresh fails, the export
@@ -155,10 +160,11 @@ time with the newest published commit for your channel.
 If detections are not appearing, prove the path from Frigate to the broker:
 
 1. Go to **Settings → Cameras & connection**.
-2. Select **Test Connection**. It runs two stages: **Frigate API**, then **MQTT broker publish**.
+2. Select **Test connection**. It runs two stages: **Frigate API**, then **MQTT broker publish**.
    The probe uses the values currently in the form, so you can test an edit before saving it.
-3. Check the backend logs. You should see "Published MQTT message".
-4. Use an external tool like `mosquitto_sub` to confirm the message reached the broker:
+3. A passing **MQTT broker publish** stage means a separate test client published to `yawamf/test`.
+   This probe writes to the backend log only when it fails (`MQTT diagnostic connection failed`).
+4. Use an external tool like `mosquitto_sub`, started before you run the test, to confirm the message reached the broker:
    ```bash
    mosquitto_sub -h localhost -t "yawamf/test" -v
    ```
@@ -171,7 +177,7 @@ container cannot reach the broker on the Docker network. See
 If camera visits appear but never have the **Audio confirmed** badge:
 
 1.  **Check the mapped source:** Open **Settings → Cameras & connection → More options → BirdNET-Go → Audio
-    buffer & sensor mapping** and inspect **Recently Detected BirdNET Sources**. Map the camera to the stable
+    buffer & sensor mapping** and inspect **Recently detected BirdNET sources**. Map the camera to the stable
     source name that is actually arriving; multiple names can be comma-separated. A blank mapping
     is not a wildcard, and a different microphone's call does not confirm this camera's visit.
 2.  **Verify clocks and timestamps:** Confirm Frigate and BirdNET-Go report the correct moment, with
@@ -196,7 +202,7 @@ Replace `yawamf-monalithic` with `yawamf-backend` if you are on the legacy split
 
 A shared Docker network is one option; a reachable LAN address is another. Check the addresses
 saved in YA-WAMF, container DNS, routing and firewall rules. A successful ping does not prove that
-MQTT authentication or its TCP port works; use **Test Connection** for that check. After a switch,
+MQTT authentication or its TCP port works; use **Test connection** for that check. After a switch,
 PoE supply or camera change, compare the error times with that outage and verify fresh Frigate
 frames before treating old connectivity incidents as an active classifier fault.
 
@@ -302,7 +308,7 @@ It also includes host probes, worker evidence, fallback reasons and model-instal
 
 For `selected_provider_not_packaged`, switch to the matching image using the
 [safe flavour procedure](../setup/hardware-acceleration.md#switch-safely-between-flavors).
-For model-config or mapping warnings, repair the download in **Model Manager** and validate again.
+For model-config or mapping warnings, use **Repair download** on the model in **Settings → Identifying birds → Models** and validate again.
 Do not install packages into the running container or copy labels from another model.
 
 See [model validation](../features/ai-models.md#validate-before-you-select-post-install-gate) for
@@ -332,7 +338,7 @@ Replace `yawamf-monalithic` below with `yawamf-backend` if you are on the legacy
 ### ConvNeXt reports unsupported ONNX sequence operators
 
 `SequenceEmpty`, `SequenceInsert` or `ConcatFromSequence` can indicate an older export/runtime
-combination. Update to a matching application image and repair the model through **Model Manager**,
+combination. Update to a matching application image and repair the model with **Repair download** in **Settings → Identifying birds → Models**,
 then validate again. Current registered model identities are bound to the weights checksum;
 patching the active graph in place can invalidate its catalogue mapping and install integrity.
 Keep any old export and report the model checksum and runtime rather than silently replacing its
@@ -362,7 +368,9 @@ not a substitute for installing the published artifact.
 Use these endpoints and lifecycle logs to quickly pinpoint startup failures:
 
 - `GET /health`: includes `startup_warnings` and sets `status=degraded` if a non-fatal startup
-  phase failed. `garden_motion_decode` says whether Garden motion recordings decode on the
+  phase failed, the model or live image runtime is unhealthy, the database pool is degraded, the
+  MQTT broker is not connected or Frigate is unreachable, among other checks. It still answers
+  HTTP `200`, so read `status` rather than the response code. `garden_motion_decode` says whether Garden motion recordings decode on the
   Intel GPU or the CPU, and why; CPU decode costs power but does not degrade the status. See
   [Garden motion video decode](../setup/hardware-acceleration.md#garden-motion-video-decode).
 - `GET /ready`: returns `200` only when backend startup is ready for traffic; returns `503` with
@@ -386,7 +394,7 @@ If the dashboard is blank or buttons don't work:
    calls fail with `401`, `404`, `500`, or `502`, the UI can appear empty. Make sure the reverse
    proxy routes `/api` to the backend.
 3. **Check the live connection:** YA-WAMF uses Server-Sent Events (SSE) for live updates. If the
-   header says **Offline**, confirm the reverse proxy allows long-lived responses and preserves
+   **Frigate events** row of the sidebar's **System status** says **Reconnecting**, confirm the reverse proxy allows long-lived responses and preserves
    the forwarding headers.
 4. **Check page-file requests:** Browser developer tools should show fingerprinted `/assets/*`
    files returning `200` (or a cached response), with JavaScript and CSS compressed. Repeated `404`
@@ -399,12 +407,12 @@ If the dashboard is blank or buttons don't work:
 
 ## Frigate "Event Not Found" Detections
 
-If a detection shows `video_classification_error: event_not_found` or **Notifications → Errors** shows diagnostic entries with `reason_code: event_not_found` or `reason_code: precheck_cache_bypass`, see the dedicated explanation:
+If a detection shows `video_classification_error: event_not_found` or **Backend warnings and errors** on the **Health** page shows diagnostic entries with `reason_code: event_not_found` or `reason_code: precheck_cache_bypass`, see the dedicated explanation:
 
 → [Frigate "Event Not Found" Explained](frigate-event-not-found.md)
 
 ## Missed Detections (Backfill)
-If the Backfill tool is skipping events you expected to see, check the **Skipped Breakdown** table in the settings page after a scan.
+If **Missed visits** (**Settings → Storage & upkeep → More options**) is skipping events you expected to see, check its **Skipped breakdown** after a scan.
 
 If a backfill reports repeated classifier-unavailable errors, YA-WAMF stops after three
 consecutive failures instead of consuming the rest of the range. "Classifier busy" results are
@@ -562,9 +570,9 @@ CPU results are kept even if the accelerator fails, but that failed accelerator
 is not selected or reloaded. A CPU-selected configuration, an already-current
 accelerator or a consumed attempt does not trigger this startup check.
 
-For an already-saved partial result, use **Settings → Identifying birds → Run
-compatibility check** and inspect Intel CPU's result. Leave **test all models**
-off to avoid downloading and testing the entire registry. This check still tests
+For an already-saved partial result, use **Check devices for every installed model** in
+**Settings → Identifying birds → More options → Hardware** and inspect Intel CPU's result. Leave
+**Also test models that are not installed** off to avoid downloading and testing the entire registry. This check still tests
 installed models and temporarily changes the active model, so run it when the
 extra inference work is acceptable. See [Model Evaluation](../features/model-evaluation.md).
 An upgrade or restart does not repeat a consumed automatic attempt. A failed
@@ -586,11 +594,11 @@ procedure above; there is no new quarantine-reset action.
 
 | Reason | Explanation |
 |--------|-------------|
-| **Already in Database** | The event ID already exists and the AI score was not improved by this scan. |
-| **Below Confidence Threshold** | The AI identified a bird but the score was lower than your "Threshold" setting. |
-| **Below Minimum Confidence Floor** | The score was so low it was discarded as a potential false positive. |
-| **Filtered (Blocked Label)** | The species is on your Blocklist. |
-| **Frigate Snapshot Missing** | Frigate returned a 404 or empty file for the snapshot request. |
+| **Already in database** | The event ID already exists and the AI score was not improved by this scan. |
+| **Below naming threshold** | The AI identified a bird but the score was lower than your **Naming threshold** setting. |
+| **Below minimum confidence floor** | The score was so low it was discarded as a potential false positive. |
+| **Filtered (Blocked label)** | The species is in your **Blocked labels**. |
+| **Frigate snapshot missing** | Frigate returned a 404 or empty file for the snapshot request. |
 
 ## Logs
 For deep inspection, view the container logs:

@@ -72,7 +72,7 @@
 2. Apply both fields independently — set `temperature_unit` from the request and set the derived unit from `weather_unit_system` separately.
 3. Add a regression test: submit both fields in one PUT, confirm both are persisted.
 
-### [ ] 8. `GET /api/settings` missing response_model
+### [x] 8. `GET /api/settings` missing response_model — **DONE v2.9.15** (`response_model=SettingsResponse`)
 **File:** `backend/app/routers/settings.py:626`  
 **Problem:** No `response_model=` declared. FastAPI does not strip undeclared fields, so any future internal field added to the returned dict will be exposed to the client without a schema-level guard.  
 **Action:**
@@ -122,7 +122,7 @@
 1. In the species and stats routers, add a guard: if `end_date - start_date > timedelta(days=365)`, return `HTTP 400` with message `"Date range must not exceed 365 days"`.
 2. The frontend date picker already limits ranges visually — this is a server-side enforcement backstop.
 
-### [ ] 14. CI coverage gate too low (20%)
+### [x] 14. CI coverage gate too low (20%) — **DONE** (floor now `fail_under = 70` in `backend/.coveragerc`, enforced by `backend/scripts/run_regression_gate.py` since v2.21.0)
 **File:** `.github/workflows/build-and-push.yml:215`  
 **Problem:** The 20% coverage minimum is too low to catch regressions in core pipeline code.  
 **Action:**
@@ -158,7 +158,7 @@
 **Problem:** `token_data.exp.replace(tzinfo=None)` deliberately strips timezone after PyJWT has already enforced expiry. Unnecessary and could hide bugs if validation logic changes.  
 **Action:** Remove the timezone strip. Keep `exp` as timezone-aware (`datetime` with `UTC`). Confirm no downstream comparison uses naive `datetime.now()`.
 
-### [ ] 17. OAuth tokens stored as plaintext in SQLite
+### [x] 17. OAuth tokens stored as plaintext in SQLite — **DONE v2.9.15** (Fernet encryption at rest in `backend/app/services/oauth_token_crypto.py`)
 **File:** `backend/migrations/versions/10b7668f28ac_add_oauth_tokens_table.py:44–57`  
 **Problem:** `access_token` and `refresh_token` are plain `String` columns. Filesystem access to `speciesid.db` gives live OAuth tokens for Gmail/Outlook.  
 **Action:**
@@ -249,5 +249,5 @@ Already listed as item 6 above.
 
 - [x] P0 complete (v2.9.7 — checksum infrastructure in place)
 - [x] P1 complete (v2.9.7/v2.9.8 — all 4 items done)
-- [ ] P2 complete (6/10 done — #8 SettingsResponse model, #12 $effect loop risk, #13 date range cap, #14 coverage gate, #15 pip/npm audit pending)
-- [ ] P3 complete (#17 OAuth encryption, #18 OAuth logout cleanup, #19 taxonomy cache TTL, #20 per-species cooldown, #23 console stack traces pending)
+- [ ] P2 complete (7/10 done — #12 $effect loop risk, #13 date range cap, #15 pip/npm audit pending)
+- [ ] P3 complete (#18 OAuth logout cleanup, #19 taxonomy cache TTL, #20 per-species cooldown, #23 console stack traces pending)

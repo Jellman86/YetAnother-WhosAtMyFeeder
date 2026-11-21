@@ -23,19 +23,21 @@ This is the depth behind [`CLAUDE.md`](../../CLAUDE.md) §5. When this page and
 
 ## 2. The look (shared visual language)
 
-- **Shell:** `rounded-2xl`, `max-w-2xl`, `bg-surface`, `border border-white/10`, `shadow-2xl`,
-  on a `fixed inset-0` dimmed + `backdrop-blur-sm` scrim.
+- **Shell:** `rounded-2xl`, `max-w-2xl`, `bg-surface`, `border border-line-soft`, `shadow-2xl`,
+  on a `fixed inset-0` scrim, `bg-media/60` with `backdrop-blur-xs`.
 - **Header band:** `bg-surface-raised`, so it follows the active theme: a `text-2xl font-bold`
   title, a calm `text-sm` subtitle, and the one close button every dialog uses. There is no
   product-name eyebrow; a caller may pass an `eyebrow` only when it adds context the title lacks.
-- **Progress:** a row of equal-width segments — brand for passed, amber for warnings,
-  red for failed, pulsing brand for the running step, slate for pending/skipped. A visually-hidden
+- **Progress:** a row of equal-width segments in the status tones: green for passed, amber for
+  warnings, rose for failed, pulsing brand for the running step, and the plain `line` colour for
+  pending and skipped. A visually-hidden
   `role="progressbar"` mirrors it for assistive tech.
 - **Checklist:** one bordered container with `divide-y` rows — **not** a stack of
-  separate cards. Each row is a small status disc (number → ✓ / ! / –) plus a
-  bold label, the outcome in a word (Passed, Failed, Passed with a warning, Not run), and a
-  plain-language message. The word matters: a failed and a warned row share a disc and would
-  otherwise differ only by colour. A passed disc is success green. A failed row ends with one
+  separate cards. Each row has a mark (the step's number while it waits, then the tone's
+  `StatusIcon` shape: a tick, a diamond with a bar, a cross, a disc), a bold label, the outcome in
+  a word (Passed, Failed, Passed with a warning, Not run), and a plain-language message. A failed,
+  warned or running row also takes its tone's soft ground. The word still matters, so the outcome
+  is never told by colour or shape alone. A passed mark is success green. A failed row ends with one
   line of what to do about it: a step passes `nextStep` ("Check the Frigate server URL on this
   tab, and that Frigate is running.") and the runner shows it only when that step fails.
 - **Summary:** drawn under the checklist only when it says something the rows do not: that

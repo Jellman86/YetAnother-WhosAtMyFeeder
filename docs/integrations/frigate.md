@@ -31,10 +31,10 @@ See the full [Recommended Frigate Config](../setup/frigate-config.md) for optimi
 
 ## API Connection
 
-In YA-WAMF, set **Settings → Cameras & connection → Frigate URL** to the internal URL of your Frigate instance (e.g., `http://frigate:5000`). The backend uses the Frigate HTTP API to fetch:
+In YA-WAMF, set **Settings → Cameras & connection → Frigate NVR → Server URL** to the internal URL of your Frigate instance (e.g., `http://frigate:5000`). The backend uses the Frigate HTTP API to fetch:
 
 - **Snapshots** — Frigate's final clean best frame plus its tracked-object coordinates
-- **Video clips** — used for Deep Video Analysis and Full-visit clips
+- **Video clips** — used for **Auto video analysis** and **Full-visit clips**
 - **Config** — to auto-discover your configured camera names
 
 **Test connection** probes the Frigate URL currently visible in the form, before you save it. When
@@ -52,8 +52,8 @@ a usable HQ source even when neither an event clip nor a cached recording clip i
 
 ### Initial classification image
 
-In **Settings → Cameras & connection → Identify new detections from**, choose **Detection snapshot**
-(the default) or **Recording frame**. The recording option
+In **Settings → Cameras & connection → More options → Identify new visits from**, choose
+**Frigate’s snapshot** (the default) or **Recording frame**. The recording option
 requests one full-resolution still through Frigate's [recording snapshot API](https://docs.frigate.video/integrations/api/get-snapshot-from-recording-camera-name-recordings-frame-time-snapshot-format-get/),
 using the best snapshot's timestamp and its matching tracked-bird box. A full clean snapshot copy
 establishes the native detection dimensions: completed event JPEGs can ignore crop and height
@@ -101,12 +101,12 @@ Configuration uses `frigate.classification_image_source` with `frigate_snapshot`
 `recording_snapshot`; environment configuration uses `FRIGATE__CLASSIFICATION_IMAGE_SOURCE`.
 The delay uses `frigate.recording_frame_delay_seconds` or
 `FRIGATE__RECORDING_FRAME_DELAY_SECONDS`. Changing it affects newly scheduled waits;
-already waiting events keep their scheduled delay. It has no effect in **Detection snapshot** mode.
+already waiting events keep their scheduled delay. It has no effect in **Frigate’s snapshot** mode.
 
 ### Import retained event history
 
-During first-run setup, **Import existing detections** can start a one-day, seven-day, or 30-day
-background import. You can run a custom range later under **Settings → Storage & upkeep → Missed detections**.
+During first-run setup, **Import the bird events Frigate still keeps** can start a 24-hour, seven-day, or 30-day
+background import. You can run a custom range later under **Settings → Storage & upkeep → More options → Missed visits**.
 Custom dates use your browser timezone and include the whole final day.
 
 YA-WAMF imports only bird events Frigate still returns with a snapshot. Reprocessing the same event
@@ -160,19 +160,21 @@ protection.
 
 When YA-WAMF identifies a species with high confidence, it pushes the label back to Frigate as a **sublabel**. This lets you see the species name directly in the Frigate UI and use it in Frigate's own notification rules and filters.
 
-This can be disabled in **Settings → Identifying birds** if you do not want YA-WAMF writing back to Frigate events.
+This can be disabled with **Write labels back to Frigate** in **Settings → Identifying birds → More options → Frigate and video** if you do not want YA-WAMF writing back to Frigate events.
 
 ## Camera Selection
 
-After connecting, go to **Settings → Cameras & connection** and select which Frigate cameras YA-WAMF should monitor. Only events from selected cameras are processed.
+After connecting, go to **Settings → Cameras & connection → Cameras to watch** and select which Frigate cameras YA-WAMF should monitor. Only events from selected cameras are processed.
 
 ## Live Camera Status
 
-The camera button in each page header checks Frigate's lightweight `GET /api/stats` response every
-15 seconds while the tab is visible. Frigate does not provide a separate per-camera REST health
-route; its documented offline signal is a camera's `camera_fps` falling to `0`. YA-WAMF normalizes
-that signal through the owner-only `GET /api/frigate/cameras/status` route and never uses preview
-image loading as a health test.
+The camera button in each page header shows camera health from Frigate's lightweight `GET /api/stats`
+response. Frigate does not provide a separate per-camera REST health route; its documented offline
+signal is a camera's `camera_fps` falling to `0`. For the owner, camera health arrives with the
+pushed system status, which reads Frigate's stats at most once a minute, so an idle page makes no
+camera requests of its own. When that status is not available, and each time you open the viewer,
+the button asks the owner-only `GET /api/frigate/cameras/status` route directly. YA-WAMF never uses
+preview image loading as a health test.
 
 - **Green** — every selected camera is producing frames.
 - **Amber** — some cameras are online and some are offline or unknown.
@@ -180,9 +182,10 @@ image loading as a health test.
 - **Grey** — the first check is running, status could not be retrieved, or Frigate did not report a
   usable frame rate. This avoids presenting an untested camera as failed.
 
-Opening the viewer fetches only the selected camera's latest frame. Use the left/right buttons or
-arrow keys to move through cameras; navigation wraps from the last camera back to the first. Closing
-the viewer stops frame requests, and hidden browser tabs suspend both status and frame refreshes.
+Opening the viewer fetches only the selected camera's latest frame, and refreshes it every 15 seconds
+while the tab is visible. Use the left/right buttons or arrow keys to move through cameras; navigation
+wraps from the last camera back to the first. Closing the viewer stops frame requests, and hidden
+browser tabs suspend frame refreshes and direct status reads.
 
 ## Troubleshooting
 

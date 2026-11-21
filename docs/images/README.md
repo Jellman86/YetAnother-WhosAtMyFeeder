@@ -97,6 +97,7 @@ example counts or runtime values into product guarantees.
 | `add-observation.png` | Upload, Analyse, Review and Save flow before anything is added |
 | `settings-garden-cameras.png` | Garden animal settings under Beta features in setup order: steps, the Garden camera summary, labels, proposal threshold, Garden models, automatic naming, notifications and capture outcomes. Refreshed 31 October 2026 |
 | `garden-review.png` | Owner review prototype, separate views and first-capture guidance |
+| `garden-record.png` | A Garden record: Red fox, the animal crop, two capture thumbnails from its visit and the species and model controls. Not made by the capture script; it comes from the Garden browser test (`apps/ui/browser-tests/garden-explorer.spec.ts`) |
 | `settings-map.png` | The six Settings sections and the setup-wizard entry point. Refreshed 18 November 2026 |
 | `settings-connection.png` | Cameras & connection: Frigate, the MQTT broker with its test, and the Cameras to watch list. Refreshed 18 November 2026 |
 | `settings-detection.png` | Identifying birds: the naming threshold card, the status line and the model in use. Refreshed 18 November 2026 |

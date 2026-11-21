@@ -2,7 +2,7 @@
 
 YA-WAMF receives bird detection events from Frigate over MQTT. Both applications need to be connected to the same broker. This guide walks through running [Eclipse Mosquitto](https://mosquitto.org/) in Docker alongside Frigate and YA-WAMF.
 
-> If you already have a working Mosquitto instance, skip to [Connecting YA-WAMF](#connecting-ya-wamf).
+> If you already have a working Mosquitto instance, skip to [Connecting YA-WAMF](#4-connecting-ya-wamf).
 
 ---
 
@@ -164,7 +164,7 @@ docker compose -f docker-compose.monolith.yml logs yawamf | grep -i mqtt
 You should see something like:
 
 ```
-Connected to MQTT topic=frigate/events
+Connected to MQTT  topics=['frigate/events', 'frigate/available']
 ```
 
 To also confirm Mosquitto is healthy:
@@ -177,7 +177,7 @@ You should see `Opening ipv4 listen socket on port 1883` and no error lines.
 
 ### Quick connection test from the UI
 
-In **Settings → Cameras & connection**, select **Test Connection**. The staged dialog checks
+In **Settings → Cameras & connection**, select **Test Frigate and MQTT**. The staged dialog checks
 **Frigate API**, then **MQTT broker publish**, using the values currently visible in
 the form. A passed MQTT stage proves the isolated client connected and published;
 it does not prove Frigate is publishing real bird events or that a camera is selected.
