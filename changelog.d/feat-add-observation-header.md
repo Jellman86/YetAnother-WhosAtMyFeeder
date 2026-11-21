@@ -1,5 +1,6 @@
-- **Add observation now sits with the header's controls, not in the sidebar.** It is the upload
-  icon beside Refresh at the top of every page, and a labelled **Add observation** button on the
-  Explorer, where the photos and videos you add join your history. Both are shown to the owner
-  only, as before, and the icon is highlighted while you are on the page. The sidebar keeps only
-  the places you browse. Links and bookmarks to `/observations/new` still open the page.
+- **Add observation has moved from the sidebar to the controls at the top of each page.** It is
+  the picture-with-a-plus icon next to Refresh, highlighted while you are on the page. The
+  Explorer also has a labelled **Add observation** button, because what you add appears there.
+  On a phone it stays in the menu, because a fifth icon in the header would break long page
+  titles. Only the owner sees it, as before, and links and bookmarks to `/observations/new` still
+  work.

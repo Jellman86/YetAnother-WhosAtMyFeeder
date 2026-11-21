@@ -8,8 +8,9 @@ clips, and older wildlife media that you want in the same searchable history as 
 
 ## Add an observation
 
-1. Choose **Add observation**: the upload icon in the controls at the top right of every page,
-   or the labelled button on the **Explorer**. Both are shown only to the owner.
+1. Choose **Add observation**: the picture-with-a-plus icon beside **Refresh** at the top right
+   of every page (in the menu on a phone), or the labelled button on the **Explorer**. Only the
+   owner sees them.
 2. Choose a JPEG, PNG, WebP, MP4, MOV, or WebM file. Images can be up to 25 MB. Videos can be up
    to 250 MB and three minutes long.
 3. Let YA-WAMF analyse the media. Images use the normal full-frame-versus-crop path. Videos use
