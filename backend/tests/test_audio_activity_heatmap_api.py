@@ -142,3 +142,96 @@ async def test_route_reads_an_explicit_date_range(client: httpx.AsyncClient):
     payload = (await client.get("/api/audio/activity-heatmap", params=params)).json()
 
     assert payload["total_count"] == 1
+
+
+async def _seed_named(rows: list[tuple[datetime, str, str | None]]) -> None:
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        for stamp, species, scientific_name in rows:
+            await db.execute(
+                """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, is_hidden,
+                                                 scientific_name)
+                   VALUES (?, ?, 0.9, 'BirdCam', '{}', 0, ?)""",
+                (stamp.replace(tzinfo=None).isoformat(sep=" "), species, scientific_name),
+            )
+        await db.commit()
+
+
+# "Ruff" is a substring of "Ruffed Grouse": the page's search finds both, a species' own grid must not.
+NAMED_ROWS = [
+    (ANCHOR, "Ruff", "Calidris pugnax"),
+    (ANCHOR + timedelta(minutes=10), "Ruff", "Calidris pugnax"),
+    (ANCHOR + timedelta(minutes=20), "Kampfläufer", "Calidris pugnax"),
+    (ANCHOR + timedelta(hours=1), "Ruffed Grouse", "Bonasa umbellus"),
+    (ANCHOR + timedelta(hours=2), "Mystery Warbler", None),
+    (ANCHOR + timedelta(hours=2, minutes=5), "Mystery Warbler Two", None),
+]
+
+
+@pytest.mark.asyncio
+async def test_scientific_name_limits_the_grid_to_exactly_that_species(client: httpx.AsyncClient):
+    await _seed_named(NAMED_ROWS)
+
+    by_name = (await client.get("/api/audio/activity-heatmap", params={"days": 14, "species": "Ruff"})).json()
+    exact = (
+        await client.get("/api/audio/activity-heatmap", params={"days": 14, "scientific_name": "calidris PUGNAX"})
+    ).json()
+
+    assert by_name["total_count"] == 3
+    # Every call of the bird, under any common name it was stored with, and nothing else.
+    assert exact["total_count"] == 3
+    assert _cell(exact, 1, 8) == 3
+
+
+@pytest.mark.asyncio
+async def test_the_summary_names_each_top_species_scientifically_for_the_grid(client: httpx.AsyncClient):
+    await _seed_named(NAMED_ROWS)
+
+    summary = (await client.get("/api/audio/summary", params={"days": 14})).json()
+    by_name = {row["species"]: row for row in summary["top_species"]}
+    grid = (
+        await client.get("/api/audio/activity-heatmap", params={"days": 14, "scientific_name": "Bonasa umbellus"})
+    ).json()
+
+    assert by_name["Ruffed Grouse"]["scientific_name"] == "Bonasa umbellus"
+    assert grid["total_count"] == by_name["Ruffed Grouse"]["count"] == 1
+    # A call stored with no scientific name cannot be asked for exactly, so the grid finds none.
+    assert by_name["Mystery Warbler"]["scientific_name"] is None
+    unnamed = (
+        await client.get("/api/audio/activity-heatmap", params={"days": 14, "scientific_name": "Mystery Warbler"})
+    ).json()
+    assert unnamed["total_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_scientific_name_narrows_within_the_page_filters(client: httpx.AsyncClient):
+    await _seed(ROWS)
+    async with get_db() as db:
+        await db.execute("UPDATE audio_detections SET scientific_name = 'Prunella modularis' WHERE species = 'Dunnock'")
+        await db.commit()
+
+    payload = (
+        await client.get(
+            "/api/audio/activity-heatmap",
+            params={"days": 30, "scientific_name": "Prunella modularis", "min_confidence": 0.9},
+        )
+    ).json()
+
+    assert payload["total_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_scientific_name_matches_names_stored_as_birdnet_sent_them(client: httpx.AsyncClient):
+    # Ingest keeps BirdNET-Go's ScientificName as sent, so stored names can carry spaces or another case.
+    await _seed_named(
+        [
+            (ANCHOR, "Robin", "Erithacus rubecula"),
+            (ANCHOR + timedelta(minutes=5), "Robin", " erithacus RUBECULA "),
+        ]
+    )
+
+    payload = (
+        await client.get("/api/audio/activity-heatmap", params={"days": 14, "scientific_name": "Erithacus rubecula"})
+    ).json()
+
+    assert payload["total_count"] == 2

@@ -208,6 +208,7 @@ export interface components {
     first_heard?: string | null;
     last_heard?: string | null;
     max_confidence: number;
+    scientific_name?: string | null;
     species: string;
 };
     AudioSummaryResponse: {
@@ -3469,6 +3470,7 @@ export interface paths {
     days?: number;
     end_date?: string | null;
     min_confidence?: number | null;
+    scientific_name?: string | null;
     source?: string | null;
     species?: string | null;
     start_date?: string | null;

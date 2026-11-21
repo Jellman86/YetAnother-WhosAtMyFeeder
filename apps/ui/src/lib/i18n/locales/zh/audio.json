@@ -78,7 +78,11 @@
   "heatmap": {
     "grid_label": "按小时和星期听到的鸣叫。使用方向键读取时段。",
     "per_hour": "每小时格内听到的鸣叫",
-    "read_failed": "无法读取按小时和星期听到的鸣叫，因此不显示此网格和最活跃时段。页面上的其他内容均已读取。"
+    "read_failed": "无法读取按小时和星期听到的鸣叫，因此不显示此网格和最活跃时段。页面上的其他内容均已读取。",
+    "species_picker": "按物种显示听到的鸣叫",
+    "species_empty": "此时间段内未听到{species}的鸣叫。",
+    "species_failed": "无法读取{species}按小时和星期的鸣叫。页面上的其他内容均已读取。",
+    "subject_calls": "{count, plural, other {听到 # 次{subject}鸣叫}}"
   },
   "side_label": "最常听到的物种和音源"
 }

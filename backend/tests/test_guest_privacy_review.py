@@ -161,6 +161,29 @@ async def test_guest_call_grid_ignores_a_source_filter_when_sources_are_private(
 
 
 @pytest.mark.asyncio
+async def test_guest_species_grid_keeps_the_guest_window_hiding_and_private_sources(private_history, monkeypatch):
+    _, history_db = private_history
+    async with history_db() as db:
+        await db.execute("UPDATE audio_detections SET scientific_name = 'Erithacus rubecula'")
+        await db.commit()
+    owner_headers = {"Authorization": f"Bearer {create_access_token('owner')}"}
+    url = "/api/audio/activity-heatmap?days=3650&scientific_name=Erithacus%20rubecula"
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        guest = await client.get(url)
+        owner = await client.get(url, headers=owner_headers)
+        monkeypatch.setattr(settings.public_access, "show_camera_names", False)
+        named = await client.get(f"{url}&source=source-Visible")
+        unnamed = await client.get(f"{url}&source=no-such-source")
+    # Asking for one species exactly changes nothing a guest may see: "Old" is outside the guest
+    # window and "Hidden" is hidden, exactly as without the filter.
+    assert guest.status_code == 200, guest.text
+    assert guest.json()["total_count"] == 2
+    assert owner.json()["total_count"] == 3
+    # Nor can it probe private source names through the counts.
+    assert named.json()["total_count"] == unnamed.json()["total_count"] == 2
+
+
+@pytest.mark.asyncio
 async def test_guest_call_grid_is_refused_when_audio_is_not_shared(private_history, monkeypatch):
     monkeypatch.setattr(settings.public_access, "show_audio", False)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:

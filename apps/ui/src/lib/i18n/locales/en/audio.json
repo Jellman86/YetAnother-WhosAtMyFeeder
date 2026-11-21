@@ -78,7 +78,11 @@
   "heatmap": {
     "grid_label": "Calls heard by hour and weekday. Use the arrow keys to read a slot.",
     "per_hour": "calls heard in one hour slot",
-    "read_failed": "Calls heard by hour and weekday could not be read, so this grid and the busiest hour are not shown. Everything else on the page was read."
+    "read_failed": "Calls heard by hour and weekday could not be read, so this grid and the busiest hour are not shown. Everything else on the page was read.",
+    "species_picker": "Show calls heard from",
+    "species_empty": "No {species} calls heard in this window.",
+    "species_failed": "{species} calls by hour and weekday could not be read. Everything else on the page was read.",
+    "subject_calls": "{count, plural, one {# {subject} call heard} other {# {subject} calls heard}}"
   },
   "side_label": "Most heard species and sources"
 }

@@ -111,6 +111,7 @@ class AudioHistoryResponse(BaseModel):
 
 class AudioSpeciesSummaryResponse(BaseModel):
     species: str
+    scientific_name: str | None = None
     count: int
     avg_confidence: float
     max_confidence: float
@@ -383,10 +384,9 @@ async def get_audio_summary(
             min_confidence=min_confidence,
             maximum_end=window.public_end,
         )
+    # The scientific name stays: `species` is translated, so it is the only name the activity grid
+    # can be asked for exactly.
     await localize_audio_detections(result["top_species"], lang)
-
-    for item in result["top_species"]:
-        item.pop("scientific_name", None)
     if hide_sensor:
         result["sources"] = []
         result["source_count"] = 0
@@ -420,6 +420,11 @@ async def get_audio_activity_heatmap(
     species: str | None = Query(default=None, max_length=120),
     source: str | None = Query(default=None, max_length=120),
     min_confidence: float | None = Query(default=None, ge=0.0, le=1.0),
+    scientific_name: str | None = Query(
+        default=None,
+        max_length=200,
+        description="Limit the grid to one species exactly, by its scientific name",
+    ),
     auth: AuthContext = Depends(require_public_audio),
 ) -> AudioActivityHeatmapResponse:
     """Calls heard by weekday and hour in the viewer's time zone, over the summary's window and filters."""
@@ -435,6 +440,7 @@ async def get_audio_activity_heatmap(
             source=source,
             min_confidence=min_confidence,
             maximum_end=window.public_end,
+            scientific_name=scientific_name,
         )
     grid = weekday_hour_grid(utc_hourly_counts, get_user_timezone(request))
     window_end = min(window.end_date, window.public_end) if window.public_end else window.end_date

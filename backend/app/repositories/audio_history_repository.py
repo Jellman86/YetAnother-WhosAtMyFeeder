@@ -457,6 +457,7 @@ class AudioHistoryRepository:
         source: Optional[str],
         min_confidence: Optional[float],
         maximum_end: datetime | None = None,
+        scientific_name: Optional[str] = None,
     ) -> tuple[str, list]:
         clauses: list[str] = ["is_hidden = 0"]
         params: list = []
@@ -473,6 +474,14 @@ class AudioHistoryRepository:
         if species:
             clauses.append("LOWER(species) LIKE ?")
             params.append(f"%{species.strip().casefold()}%")
+        if scientific_name and scientific_name.strip():
+            # One species exactly. `species` above is a search over the stored common name, so it
+            # also finds every name that contains the text, and it never matches a translated name.
+            # The comparison is an expression, so idx_audio_detections_scientific is not used: ingest
+            # stores BirdNET-Go's ScientificName as sent, untrimmed and in its own case, so a plain
+            # `scientific_name = ?` would miss rows. The window's timestamp range bounds the scan.
+            clauses.append("LOWER(TRIM(scientific_name)) = ?")
+            params.append(scientific_name.strip().casefold())
         if source:
             source_like = f"%{source.strip().casefold()}%"
             clauses.append("(LOWER(COALESCE(sensor_id, '')) LIKE ? OR LOWER(COALESCE(raw_data, '')) LIKE ?)")
@@ -664,8 +673,9 @@ class AudioHistoryRepository:
         source: Optional[str] = None,
         min_confidence: Optional[float] = None,
         maximum_end: datetime | None = None,
+        scientific_name: Optional[str] = None,
     ) -> list[tuple[datetime, int]]:
-        """Visible calls per UTC hour, under exactly the filters the history summary applies."""
+        """Visible calls per UTC hour, under the summary's filters, optionally for one species exactly."""
         where_sql, params = self._build_audio_history_filter(
             start_date=start_date,
             end_date=end_date,
@@ -673,6 +683,7 @@ class AudioHistoryRepository:
             source=source,
             min_confidence=min_confidence,
             maximum_end=maximum_end,
+            scientific_name=scientific_name,
         )
         async with self.db.execute(
             f"""SELECT strftime('%Y-%m-%d %H:00:00', timestamp) AS bucket_start, COUNT(*)
