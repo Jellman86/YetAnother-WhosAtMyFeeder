@@ -218,3 +218,20 @@ async def test_scientific_name_narrows_within_the_page_filters(client: httpx.Asy
     ).json()
 
     assert payload["total_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_scientific_name_matches_names_stored_as_birdnet_sent_them(client: httpx.AsyncClient):
+    # Ingest keeps BirdNET-Go's ScientificName as sent, so stored names can carry spaces or another case.
+    await _seed_named(
+        [
+            (ANCHOR, "Robin", "Erithacus rubecula"),
+            (ANCHOR + timedelta(minutes=5), "Robin", " erithacus RUBECULA "),
+        ]
+    )
+
+    payload = (
+        await client.get("/api/audio/activity-heatmap", params={"days": 14, "scientific_name": "Erithacus rubecula"})
+    ).json()
+
+    assert payload["total_count"] == 2

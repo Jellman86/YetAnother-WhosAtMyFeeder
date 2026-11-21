@@ -399,3 +399,29 @@ test('species chips fit a phone at 390 pixels with full-size targets', async ({ 
     await expect(page.getByRole('grid', { name: /Wren\.$/ })).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+test('a refresh keeps the chosen species’ grid on screen, dimmed, until its new reading lands', async ({ page }) => {
+    let holdNext = false;
+    let release: () => void = () => {};
+    const { picker } = await withSpeciesChips(page, async () => {
+        if (holdNext) await new Promise<void>(resolve => { release = resolve; });
+        return robinHeatmap;
+    });
+    await picker.getByRole('button', { name: 'Robin', exact: true }).click();
+    const frame = page.locator('[data-audio-species-heatmap]');
+    await expect(page.getByRole('grid', { name: /Robin\.$/ })).toBeVisible();
+    await expect(frame).toHaveAttribute('aria-busy', 'false');
+
+    holdNext = true;
+    const refresh = page.getByRole('button', { name: 'Refresh', exact: true });
+    await refresh.click();
+    // The page's own reading has landed; the Robin grid's is still on its way.
+    await expect(refresh).toBeEnabled();
+    await expect(frame).toHaveAttribute('aria-busy', 'true');
+    await expect(page.getByRole('grid', { name: /Robin\.$/ })).toBeVisible();
+    await expect(frame.locator('.animate-pulse')).toHaveCount(0);
+
+    release();
+    await expect(frame).toHaveAttribute('aria-busy', 'false');
+    await expect(page.getByRole('grid', { name: /Robin\.$/ })).toBeVisible();
+});

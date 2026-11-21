@@ -43,11 +43,38 @@ export function audioHeatmapSpeciesOptions(
     return chosen.map((row, index) => ({ key: row.key, label: labels[index], count: row.count }));
 }
 
-/** One species' grid, read under every filter the page applies so it counts what the page counts. */
-export function audioSpeciesHeatmapParams(
-    pageParams: AudioActivityHeatmapParams & { limit?: number; offset?: number },
-    scientificName: string
-): AudioActivityHeatmapParams {
-    const { limit: _limit, offset: _offset, ...filters } = pageParams;
-    return { ...filters, scientific_name: scientificName };
+/** The filters a reading of the page was read under, and a key that tells two readings' filters apart. */
+export interface AudioHeatmapReading {
+    filters: AudioActivityHeatmapParams;
+    key: string;
+}
+
+/** The reading the page applied, without paging (the grid has none) or filters left unset. */
+export function audioHeatmapReading(
+    pageParams: AudioActivityHeatmapParams & { limit?: number; offset?: number }
+): AudioHeatmapReading {
+    const filters: AudioActivityHeatmapParams = {};
+    if (pageParams.days != null) filters.days = pageParams.days;
+    if (pageParams.start_date != null) filters.start_date = pageParams.start_date;
+    if (pageParams.end_date != null) filters.end_date = pageParams.end_date;
+    if (pageParams.species) filters.species = pageParams.species;
+    if (pageParams.source) filters.source = pageParams.source;
+    if (pageParams.min_confidence != null) filters.min_confidence = pageParams.min_confidence;
+    return { filters, key: JSON.stringify(filters) };
+}
+
+/**
+ * One species' grid, read under every filter of the reading on screen, so it counts what the
+ * figures beside it count, even while a newly chosen window is still being read or failed to read.
+ */
+export function audioSpeciesHeatmapParams(reading: AudioHeatmapReading, scientificName: string): AudioActivityHeatmapParams {
+    return { ...reading.filters, scientific_name: scientificName };
+}
+
+/**
+ * The species grid kept when the page reads again. A reading of the same filters (a refresh, a hidden
+ * call, a guest's live update) keeps it, dimmed while it refreshes; one of other filters drops it.
+ */
+export function keptSpeciesHeatmap<T extends { readingKey: string }>(shown: T | null, reading: AudioHeatmapReading): T | null {
+    return shown !== null && shown.readingKey === reading.key ? shown : null;
 }

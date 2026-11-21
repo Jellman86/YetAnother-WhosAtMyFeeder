@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HEATMAP_SPECIES_CHOICES, keptHeatmapChoice } from '../leaderboard/heatmap';
-import { audioHeatmapSpeciesOptions, audioSpeciesHeatmapParams } from './audio-heatmap-species';
+import { audioHeatmapReading, audioHeatmapSpeciesOptions, audioSpeciesHeatmapParams, keptSpeciesHeatmap } from './audio-heatmap-species';
 
 const heard = (species: string, scientific_name: string | null, count: number) => ({ species, scientific_name, count });
 
@@ -80,15 +80,55 @@ describe('keptHeatmapChoice', () => {
     });
 });
 
-describe('audioSpeciesHeatmapParams', () => {
-    it('asks for the chosen species under every filter the page applies', () => {
-        const page = { days: 7, species: undefined, source: 'BirdCam', min_confidence: 0.6, limit: undefined, offset: undefined };
+describe('audioHeatmapReading', () => {
+    it('keeps the filters a reading was read under, without paging or unset filters', () => {
+        const reading = audioHeatmapReading({ days: 30, species: undefined, source: 'BirdCam', min_confidence: 0, limit: undefined, offset: undefined });
 
-        expect(audioSpeciesHeatmapParams(page, 'Prunella modularis')).toEqual({
+        expect(reading.filters).toEqual({ days: 30, source: 'BirdCam', min_confidence: 0 });
+        expect(Object.keys(reading.filters)).toEqual(['days', 'source', 'min_confidence']);
+    });
+
+    it('gives two readings of the same filters the same key, and another window another key', () => {
+        const page = { days: 30, source: 'BirdCam', min_confidence: 0.5 };
+
+        expect(audioHeatmapReading(page).key).toBe(audioHeatmapReading({ ...page, limit: 25, offset: 50 }).key);
+        expect(audioHeatmapReading(page).key).not.toBe(audioHeatmapReading({ ...page, days: 7 }).key);
+        expect(audioHeatmapReading(page).key).not.toBe(audioHeatmapReading({ ...page, source: undefined }).key);
+    });
+});
+
+describe('audioSpeciesHeatmapParams', () => {
+    it('asks for the chosen species under every filter of the reading on screen', () => {
+        const onScreen = audioHeatmapReading({ days: 7, species: undefined, source: 'BirdCam', min_confidence: 0.6 });
+
+        expect(audioSpeciesHeatmapParams(onScreen, 'Prunella modularis')).toEqual({
             days: 7,
             source: 'BirdCam',
             min_confidence: 0.6,
             scientific_name: 'Prunella modularis'
         });
+    });
+
+    it('asks under the reading on screen, not a window chosen since that is still being read or failed', () => {
+        const onScreen = audioHeatmapReading({ days: 30, min_confidence: 0 });
+        // The page has already moved its applied window to 7 days; the figures beside the grid are still 30.
+        const chosen = audioHeatmapReading({ days: 7, min_confidence: 0 });
+
+        expect(audioSpeciesHeatmapParams(onScreen, 'Erithacus rubecula').days).toBe(30);
+        expect(audioSpeciesHeatmapParams(chosen, 'Erithacus rubecula').days).toBe(7);
+    });
+});
+
+describe('keptSpeciesHeatmap', () => {
+    const thirtyDays = audioHeatmapReading({ days: 30, min_confidence: 0 });
+    const shown = { key: 'Prunella modularis', readingKey: thirtyDays.key, grid: 'dunnock grid' };
+
+    it('keeps the species grid through a new reading of the same filters, to dim while it refreshes', () => {
+        expect(keptSpeciesHeatmap(shown, audioHeatmapReading({ days: 30, min_confidence: 0, limit: 25, offset: 25 }))).toBe(shown);
+    });
+
+    it('drops a grid read under other filters, so it never stands beside another window\u2019s figures', () => {
+        expect(keptSpeciesHeatmap(shown, audioHeatmapReading({ days: 7, min_confidence: 0 }))).toBeNull();
+        expect(keptSpeciesHeatmap(null, thirtyDays)).toBeNull();
     });
 });

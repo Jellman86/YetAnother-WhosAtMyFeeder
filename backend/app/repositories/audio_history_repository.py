@@ -477,6 +477,9 @@ class AudioHistoryRepository:
         if scientific_name and scientific_name.strip():
             # One species exactly. `species` above is a search over the stored common name, so it
             # also finds every name that contains the text, and it never matches a translated name.
+            # The comparison is an expression, so idx_audio_detections_scientific is not used: ingest
+            # stores BirdNET-Go's ScientificName as sent, untrimmed and in its own case, so a plain
+            # `scientific_name = ?` would miss rows. The window's timestamp range bounds the scan.
             clauses.append("LOWER(TRIM(scientific_name)) = ?")
             params.append(scientific_name.strip().casefold())
         if source:
