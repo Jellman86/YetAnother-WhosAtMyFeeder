@@ -228,7 +228,8 @@ const summaryLink = (page: Page) => page.locator('[data-sidebar-summary-link]');
 
 async function openShort(page: Page, theme: Theme, overrides: Record<string, unknown>): Promise<void> {
     await openShell(page, theme, overrides);
-    await page.setViewportSize({ width: 1280, height: 660 });
+    // 48 px shorter than when Add observation was a place: the places end that much higher.
+    await page.setViewportSize({ width: 1280, height: 612 });
     await expect(summary(page)).toBeVisible();
     await expect(card(page)).toBeHidden();
 }
