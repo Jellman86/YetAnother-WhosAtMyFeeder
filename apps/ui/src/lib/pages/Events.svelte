@@ -85,9 +85,11 @@
     type Props = {
         /** Opens an in-app address in place, so the shell stays and unsaved work elsewhere is asked about. */
         onNavigate?: (path: string) => void;
+        /** Starts loading a page's code when its link is pointed at or focused. */
+        onPrefetch?: (path: string) => void;
     };
 
-    let { onNavigate }: Props = $props();
+    let { onNavigate, onPrefetch }: Props = $props();
 
     let events = $state<Detection[]>([]);
     let loading = $state(true);
@@ -2102,10 +2104,12 @@
     {/if}
 {/snippet}
 
-<!-- The owner's way to add a photo or video of their own: it joins the history this page shows. -->
+<!-- The owner's way to add a photo or video of their own: it joins the history this page shows. Only
+     the desktop header row holds it; narrower, that row has no other control, so it would be a row
+     to itself, and the shell's header icon (or the phone menu) is one tap away. -->
 {#snippet addObservation()}
     {#if authStore.showSettings}
-        <AddObservationLink variant="labelled" {onNavigate} />
+        <AddObservationLink variant="labelled" {onNavigate} {onPrefetch} />
     {/if}
 {/snippet}
 
@@ -2120,9 +2124,6 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         {#if wideExplorer.current}
             <div class="min-w-0 max-w-2xl flex-1 basis-80" data-explorer-header-search>{@render explorerSearch()}</div>
-        {:else if authStore.showSettings}
-            <!-- Narrower, the header row holds no other control: the action leads it, above the count. -->
-            <div class="ml-auto" data-explorer-add-observation>{@render addObservation()}</div>
         {/if}
         <!-- The count arrives after the page is drawn and its length depends on what was found, so
              it has a line of its own: beside the controls, a long count wrapped them under the

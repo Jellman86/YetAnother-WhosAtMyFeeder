@@ -54,7 +54,15 @@ describe('wholeLinesFit', () => {
         expect(wholeLinesFit({ ...CARD, room: 0 })).toEqual({ show: 'none' });
     });
 
-    it('shows every line where the container scrolls anyway, since what comes first does not fit', () => {
+    it('shows nothing rather than cut the floor line by more than a pixel', () => {
+        // The first reading ends at 50.6 px with 49.8 px of room for the readings: shown 49 px tall it
+        // would lose 1.6 px of its letters (found at 1920 × 768, where the text is larger with the width).
+        expect(wholeLinesFit({ lineEnds: [50.6, 74.6, 98.6], floor: 50.6, chrome: 66, room: 66 + 49.8 })).toEqual({ show: 'none' });
+        // Overhanging by under a pixel it still shows, cut to the room.
+        expect(wholeLinesFit({ lineEnds: [50.6, 74.6, 98.6], floor: 50.6, chrome: 66, room: 66 + 50.2 })).toEqual({ show: 'some', height: 50 });
+    });
+
+        it('shows every line where the container scrolls anyway, since what comes first does not fit', () => {
         expect(wholeLinesFit({ ...CARD, room: -5 })).toEqual({ show: 'all' });
     });
 

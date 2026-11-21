@@ -31,7 +31,7 @@
 <a
     href={toAppPath(ADD_OBSERVATION_PATH)}
     class={variant === 'icon'
-        ? `grid min-h-11 min-w-11 place-items-center rounded-xl transition-colors duration-200 focus-ring ${current ? 'bg-accent-soft text-accent-ink' : 'text-muted hover:bg-surface-raised hover:text-strong'}`
+        ? (current ? 'header-control-current' : 'header-control')
         : 'btn btn-secondary min-h-11 px-3 py-2 text-xs'}
     title={variant === 'icon' ? label : undefined}
     aria-label={variant === 'icon' ? label : undefined}

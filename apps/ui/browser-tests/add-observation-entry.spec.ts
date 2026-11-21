@@ -139,13 +139,96 @@ test('on a 390 px phone the header keeps its four controls and the title whole; 
     await expect(place).toHaveAttribute('aria-current', 'page');
 });
 
-test('on a 390 px phone the Explorer leads its header row with the labelled button, inside the screen', async ({ page }) => {
-    await open(page, '/events', { width: 390, height: 844 });
-    const button = explorerEntry(page);
-    await expect(button).toBeVisible();
-    const box = await button.boundingBox();
-    expect(box && box.x >= 0 && box.x + box.width <= 390 && box.height >= 44).toBe(true);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await button.click();
-    await expectAddObservationPage(page);
+// Below the Explorer's wide layout its header row holds no control of its own, so a button there would
+// be a row to itself pushing the results down. The header's icon (from 768 px) or the menu (below it)
+// is one tap away instead.
+for (const size of [{ width: 390, height: 844 }, { width: 900, height: 900 }]) {
+    test(`at ${size.width} px the Explorer adds no row for Add observation, and the shell still offers it once`, async ({ page }) => {
+        await open(page, '/events', size);
+        await expect(page.locator('[data-explorer-count]')).toBeVisible();
+        await expect(explorerEntry(page)).toHaveCount(0);
+        await expect(page.locator('[data-explorer-add-observation]')).toHaveCount(0);
+        expect((await headerEntry(page).count()) + (await menuPlace(page).count())).toBe(1);
+    });
+}
+
+// The header holds the entry exactly where the sidebar docks, and the menu exactly where it is a
+// drawer: one entry on each side of the line, never none and never two.
+for (const width of [767, 768]) {
+    test(`at ${width} px the owner has exactly one way to Add observation`, async ({ page }) => {
+        await open(page, '/about', { width, height: 900 });
+        const menuButton = page.locator('button[aria-controls="app-sidebar"]');
+        expect((await headerEntry(page).count()) + (await menuPlace(page).count())).toBe(1);
+        if (width === 767) {
+            await expect(headerEntry(page)).toHaveCount(0);
+            await expect(menuButton).toBeVisible();
+            await menuButton.click();
+            await expect(menuPlace(page)).toBeVisible();
+        } else {
+            await expect(headerEntry(page)).toBeVisible();
+            await expect(menuPlace(page)).toHaveCount(0);
+            await expect(menuButton).toHaveCount(0);
+            // Docked: in view at the left edge without opening anything.
+            await expect.poll(() => page.locator('#app-sidebar').evaluate((aside) => Math.round(aside.getBoundingClientRect().left))).toBe(0);
+            await expect(page.locator('#app-sidebar nav')).toBeInViewport();
+        }
+    });
+}
+
+function requestsFor(page: Page, moduleFile: string): () => number {
+    let count = 0;
+    page.on('request', (request) => {
+        if (new URL(request.url()).pathname.endsWith(moduleFile)) count += 1;
+    });
+    return () => count;
+}
+
+// Like the places in the sidebar, either entry starts loading the page's code when pointed at or
+// reached with the keyboard, so the click that follows does not wait for it.
+for (const [name, entry] of [['the header', headerEntry], ['the Explorer', explorerEntry]] as const) {
+    test(`pointing at or focusing ${name}'s entry loads the Add observation page before the click`, async ({ page }) => {
+        const requests = requestsFor(page, '/src/lib/pages/ManualObservation.svelte');
+        await open(page, '/events', { width: 1440, height: 900 });
+        expect(requests()).toBe(0);
+        await entry(page).focus();
+        await expect.poll(requests).toBeGreaterThan(0);
+        await expect.poll(() => new URL(page.url()).pathname).toBe('/events');
+    });
+}
+
+// Every control in the header cluster marks its own page the same way: aria-current and the pressed
+// look (the accent ground and hairline), and no ground or edge anywhere else.
+for (const [path, name] of [['/notifications', 'Notifications'], ['/settings', 'Settings'], ['/observations/new', 'Add observation']] as const) {
+    test(`on ${path} the header's ${name} control is marked current, like every other header control`, async ({ page }) => {
+        await open(page, path, { width: 1440, height: 900 });
+        const header = page.locator('main header').first();
+        const marks = await header.evaluate((node) => [...node.querySelectorAll<HTMLElement>('a, button')]
+            .filter((control) => control.offsetParent !== null)
+            .map((control) => ({
+                name: (control.getAttribute('aria-label') ?? control.textContent ?? '').trim(),
+                current: control.getAttribute('aria-current'),
+                ground: getComputedStyle(control).backgroundColor,
+                edge: getComputedStyle(control).borderTopWidth
+            })));
+        const current = marks.filter((mark) => mark.current === 'page');
+        expect(current.map((mark) => mark.name)).toHaveLength(1);
+        expect(current[0].name).toMatch(new RegExp(`^${name}`));
+        expect(current[0].ground).not.toBe('rgba(0, 0, 0, 0)');
+        // The light ground is close to the page's own, so an accent hairline gives the mark its shape.
+        expect(current[0].edge).toBe('1px');
+        for (const other of marks.filter((mark) => mark.current !== 'page')) {
+            expect(other.ground, other.name).toBe('rgba(0, 0, 0, 0)');
+            expect(other.edge, other.name).toBe('0px');
+        }
+    });
+}
+
+test('the current ground is one look across the header: the bell on Notifications matches Add observation on its page', async ({ page }) => {
+    await open(page, '/observations/new', { width: 1440, height: 900 });
+    const addGround = await headerEntry(page).evaluate((node) => [getComputedStyle(node).backgroundColor, getComputedStyle(node).color]);
+    await page.goto('/notifications');
+    await expect(page.locator('main [data-route-loading]')).toHaveCount(0, READY);
+    const bell = page.locator('main header [aria-current="page"]');
+    await expect(bell).toHaveCount(1);
+    expect(await bell.evaluate((node) => [getComputedStyle(node).backgroundColor, getComputedStyle(node).color])).toEqual(addGround);
 });

@@ -333,8 +333,9 @@ page's controls on a desktop (**Heard calls**, the rail toggle, **Cards**/**List
 **Multi-select**, and last the owner's **Add observation**, a kit button with its icon, since the
 photos and clips added there join this history); below Tailwind's `lg` the view switch sits beside
 the **Filters** button and the two used less often open with the filters under **View**, each
-control written once and placed by the same `MediaQuery`. There **Add observation** is the header
-row's only control, at its end above the count. Leaving selection is **Done** on the selection bar. The listening
+control written once and placed by the same `MediaQuery`. **Add observation** is in the desktop row
+only: narrower, the row holds no other control, so the button would be a row to itself pushing the
+results down, and the shell's header icon (from 768 px) or the phone menu is one tap away. Leaving selection is **Done** on the selection bar. The listening
 history is a sidebar item, not a second audio button in this row. The first read's placeholders
 and the results are separate panes (`{#key}` on the first-load state), so a day strip or notice
 that arrives above the results moves nothing already drawn; the day strip is shown only for a page
@@ -1046,10 +1047,17 @@ build something better."*
 - **Add observation is an action, not a place.** The owner's header controls run Refresh, Add
   observation (a picture with a plus), the camera, notifications and Settings. It follows Refresh,
   which comes and goes with the page, so it keeps one place on every page, and since no sidebar
-  place marks its page, it does: `aria-current="page"` and the accent ground. On a phone the header
+  place marks its page, it does: `aria-current="page"` and the pressed look (the accent ground, ink
+  and hairline; the light ground alone is close to the page's). Every header control
+  marks its own page that one way (the bell on Notifications, Settings on Settings), through the
+  kit's `header-control` and `header-control-current`. On a phone the header
   has no room for a fifth 44 px control (it squeezed "Leaderboard" until the word broke), so there
   it is a place in the menu (`addObservationEntry()` in `app/add-observation.ts` decides both). A
   guest is offered it nowhere. `browser-tests/add-observation-entry.spec.ts` holds this.
+- **Phone shell breakpoint**: the shell takes its phone form (top bar, sidebar as a drawer) at
+  `PHONE_SHELL_QUERY`, `(width < 768px)`, exactly the complement of Tailwind's `md`, which docks
+  the sidebar. A query such as `max-width: 767px` leaves a zoomed 767.5 px window with neither a
+  menu button nor a docked sidebar.
 - **App headers**: page actions wrap onto another row when needed. The mobile wordmark yields to the app icon when space is tight; menu and theme controls keep their hit targets. Test the full App after a settled desktop-to-320px resize at 200% text, including keyboard refresh and camera disclosure.
 - **Dashboard reflow**: the Dashboard fits 320px at 200% text and at the largest Text size. Its day bar
   and field log lay out by their own width in rem (container queries), not the screen's: the day

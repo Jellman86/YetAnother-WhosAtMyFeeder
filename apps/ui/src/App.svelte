@@ -46,6 +46,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { announcer } from './lib/components/Announcer.svelte';
   import { installAnalysisAnnouncements } from './lib/app/install-analysis-announcements';
   import { addObservationEntry } from './lib/app/add-observation';
+  import { PHONE_SHELL_QUERY } from './lib/app/shell-breakpoint';
   import Announcer from './lib/components/Announcer.svelte';
   import GlobalProgress from './lib/components/GlobalProgress.svelte';
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
@@ -478,7 +479,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
               isMobile = mediaQuery.matches;
           };
           if (typeof window !== 'undefined') {
-              mediaQuery = window.matchMedia('(max-width: 767px)');
+              mediaQuery = window.matchMedia(PHONE_SHELL_QUERY);
               updateMobile();
               mediaQuery.addEventListener('change', updateMobile);
               syncGlobalProgressSticky();
@@ -907,6 +908,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
                       showOwnerActions={!authStore.isGuest}
                       refreshExpected={routeOffersRefresh(routeId)}
                       notificationsCurrent={routeId === 'notifications'}
+                      settingsCurrent={routeId === 'settings'}
                       addObservation={addObservationEntry(currentRoute, authStore.showSettings, isMobile)}
                       onPrefetch={(path) => void prefetchRoute(path)}
                   />
@@ -924,7 +926,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
               {:else if routeId === 'explorer'}
                   <LazyRoute
                       loader={loadEventsPage}
-                      props={{ onNavigate: navigate }}
+                      props={{ onNavigate: navigate, onPrefetch: (path) => void prefetchRoute(path) }}
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />

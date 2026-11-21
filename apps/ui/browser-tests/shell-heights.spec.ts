@@ -337,7 +337,10 @@ const RANGES: { name: string; width: number; from: number; to: number; who: Who;
     // sits beside it only up to 900 px tall) and the text is larger with the width. With Add observation
     // in the header rather than among the places, the card's floor fits on both sides of that boundary,
     // so the card stays whole there; the walk still holds every height to the tier its room calls for.
-    { name: 'a wide desktop around the brand stacking, signed in', width: 1920, from: 880, to: 1000, who: 'owner', tall: 1080, expect: ['full'] }
+    { name: 'a wide desktop around the brand stacking, signed in', width: 1920, from: 880, to: 1000, who: 'owner', tall: 1080, expect: ['full'] },
+    // Lower down on the same wide desktop, the card does give way: measured at about 764 px tall, so a
+    // walk from 720 to 840 crosses from the one-line summary to the card with the larger text.
+    { name: 'a wide desktop, signed in', width: 1920, from: 720, to: 840, who: 'owner', tall: 1080, expect: ['full', 'summary'] }
 ];
 
 for (const range of RANGES) {
