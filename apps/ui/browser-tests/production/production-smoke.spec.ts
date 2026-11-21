@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Request } from '@playwright/test';
+import { expect, test, type Page, type Request, type Route } from '@playwright/test';
 import { NOT_RECORDED_HEADER, replayFeeder } from '../accessibility-mock';
 
 /**
@@ -80,19 +80,24 @@ function watch(page: Page): Watch {
         else seen.failures.push(`console: ${message.text()} (${message.location().url})`);
     });
     page.on('pageerror', (error) => seen.failures.push(`page error: ${error.message}`));
-    // A script still loading when the test moves on is cancelled by that navigation, not broken: the
-    // browser reports it as aborted. Count it only if the page had not navigated since it was asked for.
-    // A script the server cannot give is still caught, by its status below.
-    let navigations = 0;
-    const askedDuring = new WeakMap<Request, number>();
-    page.on('framenavigated', (frame) => {
-        if (frame === page.mainFrame()) navigations += 1;
+    // A script still loading when the test opens the next page is cancelled when that page replaces
+    // this one, and the browser reports it as aborted before it reports the new page. So an abort is
+    // let go only while the page is being replaced: after the next page was asked for and before it
+    // arrived. Any other failure, and an abort while the page stays, is a fault; a script the server
+    // cannot give is caught by its status below.
+    let replacing = false;
+    const isPageLoad = (request: Request): boolean => request.isNavigationRequest() && request.frame() === page.mainFrame();
+    page.on('request', (request) => {
+        if (isPageLoad(request)) replacing = true;
     });
-    page.on('request', (request) => askedDuring.set(request, navigations));
+    page.on('framenavigated', (frame) => {
+        if (frame === page.mainFrame()) replacing = false;
+    });
     page.on('requestfailed', (request) => {
+        if (isPageLoad(request)) replacing = false;
         if (request.resourceType() !== 'script') return;
         const error = request.failure()?.errorText ?? '';
-        if (error === 'net::ERR_ABORTED' && askedDuring.get(request) !== navigations) return;
+        if (error === 'net::ERR_ABORTED' && replacing) return;
         seen.failures.push(`script failed: ${request.url()} ${error}`);
     });
     page.on('response', (response) => {
@@ -155,16 +160,23 @@ const FORMER_SETTINGS_TABS: ReadonlyArray<[tab: string, section: string]> = [
     ['data', 'storage'], ['maintenance', 'storage'], ['appearance', 'display'], ['accessibility', 'display']
 ];
 
+// The heading is the shell's page header, drawn before the page's own code arrives; a page has drawn
+// its own content once no part of it is still waiting for its code.
+const pageCodeArrived = (page: Page, label: string): Promise<void> =>
+    expect(page.locator('main [data-route-loading]'), label).toHaveCount(0, { timeout: 15_000 });
+
 test('every page draws its own content, with every script loaded and no console error', async ({ page }) => {
     const seen = await openFeeder(page);
     for (const [path, heading] of PAGES) {
         await page.goto(path);
         await expect(page.getByRole('heading', { level: 1, name: heading, exact: true }), path).toBeVisible({ timeout: 15_000 });
+        await pageCodeArrived(page, path);
     }
     for (const [section, name] of SETTINGS_SECTIONS) {
         await page.goto(`/settings/${section}`);
         await expect(page.locator('[data-settings-navigation] [aria-current="page"]'), section).toHaveText(name, { timeout: 15_000 });
         await expect(page.locator('main').getByRole('heading', { level: 2 }).first(), section).toBeVisible();
+        await pageCodeArrived(page, section);
     }
     expect(problems(seen)).toEqual([]);
 });
@@ -242,3 +254,36 @@ test('a recorded read that fails fails the check, whatever the app does with it'
     await expect(page.getByRole('heading', { level: 1, name: 'About', exact: true })).toBeVisible({ timeout: 15_000 });
     await expect.poll(() => problems(seen).some((problem) => problem.includes('/api/about/community'))).toBe(true);
 });
+
+const aboutPageCode = (url: URL): boolean => /^\/assets\/About-[^/]+\.js$/.test(url.pathname);
+
+test('a script still loading when the next page replaces it is not a fault', async ({ page }) => {
+    const seen = await openFeeder(page);
+    // The About page's code is never answered, so it is still loading when the next page opens.
+    await page.route(aboutPageCode, () => undefined);
+    const asked = page.waitForRequest((request) => aboutPageCode(new URL(request.url())));
+    await page.goto('/about');
+    await asked;
+    const cancelled = page.waitForEvent('requestfailed', (request) => aboutPageCode(new URL(request.url())));
+    await page.goto('/');
+    expect((await cancelled).failure()?.errorText).toBe('net::ERR_ABORTED');
+    await expect(page.getByRole('heading', { level: 1, name: 'Last 24 hours', exact: true })).toBeVisible({ timeout: 15_000 });
+    expect(problems(seen)).toEqual([]);
+});
+
+// A page's code that does not arrive while the page stays open: cancelled, cut off, or missing.
+const SCRIPT_FAILURES: ReadonlyArray<[failure: string, answer: (route: Route) => Promise<void>, reported: string]> = [
+    ['cancelled', (route) => route.abort('aborted'), 'net::ERR_ABORTED'],
+    ['cut off', (route) => route.abort('failed'), 'net::ERR_FAILED'],
+    ['missing', (route) => route.fulfill({ status: 404, body: '' }), 'script 404']
+];
+
+for (const [failure, answer, reported] of SCRIPT_FAILURES) {
+    test(`a page's script that is ${failure} fails the check`, async ({ page }) => {
+        const seen = await openFeeder(page);
+        await page.route(aboutPageCode, answer);
+        await page.goto('/about');
+        await expect(page.getByRole('heading', { level: 1, name: 'About', exact: true })).toBeVisible({ timeout: 15_000 });
+        await expect.poll(() => problems(seen).some((problem) => problem.includes('/About-') && problem.includes(reported))).toBe(true);
+    });
+}
