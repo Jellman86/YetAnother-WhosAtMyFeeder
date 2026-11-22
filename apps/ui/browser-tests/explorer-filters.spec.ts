@@ -73,7 +73,7 @@ test('the window is always open, rarer filters fold away and name what is chosen
     await page.getByLabel('To', { exact: true }).fill('2026-10-04');
     await expect(page.locator('[data-explorer-token]').filter({ hasText: /1 Oct( 2026)? to 4 Oct( 2026)?/ })).toBeVisible();
     await only.locator('summary').click();
-    await page.getByRole('button', { name: 'Favorites 3', exact: true }).click();
+    await page.getByRole('button', { name: 'Favourites 3', exact: true }).click();
     await page.getByRole('button', { name: 'Multiple bird species', exact: true }).click();
     await only.locator('summary').click();
     await expect(only.locator('summary')).toContainText('2 on');

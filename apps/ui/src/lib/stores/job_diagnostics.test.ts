@@ -727,7 +727,7 @@ describe('jobDiagnosticsStore', () => {
     });
 
     it('can still capture, download and clear a bundle', () => {
-        expect(errorsPageSource).toContain('Capture Bundle');
+        expect(errorsPageSource).toContain('Capture bundle');
         expect(errorsPageSource).toContain('Download without saving');
         expect(errorsPageSource).toContain('captureBundle');
         expect(errorsPageSource).toContain('exportCurrent(false)');

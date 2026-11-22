@@ -240,7 +240,7 @@
                 />
             </BetaSection>
 
-            <BetaSection id="garden-section-checks" title={$_('settings.beta.garden_section_checks', { default: 'Automatic checks and naming' })} openByDefault>
+            <BetaSection id="garden-section-checks" title={$_('settings.beta.garden_section_checks', { default: 'Automatic checks' })} openByDefault>
                 <p class="text-sm text-muted" data-garden-naming-elsewhere>
                     {$_('settings.beta.garden_naming_elsewhere', { default: 'Automatic naming is set with the birds\' naming threshold, at the top of Identifying birds.' })}
                 </p>
@@ -248,7 +248,7 @@
                 <GardenCollectionStatus {service} blockedBy={summary.steps.some((step) => step.kind === 'download_model') ? 'model' : cameras.length === 0 ? 'camera' : null} />
 
                 <p class="text-xs text-slate-600 dark:text-slate-400">
-                    {$_('settings.beta.garden_device_note', { default: 'Automatic checks use the device chosen under Settings › Models › Hardware once it agrees with the CPU, and fall back to the CPU if it fails. Motion scans use the CPU. Garden runs one job at a time while birds and cameras are idle.' })}
+                    {$_('settings.beta.garden_device_note', { default: 'Automatic checks use the device chosen under Settings › Identifying birds › More options › Hardware once it agrees with the CPU, and fall back to the CPU if it fails. Motion scans use the CPU. Garden runs one job at a time while birds and cameras are idle.' })}
                     <a href={`${DOCS}#verify-which-device-ran-a-model`} target="_blank" rel="noopener noreferrer" class="focus-ring font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
                         {$_('settings.beta.learn_more', { default: 'Learn more' })}
                     </a>

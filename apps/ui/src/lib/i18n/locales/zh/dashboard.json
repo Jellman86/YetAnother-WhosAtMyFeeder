@@ -116,7 +116,7 @@
     "checks_summary": "{count, plural, other {# 个物种可能命名有误：{species}。}}",
     "checks_body": "{count, plural, other {仅有摄像头的识别支持，且 {distance}内没有观鸟者报告过。}}",
     "checks_body_plain": "{count, plural, other {仅有摄像头的识别支持。}}",
-    "checks_open": "在物种页面打开检查",
+    "checks_open": "在排行榜中打开检查",
     "checks_loading": "正在检查可能命名有误的物种…",
     "checks_unavailable": "无法读取分布检查，因此不确定是否有物种命名有误。",
     "checks_more": "另外 {count} 个",

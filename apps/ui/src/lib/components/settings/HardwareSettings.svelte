@@ -341,10 +341,10 @@
                             {$_('settings.detection.openvino_status', { default: 'OpenVINO' })}: {(classifierStatus.openvino_available ?? false) ? $_('common.available', { default: 'Available' }) : $_('common.unavailable', { default: 'Unavailable' })}
                         </span>
                         <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-semibold {(classifierStatus.intel_gpu_available ?? false) ? 'bg-status-ok-soft text-status-ok' : 'bg-surface-sunken text-muted'}">
-                            {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_gpu') ? '· verified ✓' : '· unverified')) : $_('common.not_available', { default: 'Not detected' })}
+                            {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? (providerVerified('intel_gpu') ? $_('settings.detection.auto_detected_verified', { default: 'Auto-detected · verified ✓' }) : $_('settings.detection.auto_detected_unverified', { default: 'Auto-detected · unverified' })) : $_('common.not_available', { default: 'Not available' })}
                         </span>
                         <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-semibold {(classifierStatus.intel_npu_available ?? false) ? 'bg-status-ok-soft text-status-ok' : 'bg-surface-sunken text-muted'}">
-                            {$_('settings.detection.intel_npu_status', { default: 'Intel NPU' })}: {(classifierStatus.intel_npu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_npu') ? '· verified ✓' : '· unverified')) : $_('common.not_available', { default: 'Not detected' })}
+                            {$_('settings.detection.intel_npu_status', { default: 'Intel NPU' })}: {(classifierStatus.intel_npu_available ?? false) ? (providerVerified('intel_npu') ? $_('settings.detection.auto_detected_verified', { default: 'Auto-detected · verified ✓' }) : $_('settings.detection.auto_detected_unverified', { default: 'Auto-detected · unverified' })) : $_('common.not_available', { default: 'Not available' })}
                         </span>
                     {/if}
                 </div>

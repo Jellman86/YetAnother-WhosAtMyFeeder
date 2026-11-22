@@ -14,7 +14,7 @@ test('card status explanations are reachable above the record action and dismiss
     await open(page);
     const card = page.locator('[data-surface="card-A"]');
     for (const [label, text] of [
-        ['Favorite', 'Favorite'],
+        ['Favourite', 'Favourite'],
         ['Verified', 'A matching bird call was heard near this capture.'],
         ['Missing upstream', 'Frigate no longer has this event or media']
     ]) {

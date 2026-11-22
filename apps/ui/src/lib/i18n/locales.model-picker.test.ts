@@ -40,6 +40,8 @@ const REQUIRED_KEYS = [
     'settings.detection.openvino_status',
     'settings.detection.intel_gpu_status',
     'settings.detection.auto_detected',
+    'settings.detection.auto_detected_verified',
+    'settings.detection.auto_detected_unverified',
     'settings.detection.selected_provider_label',
     'settings.detection.active_provider_label',
     'settings.detection.inference_backend_label',
