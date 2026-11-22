@@ -109,3 +109,62 @@ async def sealed_species_counts(
         for lost in await repo.lost_captures(window.start, window.end):
             entry(lost.species_key, lost.display_name, lost.scientific_name, None, None).captures[index] += 1
     return found
+
+
+def _bird_identity(taxa_id: int | None, name: str | None) -> tuple[int | None, str]:
+    return taxa_id, str(name or "").strip().lower()
+
+
+def with_sealed_species(stats: list[dict], sealed: dict[str, SealedSpecies]) -> list[dict]:
+    """Add each species' sealed and lost captures to the all-time species list, by canonical key.
+
+    A sealed day keeps the key its rows had when it was sealed. When the catalogue backfill later
+    gives the stored rows a ``species_id``, the keys differ but the bird does not, so a sealed key
+    with no stored row joins the stored row for the same taxon or name, as ``_fold_same_bird``
+    matches the Leaderboard's rows (#359). Stored rows are not folded into one another here: each
+    keeps the key its rolling figures are looked up by. A species whose every capture was cleaned
+    up keeps a row with its count and no capture times.
+    """
+    by_key = {row["unified_key"]: row for row in stats}
+    by_taxa: dict[int, dict] = {}
+    by_name: dict[str, dict] = {}
+
+    def index(row: dict) -> None:
+        taxa_id, name = _bird_identity(row.get("taxa_id"), row.get("species"))
+        if taxa_id is not None:
+            by_taxa.setdefault(taxa_id, row)
+        if name:
+            by_name.setdefault(name, row)
+
+    for row in stats:
+        index(row)
+    for key, species in sealed.items():
+        taxa_id, name = _bird_identity(species.taxa_id, species.species)
+        row = by_key.get(key) or (by_taxa.get(taxa_id) if taxa_id is not None else None) or by_name.get(name)
+        if row is not None:
+            row["count"] += species.captures[0]
+            for field, value in (
+                ("scientific_name", species.scientific_name),
+                ("common_name", species.common_name),
+                ("taxa_id", species.taxa_id),
+            ):
+                if row.get(field) is None and value is not None:
+                    row[field] = value
+            continue
+        row = {
+            "species": species.species,
+            "count": species.captures[0],
+            "scientific_name": species.scientific_name,
+            "common_name": species.common_name,
+            "taxa_id": species.taxa_id,
+            "unified_key": key,
+            "first_seen": None,
+            "last_seen": None,
+            "species_id": int(key.removeprefix("species:")) if key.startswith("species:") else None,
+            "manual_common_name": None,
+        }
+        by_key[key] = row
+        index(row)
+    merged = [row for row in by_key.values() if row["count"] > 0]
+    merged.sort(key=lambda row: row["count"], reverse=True)
+    return merged

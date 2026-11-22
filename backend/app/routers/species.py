@@ -16,7 +16,7 @@ from app.repositories.daily_totals_repository import DailyTotalsRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.services.daily_history import DayCoverage, coverage, first_whole_day, local_midnight_utc, sealed_ranges
 from app.services.daily_totals_lookup import species_history_keys
-from app.services.sealed_species_counts import CountWindow, SealedSpecies, sealed_species_counts
+from app.services.sealed_species_counts import CountWindow, SealedSpecies, sealed_species_counts, with_sealed_species
 from app.utils.calendar_day import instance_timezone, local_date
 from app.repositories.species_repository import SpeciesRepository
 from app.models import (
@@ -933,34 +933,6 @@ def _dedupe_inaturalist_candidates(candidates: list[dict]) -> list[dict]:
     return deduped
 
 
-def _with_sealed_species(stats: list[dict], sealed: dict[str, SealedSpecies]) -> list[dict]:
-    """Add each species' sealed and lost captures to its stored count, by canonical key.
-
-    A species whose every capture was cleaned up keeps a row with its count and no capture times.
-    """
-    by_key = {row["unified_key"]: row for row in stats}
-    for key, species in sealed.items():
-        row = by_key.get(key)
-        if row is None:
-            by_key[key] = {
-                "species": species.species,
-                "count": species.captures[0],
-                "scientific_name": species.scientific_name,
-                "common_name": species.common_name,
-                "taxa_id": species.taxa_id,
-                "unified_key": key,
-                "first_seen": None,
-                "last_seen": None,
-                "species_id": int(key.removeprefix("species:")) if key.startswith("species:") else None,
-                "manual_common_name": None,
-            }
-        else:
-            row["count"] += species.captures[0]
-    merged = [row for row in by_key.values() if row["count"] > 0]
-    merged.sort(key=lambda row: row["count"], reverse=True)
-    return merged
-
-
 @router.get("/species", response_model=list[SpeciesCountItem])
 async def get_species_list(request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)):
     """Get list of all species with counts."""
@@ -981,7 +953,7 @@ async def get_species_list(request: Request, auth: AuthContext = Depends(get_aut
         )
         unknown_keys = await species_history_keys(db, "Unknown Bird") if sealed.by_key else set()
         sealed_unknown = [sealed.by_key.pop(key) for key in unknown_keys if key in sealed.by_key]
-        stats = _with_sealed_species(
+        stats = with_sealed_species(
             await repo.get_species_leaderboard_base(**bounds, sealed_ranges=sealed.ranges), sealed.by_key
         )
         unified_metrics = await repo.get_unified_species_window_metrics(**bounds)
@@ -1098,7 +1070,8 @@ async def get_species_list(request: Request, auth: AuthContext = Depends(get_aut
 
 
 def _measured_confidence(row: dict) -> float | None:
-    if int(row.get("window_scored_count", 1) or 0) == 0:
+    """The window's average score, or None when no stored capture in it was scored."""
+    if int(row.get("window_scored_count") or 0) == 0:
         return None
     return float(row.get("window_avg_confidence") or 0.0)
 

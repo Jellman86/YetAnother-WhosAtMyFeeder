@@ -443,6 +443,8 @@ async def test_unknown_birds_on_a_sealed_day_stay_on_the_leaderboard(serve):
     rows = _leaderboard((await client.get("/api/leaderboard/species?span=month")).json())
     assert rows["Unknown Bird"]["window_count"] == 1
     assert rows["Turdus merula"]["window_count"] == 5
+    # Every Unknown capture in the window is known only from a daily total, so no score was measured.
+    assert rows["Unknown Bird"]["window_avg_confidence"] is None
 
 
 @pytest.mark.asyncio
@@ -491,3 +493,21 @@ async def test_a_species_known_only_from_a_daily_total_claims_no_confidence(serv
     assert rows["Parus major"]["window_avg_confidence"] is None
     species = next(row for row in (await client.get("/api/species")).json() if row["species"] == "Parus major")
     assert species["avg_confidence"] is None
+
+
+@pytest.mark.asyncio
+async def test_a_bird_whose_identity_moved_after_its_day_was_sealed_is_one_row(serve):
+    """The catalogue backfill gives stored rows a species_id; the sealed day keeps its older key (#359)."""
+    client, db_factory = await serve()
+    async with db_factory() as db:
+        await db.execute("UPDATE detections SET species_id = 4242 WHERE scientific_name = 'Turdus merula'")
+        await db.commit()
+    body = (await client.get("/api/species")).json()
+    blackbirds = [row for row in body if row["species"] == "Turdus merula"]
+    assert len(blackbirds) == 1
+    assert blackbirds[0]["count"] == 5
+    # The stored row still supplies the times and confidence the daily total cannot.
+    assert blackbirds[0]["first_seen"] is not None
+    assert blackbirds[0]["avg_confidence"] == pytest.approx(0.9)
+    rows = _leaderboard((await client.get("/api/leaderboard/species?span=month")).json())
+    assert rows["Turdus merula"]["window_count"] == 5

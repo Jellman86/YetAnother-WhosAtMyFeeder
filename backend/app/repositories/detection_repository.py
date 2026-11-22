@@ -5256,7 +5256,8 @@ class DetectionRepository:
                     AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
                     COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count,
                     SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.manual_tagged = 1 THEN 1 ELSE 0 END) as window_confirmed_count,
-                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 AND {audio_evidence_sql} THEN 1 ELSE 0 END) as window_audio_confirmed_count
+                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 AND {audio_evidence_sql} THEN 1 ELSE 0 END) as window_audio_confirmed_count,
+                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as window_scored_count
                 FROM detections d
                 {join_sql}
                 WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
@@ -5284,6 +5285,8 @@ class DetectionRepository:
                 window_start,
                 window_end,
                 *audio_evidence_params,
+                window_start,
+                window_end,
                 # The rows span both windows, or prev_count could never be anything but 0.
                 prev_start,
                 window_end,
@@ -5315,6 +5318,8 @@ class DetectionRepository:
             "window_camera_count": int(row[5] or 0),
             "window_confirmed_count": int(row[6] or 0),
             "window_audio_confirmed_count": int(row[7] or 0),
+            # Stored captures the average was taken over; none means no score was measured.
+            "window_scored_count": int(row[8] or 0),
             "window_visit_count": window_visits,
             "prev_visit_count": prev_visits,
         }
