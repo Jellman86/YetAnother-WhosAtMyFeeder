@@ -59,7 +59,7 @@ from app.utils.public_access import (
     public_events_window,
     public_event_query_bounds,
 )
-from app.utils.timezone import get_user_timezone
+from app.utils.timezone import calendar_timezone
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
@@ -1222,7 +1222,7 @@ async def get_species_stats(
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
-    user_tz = get_user_timezone(request)
+    user_tz = calendar_timezone(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
 

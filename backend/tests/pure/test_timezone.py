@@ -1,24 +1,34 @@
 import sys
 import zoneinfo
+from datetime import datetime
 
 import pytest
 from starlette.requests import Request
 
-from app.utils.timezone import get_user_timezone
+from app.utils.timezone import calendar_timezone
 
 
 @pytest.mark.parametrize(
-    ("header", "expected"),
+    ("header", "instance_zone", "expected"),
     [
-        ("", "UTC"),
-        ("Not/A/Zone", "UTC"),
-        (" Europe/London ", "Europe/London"),
-        ("America/New_York", "America/New_York"),
+        ("", "", "UTC"),
+        ("Not/A/Zone", "", "UTC"),
+        (" Europe/London ", "", "Europe/London"),
+        ("America/New_York", "Europe/London", "America/New_York"),
+        ("", "Europe/London", "Europe/London"),
+        ("Not/A/Zone", "Asia/Tokyo", "Asia/Tokyo"),
     ],
 )
-def test_user_timezone_resolves_named_zones_and_defaults_on_invalid_headers(header, expected):
+def test_calendar_timezone_prefers_the_header_then_the_instance_zone_then_utc(
+    monkeypatch, header, instance_zone, expected
+):
+    monkeypatch.setenv("TZ", instance_zone)
     request = Request({"type": "http", "headers": [(b"x-timezone", header.encode())]})
-    assert get_user_timezone(request).key == expected
+    zone = calendar_timezone(request)
+    assert datetime(2026, 1, 15, 12, tzinfo=zone).utcoffset() == datetime(
+        2026, 1, 15, 12, tzinfo=zoneinfo.ZoneInfo(expected)
+    ).utcoffset()
+    assert getattr(zone, "key", "UTC") == expected
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows uses packaged timezone data")

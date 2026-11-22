@@ -308,14 +308,16 @@ and `GET /api/visits/{visit_id}/captures` take an ISO date (`2026-11-17`) or the
 `today`. Both are calendar days in one zone, chosen in this order:
 
 1. the IANA zone the request's `X-Timezone` header names (`Europe/Madrid`); the web interface
-   sends the browser's zone, so its dates are the viewer's days, as backfill dates and hourly
-   charts already are;
+   sends the browser's zone, so its dates are the viewer's days;
 2. otherwise the container's `TZ` environment variable, so curl and Home Assistant, which send
    no header, get the instance's day;
 3. otherwise UTC.
 
 A header or `TZ` that does not name a real zone is ignored (and logged once), never an error.
-`daily-summary?window=today` uses the same zone. A guest's shared window is applied after the zone
+Every other day, hour and weekday the API buckets by uses the same zone: `daily-summary`'s
+`window=today` and its hour buckets, the timeline's buckets, both activity heatmaps, the
+species stats distributions, custom backfill dates and the local time an AI analysis is given.
+So a client with no header gets hours in the instance's zone that agree with its day. A guest's shared window is applied after the zone
 is resolved, so no header can widen it. A day runs from local midnight
 to the last instant before the next local midnight, so a capture at 23:30 local time belongs to
 that day even when it is already the next day in UTC, and a day that changes the clock is 23 or
@@ -1144,9 +1146,8 @@ stores it (parentheses included when the source writes them), or null when unrec
   (24 hour buckets by when each visit began), `camera_visits` (visits and last sighting per
   camera; `null` for a guest who may not see camera names) and `visit_count` on each `top_species`
   entry, which is now ordered by visits. `total_count` and `hourly_distribution` still count frames.
-  The hour buckets of `hourly_visits` and `hourly_distribution` are hours in the zone the
-  `X-Timezone` header names, and UTC without it. Unlike the start of `window=today`, they do not
-  fall back to the container's `TZ`.
+  The hour buckets of `hourly_visits` and `hourly_distribution` are hours in the same zone as
+  `window=today` (see [Calendar days and `today`](#calendar-days-and-today)).
 - `GET /api/stats/detections/daily`
 - `GET /api/stats/detections/timeline` With day or month buckets, sealed days are counted from
   their daily totals (and compare lines from each species' totals, matched by catalogue
@@ -1618,8 +1619,8 @@ archived videos return 404 so the player uses the retained MP4; no archive trans
   under way also answers 409, with a sentence in `detail`.
 
 Backfill accepts `day`, `week`, `month`, or `custom`. Custom `start_date` and `end_date` values are
-calendar dates in the browser timezone, and the final day is inclusive. Detection import is
-idempotent by Frigate event ID: a stronger image result can update classification fields, but it
+calendar dates in the zone `X-Timezone` names, else the container's `TZ`, else UTC, and the final
+day is inclusive. Detection import is idempotent by Frigate event ID: a stronger image result can update classification fields, but it
 preserves existing audio confirmation, weather, same-species taxonomy, the strongest Frigate score,
 and sublabel evidence. Backfill applies the same confidence, abstention, blocked-species, and trusted-
 sublabel rules as live ingest. Completed snapshots are requested explicitly without a crop and valid,
@@ -1665,7 +1666,7 @@ snapshot, not a destructive queue-control API.
     `top_species` row carries its `scientific_name` (null when the calls were stored without one):
     `species` is translated, so the scientific name is what asks the activity grid for that species
   - `GET /api/audio/activity-heatmap` — calls heard by weekday and hour, in the zone the
-    `X-Timezone` header names (UTC without it). It takes the summary's window (`days`, or
+    `X-Timezone` header names, else the container's `TZ`, else UTC. It takes the summary's window (`days`, or
     `start_date`/`end_date`) and filters (`species`, `source`, `min_confidence`), so its
     `total_count` always equals the summary's `total`. Cells have the camera grid's shape
     (`day_of_week` 0 for Sunday, `hour`, `count`) with `max_cell_count`, and `window_start` and

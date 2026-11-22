@@ -294,7 +294,17 @@ async def test_species_stats_handles_mixed_naive_and_aware_detection_times(clien
 
 
 @pytest.mark.asyncio
-async def test_species_stats_uses_request_timezone_for_distributions(client: httpx.AsyncClient):
+@pytest.mark.parametrize("zone_source", ["header", "instance"])
+async def test_species_stats_uses_request_timezone_for_distributions(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch, zone_source: str
+):
+    # The viewer's header beats TZ; without one (curl, Home Assistant) the instance's TZ applies.
+    if zone_source == "header":
+        monkeypatch.setenv("TZ", "Asia/Tokyo")
+        zone_headers = {"X-Timezone": "America/New_York"}
+    else:
+        monkeypatch.setenv("TZ", "America/New_York")
+        zone_headers = {}
     settings.auth.enabled = False
     settings.public_access.enabled = False
 
@@ -333,7 +343,7 @@ async def test_species_stats_uses_request_timezone_for_distributions(client: htt
     try:
         response = await client.get(
             f"/api/species/{quote(localized_common_name, safe='')}/stats",
-            headers={"Accept-Language": "es", "X-Timezone": "America/New_York"},
+            headers={"Accept-Language": "es", **zone_headers},
         )
         assert response.status_code == 200, response.text
         data = response.json()
