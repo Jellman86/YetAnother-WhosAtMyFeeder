@@ -21,6 +21,7 @@ import aiosqlite
 
 from app.repositories.daily_totals_repository import DailyTotalsRepository
 from app.services.daily_history import first_whole_day, sealed_ranges
+from app.services.daily_totals_lookup import is_unknown_label
 from app.utils.calendar_day import local_date
 
 
@@ -48,6 +49,12 @@ class SealedSpecies:
 class SealedSpeciesCounts:
     ranges: list[tuple[datetime, datetime]] = field(default_factory=list)
     by_key: dict[str, SealedSpecies] = field(default_factory=dict)
+    # Keys stored under a label the live count treats as Unknown bird, by the same rule.
+    unknown_keys: set[str] = field(default_factory=set)
+
+    def pop_unknown(self) -> list[SealedSpecies]:
+        """Take the Unknown bird species out, for the one Unknown bird row."""
+        return [self.by_key.pop(key) for key in sorted(self.unknown_keys) if key in self.by_key]
 
 
 def whole_days(window: CountWindow, zone: tzinfo, floor: date | None) -> tuple[date | None, date] | None:
@@ -94,20 +101,22 @@ async def sealed_species_counts(
             if any(span is not None and (span[0] is None or span[0] <= day) and day <= span[1] for span in spans)
         }
         found.ranges = sealed_ranges(taken, zone)
-        for total in await repo.totals(min(taken), max(taken)) if taken else []:
-            if total.day not in taken:
-                continue
+        # Totals exist only for sealed days, so a span's totals are exactly the days it took.
+        for total in await repo.window_totals(spans) if taken else []:
             species = entry(
                 total.species_key, total.display_name, total.scientific_name, total.common_name, total.taxa_id
             )
-            for index, span in enumerate(spans):
-                if span is not None and (span[0] is None or span[0] <= total.day) and total.day <= span[1]:
-                    species.captures[index] += total.capture_count
-                    species.visits[index] += total.visit_count
+            for index in range(len(windows)):
+                species.captures[index] += total.captures[index]
+                species.visits[index] += total.visits[index]
+            if any(is_unknown_label(label) for label in total.labels):
+                found.unknown_keys.add(total.species_key)
 
     for index, window in enumerate(windows):
         for lost in await repo.lost_captures(window.start, window.end):
             entry(lost.species_key, lost.display_name, lost.scientific_name, None, None).captures[index] += 1
+            if is_unknown_label(lost.display_name):
+                found.unknown_keys.add(lost.species_key)
     return found
 
 

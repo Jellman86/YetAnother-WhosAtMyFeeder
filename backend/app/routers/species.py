@@ -951,8 +951,7 @@ async def get_species_list(request: Request, auth: AuthContext = Depends(get_aut
             zone=zone,
             floor=first_whole_day(guest_start, zone) if guest_start else None,
         )
-        unknown_keys = await species_history_keys(db, "Unknown Bird") if sealed.by_key else set()
-        sealed_unknown = [sealed.by_key.pop(key) for key in unknown_keys if key in sealed.by_key]
+        sealed_unknown = sealed.pop_unknown()
         stats = with_sealed_species(
             await repo.get_species_leaderboard_base(**bounds, sealed_ranges=sealed.ranges), sealed.by_key
         )
@@ -1153,8 +1152,7 @@ async def get_leaderboard_species(
             zone=zone,
             floor=history_floor,
         )
-        unknown_keys = await species_history_keys(db, "Unknown Bird") if sealed.by_key else set()
-        sealed_unknown = [sealed.by_key.pop(key) for key in unknown_keys if key in sealed.by_key]
+        sealed_unknown = sealed.pop_unknown()
         rows = await repo.get_species_leaderboard_window(
             window_start=window_start,
             window_end=window_end,
