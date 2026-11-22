@@ -4,11 +4,13 @@ YA-WAMF provides a custom component for Home Assistant to integrate your bird si
 
 ## Installation
 
-### 1. Copy Files
-Copy the `custom_components/yawamf` folder from the YA-WAMF repository to your Home Assistant `config/custom_components/` directory.
+### Option A: HACS / Home Assistant Marketplace (Custom Repository)
+1. In Home Assistant, open **HACS** → **Custom repositories** and add `https://github.com/Jellman86/YetAnother-WhosAtMyFeeder` with category **Integration**.
+2. Install **Yet Another WhosAtMyFeeder** and restart Home Assistant.
 
-### 2. Restart
-Restart Home Assistant to load the new component.
+### Option B: Manual Copy
+1. Copy the `custom_components/yawamf` folder from the YA-WAMF repository to your Home Assistant `config/custom_components/` directory.
+2. Restart Home Assistant to load the new component.
 
 ### Icon Cache Note
 Home Assistant may cache integration icons. If the icon does not update after an upgrade, hard-refresh the HA frontend or clear the browser cache.
