@@ -111,7 +111,8 @@ class LeaderboardSpeciesItemResponse(BaseModel):
     window_percent: float
     window_first_seen: str | None = None
     window_last_seen: str | None = None
-    window_avg_confidence: float
+    # Null when every capture in the window is known only from a daily total, which has no scores.
+    window_avg_confidence: float | None = None
     window_camera_count: int
     window_confirmed_count: int = 0
     window_audio_confirmed_count: int = 0
@@ -1096,6 +1097,12 @@ async def get_species_list(request: Request, auth: AuthContext = Depends(get_aut
         return filtered_stats
 
 
+def _measured_confidence(row: dict) -> float | None:
+    if int(row.get("window_scored_count", 1) or 0) == 0:
+        return None
+    return float(row.get("window_avg_confidence") or 0.0)
+
+
 def _sealed_leaderboard_row(species: SealedSpecies, *, counts: bool = True) -> dict:
     """A leaderboard row for captures only a daily total or a lost-capture record still holds.
 
@@ -1262,7 +1269,7 @@ async def get_leaderboard_species(
                 "window_percent": pct,
                 "window_first_seen": serialize_api_datetime(r.get("window_first_seen")),
                 "window_last_seen": serialize_api_datetime(r.get("window_last_seen")),
-                "window_avg_confidence": r.get("window_avg_confidence", 0.0),
+                "window_avg_confidence": _measured_confidence(r),
                 "window_camera_count": r.get("window_camera_count", 0),
                 "window_confirmed_count": r.get("window_confirmed_count", 0),
                 "window_audio_confirmed_count": r.get("window_audio_confirmed_count", 0)
@@ -1293,7 +1300,7 @@ async def get_leaderboard_species(
                 "window_percent": pct,
                 "window_first_seen": serialize_api_datetime(unknown.get("window_first_seen")),
                 "window_last_seen": serialize_api_datetime(unknown.get("window_last_seen")),
-                "window_avg_confidence": unknown.get("window_avg_confidence", 0.0),
+                "window_avg_confidence": _measured_confidence(unknown),
                 "window_camera_count": unknown.get("window_camera_count", 0),
                 "window_confirmed_count": unknown.get("window_confirmed_count", 0),
                 "window_audio_confirmed_count": unknown.get("window_audio_confirmed_count", 0)

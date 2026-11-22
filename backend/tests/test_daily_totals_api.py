@@ -482,3 +482,12 @@ async def test_a_guest_species_list_and_leaderboard_take_no_sealed_day_before_th
     rows = _leaderboard((await client.get("/api/leaderboard/species?span=month")).json())
     assert rows["Turdus merula"]["window_count"] == 3
     assert "Parus major" not in rows
+
+
+@pytest.mark.asyncio
+async def test_a_species_known_only_from_a_daily_total_claims_no_confidence(serve):
+    client, _db = await serve()
+    rows = _leaderboard((await client.get("/api/leaderboard/species?span=month")).json())
+    assert rows["Parus major"]["window_avg_confidence"] is None
+    species = next(row for row in (await client.get("/api/species")).json() if row["species"] == "Parus major")
+    assert species["avg_confidence"] is None

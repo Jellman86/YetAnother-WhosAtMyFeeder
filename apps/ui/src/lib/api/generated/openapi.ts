@@ -1804,7 +1804,7 @@ export interface components {
     species: string;
     taxa_id?: number | null;
     window_audio_confirmed_count?: number;
-    window_avg_confidence: number;
+    window_avg_confidence?: number | null;
     window_camera_count: number;
     window_confirmed_count?: number;
     window_count: number;
