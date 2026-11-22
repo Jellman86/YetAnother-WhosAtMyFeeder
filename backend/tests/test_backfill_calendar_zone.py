@@ -1,6 +1,7 @@
 """A custom backfill range is read as calendar days in the X-Timezone zone, else TZ, else UTC."""
 
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -27,6 +28,9 @@ async def ranges(monkeypatch) -> list[tuple[datetime, datetime]]:
         return BackfillResult()
 
     monkeypatch.setattr(backfill_router.backfill_service, "run_backfill", run_backfill)
+    # Only the range is under test: another suite's maintenance work must not answer 409 here.
+    monkeypatch.setattr(backfill_router.maintenance_coordinator, "try_acquire", AsyncMock(return_value=True))
+    monkeypatch.setattr(backfill_router.maintenance_coordinator, "release", AsyncMock())
     return seen
 
 

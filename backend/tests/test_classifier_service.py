@@ -966,7 +966,7 @@ def test_classifier_supervisor_config_defaults():
     assert config.worker_heartbeat_timeout_seconds == pytest.approx(5.0)
     # A video analysis is a long native job, so its worker is judged on a longer silence.
     assert config.video_worker_heartbeat_timeout_seconds == pytest.approx(30.0)
-    assert config.worker_hard_deadline_seconds == pytest.approx(60.0)
+    assert config.worker_hard_deadline_seconds == pytest.approx(35.0)
     assert config.background_worker_hard_deadline_seconds == pytest.approx(120.0)
     assert config.strict_non_finite_output is True
     assert config.worker_restart_window_seconds == pytest.approx(60.0)
