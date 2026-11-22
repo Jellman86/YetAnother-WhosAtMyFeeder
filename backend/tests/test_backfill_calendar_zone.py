@@ -43,9 +43,7 @@ async def test_a_backfill_day_without_a_header_is_the_instance_day(ranges, monke
     await _post({})
 
     # Midnight to midnight in New York (UTC-4 in April), as curl or Home Assistant would mean it.
-    assert ranges == [
-        (datetime(2026, 4, 10, 4, tzinfo=timezone.utc), datetime(2026, 4, 11, 4, tzinfo=timezone.utc))
-    ]
+    assert ranges == [(datetime(2026, 4, 10, 4, tzinfo=timezone.utc), datetime(2026, 4, 11, 4, tzinfo=timezone.utc))]
 
 
 @pytest.mark.asyncio
@@ -54,6 +52,4 @@ async def test_a_backfill_day_with_a_header_is_the_viewers_day(ranges, monkeypat
 
     await _post({"X-Timezone": "Europe/Berlin"})
 
-    assert ranges == [
-        (datetime(2026, 4, 9, 22, tzinfo=timezone.utc), datetime(2026, 4, 10, 22, tzinfo=timezone.utc))
-    ]
+    assert ranges == [(datetime(2026, 4, 9, 22, tzinfo=timezone.utc), datetime(2026, 4, 10, 22, tzinfo=timezone.utc))]

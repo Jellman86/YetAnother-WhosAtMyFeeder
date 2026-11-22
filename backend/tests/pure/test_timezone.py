@@ -25,9 +25,10 @@ def test_calendar_timezone_prefers_the_header_then_the_instance_zone_then_utc(
     monkeypatch.setenv("TZ", instance_zone)
     request = Request({"type": "http", "headers": [(b"x-timezone", header.encode())]})
     zone = calendar_timezone(request)
-    assert datetime(2026, 1, 15, 12, tzinfo=zone).utcoffset() == datetime(
-        2026, 1, 15, 12, tzinfo=zoneinfo.ZoneInfo(expected)
-    ).utcoffset()
+    assert (
+        datetime(2026, 1, 15, 12, tzinfo=zone).utcoffset()
+        == datetime(2026, 1, 15, 12, tzinfo=zoneinfo.ZoneInfo(expected)).utcoffset()
+    )
     assert getattr(zone, "key", "UTC") == expected
 
 
