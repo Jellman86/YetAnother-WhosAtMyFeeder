@@ -11,5 +11,3 @@ Disallow: /frigate
 Disallow: /backfill
 Disallow: /health
 Disallow: /admin
-
-Sitemap: https://yetanotherwhosatmyfeeder.pownet.uk/sitemap.xml
