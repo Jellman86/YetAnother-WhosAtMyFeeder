@@ -10,7 +10,7 @@ describe('Model Manager guided install + selection gate', () => {
     });
 
     it('gates activation on validation for an already-downloaded model', () => {
-        // "Use this model" is only offered once the model is validated on this host.
+        // "Activate" is only offered once the model is validated on this host.
         expect(modelManagerSource).toContain('ready && !selected && validated');
         // The unvalidated branch runs the wizard from the validate stage (no re-download).
         expect(modelManagerSource).toContain('ready && !selected && !validated');

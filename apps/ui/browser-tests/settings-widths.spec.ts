@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
 // 1440 px the status and the section's parts in a column of their own; and at 1920 px the page's
 // columns fill most of the window instead of one narrow strip.
 
-const SECTIONS = ['cameras', 'identification', 'alerts', 'sharing', 'storage', 'display'] as const;
+const SECTIONS = ['cameras', 'identification', 'integrations', 'notifications', 'access', 'storage', 'display'] as const;
 const WIDTHS = [390, 768, 1024, 1440, 1920] as const;
 /** About 70ch is the aim; no line may pass 80ch. */
 const MAX_LINE_CH = 80;

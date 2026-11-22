@@ -78,7 +78,7 @@ create an event for a transient MQTT tracker ID that Frigate never persisted.
 
 YA-WAMF can also mark existing detections as **Frigate event missing** during media integrity checks. This means YA-WAMF kept the local detection, but Frigate no longer had the event, clip, or snapshot at the last check. That can happen after normal Frigate retention cleanup, a Frigate database reset, storage repair, or a retention policy that is intentionally shorter than YA-WAMF's local retention.
 
-You can control this in **Settings → Storage & upkeep → Media integrity**:
+You can control this with **When Frigate no longer has the event/media** in **Settings → Storage & upkeep → More options → When Frigate loses a visit**:
 
 - **Mark missing and keep local data** keeps the detection and cached media, and shows the compact missing-Frigate note in the detection details.
 - **Keep local data unchanged** leaves detections as-is even when Frigate no longer has the event/media.
@@ -111,7 +111,7 @@ recorded as `drop_classify_snapshot_unavailable`.
 ## Related reason codes
 
 `event_not_found` is one of a family of Frigate media/event conditions. On the
-**Notifications → Errors** view (and in health telemetry) you may see any of these:
+**Health** page, under **Backend warnings and errors** (and in health telemetry), you may see any of these:
 
 | Reason code | Component | What it means | Detection kept? |
 |---|---|---|---|
@@ -121,7 +121,7 @@ recorded as `drop_classify_snapshot_unavailable`.
 | `clip_not_found` / `clip_not_retained` | video analysis | The event clip is not (or no longer) available in Frigate. Manual analysis visibly falls back to the best snapshot; automatic work records the unavailable video according to its fallback policy. | ✅ kept |
 | `snapshot_fetch_failed` | video analysis | Neither a retained nor an upstream snapshot could be loaded for fallback classification. The job fails visibly without pausing other jobs through the inference circuit. | ✅ kept |
 | `video_precheck_snapshot_fallback` | video analysis | Frigate could not supply the event/video, so an owner-requested job continued from the best snapshot. | ✅ kept |
-| `frigate_missing_marked` | frigate-missing policy | A stored detection was flagged because Frigate no longer has its event/media (see Media integrity above). | ✅ kept |
+| `frigate_missing_marked` | frigate-missing policy | A stored detection was flagged because Frigate no longer has its event/media (see When Frigate loses a visit above). | ✅ kept |
 | `frigate_missing_deleted` | frigate-missing policy | A stored detection was **deleted** because Frigate no longer has it and the policy is set to delete. | ❌ **deleted** |
 
 The two that lose data — `drop_classify_snapshot_unavailable` (a live detection
@@ -136,7 +136,7 @@ and inference timeouts still count, including when a snapshot fallback cannot re
 
 ## Checking whether this affected a specific detection
 
-In the YA-WAMF **Notifications → Errors** view, look for the reason codes above. For example:
+On the YA-WAMF **Health** page, look under **Backend warnings and errors** for the reason codes above. For example:
 
 - `reason_code: precheck_cache_bypass` — classification succeeded from local cache despite `event_not_found`
 - `reason_code: event_not_found` — classification failed because there was no cached copy either

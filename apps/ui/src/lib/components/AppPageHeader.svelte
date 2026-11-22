@@ -1,32 +1,41 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import type { Snippet } from 'svelte';
+    import AddObservationLink from './AddObservationLink.svelte';
     import CameraStatus from './CameraStatus.svelte';
     import NotificationCenter from './NotificationCenter.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import PageHeader from './ui/PageHeader.svelte';
+    import type { AddObservationEntry } from '../app/add-observation';
 
     type Props = {
         /** Omitted where the page brings its own h1, as the Dashboard's day bar does. */
         title?: string;
         subtitle?: string;
         onNavigate?: (path: string) => void;
+        onPrefetch?: (path: string) => void;
         actions?: Snippet;
         /** The owner's page controls. A guest can use none of them. */
         showOwnerActions?: boolean;
         notificationsCurrent?: boolean;
+        settingsCurrent?: boolean;
         /** The page registers a refresh once it loads: hold the control's place until then. */
         refreshExpected?: boolean;
+        /** Whether the header offers the owner Add observation, and whether this is that page. */
+        addObservation?: AddObservationEntry;
     };
 
     let {
         title,
         subtitle,
         onNavigate,
+        onPrefetch,
         actions,
         showOwnerActions = true,
         notificationsCurrent = false,
-        refreshExpected = false
+        settingsCurrent = false,
+        refreshExpected = false,
+        addObservation = { inHeader: false, inMenu: false, current: false }
     }: Props = $props();
 
     function goSettings() {
@@ -46,7 +55,7 @@
                 type="button"
                 onclick={() => void pageRefreshAction.run()}
                 disabled={!pageRefreshAction.available || pageRefreshAction.refreshing}
-                class="grid min-h-11 min-w-11 place-items-center rounded-xl text-muted transition-colors duration-200 hover:bg-surface-raised hover:text-strong focus-ring disabled:opacity-60 disabled:cursor-wait"
+                class="header-control disabled:opacity-60 disabled:cursor-wait"
                 title={$_('common.refresh')}
                 aria-label={$_('common.refresh')}
                 aria-busy={pageRefreshAction.refreshing}
@@ -56,16 +65,21 @@
                 </svg>
             </button>
         {/if}
+        <!-- After Refresh, which comes and goes with the page, so this keeps one place on every page. -->
+        {#if addObservation.inHeader}
+            <AddObservationLink variant="icon" current={addObservation.current} {onNavigate} {onPrefetch} />
+        {/if}
         <CameraStatus />
         <NotificationCenter
             current={notificationsCurrent}
             onNavigate={(path) => onNavigate?.(path)}
-            buttonClass="relative grid min-h-11 min-w-11 place-items-center rounded-xl text-muted transition-colors duration-200 hover:bg-surface-raised hover:text-strong focus-ring"
+            buttonClass={notificationsCurrent ? 'relative header-control-current' : 'relative header-control'}
         />
         <button
             type="button"
             onclick={goSettings}
-            class="grid min-h-11 min-w-11 place-items-center rounded-xl text-muted transition-colors duration-200 hover:bg-surface-raised hover:text-strong focus-ring"
+            class={settingsCurrent ? 'header-control-current' : 'header-control'}
+            aria-current={settingsCurrent ? 'page' : undefined}
             title={$_('nav.settings')}
             aria-label={$_('nav.settings')}
         >

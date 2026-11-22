@@ -7,6 +7,9 @@
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
+    import { serviceState, serviceStateText } from '../../settings/service-state';
+    import { formatTime } from '../../utils/datetime';
+    import { serviceTests } from '../../settings/service-tests.svelte';
     import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult, type DiagnosticStep } from '../../utils/diagnostic-runner';
     import { illuminanceStepOutcome, isHomeAssistantEntityId, type IlluminanceStepText } from '../../utils/illuminance';
     import { testHaWeather } from '../../api/maintenance';
@@ -109,7 +112,23 @@
         }
         hawResult = await runSequentialDiagnostic(steps, (stages) => (hawStages = stages));
         hawRunning = false;
+        serviceTests.record('ha_weather', { passed: hawResult.ok, message: hawResult.message }, hawSignature);
     }
+
+    // The group's state in words. The test describes the values it ran with, so an edit retires it.
+    // Kept for the visit, so the result is still here after another section was opened.
+    const hawTest = $derived(serviceTests.last('ha_weather'));
+    const hawSignature = $derived([haWeatherBaseUrl, haWeatherAccessToken, haWeatherEntity, haWeatherIlluminanceEntity].join('|'));
+    const hawMissing = $derived(
+        !haWeatherBaseUrl.trim()
+            ? $_('settings.integrations.state.needs_ha_url', { default: 'add the Home Assistant URL' })
+            : !haWeatherAccessToken && !haWeatherAccessTokenSaved
+                ? $_('settings.integrations.state.needs_ha_token', { default: 'add a long-lived access token' })
+                : !haWeatherNamesWeather && !haWeatherIlluminanceEntity.trim()
+                    ? $_('settings.integrations.state.needs_ha_entity', { default: 'choose a weather entity or a sensor' })
+                    : null
+    );
+    const haWeatherState = $derived(serviceStateText(serviceState({ enabled: haWeatherEnabled, missing: hawMissing, signature: hawSignature, test: hawTest }), $_, formatTime));
 
     function illuminanceStepText(): IlluminanceStepText {
         return {
@@ -127,7 +146,7 @@
     }
 </script>
 
-    <SettingsCard id="settings-group-integrations-ha-weather" nested title={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })} description={$_('settings.integrations.ha_weather.toggle_label', { default: 'Record the weather from your own sensors instead of the forecast API. A sensor that cannot answer reads as unknown, never as a forecast.' })} titleId="integration-ha-weather-title">
+    <SettingsCard id="settings-group-integrations-ha-weather" title={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })} description={$_('settings.integrations.ha_weather.toggle_label', { default: 'Record the weather from your own sensors instead of the forecast API. A sensor that cannot answer reads as unknown, never as a forecast.' })} status={haWeatherState} titleId="integration-ha-weather-title">
         <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
         {#snippet actions()}
             <SettingsToggle

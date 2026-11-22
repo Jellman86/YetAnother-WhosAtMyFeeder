@@ -13,10 +13,10 @@ turn on a separate read-only public view to share your detections.
 
 By default, authentication is **disabled** to allow easy first-time setup. To enable it:
 
-1.  Navigate to **Settings → Sharing & integrations**.
+1.  Navigate to **Settings → Access & privacy**.
 2.  Set a strong password.
 3.  Turn on **Sign-in** (the switch in the card's header).
-4.  (Optional) Enable **Public Access** if you want to share your dashboard.
+4.  (Optional) Turn on **Public access** (the switch in its card's header) if you want to share your dashboard.
 
 On a fresh installation, YA-WAMF opens the guided setup automatically because
 `auth.initial_setup_complete` is false and no password exists. The account step
@@ -83,9 +83,10 @@ has already completed setup does not reopen the wizard.
 Public Access lets anyone with the link browse your detections while the settings and every
 management action stay behind your login.
 
-![Settings → Sharing & integrations: the Sign-in card switched on, with the profile picture, the owner user name and the new password fields, then Public access switched off](../images/settings-security.png)
+![Settings → Access & privacy: the Sign-in card switched on, with the profile picture, the owner user name and the new password fields, then Public access switched off](../images/settings-security.png)
 
-- **Enable:** in **Settings → Sharing & integrations**, turn on **Enable public access**.
+- **Enable:** in **Settings → Access & privacy**, turn on **Public access** with the switch in
+  its card's header. Sign-in must be on first.
 - Guests cannot change settings, delete, hide, or reclassify detections, or start new AI
   Naturalist analysis. They can read analysis you have already run.
 - Guests are rate-limited (default **30 requests per minute**) to prevent abuse.
@@ -98,14 +99,14 @@ medium is not shared rather than shown a broken image or an error.
 | Control | Default | What it decides |
 |---|---|---|
 | **Show camera names** | On | Guests see each camera's name. Off shows a generic label instead. |
-| **Share audio with visitors** | On | BirdNET-Go detections, spectrograms, and audio clips. Off means no audio surfaces at all. |
-| **Share photographs with visitors** | On | Snapshots and thumbnails. Off means visitors see placeholders instead of images. |
-| **Share video with visitors** | On | Clip playback. |
+| **Share audio with guests** | On | BirdNET-Go detections, spectrograms, and audio clips. Off means no audio surfaces at all. |
+| **Share photographs with guests** | On | Snapshots and thumbnails. Off means visitors see placeholders instead of images. |
+| **Share video with guests** | On | Clip playback. |
 | **Allow clip downloads** | **Off** | Whether a guest can save a clip file, rather than only stream it. |
 | **Show AI conversation threads** | **Off** | Whether guests can read the AI Naturalist conversation, not just the summary. |
-| **History window** | Follow retention | How far back the public detection list reaches, capped at 365 days. In custom mode, `0` means today only. |
-| **Media window** | Follow retention | How far back snapshots and clips are served, capped at 365 days. In custom mode, `0` means today only. |
-| **Location shown to visitors** | **Approximate** | How precisely guest-facing features may use your configured location. |
+| **History window (days)** | **Same as retention policy** | How far back the public detection list reaches, capped at 365 days. In custom mode, `0` means today only. |
+| **Media window (days)** | **Same as retention policy** | How far back snapshots and clips are served, capped at 365 days. In custom mode, `0` means today only. |
+| **Location shown to guests** | **Approximate** | How precisely guest-facing features may use your configured location. |
 
 While the **Garden animals** beta is on, guests also see confirmed Garden animals, under the same
 switches and windows as bird detections. Captures waiting for review, dismissed captures and every
@@ -116,7 +117,7 @@ setting. “Today only” starts at 00:00 UTC and excludes the next midnight; a 
 window starts at 00:00 UTC `N` days ago. Capture times can still be displayed in your local
 timezone. Photographs in About and leaderboard portraits follow the same media calendar.
 
-**With the default Keep Everything retention policy, both public windows cover 365 days.**
+**With the default Keep everything retention policy, both public windows cover 365 days.**
 The stored seven-day values apply only when you select custom windows. Check both windows
 before sharing your URL.
 
@@ -139,27 +140,27 @@ historical media are shared.
 2. **Limit the history and media windows** to the shortest span you are happy to publish.
 3. **Turn off Show camera names** unless you want them public.
 4. **Leave clip downloads off** unless someone actually needs the files.
-5. **Set Trusted Proxy Hosts** so `X-Forwarded-*` headers cannot be spoofed.
+5. **Set Trusted proxy hosts** so `X-Forwarded-*` headers cannot be spoofed.
 6. **Keep the instance behind a single reverse proxy** with HTTPS.
 7. **Read your AI output** before publishing it — it is generated text on a public page.
 
 To check the result, open your public URL in a private browser window. A guest session is labelled
-**Public view** at the foot of the sidebar, with a **Log in** button beside it, so you can tell at
+**Public view** at the foot of the sidebar, with a **Sign in** button beside it, so you can tell at
 a glance which view you are looking at.
 
 ### Guest view: troubleshooting
 
-- **Guests see nothing:** confirm **Enable public access** is on and there are detections within
+- **Guests see nothing:** confirm **Public access** is on and there are detections within
   the history window. A custom window of `0` shows only today’s detections.
 - **Guests see settings:** authentication is disabled. Enable it and set a password.
-- **Guests see grey placeholders instead of birds:** **Share photographs with visitors** is off, or
+- **Guests see grey placeholders instead of birds:** **Share photographs with guests** is off, or
   the detection is older than the media window.
 - **HTTPS warning appears:** make sure your reverse proxy passes `X-Forwarded-Proto`, and set
-  Trusted Proxy Hosts (below).
+  **Trusted proxy hosts** (below).
 
 ## Reverse Proxy & Trusted Hosts
 
-If you run YA-WAMF behind a reverse proxy (e.g., Nginx or Cloudflare Tunnel), you should **explicitly set Trusted Proxy Hosts** in **Settings → Sharing & integrations**.
+If you run YA-WAMF behind a reverse proxy (e.g., Nginx or Cloudflare Tunnel), you should **explicitly set Trusted proxy hosts** in **Settings → Access & privacy → Sign-in → Session & reverse proxy**.
 
 - This tells YA-WAMF which proxy IPs, CIDR ranges, or hostnames/container names are allowed to set `X-Forwarded-*` headers.
 - The default is permissive (trusts all proxies) for compatibility with existing installs.

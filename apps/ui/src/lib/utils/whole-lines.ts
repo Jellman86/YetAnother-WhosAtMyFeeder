@@ -33,7 +33,9 @@ export function wholeLinesFit({ lineEnds, floor, room, chrome }: { lineEnds: rea
         if (available < 0) return { show: 'none' };
         return Math.max(0, ...lineEnds) <= available ? { show: 'all' } : { show: 'some', height: available };
     }
-    return height <= available + 1 ? { show: 'some', height: Math.min(height, available) } : { show: 'none' };
+    // Judged on the floor's own end, not its rounded one: rounding first let a floor line overhanging
+    // by up to two pixels pass, and the cut to the room then took the foot of its letters.
+    return height <= available + 1 && floor <= available + 1 ? { show: 'some', height: Math.min(height, available) } : { show: 'none' };
 }
 
 /**

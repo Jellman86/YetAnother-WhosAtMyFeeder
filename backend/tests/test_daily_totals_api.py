@@ -285,8 +285,9 @@ async def test_a_guest_never_sees_a_sealed_day_that_began_before_the_shared_wind
     _as_guest(monkeypatch, 15)
     body = (await client.get("/api/stats/detections/timeline?span=all")).json()
     # Not the sealed day's total of 4, which counts captures from before the window: only the
-    # favourite still stored inside it, which a guest can already see.
-    assert _counts(body) == {"2036-02-10": 1, "2036-02-20": 2}
+    # favourite still stored inside it, which a guest can already see. With no header the buckets
+    # are Berlin days, so the 10th and the 20th start at 23:00 UTC the evening before.
+    assert _counts(body) == {"2036-02-09": 1, "2036-02-19": 2}
     assert body["daily_totals"]["totals_through"] is None
     assert (await client.get("/api/species/Parus%20major/stats")).status_code == 404
 
@@ -344,3 +345,169 @@ async def test_a_species_whose_own_sealed_days_are_whole_is_not_called_possibly_
     assert tit["daily_totals"] == {"totals_through": "2036-02-10", "complete_from": None, "partial": False}
     blackbird = (await client.get("/api/species/Turdus%20merula/stats")).json()
     assert blackbird["daily_totals"]["partial"] is True
+
+
+def _leaderboard(body):
+    return {row["species"]: row for row in body["species"]}
+
+
+def _all_time(body):
+    return {row["species"]: row["count"] for row in body}
+
+
+# A hidden capture is counted nowhere: not on the day sealed by cleanup, not on a live day.
+HIDDEN_ROWS = [
+    ("old-hidden", "2036-02-10 11:00:00", "Turdus merula"),
+    ("new-hidden", "2036-02-20 13:00:00", "Turdus merula"),
+]
+
+
+async def _with_hidden_rows(serve, rows=DEFAULT_ROWS, **options):
+    client, db_factory = await serve(
+        [*rows, *[(event, at, species, False) for event, at, species in HIDDEN_ROWS]], **options
+    )
+    return client, db_factory
+
+
+@pytest_asyncio.fixture
+async def hide_before_sealing(monkeypatch):
+    """Hide the HIDDEN_ROWS as each is stored, so the cleanup that seals 10 Feb already sees them hidden."""
+    original = _capture
+
+    async def capture(db, event, at, species, favourite=False, species_id=None):
+        await original(db, event, at, species, favourite, species_id)
+        if event in {row[0] for row in HIDDEN_ROWS}:
+            await db.execute("UPDATE detections SET is_hidden = 1 WHERE frigate_event = ?", (event,))
+
+    monkeypatch.setattr(sys.modules[__name__], "_capture", capture)
+
+
+@pytest.mark.asyncio
+async def test_the_month_leaderboard_counts_a_sealed_day_from_its_totals_and_a_kept_capture_once(
+    serve, hide_before_sealing
+):
+    client, _db = await _with_hidden_rows(serve)
+    response = await client.get("/api/leaderboard/species?span=month")
+    assert response.status_code == 200, response.text
+    rows = _leaderboard(response.json())
+    # Three Blackbirds sealed on 10 Feb (the kept favourite among them) and two live on the 20th.
+    assert rows["Turdus merula"]["window_count"] == 5
+    # Two visits on the 10th (08:00 and 10:00) and two on the 20th.
+    assert rows["Turdus merula"]["window_visit_count"] == 4
+    # A species whose only captures were cleaned up is still on the board.
+    assert rows["Parus major"]["window_count"] == 1
+    assert rows["Parus major"]["window_visit_count"] == 1
+    assert rows["Parus major"]["window_first_seen"] is None
+    # Confidence describes the stored captures only, not a day total that has no scores.
+    assert rows["Turdus merula"]["window_avg_confidence"] == pytest.approx(0.9)
+
+
+@pytest.mark.asyncio
+async def test_a_leaderboard_window_that_opens_during_a_sealed_day_keeps_only_its_stored_captures(serve):
+    rows = [
+        ("edge-bb-1", "2036-02-18 08:00:00", "Turdus merula", False),
+        ("edge-bb-2", "2036-02-18 14:00:00", "Turdus merula", True),
+        ("edge-bb-3", "2036-02-18 15:00:00", "Turdus merula", False),
+        ("live-bb-1", "2036-02-20 08:00:00", "Turdus merula", False),
+    ]
+    client, _db = await serve(rows, cutoff=datetime(2036, 2, 19, 6, 0))
+    # The week opens at noon on 18 Feb: that day is only partly inside it, so its total of three is
+    # not taken. The favourite stored at 14:00 is inside the window and counts; the prior week,
+    # which ends at that noon, has no stored capture left and takes no part-day total either.
+    week = _leaderboard((await client.get("/api/leaderboard/species?span=week")).json())
+    assert week["Turdus merula"]["window_count"] == 2
+    assert week["Turdus merula"]["window_prev_count"] == 0
+    # The month holds the whole of 18 Feb, so it takes that day's total and not the favourite again.
+    month = _leaderboard((await client.get("/api/leaderboard/species?span=month")).json())
+    assert month["Turdus merula"]["window_count"] == 4
+
+
+@pytest.mark.asyncio
+async def test_the_previous_window_counts_its_sealed_days_too(serve, monkeypatch):
+    client, _db = await serve()
+    # The week to 15 Feb at noon holds the whole of the sealed 10th.
+    monkeypatch.setattr(sys.modules[__name__], "NOW", datetime(2036, 2, 15, 12, 0))
+    rows = _leaderboard((await client.get("/api/leaderboard/species?span=week")).json())
+    assert rows["Turdus merula"]["window_count"] == 3
+    # A week later the 10th is in the week before, which counts it from its total too.
+    monkeypatch.setattr(sys.modules[__name__], "NOW", datetime(2036, 2, 21, 12, 0))
+    rows = _leaderboard((await client.get("/api/leaderboard/species?span=week")).json())
+    assert rows["Turdus merula"]["window_count"] == 2
+    assert rows["Turdus merula"]["window_prev_count"] == 3
+    assert rows["Turdus merula"]["window_prev_visit_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_unknown_birds_on_a_sealed_day_stay_on_the_leaderboard(serve):
+    client, _db = await serve([*DEFAULT_ROWS, ("old-unknown", "2036-02-10 07:00:00", "Unknown Bird", False)])
+    rows = _leaderboard((await client.get("/api/leaderboard/species?span=month")).json())
+    assert rows["Unknown Bird"]["window_count"] == 1
+    assert rows["Turdus merula"]["window_count"] == 5
+    # Every Unknown capture in the window is known only from a daily total, so no score was measured.
+    assert rows["Unknown Bird"]["window_avg_confidence"] is None
+
+
+@pytest.mark.asyncio
+async def test_a_capture_frigate_lost_still_counts_on_the_leaderboard_and_the_species_list(serve):
+    client, db_factory = await serve()
+    async with db_factory() as db:
+        assert await DailyTotalsRepository(db).delete_lost_capture("new-bb-2", zone=timezone.utc, now=NOW)
+    rows = _leaderboard((await client.get("/api/leaderboard/species?span=month")).json())
+    assert rows["Turdus merula"]["window_count"] == 5
+    assert _all_time((await client.get("/api/species")).json())["Turdus merula"] == 5
+
+
+@pytest.mark.asyncio
+async def test_the_all_time_species_list_keeps_its_counts_after_cleanup(serve, hide_before_sealing):
+    client, _db = await _with_hidden_rows(
+        serve, [*DEFAULT_ROWS, ("old-unknown", "2036-02-10 07:00:00", "Unknown Bird", False)]
+    )
+    response = await client.get("/api/species")
+    assert response.status_code == 200, response.text
+    counts = _all_time(response.json())
+    assert counts["Turdus merula"] == 5
+    assert counts["Parus major"] == 1
+    assert counts["Unknown Bird"] == 1
+    great_tit = next(row for row in response.json() if row["species"] == "Parus major")
+    assert great_tit["first_seen"] is None
+    # Ordered by the count it now reports.
+    assert [row["count"] for row in response.json()] == sorted(counts.values(), reverse=True)
+
+
+@pytest.mark.asyncio
+async def test_a_guest_species_list_and_leaderboard_take_no_sealed_day_before_the_shared_window(serve, monkeypatch):
+    client, _db = await serve(zone="Europe/Berlin")
+    _as_guest(monkeypatch, 15)
+    counts = _all_time((await client.get("/api/species")).json())
+    # The favourite still stored on the 10th is visible to a guest; the day's total is not.
+    assert counts == {"Turdus merula": 3}
+    rows = _leaderboard((await client.get("/api/leaderboard/species?span=month")).json())
+    assert rows["Turdus merula"]["window_count"] == 3
+    assert "Parus major" not in rows
+
+
+@pytest.mark.asyncio
+async def test_a_species_known_only_from_a_daily_total_claims_no_confidence(serve):
+    client, _db = await serve()
+    rows = _leaderboard((await client.get("/api/leaderboard/species?span=month")).json())
+    assert rows["Parus major"]["window_avg_confidence"] is None
+    species = next(row for row in (await client.get("/api/species")).json() if row["species"] == "Parus major")
+    assert species["avg_confidence"] is None
+
+
+@pytest.mark.asyncio
+async def test_a_bird_whose_identity_moved_after_its_day_was_sealed_is_one_row(serve):
+    """The catalogue backfill gives stored rows a species_id; the sealed day keeps its older key (#359)."""
+    client, db_factory = await serve()
+    async with db_factory() as db:
+        await db.execute("UPDATE detections SET species_id = 4242 WHERE scientific_name = 'Turdus merula'")
+        await db.commit()
+    body = (await client.get("/api/species")).json()
+    blackbirds = [row for row in body if row["species"] == "Turdus merula"]
+    assert len(blackbirds) == 1
+    assert blackbirds[0]["count"] == 5
+    # The stored row still supplies the times and confidence the daily total cannot.
+    assert blackbirds[0]["first_seen"] is not None
+    assert blackbirds[0]["avg_confidence"] == pytest.approx(0.9)
+    rows = _leaderboard((await client.get("/api/leaderboard/species?span=month")).json())
+    assert rows["Turdus merula"]["window_count"] == 5

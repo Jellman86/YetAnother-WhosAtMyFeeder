@@ -313,7 +313,7 @@
     "conversation_loading": "Chargement de la conversation…",
     "conversation_empty": "Aucune conversation pour le moment. Posez une question de suivi à l’IA.",
     "conversation_placeholder": "Posez une question de suivi…",
-    "conversation_error": "L’IA n’a pas répondu. Vérifiez le fournisseur et la clé dans Paramètres → Partage et intégrations, puis reposez la question.",
+    "conversation_error": "L’IA n’a pas répondu. Vérifiez le fournisseur et la clé dans Paramètres → Intégrations, puis reposez la question.",
     "assistant": "Assistant",
     "user": "Vous",
     "send": "Envoyer",

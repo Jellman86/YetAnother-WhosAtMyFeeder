@@ -250,8 +250,6 @@
   "tabs": {
     "connection": "Conexión",
     "detection": "Nombres y filtros",
-    "notifications": "Notificaciones",
-    "integrations": "Integraciones",
     "data": "Datos",
     "security": "Seguridad",
     "appearance": "Apariencia",
@@ -267,13 +265,22 @@
     "models": "Modelos",
     "maintenance": "Mantenimiento",
     "refused": "necesita un arreglo",
-    "refused_note": "Tiene un valor que el último guardado rechazó"
+    "refused_note": "Tiene un valor que el último guardado rechazó",
+    "location": "Ubicación",
+    "birdnet": "BirdNET-Go",
+    "weather": "Clima de Home Assistant",
+    "rules": "Filtros globales de notificaciones",
+    "channels": "Canales",
+    "garden-alerts": "Alertas de animales del jardín",
+    "telemetry": "Telemetría",
+    "networks": "eBird, iNaturalist y BirdWeather"
   },
   "sections": {
     "cameras": "Cámaras y conexión",
     "identification": "Identificar aves",
-    "alerts": "Alertas",
-    "sharing": "Compartir e integraciones",
+    "integrations": "Integraciones",
+    "notifications": "Notificaciones",
+    "access": "Acceso y privacidad",
     "storage": "Almacenamiento y mantenimiento",
     "display": "Visualización"
   },
@@ -299,9 +306,8 @@
       "finder": "Buscador de aves",
       "audio": "BirdNET-Go",
       "storage": "Almacenamiento",
-      "notifications": "Alertas"
+      "notifications": "Notificaciones"
     },
-    "sharing_note": "Nada de aquí depende de una conexión medida. Aquí se configuran el inicio de sesión y el acceso de invitados; cada servicio en Más opciones indica si está activado.",
     "cause": {
       "classifier": {
         "model_missing": "no está en esta instalación"
@@ -317,7 +323,7 @@
       "finder": "El buscador de aves localiza cada ave en una foto llena antes de nombrarla. Es opcional.",
       "audio": "BirdNET-Go escucha los cantos, para que una visita pueda relacionarse con lo oído.",
       "storage": "Las fotos y los vídeos se guardan en la carpeta de medios de esta instalación.",
-      "notifications": "Las alertas salen por tus canales cuando una visita merece una."
+      "notifications": "Las notificaciones salen por tus canales cuando una visita merece una."
     },
     "why": {
       "mqtt": {
@@ -382,18 +388,18 @@
       "failed_unsaved": "Probado a las {time} con los valores de esta página, aún sin guardar: no funcionó. Ejecútala de nuevo para ver por qué.",
       "passed_subject_unsaved": "{subject} probado a las {time} con los valores de esta página, aún sin guardar: funcionó.",
       "failed_subject_unsaved": "{subject} probado a las {time} con los valores de esta página, aún sin guardar: no funcionó. Ejecútala de nuevo para ver por qué."
-    }
+    },
+    "access_note": "Nada aquí depende de una conexión medida. El inicio de sesión, el acceso de invitados y la telemetría indican aquí si están activados."
   },
   "more": {
     "title": "Más opciones",
-    "cameras": "Detalles de Frigate, origen de la imagen, clips y BirdNET-Go",
-    "sharing": "eBird, iNaturalist, BirdWeather, tiempo de Home Assistant, información de especies, IA y telemetría",
+    "cameras": "Detalles de Frigate, origen de la imagen y clips",
     "identification": "Especies bloqueadas, filtro de área de distribución, comprobaciones de vídeo, hardware y funciones beta",
     "identification_loading": "Abriendo más opciones…",
-    "alerts": "Enfriamiento, idioma, enlace y filtro de especies",
-    "alerts_garden": "Enfriamiento, idioma, enlace, filtro de especies y alertas de animales del jardín",
     "storage": "Cuando Frigate pierde una visita, y las tareas que reparan o completan el historial",
-    "display": "Formato de fecha y hora, cómo se nombran las aves, el diseño del Explorer, fuentes y colores, la accesibilidad predeterminada para todos, y unidades"
+    "display": "Formato de fecha y hora, cómo se nombran las aves, el diseño del Explorer, fuentes y colores, la accesibilidad predeterminada para todos, y unidades",
+    "notifications": "Enfriamiento, idioma, enlace y filtro de especies",
+    "integrations": "De dónde obtienen su información las páginas de especies"
   },
   "debug": {
     "llm_prompt_style_label": "Estilo de prompt",
@@ -602,6 +608,27 @@
       "illuminance_not_numeric": "{entity} no informó un número, así que no se registra ningún nivel de luz.",
       "illuminance_out_of_range": "{entity} informó un valor fuera de 0 a 200.000 lx, así que no se registra.",
       "illuminance_no_answer": "La prueba no devolvió ninguna lectura de luz."
+    },
+    "elsewhere_pipeline": "Las visitas llegan a través de Frigate y el broker MQTT, por eso se configuran en {section}.",
+    "open_connection": "Abrir Frigate y MQTT",
+    "elsewhere_location": "El tiempo, eBird, iNaturalist y el filtro de distribución parten de la ubicación de tu comedero, que también se configura en {section}. El tiempo procede de Open-Meteo y no necesita configuración.",
+    "open_location": "Abrir la ubicación del comedero",
+    "state": {
+      "off": "Desactivado.",
+      "not_set_up": "Activado, pero sin configurar: {missing}.",
+      "no_test": "Activado y configurado. No tiene prueba de conexión.",
+      "not_tested": "Activado y configurado. Aún sin probar; los resultados de las pruebas no se guardan entre visitas.",
+      "passed": "Activado. La prueba se superó a las {time}.",
+      "failed": "Activado, pero la prueba falló a las {time}: {reason}",
+      "needs_station_token": "añade el token de tu estación",
+      "needs_api_key": "añade una clave de API",
+      "inaturalist_connected": "Activado, con la sesión iniciada como {user}.",
+      "needs_inaturalist_sign_in": "conecta tu cuenta de iNaturalist más abajo",
+      "needs_inaturalist_app": "añade el ID y el secreto de la aplicación",
+      "needs_audio_topic": "añade el tema MQTT en el que publica BirdNET-Go",
+      "needs_ha_url": "añade la URL de Home Assistant",
+      "needs_ha_token": "añade un token de acceso de larga duración",
+      "needs_ha_entity": "elige una entidad meteorológica o un sensor"
     }
   },
   "enrichment": {
@@ -767,8 +794,8 @@
     "recording_frame_delay_desc": "Espera de 1 a 120 segundos desde la primera instantánea. Usa los metadatos más recientes recibidos durante la espera. La identificación y los avisos llegan más tarde. No espera al final de todos los eventos ni reclasifica detecciones guardadas.",
     "test_connection_both": "Probar Frigate y MQTT",
     "test_again": "Probar de nuevo",
-    "stage_frigate_next": "Comprueba la URL del servidor de Frigate en esta pestaña y que Frigate esté en marcha.",
-    "stage_mqtt_next": "Comprueba la dirección del broker, el puerto y el inicio de sesión en esta pestaña.",
+    "stage_frigate_next": "Comprueba la URL del servidor en {section} y que Frigate esté funcionando.",
+    "stage_mqtt_next": "Comprueba la dirección del broker, el puerto y el inicio de sesión en {section}.",
     "more_title": "Detalles de Frigate"
   },
   "cameras": {
@@ -965,7 +992,7 @@
       "what_realtime": "cada actualización",
       "what_silent": "en silencio",
       "what_custom": "reglas personalizadas",
-      "custom_hint": "Las reglas personalizadas se definen en Avanzado, más abajo.",
+      "custom_hint": "Tus propios disparadores, definidos con los interruptores bajo esta frase. Como máximo una alerta por visita.",
       "species_any": "cualquier especie",
       "species_all_but": "{count, plural, one {todas menos # especie} other {todas menos # especies}}",
       "species_only": "{count, plural, one {solo # especie} other {solo # especies}}",
@@ -976,7 +1003,8 @@
       "channel_telegram": "Telegram",
       "channel_email": "Correo",
       "confidence_chip_audio": "{value}% de certeza y oídas",
-      "channels_jump": "Canales: {channels}. Ir a los canales."
+      "channels_jump": "Canales: {channels}. Ir a los canales.",
+      "custom_open": "Reglas personalizadas"
     },
     "test_channel": "Canal",
     "test_failed": "No se pudo enviar el mensaje de prueba.",
@@ -1011,7 +1039,21 @@
     "channels_title": "Canales",
     "details_title": "Enfriamiento, idioma, enlaces y especies",
     "garden_title": "Alertas de animales del jardín",
-    "channels_desc": "Adónde van los avisos. Active un canal para configurarlo."
+    "channels_desc": "Adónde van los avisos. Active un canal para configurarlo.",
+    "include_snapshot": "Enviar la foto",
+    "include_snapshot_desc": "Envía la instantánea de la visita con cada alerta. Desactivado, solo se envía el texto.",
+    "custom_rules": {
+      "title": "Reglas personalizadas",
+      "active": "Tus propios disparadores. Una visita envía como máximo una alerta, así que no pueden repetirla cuando la visita cambia: para eso elige cada actualización en la frase de arriba.",
+      "desc": "Estos interruptores solo tienen efecto con reglas personalizadas. Las demás opciones de la frase de arriba fijan sus propios disparadores y los ignoran. Elige allí reglas personalizadas para usarlos.",
+      "on_insert": "Cuando empieza una visita",
+      "on_insert_desc": "Envía la alerta cuando Frigate informa de la visita por primera vez, si para entonces el nombre es lo bastante seguro.",
+      "on_update": "Más tarde, si aún no se ha enviado ninguna",
+      "on_update_desc": "Envía la única alerta cuando Frigate actualiza la visita más tarde, si no salió ninguna al principio: porque el interruptor de arriba está desactivado o el nombre aún no era lo bastante seguro. Nunca envía una segunda alerta.",
+      "delay_video": "Esperar a la comprobación de vídeo",
+      "delay_video_desc": "Retiene la alerta hasta que la comprobación de vídeo confirma el nombre, o durante los segundos de abajo si nunca responde. Requiere activar las comprobaciones de vídeo en {section}."
+    },
+    "garden_off": "Las alertas de animales del jardín se configuran aquí cuando se activa Animales del jardín, en las funciones beta de {section}."
   },
   "discord": {
     "title": "Notificaciones de Discord",
@@ -1142,6 +1184,8 @@
     "gpu_setup_docs": "Guía de configuración y diagnóstico de GPU",
     "inference_provider": "El modelo de identificación se ejecuta en",
     "auto_detected": "Detectado automáticamente",
+    "auto_detected_verified": "Detectado automáticamente · verificado ✓",
+    "auto_detected_unverified": "Detectado automáticamente · sin verificar",
     "active_provider_label": "Activo",
     "intel_gpu_status": "GPU Intel",
     "provider_fallback_reason": "Fallback:",
@@ -1280,7 +1324,7 @@
     "model_manager_repair_download": "Reparar descarga",
     "model_manager_repair_needed": "La instalación de este modelo está incompleta. Vuelve a descargarlo para restaurar los nombres de especies o la configuración del modelo que faltan antes de activarlo.",
     "model_manager_location_title": "Usa la ubicación de tu comedero",
-    "model_manager_location_desc": "Este modelo también usa las coordenadas del comedero guardadas en Ajustes → Compartir e integraciones → Ubicación. Si no hay coordenadas válidas guardadas, identifica las aves sin ubicación. No usa la fecha ni un radio de precisión de la ubicación.",
+    "model_manager_location_desc": "Este modelo también usa las coordenadas del comedero guardadas en {place}. Si no hay coordenadas válidas guardadas, identifica las aves sin ubicación. No usa la fecha ni un radio de precisión de la ubicación.",
     "model_manager_location_link": "Abrir ajustes de ubicación",
     "provider_intel_npu": "NPU Intel (OpenVINO)",
     "bird_finder_title": "Buscador de aves",
@@ -1437,7 +1481,7 @@
     "garden_motion_toggle": "Recopilar fotos de movimiento para revisar en {camera}",
     "garden_naming_off": "Cada animal espera en Por revisar hasta que lo confirmes y lo nombres.",
     "garden_naming_elsewhere": "El nombrado automático se configura junto al umbral de identificación de las aves, al principio de Identificar aves.",
-    "garden_alerts_elsewhere": "Las alertas de animales del jardín se configuran en Alertas, junto a los canales por los que se envían.",
+    "garden_alerts_elsewhere": "Las alertas de animales del jardín se configuran en {section}, junto a los canales por los que se envían.",
     "garden_naming_threshold_help": "Es una segunda comprobación, sobre qué animal es. Desde este valor, el animal se confirma y se nombra por usted. Por debajo, su foto va a Descartadas, desde donde puede restaurarla.",
     "garden_naming_threshold": "Nombrar un animal con esta certeza de cuál es",
     "garden_naming": "Nombrar animales automáticamente",
@@ -1468,7 +1512,7 @@
     "garden_models_error": "El trabajo del jardín está detenido hasta que se reinicie la aplicación.",
     "garden_models_status_needed": "Las descargas estarán disponibles cuando se cargue el estado de los modelos.",
     "garden_country": "Los nombres de animales se filtran para {country}.",
-    "garden_country_missing": "No hay país definido, así que los animales no se nombran automáticamente y las sugerencias de especie no están disponibles. Define tu ubicación en Integraciones.",
+    "garden_country_missing": "No hay país definido, así que los animales no se nombran automáticamente y no hay sugerencias de especie. Define la ubicación de tu comedero en {section}.",
     "garden_outcomes": "Adónde van las capturas",
     "garden_outcome_pending_review": "Comprobaciones pendientes, comprobaciones fallidas a la espera de reintento, configuración o identidad de catálogo ausentes y anulaciones del propietario.",
     "garden_outcome_confirmed": "Animales que confirmas y animales seguros nombrados automáticamente. Un nombre automático se marca como automático y se puede descartar.",
@@ -1505,14 +1549,14 @@
     "garden_step_model": "Descarga el {model}.",
     "garden_step_model_open": "Configurar los modelos del jardín",
     "garden_step_location": "Define tu ubicación para que el jardín sepa tu país y pueda nombrar animales.",
-    "garden_step_location_open": "Definir ubicación en integraciones",
+    "garden_step_location_open": "Definir la ubicación del comedero",
     "garden_off_note": "El jardín deja de recoger capturas nuevas. Las capturas y los ajustes existentes se conservan y vuelven cuando lo actives de nuevo.",
     "garden_off_effects": "Mientras está desactivado, el jardín se oculta en el Explorador, sus alertas se detienen y las aves que tienes se registran como aves silvestres. La retención del historial sigue aplicándose a las capturas guardadas.",
     "garden_section_cameras": "Cámaras",
     "garden_section_checks": "Comprobaciones automáticas",
     "garden_section_models": "Modelos",
     "garden_naming_help": "Los animales que alcanzan el umbral de nombre se confirman y se nombran. Las fotos por debajo van a Descartadas, donde puedes restaurarlas.",
-    "garden_device_note": "Las comprobaciones automáticas usan el dispositivo elegido en Ajustes › Modelos › Hardware cuando coincide con la CPU, y vuelven a la CPU si falla. Los escaneos de movimiento usan la CPU. El jardín ejecuta una tarea a la vez mientras las aves y las cámaras están inactivas.",
+    "garden_device_note": "Las comprobaciones automáticas usan el dispositivo elegido en {place} cuando coincide con la CPU, y vuelven a la CPU si falla. Los escaneos de movimiento usan la CPU. El jardín ejecuta una tarea a la vez mientras las aves y las cámaras están inactivas.",
     "garden_status_refresh": "Actualizar estado",
     "garden_status_loading": "Comprobando el estado del jardín…",
     "garden_domestic_birds_count": "{count, plural, =0 {Ninguna} one {# ave} other {# aves}}",
@@ -1556,7 +1600,7 @@
     "status_ready": "Desactivado. Al activarlo filtraría a {count, plural, one {# especie} other {# especies}} registradas en {region}.",
     "status_needs_location": "Desactivado: necesita tu ubicación.",
     "status_needs_location_on": "Sin filtrar: necesita tu ubicación.",
-    "status_needs_location_detail": "El filtro usa la ubicación indicada en Integraciones para encontrar tu región de eBird.",
+    "status_needs_location_detail": "El filtro usa la ubicación de tu comedero, definida en {section}, para encontrar tu región de eBird.",
     "status_needs_key": "Añade una clave de API de eBird para usar el filtro de área de distribución.",
     "status_needs_key_detail": "La lista regional de eBird es la única fuente de distribución. BirdNET-Go puede mostrar que una especie está aquí, pero nunca que no lo está, así que por sí solo no filtra nada.",
     "status_fetching": "Descargando la lista de eBird de tu zona…",
@@ -1727,7 +1771,7 @@
     "recover_revalidate": "Comprobar y cargar de nuevo",
     "status_missing_next_settings": "Descárguelo abajo o elija otro modelo.",
     "status_missing_next_wizard": "Descárguelo aquí o elija otro modelo.",
-    "status_missing_next_about": "Descárguelo en Ajustes › Modelos.",
+    "status_missing_next_about": "Descárguelo en {place}.",
     "status_planned": "{model} identificará las aves en {device}. Se carga con la primera detección.",
     "status_planned_no_device": "{model} identificará las aves. Se carga con la primera detección.",
     "status_running": "Las aves se identifican con {model} en {device}.",

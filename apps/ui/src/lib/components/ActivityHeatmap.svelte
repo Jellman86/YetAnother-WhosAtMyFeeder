@@ -66,7 +66,9 @@
 
     function countLabel(count: number): string {
         if (unit === 'calls') {
-            return $_('audio.calls_heard', { values: { count }, default: '{count, plural, one {# call heard} other {# calls heard}}' });
+            return subject
+                ? $_('audio.heatmap.subject_calls', { values: { count, subject }, default: '{count, plural, one {# {subject} call heard} other {# {subject} calls heard}}' })
+                : $_('audio.calls_heard', { values: { count }, default: '{count, plural, one {# call heard} other {# calls heard}}' });
         }
         if (subject) {
             return $_('leaderboard.heatmap_subject_many', {

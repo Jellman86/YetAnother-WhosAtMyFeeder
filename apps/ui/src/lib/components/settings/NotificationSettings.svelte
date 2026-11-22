@@ -16,6 +16,9 @@
     import { NOTIFICATION_CHANNELS_SECTION_ID, type PolicyChannel } from '../../settings/notification-policy';
     import { requestErrorMessage } from '../../settings/error-message';
     import FieldRefusal from './_primitives/FieldRefusal.svelte';
+    import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import { settingsSectionName } from '../../settings/settings-place';
+    import { NOTIFICATION_CUSTOM_RULES_ID } from '../../settings/notification-policy';
     import { settingsFieldErrorLookup } from '../../settings/field-error-context';
 
     // Alerts' rules: when to notify, as one sentence (the section's first screen), and the cooldown,
@@ -107,6 +110,17 @@
         if (mode !== 'custom') {
             applyPreset(mode);
         }
+    }
+
+    // The triggers custom rules use. The backend reads them only in custom mode (every other choice
+    // in the sentence decides for itself; backend/tests/test_notification_custom_rules_contract.py
+    // pins that), so they can be changed only once custom rules is the choice.
+    const customRules = $derived(notifyMode === 'custom');
+    function setCustomRule(rule: 'insert' | 'update' | 'video', on: boolean): void {
+        if (!customRules) return;
+        if (rule === 'insert') notifyOnInsert = on;
+        else if (rule === 'update') notifyOnUpdate = on;
+        else notifyDelayUntilVideo = on;
     }
 
     const speciesFilterSectionId = 'notification-species-filter-section';
@@ -220,6 +234,82 @@
             {channels}
             channelsSectionId={NOTIFICATION_CHANNELS_SECTION_ID}
         />
+
+        <!-- The triggers custom rules use. Closed until wanted: the choices in the sentence cover most owners. -->
+        <AdvancedSection
+            id={NOTIFICATION_CUSTOM_RULES_ID}
+            title={$_('settings.notifications.custom_rules.title', { default: 'Custom rules' })}
+        >
+            <!-- What the switches are, and why they cannot be changed outside custom rules. -->
+            <p id="notifications-custom-rules-why" class="max-w-prose text-sm leading-relaxed text-muted" data-custom-rules-note={customRules ? 'active' : 'inactive'}>
+                {customRules
+                    ? $_('settings.notifications.custom_rules.active', { default: 'Your own triggers. A visit sends at most one alert, so these cannot repeat an alert as a visit changes: choose every update in the sentence above for that.' })
+                    : $_('settings.notifications.custom_rules.desc', { default: 'These switches take effect only with custom rules. The other choices in the sentence above set their own triggers and ignore them. Choose custom rules there to use these.' })}
+            </p>
+            <SettingsRow
+                labelId="setting-notify-on-insert"
+                label={$_('settings.notifications.custom_rules.on_insert', { default: 'When a visit starts' })}
+                description={$_('settings.notifications.custom_rules.on_insert_desc', { default: 'Sends the alert when Frigate first reports the visit, if its name is sure enough by then.' })}
+            >
+                <SettingsToggle
+                    checked={notifyOnInsert}
+                    labelledBy="setting-notify-on-insert"
+                    disabled={!customRules}
+                    describedBy="notifications-custom-rules-why"
+                    srLabel={$_('settings.notifications.custom_rules.on_insert', { default: 'When a visit starts' })}
+                    onchange={(on) => setCustomRule('insert', on)}
+                />
+            </SettingsRow>
+            <SettingsRow
+                labelId="setting-notify-on-update"
+                label={$_('settings.notifications.custom_rules.on_update', { default: 'Later, if no alert has gone' })}
+                description={$_('settings.notifications.custom_rules.on_update_desc', { default: 'Sends the one alert when Frigate later updates the visit, if none went at the start: the switch above is off, or the name was not sure enough yet. It never sends a second alert.' })}
+            >
+                <SettingsToggle
+                    checked={notifyOnUpdate}
+                    labelledBy="setting-notify-on-update"
+                    disabled={!customRules}
+                    describedBy="notifications-custom-rules-why"
+                    srLabel={$_('settings.notifications.custom_rules.on_update', { default: 'Later, if no alert has gone' })}
+                    onchange={(on) => setCustomRule('update', on)}
+                />
+            </SettingsRow>
+            <SettingsRow
+                labelId="setting-notify-delay-video"
+                label={$_('settings.notifications.custom_rules.delay_video', { default: 'Wait for the video check' })}
+                description={$_('settings.notifications.custom_rules.delay_video_desc', { values: { section: settingsSectionName('identification', $_) }, default: 'Holds the alert until the video check has confirmed the name, or for the seconds below if it never answers. Needs video checks on, in {section}.' })}
+            >
+                <!-- The seconds sit under the words they belong to, so the control column holds only
+                     the switch and the row keeps the card's measure, as the rows above it do. -->
+                {#snippet below()}
+                    {#if notifyDelayUntilVideo}
+                        <div class="flex flex-wrap items-center gap-2">
+                            <input
+                                id="notification-video-fallback"
+                                type="number"
+                                min="0"
+                                step="5"
+                                value={notifyVideoFallbackTimeout}
+                                oninput={(event) => (notifyVideoFallbackTimeout = Math.max(0, Math.floor(Number(event.currentTarget.value) || 0)))}
+                                disabled={!customRules}
+                                class="input-base min-h-11 w-24"
+                                aria-labelledby="notification-video-fallback-label notification-video-fallback-unit"
+                            />
+                            <span id="notification-video-fallback-label" class="sr-only">{$_('settings.notifications.video_fallback_timeout')}</span>
+                            <span id="notification-video-fallback-unit" class="text-sm text-muted">{$_('settings.notifications.video_fallback_seconds')}</span>
+                        </div>
+                    {/if}
+                {/snippet}
+                <SettingsToggle
+                    checked={notifyDelayUntilVideo}
+                    labelledBy="setting-notify-delay-video"
+                    disabled={!customRules}
+                    describedBy="notifications-custom-rules-why"
+                    srLabel={$_('settings.notifications.custom_rules.delay_video', { default: 'Wait for the video check' })}
+                    onchange={(on) => setCustomRule('video', on)}
+                />
+            </SettingsRow>
+        </AdvancedSection>
 </SettingsCard>
 {:else}
 <SettingsCard id="settings-group-notifications-details" nested title={$_('settings.notifications.details_title', { default: 'Cooldown, language, links and species' })}>
@@ -229,16 +319,10 @@
             <div class="min-w-0">
                 <span id="notification-cooldown-label" class="block text-base font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
                 <span class="mt-1 block max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.notifications.cooldown_desc')}</span>
-            </div>
-            <div class="min-w-0 space-y-3">
-                <SettingsToggle
-                    checked={notifyCooldownMinutes > 0}
-                    labelledBy="notification-cooldown-label"
-                    srLabel={$_('settings.notifications.cooldown')}
-                    onchange={(on) => (notifyCooldownMinutes = on ? lastCooldownMinutes : 0)}
-                />
+                <!-- The minutes sit under the words they belong to, so the control column holds only
+                     the switch and the row keeps its full measure whether the cooldown is on or off. -->
                 {#if notifyCooldownMinutes > 0}
-                    <div class="flex flex-wrap items-center gap-2">
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
                         <input
                             id="notification-cooldown-minutes"
                             type="number"
@@ -260,6 +344,14 @@
                         <span id="notification-cooldown-unit" class="text-sm text-slate-600 dark:text-slate-400">{$_('settings.notifications.cooldown_unit')}</span>
                     </div>
                 {/if}
+            </div>
+            <div class="min-w-0">
+                <SettingsToggle
+                    checked={notifyCooldownMinutes > 0}
+                    labelledBy="notification-cooldown-label"
+                    srLabel={$_('settings.notifications.cooldown')}
+                    onchange={(on) => (notifyCooldownMinutes = on ? lastCooldownMinutes : 0)}
+                />
             </div>
         </div>
 
@@ -335,7 +427,8 @@
                 </div>
             {/if}
             <div class="mt-4 grid gap-1 text-xs">
-                <div class="flex flex-wrap gap-x-3 gap-y-1">
+                <!-- One space between the words and what follows them, as in a sentence. -->
+                <div class="flex flex-wrap gap-x-1 gap-y-1">
                     <span class="text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_preview_telegram')}</span>
                     {#if linkPreview}
                         <span class="font-mono break-all text-slate-900 dark:text-white">{linkPreview}</span>

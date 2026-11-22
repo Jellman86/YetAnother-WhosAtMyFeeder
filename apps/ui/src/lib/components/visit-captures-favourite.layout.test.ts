@@ -11,7 +11,7 @@ describe('a visit capture list names its favourites', () => {
     for (const [name, source] of [['Explorer', explorerList], ['field log', fieldLogList]] as const) {
         it(`in the ${name} list`, () => {
             expect(source).toContain("if (facts.favorite)");
-            expect(source).toContain("$_('detection.favorite_label_active', { default: 'Favorited' })");
+            expect(source).toContain("$_('detection.favorite_label_active', { default: 'Favourited' })");
         });
     }
 });

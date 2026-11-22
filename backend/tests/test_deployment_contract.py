@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -398,6 +399,33 @@ def test_unraid_connection_settings_remain_editable_after_restart() -> None:
     assert pinned_connections == []
 
 
+def test_repository_contains_only_unraid_community_applications_xml_files() -> None:
+    """Unraid Community Applications scans every .xml file in the repository."""
+    import subprocess
+
+    git_result = subprocess.run(
+        ["git", "ls-files", "*.xml"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if git_result.returncode == 0:
+        xml_files = sorted(line.strip() for line in git_result.stdout.splitlines() if line.strip())
+    else:
+        ignored_dirs = {".git", ".venv", "node_modules", "dist", "build", "playwright-results", ".pytest_cache"}
+        xml_files = sorted(
+            path.relative_to(REPO_ROOT).as_posix()
+            for path in REPO_ROOT.rglob("*.xml")
+            if not any(part in ignored_dirs for part in path.relative_to(REPO_ROOT).parts)
+        )
+    assert xml_files == ["ca_profile.xml", "unraid/yawamf.xml"]
+    assert ET.parse(REPO_ROOT / "ca_profile.xml").getroot().tag == "CommunityApplications"
+    template_root = ET.parse(REPO_ROOT / "unraid/yawamf.xml").getroot()
+    assert template_root.tag == "Container"
+    assert template_root.get("version") == "2"
+
+
 def test_unraid_guide_has_a_local_template_import_and_complete_connection_setup() -> None:
     guide = (REPO_ROOT / "docs/setup/unraid.md").read_text(encoding="utf-8")
     assert "paste the template URL" not in guide
@@ -406,6 +434,16 @@ def test_unraid_guide_has_a_local_template_import_and_complete_connection_setup(
     assert "Settings → Cameras & connection" in guide
     assert "FRIGATE__FRIGATE_URL" in guide and "overrides" in guide
     assert "Docker Safe New" not in guide
+
+
+def test_hacs_manifest_exists_for_home_assistant_custom_component() -> None:
+    """HACS and Home Assistant Marketplace require a root hacs.json for tagged installs."""
+    hacs = json.loads((REPO_ROOT / "hacs.json").read_text(encoding="utf-8"))
+    manifest = json.loads((REPO_ROOT / "custom_components/yawamf/manifest.json").read_text(encoding="utf-8"))
+    assert isinstance(hacs, dict)
+    assert hacs.get("name") == manifest["name"]
+    assert hacs.get("render_readme") is True
+    assert manifest.get("domain") == "yawamf"
 
 
 @pytest.mark.parametrize(

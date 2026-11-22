@@ -400,8 +400,8 @@
     "arbitrary": 0
   },
   "lib/components/settings/NotificationPolicySentence.svelte": {
-    "palette": 39,
-    "dark": 18,
+    "palette": 37,
+    "dark": 17,
     "arbitrary": 0
   },
   "lib/components/settings/NotificationSettings.svelte": {

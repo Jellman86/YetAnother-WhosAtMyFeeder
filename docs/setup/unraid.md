@@ -85,7 +85,7 @@ the change, and save the URL in **Settings → Cameras & connection**. Keep inte
 environment overrides if you manage configuration externally.
 
 Authentication is disabled initially. Set an admin password during setup or
-under **Settings → Sharing & integrations** before exposing the service beyond a trusted
+under **Settings → Access & privacy** before exposing the service beyond a trusted
 network. See [Authentication & Access](../features/authentication.md).
 
 ## Optional: hardware acceleration
@@ -135,7 +135,7 @@ Port, Variable, Label or Device**, and add:
 - Config Type **Device**, Value `/dev/accel/accel0` — Intel Core Ultra "AI Boost" NPU (`intel_npu`).
 
 Add only the device you actually have. Run the model compatibility check, then pick a validated provider under
-**Settings → Identifying birds → More options → Hardware → Inference provider**, or keep **Auto**. GPU/NPU access can also require
+**Settings → Identifying birds → More options → Hardware → Identification model runs on**, or keep **Auto (recommended)**. GPU/NPU access can also require
 supplementary host groups. Look up the numeric group owning the render or
 accelerator device, then append `--group-add <gid>`
 to **Extra Parameters**, preserving `--user 99:100`. See

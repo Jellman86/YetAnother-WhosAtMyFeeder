@@ -208,6 +208,7 @@ export interface components {
     first_heard?: string | null;
     last_heard?: string | null;
     max_confidence: number;
+    scientific_name?: string | null;
     species: string;
 };
     AudioSummaryResponse: {
@@ -1803,7 +1804,7 @@ export interface components {
     species: string;
     taxa_id?: number | null;
     window_audio_confirmed_count?: number;
-    window_avg_confidence: number;
+    window_avg_confidence?: number | null;
     window_camera_count: number;
     window_confirmed_count?: number;
     window_count: number;
@@ -2578,6 +2579,7 @@ export interface components {
     notification_language?: string | null;
     notifications_delay_until_video?: boolean | null;
     notifications_discord_enabled?: boolean | null;
+    notifications_discord_include_snapshot?: boolean | null;
     notifications_discord_username?: string | null;
     notifications_discord_webhook_url?: string | null;
     notifications_email_connected_email?: string | null;
@@ -2613,11 +2615,13 @@ export interface components {
     notifications_pushover_api_token?: string | null;
     notifications_pushover_device?: string | null;
     notifications_pushover_enabled?: boolean | null;
+    notifications_pushover_include_snapshot?: boolean | null;
     notifications_pushover_priority?: number | null;
     notifications_pushover_user_key?: string | null;
     notifications_telegram_bot_token?: string | null;
     notifications_telegram_chat_id?: string | null;
     notifications_telegram_enabled?: boolean | null;
+    notifications_telegram_include_snapshot?: boolean | null;
     notifications_video_fallback_timeout?: number | null;
     personalized_rerank_enabled?: boolean | null;
     public_access_allow_clip_downloads?: boolean | null;
@@ -2800,6 +2804,7 @@ export interface components {
     notification_language?: string | null;
     notifications_delay_until_video?: boolean | null;
     notifications_discord_enabled?: boolean | null;
+    notifications_discord_include_snapshot?: boolean | null;
     notifications_discord_username?: string | null;
     notifications_discord_webhook_url?: string | null;
     notifications_email_dashboard_url?: string | null;
@@ -2834,11 +2839,13 @@ export interface components {
     notifications_pushover_api_token?: string | null;
     notifications_pushover_device?: string | null;
     notifications_pushover_enabled?: boolean | null;
+    notifications_pushover_include_snapshot?: boolean | null;
     notifications_pushover_priority?: number | null;
     notifications_pushover_user_key?: string | null;
     notifications_telegram_bot_token?: string | null;
     notifications_telegram_chat_id?: string | null;
     notifications_telegram_enabled?: boolean | null;
+    notifications_telegram_include_snapshot?: boolean | null;
     notifications_video_fallback_timeout?: number | null;
     personalized_rerank_enabled?: boolean | null;
     public_access_allow_clip_downloads?: boolean | null;
@@ -3469,6 +3476,7 @@ export interface paths {
     days?: number;
     end_date?: string | null;
     min_confidence?: number | null;
+    scientific_name?: string | null;
     source?: string | null;
     species?: string | null;
     start_date?: string | null;

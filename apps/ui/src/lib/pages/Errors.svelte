@@ -1465,7 +1465,7 @@
                         aria-label={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
                     />
                     <button type="button" class="btn btn-primary min-h-11 px-4 text-xs" onclick={() => exportCurrent(true)} disabled={exporting || refreshing || clearing}>
-                        {$_('jobs.error_bundles_capture', { default: 'Capture Bundle' })}
+                        {$_('jobs.error_bundles_capture', { default: 'Capture bundle' })}
                     </button>
                     <button type="button" class="btn btn-secondary min-h-11 px-4 text-xs" onclick={() => exportCurrent(false)} disabled={exporting || refreshing || clearing}>
                         {$_('jobs.errors_export_download_now', { default: 'Download without saving' })}

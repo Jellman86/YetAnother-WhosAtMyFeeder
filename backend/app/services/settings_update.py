@@ -606,6 +606,11 @@ def prepare_update(current: Settings, update: "SettingsUpdate", username: str) -
         candidate.notifications.discord.webhook_url = update.notifications_discord_webhook_url
     if "notifications_discord_username" in fields_set and update.notifications_discord_username:
         candidate.notifications.discord.username = update.notifications_discord_username
+    if (
+        "notifications_discord_include_snapshot" in fields_set
+        and update.notifications_discord_include_snapshot is not None
+    ):
+        candidate.notifications.discord.include_snapshot = update.notifications_discord_include_snapshot
 
     # Notifications - Pushover
     if "notifications_pushover_enabled" in fields_set and update.notifications_pushover_enabled is not None:
@@ -621,6 +626,11 @@ def prepare_update(current: Settings, update: "SettingsUpdate", username: str) -
         candidate.notifications.pushover.priority = update.notifications_pushover_priority
     if "notifications_pushover_device" in fields_set:
         candidate.notifications.pushover.device = update.notifications_pushover_device or None
+    if (
+        "notifications_pushover_include_snapshot" in fields_set
+        and update.notifications_pushover_include_snapshot is not None
+    ):
+        candidate.notifications.pushover.include_snapshot = update.notifications_pushover_include_snapshot
 
     # Notifications - Telegram
     if "notifications_telegram_enabled" in fields_set and update.notifications_telegram_enabled is not None:
@@ -633,6 +643,11 @@ def prepare_update(current: Settings, update: "SettingsUpdate", username: str) -
     # Only update chat ID if it's not the redacted placeholder
     if "notifications_telegram_chat_id" in fields_set and should_update_secret(update.notifications_telegram_chat_id):
         candidate.notifications.telegram.chat_id = update.notifications_telegram_chat_id
+    if (
+        "notifications_telegram_include_snapshot" in fields_set
+        and update.notifications_telegram_include_snapshot is not None
+    ):
+        candidate.notifications.telegram.include_snapshot = update.notifications_telegram_include_snapshot
 
     # Notifications - Email
     if "notifications_email_enabled" in fields_set and update.notifications_email_enabled is not None:

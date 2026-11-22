@@ -136,7 +136,7 @@ describe('the settings search index', () => {
     });
 
     it('reads components in subfolders, and reads rows, loops and loose controls the way it claims', () => {
-        expect(settingsComponentFiles()).toContain('sections/AlertsSection.svelte');
+        expect(settingsComponentFiles()).toContain('sections/NotificationsSection.svelte');
         const sources: Record<string, string> = {
             'garden/New.svelte': `<SettingsCard id="g" title={$_('a.title')}>
                 <SettingsRow labelId="setting-new" label={$_('a.new')} description={$_('a.new_help')}><SettingsToggle /></SettingsRow>

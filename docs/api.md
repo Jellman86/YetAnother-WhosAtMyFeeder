@@ -160,7 +160,12 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
   `disconnected`, `not_configured` or `stopped`), and `frigate_api` carries `state`
   (`reachable`, `unreachable` or `unchecked`) and `last_failure` from the latest request made to
   Frigate. `status` is `degraded` while the broker is `disconnected` or `not_configured`, or while
-  Frigate's latest request went unanswered: no new detection can arrive or be saved then.
+  Frigate's latest request went unanswered: no new detection can arrive or be saved then. It is
+  also `degraded` while a startup phase has a warning, the classifier (`ml`) or its live image
+  runtime is unhealthy or recovering, the database pool is degraded, the media folder cannot be
+  written, the event pipeline is not `ok`, the notification dispatcher has dropped jobs, or MQTT
+  handling is backed up or recovering from a stall. A `degraded` report still answers HTTP `200`,
+  so read `status` from the body rather than the HTTP code.
 - `GET /ready`: startup readiness (returns `503` until ready, and while a startup warning stands).
   The `503` body is the same report, so `startup_started_at` is still readable from it. This exact
   public path is proxied through both monolithic and split frontend deployments and is not cacheable.
@@ -303,19 +308,22 @@ and `GET /api/visits/{visit_id}/captures` take an ISO date (`2026-11-17`) or the
 `today`. Both are calendar days in one zone, chosen in this order:
 
 1. the IANA zone the request's `X-Timezone` header names (`Europe/Madrid`); the web interface
-   sends the browser's zone, so its dates are the viewer's days, as backfill dates and hourly
-   charts already are;
+   sends the browser's zone, so its dates are the viewer's days;
 2. otherwise the container's `TZ` environment variable, so curl and Home Assistant, which send
    no header, get the instance's day;
 3. otherwise UTC.
 
 A header or `TZ` that does not name a real zone is ignored (and logged once), never an error.
-`daily-summary?window=today` uses the same zone. A guest's shared window is applied after the zone
-is resolved, so no header can widen it. A day runs from local midnight
+Every other day, hour and weekday the API buckets by uses the same zone: `daily-summary`'s
+`window=today` and its hour buckets, the timeline's buckets, both activity heatmaps, the
+species stats distributions, custom backfill dates and the local time an AI analysis is given.
+So a client with no header gets hours in the instance's zone that agree with its day. A guest's
+shared window is applied after the zone is resolved, so no header can widen it. A day runs from local midnight
 to the last instant before the next local midnight, so a capture at 23:30 local time belongs to
 that day even when it is already the next day in UTC, and a day that changes the clock is 23 or
-25 hours long. Both bounds are inclusive. The range may span at most 365 days. Any other word
-is rejected with `422`.
+25 hours long. Both bounds are inclusive. The end day may be at most 365 days after the start
+day, so a range holds up to 366 calendar days: a whole calendar year, leap years included. A
+longer range is rejected with `400`. Any other word is rejected with `422`.
 
 ```bash
 # Everything from today, oldest first in pages of 500, then today's visits in one request.
@@ -532,8 +540,8 @@ can change their framing. Full-frame Frigate coordinates must not be reapplied t
 ### Garden animal review
 
 Garden routes use `private, no-store`. All of them require owner access except the read-only
-history and photo routes (`visits`, `visits/{visit_id}/captures`, `timeline`, `{capture_id}/snapshot`
-and `{capture_id}/crop`). With public access on, a guest reads those under the bird detection rules.
+history and photo routes (`visits`, `visits/{visit_id}/captures`, `timeline`, `captures/{capture_id}`,
+`{capture_id}/snapshot` and `{capture_id}/crop`). With public access on, a guest reads those under the bird detection rules.
 A guest sees confirmed captures only, within the public history window. Camera names read `Hidden`
 when they are not shared. `review_token` and `automatic_check` are null. Snapshot, crop and
 `clip_event` are null outside the public media window or when photographs or video are not shared.
@@ -972,8 +980,8 @@ other identifications for `needs_review`, and are excluded from personalization 
   the value currently being edited without saving it. Stored Frigate credentials are
   forwarded only when the normalized override matches the saved Frigate base URL. The
   returned `frigate_url` is reduced to `scheme://host[:port]`.
-- `GET /api/frigate/config`
-- `GET /api/frigate/recording-clip-capability`
+- `GET /api/frigate/config` (owner)
+- `GET /api/frigate/recording-clip-capability` (owner)
 - `POST /api/video-share`
 - `GET /api/video-share/{event_id}`
 - `GET /api/video-share/{event_id}/links`
@@ -1012,7 +1020,13 @@ Notes:
 
 ### Species and Leaderboard
 
-- `GET /api/species`
+- `GET /api/species` — every species with its all-time `count`. Days sealed by cleanup count
+  from their daily totals instead of the few captures kept from them, and captures Frigate lost
+  from live days count too, so the count does not fall when cleanup removes old captures. A
+  species seen only on sealed days keeps its row, with `first_seen`, `last_seen`, confidence and
+  `camera_count` empty, because a daily total has no capture times or scores. Those fields, and
+  the rolling `count_1d`, `count_7d`, `count_30d`, `days_seen_*` and `trend_*` figures, still
+  describe stored captures only. A guest takes no sealed day that began before the shared window.
 - `GET /api/species/search`
 - `GET /api/species/{species_name}/stats` On days sealed by cleanup, `total_sightings`,
   `daily_distribution` and `monthly_distribution` count the species' daily totals instead of
@@ -1077,7 +1091,17 @@ Notes:
   from an expired report kept after a failed refresh and during its 15-minute back-off, which is not a
   current check); `window_visit_count` and
   `window_prev_visit_count` fold captures of one canonical species on one camera with the visit gap (`visit_gap_seconds`), as the
-  dashboard does, while `window_count` stays frames)
+  dashboard does, while `window_count` stays frames). A sealed day that lies wholly inside the
+  window, or wholly inside the previous window, counts from its daily totals (captures and visits)
+  instead of the captures kept from it; a window that opens part way through a sealed day keeps
+  that day's stored captures and does not take its total. Captures Frigate lost count on their
+  live day. So the day, week and month boards keep their counts after cleanup, except for the
+  captures cleanup removed from the part-day at the start of a window. First and last seen,
+  confidence, cameras and the confirmed counts describe stored captures only:
+  `window_avg_confidence` is null for a species known only from daily totals. `history_start`
+  reaches back to the first sealed day or the oldest lost capture when either is older than every
+  stored capture. A capture corrected or added after its day was sealed does not change that day's
+  counts, here or in `GET /api/species`.
 
 ### Taxonomy
 
@@ -1136,9 +1160,11 @@ stores it (parentheses included when the source writes them), or null when unrec
   window. These counts cover analyzed captures and may count the same bird in later captures.
   Visits for the same window use the leaderboard's rule (a frame opens a visit unless the
   same canonical species was on the same camera within the visit gap, `visit_gap_seconds`, of the running latest verified event end, or capture time when the end is unavailable): `visit_count`, `hourly_visits`
-  (24 local-hour buckets by when each visit began), `camera_visits` (visits and last sighting per
+  (24 hour buckets by when each visit began), `camera_visits` (visits and last sighting per
   camera; `null` for a guest who may not see camera names) and `visit_count` on each `top_species`
   entry, which is now ordered by visits. `total_count` and `hourly_distribution` still count frames.
+  The hour buckets of `hourly_visits` and `hourly_distribution` are hours in the same zone as
+  `window=today` (see [Calendar days and `today`](#calendar-days-and-today)).
 - `GET /api/stats/detections/daily`
 - `GET /api/stats/detections/timeline` With day or month buckets, sealed days are counted from
   their daily totals (and compare lines from each species' totals, matched by catalogue
@@ -1329,8 +1355,8 @@ A detection set aside is dropped with reason `filter_out_of_range`, and `POST
 - `POST /api/settings` (owner)
 
 Settings writes are partial and use the flat API field names, rather than the nested
-`config.json` layout. `visit_gap_seconds` (stored as `visits.gap_seconds`, 5 to 300, default 60)
-sets the visit gap: captures of one species on one camera no further apart than this are one visit,
+`config.json` layout. `visit_gap_seconds` (stored as `visits.gap_seconds`, 5 to 300, default 60,
+environment override `VISITS__GAP_SECONDS`) sets the visit gap: captures of one species on one camera no further apart than this are one visit,
 for birds and Garden animals. It applies to the next query, with no restart. Days already sealed
 into daily totals keep the visit counts they were sealed with. Omitted fields stay unchanged. Empty or redacted secrets retain
 the saved value; they do not clear it. A provider or execution-mode change reloads
@@ -1501,7 +1527,11 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   `preview_detections_to_cleanup` is how many detections that window would delete, counted with the
   cleanup's own rule (hidden detections count; favourites and the per-species floor are kept), and
   `preview_retention_days` echoes the window. Both are `null` without the parameter.
-- `POST /api/maintenance/cleanup` (owner)
+- `POST /api/maintenance/cleanup` (owner): runs the scheduled age cleanup now: deletes detections
+  older than `retention_days` (favourites and the per-species floor are kept) and BirdNET-Go audio
+  older than the same cutoff. Each day is sealed into daily totals before its captures are deleted,
+  so species stats and the detection timeline keep counting it. If sealing fails nothing is deleted and the answer is
+  `503`. With `retention_days` at 0 (unlimited) it answers `status: "skipped"`.
 - `POST /api/maintenance/favorites/clear` (owner)
 - `POST /api/maintenance/purge-missing-clips` (owner)
 - `POST /api/maintenance/purge-missing-snapshots` (owner)
@@ -1606,9 +1636,9 @@ archived videos return 404 so the player uses the retained MP4; no archive trans
   under way also answers 409, with a sentence in `detail`.
 
 Backfill accepts `day`, `week`, `month`, or `custom`. Custom `start_date` and `end_date` values are
-calendar dates in the browser timezone, and the final day is inclusive. Detection import is
-idempotent by Frigate event ID: a stronger image result can update classification fields, but it
-preserves existing audio confirmation, weather, same-species taxonomy, the strongest Frigate score,
+calendar dates in the zone `X-Timezone` names, else the container's `TZ`, else UTC, and the final
+day is inclusive. Detection import is idempotent by Frigate event ID: a stronger image result
+can update classification fields, but it preserves existing audio confirmation, weather, same-species taxonomy, the strongest Frigate score,
 and sublabel evidence. Backfill applies the same confidence, abstention, blocked-species, and trusted-
 sublabel rules as live ingest. Completed snapshots are requested explicitly without a crop and valid,
 aligned Frigate box/region metadata restores Frigate's tracked-object crop locally before that shared
@@ -1649,13 +1679,17 @@ snapshot, not a destructive queue-control API.
     completed automatic video classification that agrees by species, time window, and source mapping
   - `GET /api/audio/summary`. Its `hourly_counts` is **deprecated**: it counts calls by UTC hour, the
     UI no longer reads it, and `GET /api/audio/activity-heatmap` gives calls by the viewer's local
-    weekday and hour instead. It stays in the response so existing clients keep working
+    weekday and hour instead. It stays in the response so existing clients keep working. Each
+    `top_species` row carries its `scientific_name` (null when the calls were stored without one):
+    `species` is translated, so the scientific name is what asks the activity grid for that species
   - `GET /api/audio/activity-heatmap` — calls heard by weekday and hour, in the zone the
-    `X-Timezone` header names (UTC without it). It takes the summary's window (`days`, or
-    `start_date`/`end_date`) and filters (`species`, `source`, `min_confidence`), so its
+    `X-Timezone` header names, else the container's `TZ`, else UTC. It takes the summary's window
+    (`days`, or `start_date`/`end_date`) and filters (`species`, `source`, `min_confidence`), so its
     `total_count` always equals the summary's `total`. Cells have the camera grid's shape
     (`day_of_week` 0 for Sunday, `hour`, `count`) with `max_cell_count`, and `window_start` and
-    `window_end` state the window counted. A guest gets the public window, and a `source` filter is
+    `window_end` state the window counted. Optional `scientific_name` limits it to one species exactly
+    (case-insensitive); `species` is a search over the stored common name and finds every name
+    containing the text. A guest gets the public window, and a `source` filter is
     ignored when camera names are private
   - `GET /api/audio/heard-groups?start_date=&end_date=` — BirdNET-Go calls in a window of at most
     93 days. A call that supports a visit the pipeline confirmed (same species, a microphone mapped
@@ -1681,7 +1715,7 @@ snapshot, not a destructive queue-control API.
   - `GET /api/audio/clip/{birdnet_id}` — proxies the matched audio clip, forwarding the client's
     `Range` header so `<audio controls>` can seek.
 
-  Both honour **Share audio with visitors**: with it off, a guest gets no audio at all.
+  Both honour **Share audio with guests**: with it off, a guest gets no audio at all.
 
 `GET /api/events` accepts `event_id` for an exact Frigate event lookup. It retains the same guest
 history, hidden-event, and camera-privacy restrictions as the paginated event list.
@@ -1939,7 +1973,7 @@ length oracle.
   summaries and future correlation. This does not write to BirdNET-Go.
 
 
-### Saved Garden animal crops (owner)
+### Saved Garden animal crops
 
 Garden capture responses include nullable `crop_url` and `crop` evidence alongside
 `snapshot_url`. A crop is a separate saved preview, never a replacement for the full
@@ -1951,12 +1985,14 @@ and the saved JPEG checksum.
 - `GET /api/garden/{capture_id}/crop` returns the private JPEG, `404` when unavailable
   or no longer confirmed, and `409` if its checksum differs from the evidence.
   Signed-in browsers may use their owner media session cookie for this read-only
-  image request. Guest cookies are refused; storage statistics and review actions
-  still require API authentication.
-- `GET /api/garden/crops/storage` returns `count`, `bytes`, `limit` and
-  `max_bytes_per_crop` for the bounded preview store.
+  image request. With public access on, a guest reads it under the same rules as the
+  Garden snapshot (a confirmed capture inside the public history and media windows, with
+  photographs shared), rate-limited; anything else is `404`.
+- `GET /api/garden/crops/storage` (owner) returns `count`, `bytes`, `limit` and
+  `max_bytes_per_crop` for the bounded preview store. Storage statistics and review actions
+  require API authentication; the media cookie does not authorize them.
 
-Both endpoints require owner authentication and the Garden beta. Media responses
+Both endpoints require the Garden beta. Media responses
 use `Cache-Control: private, no-store` and `X-Content-Type-Options: nosniff`.
 Person revocation, dismissal and history cleanup remove saved pixels. Preview
 reclamation retains capture/name metadata; crops do not make expired originals

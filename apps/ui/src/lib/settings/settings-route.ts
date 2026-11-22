@@ -1,19 +1,27 @@
 /**
- * Settings is organised by the owner's task: six sections, each holding the parts that one task
- * needs. A part is what was a tab of its own before Settings was organised by task; its name is
- * kept as the anchor inside its section, so an older `/settings/<tab>` address still lands on it.
+ * Settings is organised by the owner's task: seven sections, each holding the parts that one task
+ * needs. A part is a group of settings with an address of its own inside its section. No name is
+ * both a section and a part, so an address never means two things; a name Settings used before
+ * (a former tab, or a section since renamed) still lands on what it held.
  */
-export type SettingsSection = 'cameras' | 'identification' | 'alerts' | 'sharing' | 'storage' | 'display';
+export type SettingsSection = 'cameras' | 'identification' | 'integrations' | 'notifications' | 'access' | 'storage' | 'display';
 
 export type SettingsPart =
     | 'connection'
+    | 'location'
     | 'detection'
     | 'models'
     | 'beta'
-    | 'notifications'
-    | 'integrations'
+    | 'birdnet'
+    | 'weather'
+    | 'networks'
     | 'ai'
+    | 'enrichment'
+    | 'rules'
+    | 'channels'
+    | 'garden-alerts'
     | 'security'
+    | 'telemetry'
     | 'data'
     | 'maintenance'
     | 'appearance'
@@ -23,18 +31,20 @@ export type SettingsPart =
 export const SETTINGS_SECTION_ORDER: readonly SettingsSection[] = [
     'cameras',
     'identification',
-    'alerts',
-    'sharing',
+    'integrations',
+    'notifications',
+    'access',
     'storage',
     'display'
 ];
 
 /** The parts each section shows, top to bottom. */
 export const SETTINGS_SECTION_PARTS: Readonly<Record<SettingsSection, readonly SettingsPart[]>> = {
-    cameras: ['connection'],
+    cameras: ['connection', 'location'],
     identification: ['detection', 'models', 'beta'],
-    alerts: ['notifications'],
-    sharing: ['security', 'integrations', 'ai'],
+    integrations: ['birdnet', 'weather', 'networks', 'ai', 'enrichment'],
+    notifications: ['rules', 'channels', 'garden-alerts'],
+    access: ['security', 'telemetry'],
     storage: ['data', 'maintenance'],
     display: ['appearance', 'accessibility']
 };
@@ -48,10 +58,15 @@ const SECTION_OF_PART: Readonly<Record<SettingsPart, SettingsSection>> = Object.
     SETTINGS_SECTION_ORDER.flatMap((section) => SETTINGS_SECTION_PARTS[section].map((part) => [part, section]))
 ) as Record<SettingsPart, SettingsSection>;
 
-// Addresses older than the tabs, and the part that now shows what they held. Species information
-// sources were their own tab; they are summarised at the end of Integrations. Debug held two
-// model settings, now in Models. Health is a page of its own (`/system-health`), redirected by the app.
-const RETIRED_TABS: Readonly<Record<string, SettingsPart>> = { enrichment: 'integrations', debug: 'models' };
+// Addresses older than the parts, and the part that now shows what they held. Debug held two model
+// settings, now in Models. The Notifications and Integrations tabs are sections of those names now.
+// Health is a page of its own (`/system-health`), redirected by the app.
+const RETIRED_TABS: Readonly<Record<string, SettingsPart>> = { debug: 'models' };
+
+// Sections since renamed. Alerts is Notifications. Sharing & integrations was split: what it held
+// first, sign-in and guest access, is Access & privacy, and an anchor says which of its former
+// parts an older link meant.
+const RETIRED_SECTIONS: Readonly<Record<string, SettingsSection>> = { alerts: 'notifications', sharing: 'access' };
 
 /** The Health page's address. Not `/health`: the backend answers that path itself. */
 const HEALTH_PAGE_PATH = '/system-health';
@@ -98,15 +113,37 @@ function routePath(route: string): string {
     return route.replace(/[?#].*$/, '');
 }
 
-/** The section a route shows. A former tab's address shows the section that holds it. */
+/** The fragment a route carries, without its `#`. */
+function routeAnchor(route: string): string {
+    return /#([^?]*)/.exec(route)?.[1] ?? '';
+}
+
+/** Where a name Settings has ever used in an address leads, or null for a name it never used. */
+function placeNamed(name: string): { section: SettingsSection; part?: SettingsPart } | null {
+    if (isSettingsSection(name)) return { section: name };
+    const part = partNamed(name);
+    return part ? { section: settingsSectionOfPart(part), part } : null;
+}
+
+/**
+ * Where `/settings/<slug>` leads with an anchor. A renamed section follows its anchor, since its
+ * former parts are in more than one section now; any other name is its own place, keeping an
+ * anchor that names one of its parts.
+ */
+function placeOf(slug: string, anchor: string): { section: SettingsSection; part?: SettingsPart } | null {
+    const retired = RETIRED_SECTIONS[slug];
+    if (retired) return placeNamed(anchor) ?? { section: retired };
+    const place = placeNamed(slug);
+    if (!place || place.part) return place;
+    return { section: place.section, part: settingsPartFromAnchor(place.section, anchor) ?? undefined };
+}
+
+/** The section a route shows. A former address shows the section that holds what it named. */
 export function settingsSectionFromRoute(route: string | undefined): SettingsSection {
     if (!route) return 'cameras';
     const match = /^\/settings\/([^/]+)/.exec(routePath(route));
     if (!match) return 'cameras';
-    const slug = match[1];
-    if (isSettingsSection(slug)) return slug;
-    const part = partNamed(slug);
-    return part ? settingsSectionOfPart(part) : 'cameras';
+    return placeOf(match[1], routeAnchor(route))?.section ?? 'cameras';
 }
 
 /** The part an anchor names inside a section, or null when it names none of that section's parts. */
@@ -118,8 +155,9 @@ export function settingsPartFromAnchor(section: SettingsSection, anchor: string)
 /**
  * The canonical `/settings/<section>` address for a pathname and hash, or null when the pathname is
  * already canonical (or outside Settings), so a caller can do nothing in the steady state. A former
- * tab's address returns its section with the part as the anchor. Older Health addresses return the
- * Health page, outside Settings.
+ * tab's address returns its section with the part as the anchor; a renamed section's returns the
+ * section that now holds what its anchor names. Older Health addresses return the Health page,
+ * outside Settings.
  *
  * Older links used `/settings#<tab>`; an unknown name steers back to the first section so the visible
  * section and the address agree.
@@ -127,26 +165,23 @@ export function settingsPartFromAnchor(section: SettingsSection, anchor: string)
 export function canonicalSettingsPath(pathname: string, hash: string): string | null {
     const path = routePath(pathname);
     if (!path.startsWith('/settings')) return null;
+    const anchor = hash.replace(/^#/, '');
 
     // Health left Settings for a page of its own; its older tab, hash and errors addresses open it.
     if (/^\/settings\/(health|errors)(\/|$)/.test(path)) return HEALTH_PAGE_PATH;
-    if ((path === '/settings' || path === '/settings/') && HEALTH_HASHES.has(hash)) return HEALTH_PAGE_PATH;
+    if ((path === '/settings' || path === '/settings/') && HEALTH_HASHES.has(anchor)) return HEALTH_PAGE_PATH;
 
     if (path === '/settings/' || path === '/settings') {
-        if (isSettingsSection(hash)) return settingsSectionPath(hash);
-        const part = partNamed(hash);
-        return part ? settingsPartPath(part) : settingsSectionPath('cameras');
+        const place = placeNamed(anchor) ?? (RETIRED_SECTIONS[anchor] ? { section: RETIRED_SECTIONS[anchor] } : null);
+        return place ? settingsSectionPath(place.section, place.part) : settingsSectionPath('cameras');
     }
 
     const match = /^\/settings\/([^/]+)\/?$/.exec(path);
     // A deeper sub-path such as /settings/data/foo is left alone.
     if (!match) return null;
     const slug = match[1];
-    if (isSettingsSection(slug)) {
-        // A loose address (a trailing slash) keeps the part it names, so a reload lands there again.
-        if (settingsSectionPath(slug) === path) return null;
-        return settingsSectionPath(slug, settingsPartFromAnchor(slug, hash) ?? undefined);
-    }
-    const part = partNamed(slug);
-    return part ? settingsPartPath(part) : settingsSectionPath('cameras');
+    // A canonical section address stands whatever its fragment: the page reads the part from it.
+    if (isSettingsSection(slug) && settingsSectionPath(slug) === path) return null;
+    const place = placeOf(slug, anchor);
+    return place ? settingsSectionPath(place.section, place.part) : settingsSectionPath('cameras');
 }

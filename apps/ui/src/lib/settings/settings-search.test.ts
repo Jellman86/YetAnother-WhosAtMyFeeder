@@ -117,7 +117,7 @@ describe('settings search over the real index', () => {
     it('puts "Cameras to watch" first for "camera", ahead of settings that only mention a camera', () => {
         expect(anchors('en', 'camera')[0]).toBe('settings-group-cameras');
         expect(anchors('en', 'camera', 'cameras')[0]).toBe('settings-group-cameras');
-        expect(anchors('en', 'camera', 'sharing')[0]).toBe('settings-group-cameras');
+        expect(anchors('en', 'camera', 'access')[0]).toBe('settings-group-cameras');
         const all = anchors('en', 'camera');
         expect(all.indexOf('settings-group-cameras')).toBeLessThan(all.indexOf('setting-public-show-cameras'));
     });
@@ -150,7 +150,7 @@ describe('settings search over the real index', () => {
         // "ai" finds the AI settings, not every word with those letters in it.
         const ai = searchSettings('ai', prepareSettings(searchable('en')), { limit: 50 });
         expect(ai.total).toBe(ai.matches.length);
-        expect(ai.matches.map((match) => match.item.anchor)).toContain('setting-llm-enabled');
+        expect(ai.matches.map((match) => match.item.anchor)).toContain('settings-group-ai-connection');
         expect(ai.matches.map((match) => match.item.anchor)).not.toContain('settings-group-data-maintenance-jobs');
     });
 

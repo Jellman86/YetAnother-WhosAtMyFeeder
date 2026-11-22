@@ -77,8 +77,8 @@ Open `http://<your-ip>:9852`. A fresh installation opens the setup wizard:
 
 ![The Welcome to YA-WAMF wizard step lists connection, cameras, model validation and integrations, with a language selector and Get started button](../images/setup-wizard.png)
 
-Set an owner password in **Admin account & access** before exposing YA-WAMF
-outside your trusted network. Later account changes belong in **Settings → Sharing & integrations**;
+Set an owner password in **Owner account and access** before exposing YA-WAMF
+outside your trusted network. Later account changes belong in **Settings → Access & privacy**;
 first-run account setup cannot be reused.
 
 ![Admin account and access setup with username, password, confirmation and an explicit Skip authentication choice](../images/setup-wizard-account.png)
@@ -118,7 +118,7 @@ Frigate can send several captures of one bird at a feeder. YA-WAMF groups them i
 ![A Dunnock visit with three captures, 96% confidence, an expandable time range and an Open action](../images/dashboard-field-log.png)
 
 **3 captures** means three captures grouped into that visit. Choose its time to
-expand them, or **Open** to see the photograph. Use **Explorer** (headed **Events**)
+expand them, or **Open** to see the photograph. Use **Explorer** (at `/events`)
 to filter visits by time, species, camera, favourites and audio matches.
 See [Explorer](../features/explorer.md) for grouping and review controls.
 
@@ -129,7 +129,7 @@ See [Explorer](../features/explorer.md) for grouping and review controls.
 
 ### 5. (Optional) Share a read-only public view
 
-Set an owner password, then enable **Settings → Sharing & integrations → Public Access** and
+Set an owner password, then enable **Settings → Access & privacy → Public access** and
 review the separate media and history permissions. Follow
 [Authentication & Access](../features/authentication.md) before sharing the URL.
 

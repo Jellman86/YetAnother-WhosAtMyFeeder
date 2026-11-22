@@ -24,6 +24,12 @@ npm --prefix apps/telemetry-worker test
 python backend/scripts/docs_consistency_check.py
 ```
 
+CI's backend job also runs the migration smoke tests, the migration path matrix, the
+single-head check and the OpenAPI freshness checks
+(`python backend/scripts/export_openapi.py --check` and
+`python backend/scripts/export_openapi_types.py --check`). Run those too when you change the
+schema or the API.
+
 The backend command collects everything in `backend/tests`, including the former
 `tests/unit` cases now in `backend/tests/additional`. A regression rejects new
 orphaned Python tests under the root `tests` directory. Both PR checks and image
@@ -38,7 +44,7 @@ It runs two serial processes. Pure decision-logic tests in `backend/tests/pure`
 run first, alone, within two minutes: they migrate no database and never import
 the FastAPI app, and that subtree's conftest fails any test that opens a database
 or imports `app.main`. Every other test then runs against a suite database migrated
-once, within ten minutes. Coverage from both lanes is combined into one report.
+once, within ten minutes (`TEST_TIMEOUT_SECONDS`, 600 s, in the gate script). Coverage from both lanes is combined into one report.
 A printed pass summary does not excuse a teardown hang or a failed coverage report.
 
 Install `backend/requirements-dev.txt` as well as the runtime requirements.
@@ -86,11 +92,17 @@ add `--shard=1/2` and `--shard=2/2`.
 The fixture suite above runs on the Vite dev server, which loads every module separately, so
 it cannot see how the production build splits code. A second Chromium check serves the built
 bundle from `dist` with `vite preview` and replays the same API fixtures. It checks that:
-- every page and Settings tab draws its own content;
+- every page and Settings section draws its own content, and every former Settings tab address
+  lands on its section;
 - every chunk the build emitted loads;
 - the German locale works;
 - charts, the map and a record's markdown analysis draw from their lazily loaded code;
 - no script fails and the console stays free of errors.
+
+A script that is still loading when the check opens the next page is cancelled, and the browser
+reports that before it reports the new page. So an aborted script is excused only between asking
+for the next page and its arrival; an abort while the page stays is still a failure. The walk
+moves on only when `main [data-route-loading]` is gone, not just when the shell's heading shows.
 
 It runs in CI as **Production bundle (Chromium)**, on one worker, in well under a minute.
 Locally, from `apps/ui`:
@@ -122,6 +134,14 @@ On Linux, Playwright may request operating-system browser dependencies; install
 those on the test host before running the suite. The full command runs Chromium
 and WebKit at desktop and mobile sizes. Mobile emulation is not physical iOS
 validation.
+
+The config runs two workers. On a shared or small host, add `--workers=1`. If the host cannot
+install Playwright's browser dependencies, run the suite in the Playwright container image that
+matches `@playwright/test` in `package.json`. Layout tests measure text, so give that container
+the fonts CI's Ubuntu runner has (DejaVu and Liberation). Fixtures that replay the recorded
+feeder (`browser-tests/accessibility-mock.ts`) name the Classic fonts as Liberation Serif in
+WebKit, so WebKit on Linux measures the same letters as Chromium instead of DejaVu Serif, its
+stand-in for Georgia. Without Liberation Serif, WebKit falls back as before.
 
 The runner starts and stops its own Vite server on loopback port 4178. An occupied
 port fails the run instead of silently testing another build. No live URL or
@@ -222,9 +242,12 @@ python backend/scripts/run_model_hardware_gate.py \
   --provider intel_npu --provider intel_gpu --repeat 2
 ```
 
-The gate prepares a private species catalogue from the bundled checksum-verified seed before
+The gate prepares a private species catalogue from the checksum-verified seed before
 loading models. Catalogue-only models need no `labels.txt`, and the application’s catalogue is
-never opened or changed.
+never opened or changed. Only the image build creates that seed
+(`backend/app/assets/species_catalog_seed.db`); a source checkout does not have it, and every probe
+then fails with `Hardware probe catalogue is unavailable: initialized_empty`. Run the gate inside
+the image, or build the seed first with `python backend/scripts/build_species_catalog_seed.py`.
 
 The output directory must not already exist. On the NVIDIA host, request
 `--provider cuda` instead. Use `--model medium_birds/eu` to select an exact
@@ -305,7 +328,7 @@ PYTHONPATH=backend pytest backend/tests/test_crop_process_session.py -q
 
 ### Native OpenVINO crash reproducer
 
-Verify the application recovery contract separately with real installed weights:
+Verify the application recovery contract separately with real installed weights, from `backend/`:
 
 ```bash
 PYTHONPATH=. python scripts/smoke_native_cpu_recovery.py \

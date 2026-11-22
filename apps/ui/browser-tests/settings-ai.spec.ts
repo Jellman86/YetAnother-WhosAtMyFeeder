@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { openMoreOptions, openSettings, saveBar as unsavedChanges } from './settings-page-mock';
 
-// Settings → Sharing & integrations keeps its fields in the one Settings draft and loads its tab body, with the
+// Settings → Integrations keeps its fields in the one Settings draft and loads its tab body, with the
 // built-in prompt templates, only when opened. Save changes saves it with the rest of the form.
 
 test('AI loads on first open, follows a provider switch and saves with Save changes', async ({ page }) => {
@@ -16,7 +16,7 @@ test('AI loads on first open, follows a provider switch and saves with Save chan
     expect(harness.moduleRequests('AISettings.svelte')).toBe(0);
     expect(harness.moduleRequests('llm-prompt-templates.ts')).toBe(0);
 
-    await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await page.getByRole('link', { name: 'Integrations', exact: true }).click();
     await openMoreOptions(page);
     const model = page.locator('#llm-model');
     await expect(model).toHaveValue('gemini-3.1-pro-preview');
@@ -37,7 +37,7 @@ test('AI loads on first open, follows a provider switch and saves with Save chan
 
     await page.getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toBeVisible();
-    await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await page.getByRole('link', { name: 'Integrations', exact: true }).click();
     await openMoreOptions(page);
     await expect(model).toHaveValue('claude-opus-4-8');
 
@@ -61,7 +61,7 @@ test('a provider set outside Settings shows as itself, never as the first choice
         llm_api_key: '***REDACTED***',
         llm_model: 'my-model'
     });
-    await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await page.getByRole('link', { name: 'Integrations', exact: true }).click();
     await openMoreOptions(page);
     const provider = page.getByRole('combobox', { name: /^Provider/ });
     await expect(provider).toHaveValue('custom-provider');

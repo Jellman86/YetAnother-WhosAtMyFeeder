@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { settingsSectionPlace } from '../settings/settings-place';
     import { _ } from 'svelte-i18n';
     import type { ClassifierStatus } from '../api/classifier';
     import { identificationModelName, identificationStatus } from '../settings/identification-models';
@@ -36,7 +37,7 @@
                 const next = context === 'wizard'
                     ? $_('settings.models.status_missing_next_wizard', { default: 'Download it here, or choose another model.' })
                     : context === 'about'
-                        ? $_('settings.models.status_missing_next_about', { default: 'Download it in Settings › Models.' })
+                        ? $_('settings.models.status_missing_next_about', { values: { place: settingsSectionPlace('identification', $_) }, default: 'Download it in {place}.' })
                         : $_('settings.models.status_missing_next_settings', { default: 'Download it below, or choose another model.' });
                 // A model is named by its purpose ("Small and quick, birds worldwide"), which reads as a
                 // clause unless the sentence says first that it is the chosen model.

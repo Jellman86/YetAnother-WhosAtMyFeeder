@@ -186,7 +186,7 @@ const ATTENTION_COMPONENTS: Record<string, string> = {
     'pages/models/ModelManager.svelte': 'an incomplete install that needs repair',
     'pages/models/FinderDevicePanel.svelte': 'a finder that fell back to the CPU after a failed or interrupted device check',
     // Settings and first run: a value that cannot work as set.
-    'components/settings/sections/SharingSection.svelte': 'the page is served without HTTPS',
+    'components/settings/sections/AccessSection.svelte': 'the page is served without HTTPS',
     'components/settings/_primitives/SettingsPage.svelte': 'a save that conflicts with a newer change',
     'components/settings/_primitives/SettingsInput.svelte': 'a field in conflict',
     'components/settings/_primitives/FieldRefusal.svelte': 'a field in conflict',

@@ -250,8 +250,6 @@
   "tabs": {
     "connection": "连接",
     "detection": "命名与筛选",
-    "notifications": "通知",
-    "integrations": "集成",
     "data": "数据",
     "security": "安全",
     "appearance": "外观",
@@ -267,13 +265,22 @@
     "models": "模型",
     "maintenance": "维护",
     "refused": "需要修改",
-    "refused_note": "含有上次保存时被拒绝的值"
+    "refused_note": "含有上次保存时被拒绝的值",
+    "location": "位置",
+    "birdnet": "BirdNET-Go",
+    "weather": "Home Assistant 天气",
+    "rules": "全局通知筛选",
+    "channels": "渠道",
+    "garden-alerts": "花园动物提醒",
+    "telemetry": "遥测",
+    "networks": "eBird、iNaturalist 和 BirdWeather"
   },
   "sections": {
     "cameras": "摄像头与连接",
     "identification": "识别鸟类",
-    "alerts": "提醒",
-    "sharing": "共享与集成",
+    "integrations": "集成",
+    "notifications": "通知",
+    "access": "访问与隐私",
     "storage": "存储与维护",
     "display": "显示"
   },
@@ -299,9 +306,8 @@
       "finder": "鸟类检测器",
       "audio": "BirdNET-Go",
       "storage": "存储",
-      "notifications": "提醒"
+      "notifications": "通知"
     },
-    "sharing_note": "这里没有需要测量的连接。登录和访客访问在这里设置；“更多选项”中的每个服务都会显示是否已开启。",
     "cause": {
       "classifier": {
         "model_missing": "不在此安装中"
@@ -317,7 +323,7 @@
       "finder": "鸟类检测器会在命名前从繁杂的照片中找出每只鸟。它是可选的。",
       "audio": "BirdNET-Go 聆听鸟鸣，这样到访可以与听到的鸣叫对应起来。",
       "storage": "照片和视频保存在此安装的媒体文件夹中。",
-      "notifications": "当到访符合条件时，提醒会通过你的频道发出。"
+      "notifications": "当到访符合条件时，通知会通过你的频道发出。"
     },
     "why": {
       "mqtt": {
@@ -382,18 +388,18 @@
       "failed_unsaved": "{time} 使用此页面尚未保存的值测试：未能工作。再次运行以查看原因。",
       "passed_subject_unsaved": "{subject} 于 {time} 使用此页面尚未保存的值测试：正常工作。",
       "failed_subject_unsaved": "{subject} 于 {time} 使用此页面尚未保存的值测试：未能工作。再次运行以查看原因。"
-    }
+    },
+    "access_note": "这里没有任何内容依赖于被测量的连接。登录、访客访问和遥测各自在此说明是否已开启。"
   },
   "more": {
     "title": "更多选项",
-    "cameras": "Frigate 详情、图像来源、剪辑和 BirdNET-Go",
-    "sharing": "eBird、iNaturalist、BirdWeather、Home Assistant 天气、物种信息、AI 和遥测",
+    "cameras": "Frigate 详细设置、图像来源和片段",
     "identification": "屏蔽的物种、分布范围筛选、视频检查、硬件和测试版功能",
     "identification_loading": "正在打开更多选项…",
-    "alerts": "冷却、语言、链接和物种筛选",
-    "alerts_garden": "冷却、语言、链接、物种筛选和花园动物提醒",
     "storage": "Frigate 丢失到访时的处理，以及修复或补全历史的任务",
-    "display": "日期和时间格式、鸟类名称、Explorer 布局、字体和颜色、所有人的辅助功能默认值以及单位"
+    "display": "日期和时间格式、鸟类名称、Explorer 布局、字体和颜色、所有人的辅助功能默认值以及单位",
+    "notifications": "冷却、语言、链接和物种筛选",
+    "integrations": "物种页面的信息来源"
   },
   "debug": {
     "llm_prompt_style_label": "提示风格",
@@ -602,6 +608,27 @@
       "illuminance_not_numeric": "{entity} 未报告数字，因此不记录光照水平。",
       "illuminance_out_of_range": "{entity} 报告的值超出 0 到 200,000 lx 的范围，因此不予记录。",
       "illuminance_no_answer": "测试未返回光照读数。"
+    },
+    "elsewhere_pipeline": "访问通过 Frigate 和 MQTT 代理到达，因此它们在“{section}”中设置。",
+    "open_connection": "打开 Frigate 和 MQTT",
+    "elsewhere_location": "天气、eBird、iNaturalist 和分布范围过滤都以喂食器的位置为起点，该位置同样在“{section}”中设置。天气本身来自 Open-Meteo，无需设置。",
+    "open_location": "打开喂食器位置",
+    "state": {
+      "off": "已关闭。",
+      "not_set_up": "已开启，但尚未设置：{missing}。",
+      "no_test": "已开启并已设置。没有连接测试。",
+      "not_tested": "已开启并已设置。尚未测试；测试结果不会在两次访问之间保留。",
+      "passed": "已开启。测试于 {time} 通过。",
+      "failed": "已开启，但测试于 {time} 失败：{reason}",
+      "needs_station_token": "请添加站点令牌",
+      "needs_api_key": "请添加 API 密钥",
+      "inaturalist_connected": "已开启，已以 {user} 身份登录。",
+      "needs_inaturalist_sign_in": "请在下方连接 iNaturalist 账户",
+      "needs_inaturalist_app": "请添加应用 ID 和密钥",
+      "needs_audio_topic": "请添加 BirdNET-Go 发布到的 MQTT 主题",
+      "needs_ha_url": "请添加 Home Assistant 的 URL",
+      "needs_ha_token": "请添加长期访问令牌",
+      "needs_ha_entity": "请选择天气实体或传感器"
     }
   },
   "enrichment": {
@@ -767,8 +794,8 @@
     "recording_frame_delay_desc": "从首张快照起等待1至120秒，并使用等待期间收到的最新跟踪快照元数据。识别和通知会延后。这不会等待每个事件结束，也不会重新分类已保存的检测。",
     "test_connection_both": "测试 Frigate 和 MQTT",
     "test_again": "再次测试",
-    "stage_frigate_next": "请检查此标签页中的 Frigate 服务器 URL，并确认 Frigate 正在运行。",
-    "stage_mqtt_next": "请检查此标签页中的代理服务器地址、端口和登录信息。",
+    "stage_frigate_next": "请检查“{section}”中的服务器 URL，并确认 Frigate 正在运行。",
+    "stage_mqtt_next": "请检查“{section}”中的代理地址、端口和登录信息。",
     "more_title": "Frigate 详情"
   },
   "cameras": {
@@ -965,7 +992,7 @@
       "what_realtime": "每次更新",
       "what_silent": "静默",
       "what_custom": "自定义规则",
-      "custom_hint": "自定义规则在下方“高级”中设置。",
+      "custom_hint": "你自己的触发条件，用这句话下方的开关设定。每次访问最多一条提醒。",
       "species_any": "任何物种",
       "species_all_but": "{count, plural, other {除 # 个物种外的全部}}",
       "species_only": "{count, plural, other {仅 # 个物种}}",
@@ -976,7 +1003,8 @@
       "channel_telegram": "Telegram",
       "channel_email": "邮件",
       "confidence_chip_audio": "{value}%且有声音确认",
-      "channels_jump": "渠道：{channels}。前往渠道。"
+      "channels_jump": "渠道：{channels}。前往渠道。",
+      "custom_open": "自定义规则"
     },
     "test_channel": "渠道",
     "test_failed": "无法发送测试消息。",
@@ -1011,7 +1039,21 @@
     "channels_title": "渠道",
     "details_title": "冷却、语言、链接和物种",
     "garden_title": "花园动物提醒",
-    "channels_desc": "通知发送到的地方。开启某个渠道即可进行设置。"
+    "channels_desc": "通知发送到的地方。开启某个渠道即可进行设置。",
+    "include_snapshot": "发送照片",
+    "include_snapshot_desc": "每条提醒都附带访问的快照。关闭后只发送文字。",
+    "custom_rules": {
+      "title": "自定义规则",
+      "active": "你自己的触发条件。一次访问最多发送一条提醒，因此访问变化时无法重复提醒：如需重复，请在上方句子中选择每次更新。",
+      "desc": "这些开关仅在自定义规则下生效。上方句子中的其他选项使用各自的触发条件，并忽略这些开关。要使用它们，请在上方选择自定义规则。",
+      "on_insert": "访问开始时",
+      "on_insert_desc": "当 Frigate 首次报告该访问时，如果名称已足够确定，就发送提醒。",
+      "on_update": "稍后，如果尚未发送提醒",
+      "on_update_desc": "如果开始时没有发出提醒（上方开关已关闭，或名称当时还不够确定），当 Frigate 之后更新该访问时发送这唯一的一条提醒。绝不会发送第二条。",
+      "delay_video": "等待视频检查",
+      "delay_video_desc": "在视频检查确认名称之前暂缓提醒；如果一直没有结果，则等待下方的秒数。需要在“{section}”中开启视频检查。"
+    },
+    "garden_off": "在“{section}”的测试版功能中开启花园动物后，可在此设置花园动物提醒。"
   },
   "discord": {
     "title": "Discord 通知",
@@ -1142,6 +1184,8 @@
     "gpu_setup_docs": "GPU 设置与诊断指南",
     "inference_provider": "识别模型运行在",
     "auto_detected": "已自动检测",
+    "auto_detected_verified": "已自动检测 · 已验证 ✓",
+    "auto_detected_unverified": "已自动检测 · 未验证",
     "active_provider_label": "当前生效",
     "intel_gpu_status": "Intel GPU",
     "provider_fallback_reason": "回退：",
@@ -1280,7 +1324,7 @@
     "model_manager_repair_download": "重新下载修复",
     "model_manager_repair_needed": "此模型安装不完整。请重新下载以恢复缺失的物种名称或模型配置，然后再启用。",
     "model_manager_location_title": "使用喂食器位置",
-    "model_manager_location_desc": "此模型还会使用保存在 设置 → 共享与集成 → 位置 中的喂食器坐标。如果未保存有效坐标，它会在不使用位置的情况下识别鸟类。它不使用日期或位置精度半径。",
+    "model_manager_location_desc": "此模型还会使用保存在 {place} 中的喂食器坐标。如果未保存有效坐标，它会在不使用位置的情况下识别鸟类。它不使用日期或位置精度半径。",
     "model_manager_location_link": "打开位置设置",
     "provider_intel_npu": "Intel NPU（OpenVINO）",
     "bird_finder_title": "鸟类查找",
@@ -1437,7 +1481,7 @@
     "garden_motion_toggle": "在 {camera} 收集待审核的移动照片",
     "garden_naming_off": "每个动物都会留在“待审核”中，等你确认并命名。",
     "garden_naming_elsewhere": "自动命名与鸟类的命名阈值一起设置，位于“识别鸟类”的顶部。",
-    "garden_alerts_elsewhere": "花园动物提醒在“提醒”中设置，与发送它们的渠道放在一起。",
+    "garden_alerts_elsewhere": "花园动物提醒在“{section}”中设置，与其发送渠道在一起。",
     "garden_naming_threshold_help": "这是判断是哪种动物的第二道检查。达到或高于此值时，会为你确认并命名该动物。低于此值时，照片进入“已忽略”，你可以从那里恢复。",
     "garden_naming_threshold": "对动物种类有这么确定时命名",
     "garden_naming": "自动为动物命名",
@@ -1468,7 +1512,7 @@
     "garden_models_error": "花园处理已停止，直到应用重新启动。",
     "garden_models_status_needed": "模型状态加载后即可下载。",
     "garden_country": "动物名称按 {country} 筛选。",
-    "garden_country_missing": "未设置国家，因此动物不会被自动命名，物种建议也不可用。请在集成中设置你的位置。",
+    "garden_country_missing": "尚未设置国家，因此不会自动为动物命名，也无法提供物种建议。请在“{section}”中设置喂食器位置。",
     "garden_outcomes": "捕获的去向",
     "garden_outcome_pending_review": "等待运行的检查、等待重试的失败检查、缺少设置或目录身份，以及所有者覆盖。",
     "garden_outcome_confirmed": "你确认的动物，以及被自动命名的有把握的动物。自动名称会标记为自动，并且可以丢弃。",
@@ -1505,14 +1549,14 @@
     "garden_step_model": "下载{model}。",
     "garden_step_model_open": "设置花园模型",
     "garden_step_location": "设置你的位置，让花园知道你的国家并为动物命名。",
-    "garden_step_location_open": "在集成中设置位置",
+    "garden_step_location_open": "设置喂食器位置",
     "garden_off_note": "花园停止收集新的捕获。现有的捕获和设置会保留，重新开启后恢复。",
     "garden_off_effects": "关闭期间，花园在浏览器中隐藏，其提醒停止，你饲养的鸟会记录为野生鸟类。已保存的捕获仍按历史保留期处理。",
     "garden_section_cameras": "摄像头",
     "garden_section_checks": "自动检查",
     "garden_section_models": "模型",
     "garden_naming_help": "达到命名阈值的动物会被确认并命名。低于阈值的照片进入“已忽略”，你可以在那里恢复。",
-    "garden_device_note": "自动检查在与 CPU 结果一致后使用 设置 › 模型 › 硬件 中选择的设备，失败时回退到 CPU。运动扫描使用 CPU。花园在鸟类和摄像头空闲时一次运行一项任务。",
+    "garden_device_note": "自动检查在与 CPU 结果一致后使用 {place} 中选择的设备，失败时回退到 CPU。运动扫描使用 CPU。花园在鸟类和摄像头空闲时一次运行一项任务。",
     "garden_status_refresh": "刷新状态",
     "garden_status_loading": "正在检查花园状态…",
     "garden_domestic_birds_count": "{count, plural, =0 {无} other {# 种}}",
@@ -1556,7 +1600,7 @@
     "status_ready": "已关闭。开启后将按 {region} 记录过的 {count, plural, other {# 种}}筛选。",
     "status_needs_location": "已关闭：需要你的位置。",
     "status_needs_location_on": "未筛选：需要你的位置。",
-    "status_needs_location_detail": "筛选会用“集成”中设置的位置来查找你的 eBird 地区。",
+    "status_needs_location_detail": "过滤器使用在“{section}”中设置的喂食器位置来查找你的 eBird 区域。",
     "status_needs_key": "添加 eBird API 密钥即可使用分布范围筛选。",
     "status_needs_key_detail": "eBird 的地区名录是唯一的分布来源。BirdNET-Go 能说明某种鸟在这里，却无法说明它不在，因此单靠它无法筛选任何内容。",
     "status_fetching": "正在获取你所在区域的 eBird 名录…",
@@ -1727,7 +1771,7 @@
     "recover_revalidate": "检查并重新加载",
     "status_missing_next_settings": "请在下方下载，或选择其他模型。",
     "status_missing_next_wizard": "请在此下载，或选择其他模型。",
-    "status_missing_next_about": "请在 设置 › 模型 中下载。",
+    "status_missing_next_about": "请在 {place} 中下载。",
     "status_planned": "{model} 将在 {device} 上识别鸟类。它会在第一次检测时加载。",
     "status_planned_no_device": "{model} 将识别鸟类。它会在第一次检测时加载。",
     "status_running": "正在使用 {model} 在 {device} 上识别鸟类。",

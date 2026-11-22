@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { settingsPartPlace } from '../../settings/settings-place';
     import { onMount, onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
     import {
@@ -600,7 +601,7 @@
         {#if usesLocation}
             <fieldset disabled={validating || downloading || saving} class="space-y-2 border-l-2 border-line-soft pl-4">
                 <legend class="text-sm font-medium text-ink">{$_('setup.model.location_title', { default: 'Feeder location' })}</legend>
-                <p class="text-xs leading-relaxed text-muted">{$_('setup.model.location_hint', { default: 'Checking or continuing saves these coordinates first. They are the same feeder location as Settings → Sharing & integrations → Location. This model does not use the date or an accuracy radius.' })}</p>
+                <p class="text-xs leading-relaxed text-muted">{$_('setup.model.location_hint', { values: { place: settingsPartPlace('location', $_) }, default: 'Checking or continuing saves these coordinates first. They are the same feeder location as {place}. This model does not use the date or an accuracy radius.' })}</p>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <label for="setup-model-latitude" class="text-sm text-ink">
                         {$_('manual_observation.location.latitude', { default: 'Latitude' })}

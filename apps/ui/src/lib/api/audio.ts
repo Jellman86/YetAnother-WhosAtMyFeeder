@@ -14,6 +14,8 @@ export type AudioSummaryResponse = paths['/api/audio/summary']['get']['response'
 
 export type AudioActivityHeatmapResponse = paths['/api/audio/activity-heatmap']['get']['response'];
 
+export type AudioActivityHeatmapParams = NonNullable<paths['/api/audio/activity-heatmap']['get']['query']>;
+
 export async function fetchRecentAudio(limit: number = 10, signal?: AbortSignal): Promise<AudioDetection[]> {
     const response = await apiFetch(`${API_BASE}/audio/recent?limit=${limit}`, {
         signal,
@@ -22,7 +24,7 @@ export async function fetchRecentAudio(limit: number = 10, signal?: AbortSignal)
     return handleResponse<AudioDetection[]>(response);
 }
 
-function buildAudioHistoryParams(params: AudioHistoryParams = {}): URLSearchParams {
+function buildAudioHistoryParams(params: AudioHistoryParams | AudioActivityHeatmapParams = {}): URLSearchParams {
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(params)) {
         if (value === undefined || value === null || value === '') continue;
@@ -49,9 +51,9 @@ export async function fetchAudioSummary(
     return handleResponse<AudioSummaryResponse>(response);
 }
 
-/** Calls heard by weekday and hour, over the same window and filters as the summary. */
+/** Calls heard by weekday and hour, over the same window and filters as the summary, or one species exactly. */
 export async function fetchAudioActivityHeatmap(
-    params: Omit<AudioHistoryParams, 'limit' | 'offset'> = {},
+    params: AudioActivityHeatmapParams = {},
     signal?: AbortSignal
 ): Promise<AudioActivityHeatmapResponse> {
     const query = buildAudioHistoryParams(params);

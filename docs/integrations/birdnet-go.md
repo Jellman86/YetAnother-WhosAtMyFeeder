@@ -10,8 +10,8 @@ YA-WAMF features deep integration with [BirdNET-Go](https://github.com/tphakala/
    treating a stronger different call as nearby context.
 4. If a match is found, the detection is shown with an **Audio confirmed** badge. This is corroborating audio evidence, not proof that the species identification is correct.
 
-Every persisted audio detection is browsable in its own right under **Audio History**, reached from
-the **Leaderboard** or from the dashboard's **Heard** card. Calls heard but never matched to
+Every persisted audio detection is browsable in its own right under **Audio history**, reached from
+the sidebar under **Observe** or from **Open audio history** on the dashboard's **Heard** card. Calls heard but never matched to
 a camera visit still live here, which is usually the fastest way to tell "the microphone heard
 nothing" apart from "the correlation window missed it":
 
@@ -20,12 +20,15 @@ nothing" apart from "the correlation window missed it":
 Below the log, **Analytics** shows calls heard over time, calls heard by weekday and hour in your
 own time zone (the Leaderboard's activity grid, counting calls rather than captures), and the
 species composition. Every figure follows the window chosen at the top of the page and the applied
-filters, so the grid's total always matches **Calls heard**.
+filters, so the grid's total always matches **Calls heard**. Above the grid, as on the Leaderboard, a
+row of chips (**All species** and the five species heard most in the window) shows when one species
+calls. The row is hidden while the page is filtered to a species, because the grid already follows
+that search.
 
 ## Setup
 
 ### 1. MQTT Topic
-In **Settings → Cameras & connection → More options → BirdNET-Go**, make sure **MQTT Topic** matches your BirdNET-Go configuration.
+In **Settings → Integrations → BirdNET-Go**, make sure **MQTT topic** matches your BirdNET-Go configuration.
 - **Modern BirdNET-Go:** Use the base topic (e.g., `birdnet`).
 - **Legacy / Custom:** Use the specific text topic (e.g., `birdnet/text`).
 
@@ -35,7 +38,7 @@ In **Settings → Cameras & connection → More options → BirdNET-Go**, make s
 
 ### 2. The two URLs
 
-**Settings → Cameras & connection → More options → BirdNET-Go** asks for two addresses, and they do different jobs:
+**Settings → Integrations → BirdNET-Go** asks for two addresses, and they do different jobs:
 
 | Field | Who uses it | Example |
 |---|---|---|
@@ -47,9 +50,9 @@ the container. **If the links go nowhere** but spectrograms are fine, the browse
 
 ### 3. Sensor Mapping
 For correlation to work, YA-WAMF needs to know which audio sensor belongs to which camera.
-1. Go to **Settings → Cameras & connection → More options → BirdNET-Go → Audio buffer & sensor mapping**.
-2. Check **Recently Detected BirdNET Sources** after audio messages have arrived.
-3. Under **BirdNET Source Mapping (Optional)**, use **Add detected source…** for the corresponding camera, or type the stable source name.
+1. Go to **Settings → Integrations → BirdNET-Go → Audio buffer & sensor mapping**.
+2. Check **Recently detected BirdNET sources** after audio messages have arrived.
+3. Under **BirdNET source mapping (Optional)**, use **Add detected source…** for the corresponding camera, or type the stable source name.
 4. Multiple source names can be mapped to a camera; comma-separated entries are accepted. Choose Save changes to keep the mapping.
 
 A named camera without a mapping does not receive audio from another source. Use `*` only when you
@@ -74,8 +77,8 @@ Keep host clocks synchronized and ensure timestamp payloads include the correct 
 
 ### 5. Test the complete path
 
-Use **Test BirdNET-Go path** in the setup wizard, or **Test Audio detection** under
-**Settings → Cameras & connection → More options → BirdNET-Go**. The staged diagnostic checks, in order:
+Use **Test BirdNET-Go path** in the setup wizard, or **Test BirdNET-Go** under
+**Settings → Integrations → BirdNET-Go**. The staged diagnostic checks, in order:
 
 1. the BirdNET-Go URL currently shown in the form, when one is set;
 2. an isolated publish through the configured MQTT broker; and
@@ -102,7 +105,7 @@ By default YA-WAMF stores every BirdNET-Go detection it receives. To drop noisy 
 ## Audio history and visual matches
 
 The dashboard's **Heard** card summarizes persisted calls for the selected day and opens
-Audio history, which is also in the sidebar under **Observe** while BirdNET-Go is connected. The [Explorer](../features/explorer.md) can also show heard-only call bouts:
+Audio history, which is also in the sidebar under **Observe** while BirdNET-Go is turned on. The [Explorer](../features/explorer.md) can also show heard-only call bouts:
 turn **Heard calls** on in Explorer for that device. Repeated calls are grouped, and matched calls
 can appear with the corresponding seen visit rather than as duplicate cards. Audio-only
 calls do not become visual captures or inflate camera counts.
@@ -141,7 +144,7 @@ without a stable numeric ID are still accepted, but cannot receive this source-l
 
 ## Remove an incorrect audio detection
 
-In Audio history, owners can choose **Hide locally** beside a detection and **Undo** while
+In Audio history, owners can choose **Hide from YA-WAMF** beside a detection and **Undo** while
 the page remains open. Undo restores recent calls to live correlation immediately; calls older
 than the configured buffer window return to history only. Hiding excludes the entry from history, statistics and future live
 correlation. It does not delete anything in BirdNET-Go or rewrite existing visual identifications.

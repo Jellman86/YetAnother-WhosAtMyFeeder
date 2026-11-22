@@ -27,7 +27,7 @@ const text = (key: string, fallback: string): StatusText => ({ key: `status.${ke
 
 const FEED_LABEL = text('row_feed', 'Frigate events');
 const AUDIO_LABEL = text('row_audio', 'Audio');
-const ALERTS_LABEL = text('row_alerts', 'Alerts');
+const ALERTS_LABEL = text('row_alerts', 'Notifications');
 
 const FEED_STATES: Record<LiveFeedState, Pick<StatusRow, 'tone' | 'state' | 'detail'>> = {
     live: {

@@ -68,7 +68,7 @@ docker compose -f docker-compose.monolith.yml up -d
 If you want to pin a release instead of following `latest`, use a current version tag such as:
 
 ```env
-YAWAMF_MONALITHIC_TAG=v2.21.1
+YAWAMF_MONALITHIC_TAG=v2.24.0
 ```
 
 ## Recommended Pi Settings
@@ -87,10 +87,10 @@ Recommended starting point:
   effective fallback
 - Next step on Raspberry Pi 5 only: `RoPE ViT-B14` if you want better wildlife-wide accuracy and can tolerate slower inference
 - Avoid initially: `ConvNeXt Large`, `EVA-02 Large`, and other heavier video-centric workflows
-- Keep **Trust Frigate Sublabels** enabled if you want a usable Frigate species to
+- Keep **Trust Frigate sublabels** enabled if you want a usable Frigate species to
   provide fallback when local inference cannot name the bird; it does not bypass
   every local classification.
-- Leave **Auto Video Analysis** and **Automatically find additional birds** off
+- Leave **Auto video analysis** and **Automatically find additional birds** off
   initially; add heavier background work only after checking responsiveness.
 
 Optional trade-off if you want to reduce disk and CPU pressure:

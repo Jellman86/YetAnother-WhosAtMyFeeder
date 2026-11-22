@@ -17,10 +17,10 @@ If you can test any of the items below, please open a GitHub issue with results.
 Goal: connect OAuth and send an email via SMTP XOAUTH2.
 
 Checklist:
-1. Configure Gmail OAuth Client ID/Secret in Settings.
-2. Click Connect Gmail and complete the OAuth flow.
+1. In **Settings → Alerts → Email notifications**, set **Authentication mode** to **OAuth (Recommended)** and enter the **Gmail client ID** and **Gmail client secret**.
+2. Click **Connect Gmail** and complete the OAuth flow.
 3. Confirm the connected email is shown in Settings.
-4. Click Send Test Email.
+4. Click **Send test email**.
 5. Re-test after the provider-reported access-token expiry to confirm refresh works. Use a disposable account when deliberately manipulating token state.
 
 Notes:
@@ -31,10 +31,10 @@ Notes:
 Goal: connect OAuth and send an email via SMTP XOAUTH2, including refresh tokens.
 
 Checklist:
-1. Configure Microsoft OAuth Client ID/Secret in Settings.
-2. Click Connect Outlook and complete the OAuth flow.
+1. In **Settings → Alerts → Email notifications**, set **Authentication mode** to **OAuth (Recommended)** and enter the **Outlook client ID** and **Outlook client secret**.
+2. Click **Connect Outlook** and complete the OAuth flow.
 3. Confirm the connected email is shown in Settings.
-4. Click Send Test Email.
+4. Click **Send test email**.
 5. Wait for access token expiry and re-test to confirm refresh works.
 
 Notes:
@@ -45,21 +45,21 @@ Notes:
 Goal: send an email via traditional SMTP with STARTTLS/TLS.
 
 Checklist:
-1. Configure SMTP host, port, from/to, username/password.
-2. If your provider uses port 587, ensure TLS/STARTTLS is enabled.
-3. Click Send Test Email.
+1. In **Settings → Alerts → Email notifications**, set **Authentication mode** to **Traditional SMTP**, then fill in the SMTP server, port, from/to addresses, username and password.
+2. If your provider uses port 587, ensure **Use TLS/STARTTLS** is on.
+3. Click **Send test email**.
 
 If it fails, include:
 - Port number (587 or 465)
-- Whether TLS/STARTTLS toggle was enabled
+- Whether **Use TLS/STARTTLS** was on
 
 ## Telegram Bot API Notifications
 
 Goal: send a Telegram notification (with and without a snapshot).
 
 Checklist:
-1. Configure bot token and chat ID in Settings.
-2. Click Send Test Notification (Telegram).
+1. In **Settings → Alerts → Telegram notifications**, enter the **Bot token** and **Chat ID**.
+2. Click **Send test notification** in the Telegram card.
 3. Verify message formatting when species/camera contains special characters.
 4. Trigger a real detection notification if possible (snapshot and no-snapshot paths).
 
@@ -71,8 +71,8 @@ Notes:
 Goal: send a Pushover notification (with and without a snapshot).
 
 Checklist:
-1. Configure Pushover User Key and API Token in Settings.
-2. Click Send Test Notification (Pushover).
+1. In **Settings → Alerts → Pushover notifications**, enter the **User key** and **API token**.
+2. Click **Send test notification** in the Pushover card.
 3. Trigger a real detection notification if possible (snapshot and no-snapshot paths).
 4. Confirm message title/body fields render as expected in the Pushover app.
 
@@ -86,9 +86,9 @@ If it fails, include:
 Goal: connect OAuth and submit a detection as an observation, including photo upload.
 
 Checklist:
-1. Enable iNaturalist integration and configure Client ID/Secret.
-2. Click Connect iNaturalist and complete OAuth.
-3. Open a detection modal and load the iNaturalist draft panel.
+1. In **Settings → Sharing & integrations → More options**, turn on **iNaturalist** and enter the **Client ID** and **Client secret**.
+2. Click **Connect iNaturalist** and complete OAuth.
+3. Open a record and select **Open** in its **iNaturalist** panel to load the submission draft.
 4. Review the species, photograph and location, then submit only an observation you intend to publish to that account.
 5. Confirm the observation exists on your iNaturalist account and the photo upload succeeded.
 
@@ -100,9 +100,9 @@ Notes:
 Goal: extend CUDA validation on real NVIDIA hardware beyond the tested accurate crop detector and RoPE ViT-B/14. Use the strict [model/provider gate](docs/development/testing.md#mandatory-local-modelprovider-gate) first; provider compatibility does not measure species accuracy.
 
 Checklist:
-1. Use the unsuffixed full image or the matching `-cuda` image. Confirm **Settings → Identifying birds → Runtime diagnostics** shows `cuda` under **Packaged**; the CPU, Intel, and Raspberry Pi images do not contain the CUDA runtime.
+1. Use the unsuffixed full image or the matching `-cuda` image. In **Settings → Identifying birds → More options → Hardware**, expand **Runtime report** and confirm **Runtime diagnostics** shows `cuda` under **Packaged**; the CPU, Intel, and Raspberry Pi images do not contain the CUDA runtime.
 2. Ensure the container runtime exposes your NVIDIA GPU (`nvidia-smi` works in the backend container). The host must provide NVIDIA driver/runtime passthrough even when CUDA userspace is packaged in the image.
-3. Under **Settings → Identifying birds → Hardware → Inference provider**, select **NVIDIA CUDA** (or **Auto** if CUDA is the preferred available path on your host).
+3. Under **Settings → Identifying birds → More options → Hardware → Identification model runs on**, select **NVIDIA CUDA** (or **Auto (recommended)** if CUDA is the preferred available path on your host).
 4. Choose an installed model that passed the strict gate and its on-host validation. Test additional families separately; larger models can have different memory and driver requirements.
 5. Confirm `/api/classifier/status` reports `image_flavor` as `full` or `cuda`, lists `cuda` in `packaged_inference_providers`, and reports CUDA as available and active during inference.
 6. Run at least one live detection and one manual reclassification; confirm both complete without fallback errors.

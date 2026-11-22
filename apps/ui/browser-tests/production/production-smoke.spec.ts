@@ -147,17 +147,20 @@ const PAGES: ReadonlyArray<[path: string, heading: string]> = [
     ['/no-such-page', 'This page does not exist']
 ];
 
-// Settings is organised by task: six sections, each at its own address.
+// Settings is organised by task: seven sections, each at its own address.
 const SETTINGS_SECTIONS: ReadonlyArray<[section: string, name: string]> = [
-    ['cameras', 'Cameras & connection'], ['identification', 'Identifying birds'], ['alerts', 'Alerts'],
-    ['sharing', 'Sharing & integrations'], ['storage', 'Storage & upkeep'], ['display', 'Display']
+    ['cameras', 'Cameras & connection'], ['identification', 'Identifying birds'], ['integrations', 'Integrations'],
+    ['notifications', 'Notifications'], ['access', 'Access & privacy'], ['storage', 'Storage & upkeep'], ['display', 'Display']
 ];
 
-// Every former tab's address, the section that now holds it, and the part it lands on.
-const FORMER_SETTINGS_TABS: ReadonlyArray<[tab: string, section: string]> = [
-    ['connection', 'cameras'], ['detection', 'identification'], ['models', 'identification'], ['beta', 'identification'],
-    ['notifications', 'alerts'], ['integrations', 'sharing'], ['ai', 'sharing'], ['security', 'sharing'],
-    ['data', 'storage'], ['maintenance', 'storage'], ['appearance', 'display'], ['accessibility', 'display']
+// Every former tab's or renamed section's address, the section that now holds it, and the part it
+// lands on: none for a name that is a whole section now.
+const FORMER_SETTINGS_TABS: ReadonlyArray<[tab: string, section: string, part: string]> = [
+    ['connection', 'cameras', 'connection'], ['detection', 'identification', 'detection'], ['models', 'identification', 'models'],
+    ['beta', 'identification', 'beta'], ['notifications', 'notifications', ''], ['integrations', 'integrations', ''],
+    ['ai', 'integrations', 'ai'], ['security', 'access', 'security'], ['alerts', 'notifications', ''], ['sharing', 'access', ''],
+    ['data', 'storage', 'data'], ['maintenance', 'storage', 'maintenance'], ['appearance', 'display', 'appearance'],
+    ['accessibility', 'display', 'accessibility']
 ];
 
 // The heading is the shell's page header, drawn before the page's own code arrives; a page has drawn
@@ -183,13 +186,13 @@ test('every page draws its own content, with every script loaded and no console 
 
 test('every former Settings tab address lands on its section, at its part', async ({ page }) => {
     const seen = await openFeeder(page);
-    for (const [tab, section] of FORMER_SETTINGS_TABS) {
+    for (const [tab, section, part] of FORMER_SETTINGS_TABS) {
         const name = SETTINGS_SECTIONS.find(([id]) => id === section)?.[1] ?? section;
         await page.goto(`/settings/${tab}`);
         await expect.poll(() => new URL(page.url()).pathname, { timeout: 15_000 }).toBe(`/settings/${section}`);
-        expect(new URL(page.url()).hash, tab).toBe(`#${tab}`);
+        expect(new URL(page.url()).hash, tab).toBe(part ? `#${part}` : '');
         await expect(page.locator('[data-settings-navigation] [aria-current="page"]'), tab).toHaveText(name);
-        await expect(page.locator(`[data-settings-part="${tab}"]`), tab).toBeInViewport({ timeout: 15_000 });
+        if (part) await expect(page.locator(`[data-settings-part="${part}"]`), tab).toBeInViewport({ timeout: 15_000 });
     }
     expect(problems(seen)).toEqual([]);
 });
@@ -234,7 +237,7 @@ test('charts, the map and a record with its written analysis draw from their laz
     await expect(page.locator('main canvas').first()).toBeVisible();
     await expect.poll(() => loaded(seen, 'chartjs-runtime')).toBe(true);
 
-    await page.goto('/settings/integrations');
+    await page.goto('/settings/cameras#location');
     await expect(page.locator('.leaflet-container').first()).toBeVisible({ timeout: 15_000 });
     await expect.poll(() => loaded(seen, 'leaflet-src')).toBe(true);
 

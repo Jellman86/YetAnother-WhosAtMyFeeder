@@ -254,6 +254,7 @@ npm run dev        # dev server; proxy target is set in vite.config.ts
 npm run check      # svelte-check: zero errors, zero warnings
 npm test           # vitest unit/layout tests
 npm run lint:dead  # knip: no unused files, exports, or packages
+npm run lint:tokens  # design-token ratchet and WCAG AA contrast of token pairs
 npm run build      # production build (fails a page over 10 scripts, or a chunk importing the entry)
 npm run test:browser:production  # Chromium smoke of the built bundle from dist (after build)
 npm run check:cache              # two builds a page apart rename only that page and the entry
@@ -293,18 +294,23 @@ CI is where the Definition of Done is enforced. Keep CI and the local commands i
 workflow in the same commit. CI is allowed to be stricter than a local run, never
 looser.
 
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — **backend**: repo-wide
-  `ruff check .` and `ruff format --check .` (every tracked Python path, §7),
-  Alembic migration smoke (`upgrade → downgrade → upgrade`), migration path matrix
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — **backend**: the immutable Action
+  reference check (`check_action_pins.py`), repo-wide `ruff check .` and `ruff format --check .`
+  (every tracked Python path, §7), Alembic migration smoke (`upgrade → downgrade → upgrade`) for
+  the detection history and, separately, for the species catalogue, migration path matrix
   ([`backend/scripts/ci_migration_path_check.py`](backend/scripts/ci_migration_path_check.py)),
-  single-Alembic-head check, and `pytest`. **frontend**: `npm ci` → `npm run check`
-  → `npm run lint:dead` (knip: no unused files, exports, or packages) → `npm run lint:tokens`
-  (the design-token ratchet and contrast proof) → `npm test` (which includes the copy lint, with a second step that refuses a raised copy baseline) → `npm run build` → `npm run check:cache`
-  (chunk names stable across a one-page change).
+  `pytest`, the single-Alembic-head check for both streams, and the OpenAPI artifact and frontend
+  OpenAPI types `--check`s. **frontend**: `npm ci` → `npm run check` → `npm run lint:dead` (knip:
+  no unused files, exports, or packages) → `npm run lint:tokens` (the design-token ratchet and
+  contrast proof) → on pull requests, `npm run tokens:check-base` and `npm run copy:check-base`
+  against the target branch (the token and copy-lint baselines may only fall) → `npm test` (which
+  includes the copy lint) → `npm run build` → `npm run check:cache` (chunk names stable across a
+  one-page change).
   **production bundle**: `npm run build`, then `npm run test:browser:production`, a Chromium smoke of
   the built bundle served from `dist`. It checks every page, every chunk, German and the lazy features,
   with no console errors. The fixture suite runs on the dev server, which does not split code.
-  **browser**: the complete Chromium fixture suite, with failure screenshots and traces retained.
+  **browser**: the complete Chromium fixture suite in two shards, with failure screenshots and
+  traces retained.
   **intel image**: when the Dockerfile, `docker/`, the Intel requirements or the motion decoder
   change, builds the Intel image without publishing it and runs the flavor smoke test, including
   the Garden motion VA-API decoder check.
@@ -318,7 +324,8 @@ looser.
   registry by the frontend tests, so a new request needs a registry entry, a row and its wording in
   every locale. What the guard cannot see is listed in the registry's `manual_review`; a change to
   a registered module is reviewed by hand for a new destination.
-  **telemetry worker**: dependency check.
+  **telemetry worker**: `npm ci` and `npm test`. **docs and compose**: the docs consistency check
+  and `docker compose config` for each compose file.
 - [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) — CodeQL scanning
   for Python and TypeScript.
 - [`.github/workflows/docs-quality.yml`](.github/workflows/docs-quality.yml) — runs
@@ -401,21 +408,22 @@ Frigate (MQTT) → MQTTService → EventProcessor → ClassifierService → Dete
 - `frigate_client.py` — fetches snapshots and clips from the Frigate API
 - `audio/audio_service.py` — correlates visual detections with the BirdNET-Go buffer
 - `taxonomy/taxonomy_service.py` — iNaturalist scientific ↔ common name mapping
-- `ai_service.py` — LLM integration (Gemini/OpenAI) for behavioural analysis
+- `ai_service.py` — LLM integration (Gemini, OpenAI, Claude, OpenRouter) for behavioural analysis
 - `broadcaster.py` — Server-Sent Events for real-time frontend updates
-- `notification_service.py` — Discord, Telegram, Pushover notifications
+- `notification_service.py` — Discord, Telegram, Pushover and email notifications
 - `auto_video_classifier_service.py` — background video-frame analysis
 - `model_manager.py` — model download and management
 - `telemetry_service.py` — anonymous, opt-in usage metrics
 
 **Backend routers** (`backend/app/routers/`): `events`, `species`, `settings`,
-`proxy` (Frigate media proxy with HTTP Range), `stream` (SSE), `classifier`, `ai`,
-`audio`, `backfill`, `stats`, `models`.
+`proxy` (Frigate media proxy with HTTP Range), `classifier`, `ai`, `audio`,
+`backfill`, `stats`, `models`, `auth`, `visits`, `garden`, and others. The SSE
+stream (`GET /api/sse`) is defined in `backend/app/main.py`.
 
 **Frontend pages** (`apps/ui/src/lib/pages/`): `Dashboard`, `Events`, `Species`,
 `AudioHistory`, `Settings`, and others. **Components**
 (`apps/ui/src/lib/components/`): `DetectionCard`, `VideoPlayer`,
-`SpeciesDetailModal`, `RecentAudio`, `Header`, and more.
+`SpeciesDetailModal`, `RecentAudio`, `Sidebar`, `AppPageHeader`, and more.
 
 ### Database schema
 
@@ -424,7 +432,8 @@ Frigate event IDs, camera names, weather, and audio correlation.
 - `frigate_event` is `UNIQUE` (idempotent ingest); `is_hidden` for soft deletion.
 - `audio_confirmed`, `audio_species` for BirdNET-Go correlation.
 - `scientific_name`, `common_name`, `taxa_id` for taxonomy enrichment.
-- Video fields: `video_analysis_done`, `video_top_species`, `video_avg_score`.
+- Video fields: `video_classification_status`, `video_classification_label`,
+  `video_classification_score` and related `video_classification_*` columns.
 
 **`audio_detections`** — persisted BirdNET-Go detections (species, scientific name,
 confidence, timestamp, sensor, raw payload); indexed on `timestamp` and
@@ -438,17 +447,19 @@ confidence, timestamp, sensor, raw payload); indexed on `timestamp` and
 
 Priority (highest to lowest): environment variables (section-prefixed, e.g.
 `FRIGATE__FRIGATE_URL`) → `config/config.json` (persisted runtime config) → code
-defaults in `backend/app/config.py`. Settings are read/written through Pydantic
-Settings; the `/api/settings` endpoint redacts secrets in GET and preserves stored
-secrets on PUT via `should_update_secret()`.
+defaults in `backend/app/config_models.py` (assembled by `backend/app/config.py`).
+Settings are read/written through Pydantic Settings; the `/api/settings` endpoint
+redacts secrets in GET and preserves stored secrets on POST via `should_update_secret()`.
 
 ### Authentication & access
 
-Optional API-key authentication via the `YA_WAMF_API_KEY` environment variable.
-When set, all API requests require the `X-API-Key` header, SSE streams authenticate
-via query parameter, and the frontend shows a login screen. Public/guest access and
-privacy controls live under **Settings → Security**. Comparison is timing-safe
-(`secrets.compare_digest`).
+Optional owner sign-in with a password, turned on under **Settings → Access & privacy →
+Sign-in**. Signed-in requests carry a JWT bearer token; read-only media
+and the SSE stream also accept the session cookie, and the SSE stream takes a single-use
+ticket from `POST /api/auth/stream-ticket`. Public/guest access and privacy controls
+live in the **Public access** card in the same section. The legacy `YA_WAMF_API_KEY`
+environment variable (`X-API-Key` header) still works but is deprecated and will be
+removed in v3.0; its comparison is timing-safe (`secrets.compare_digest`).
 
 ## External integrations
 
@@ -456,7 +467,7 @@ privacy controls live under **Settings → Security**. Comparison is timing-safe
 - **BirdNET-Go** — audio detections; persisted history + spectrogram/clip proxy.
 - **iNaturalist** — taxonomy normalisation (cached in `taxonomy_cache`).
 - **Weather APIs** — local weather enrichment.
-- **LLMs** — Gemini or OpenAI for behavioural analysis.
+- **LLMs** — Gemini, OpenAI, Claude or OpenRouter for behavioural analysis.
 - **BirdWeather / eBird / Home Assistant** — optional reporting and integration
   (`custom_components/yawamf/`).
 

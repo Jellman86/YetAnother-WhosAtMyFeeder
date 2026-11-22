@@ -92,8 +92,8 @@ tag**; do not create new mount paths or copy data into the container filesystem.
    `dev` → `dev-intel`, or `v2.21.1` → `v2.21.1-intel`. Immutable commit tags are
    even safer for comparisons: `<sha>`, `<sha>-cpu`, `<sha>-intel`, and
    `<sha>-cuda` are built from exactly the same source.
-2. Record the current tag. Export a configuration backup from **Settings → Storage & upkeep
-   → Setup, backup & maintenance tools → Configuration Backup** and protect it
+2. Record the current tag. Export a configuration backup with **Export config** in **Settings → Storage & upkeep
+   → Configuration backup** and protect it
    like a credential because it contains secrets. This export does not include
    `/data`; use your normal stopped-volume or storage snapshot procedure as an
    additional precaution for production data.
@@ -118,13 +118,13 @@ directly on the Docker host.
 
 ## Providers
 
-Set the provider at **Settings → Identifying birds → More options → Hardware → Inference provider**. The values map
+Set the provider at **Settings → Identifying birds → More options → Hardware → Identification model runs on**. The values map
 to `classification.inference_provider` (`auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu`,
 also settable via the `CLASSIFICATION__INFERENCE_PROVIDER` environment variable):
 
 | UI label | Value | Image flavor | Host device | Notes |
 |---|---|---|---|---|
-| Auto | `auto` | any | — | Uses this model/install's measured passing order; without a sweep it stays within the registry's globally safe paths. |
+| Auto (recommended) | `auto` | any | — | Uses this model/install's measured passing order; without a sweep it stays within the registry's globally safe paths. |
 | CPU (ONNX Runtime) | `cpu` | any | none | Always packaged; the safe fallback. |
 | NVIDIA CUDA | `cuda` | `full` or `cuda` | NVIDIA GPU | Needs the NVIDIA Container Toolkit on the host. The image ships CUDA 12.9 userspace, so any driver that supports CUDA 12 (the 525 series or newer) works; CUDA 13 is planned for 3.0. |
 | Intel GPU (OpenVINO) | `intel_gpu` | `full` or `intel` | `/dev/dri` | Integrated Arc/UHD graphics. |
@@ -176,9 +176,9 @@ working hardware.
 When the check finishes, **Settings → Identifying birds** reads the classifier status back from the
 backend, so the **Runtime** cell, the runtime report and the Models card show the provider the
 workers actually report, not the check's recommendation. Unsaved edits on the page are kept. Until a
-worker has loaded the model, the provider is shown as planned (**loads on first detection**)
-rather than active. If the status cannot be read, the page says so and asks you to reload.
-The visible Models tab also refreshes runtime status every five seconds and when the browser
+worker has loaded the model, the provider is shown as **Planned** and the status line says it loads
+with the first visit, rather than showing it as active. If the status cannot be read, the page says so and asks you to reload.
+The **Models** card, while it is on screen, also refreshes runtime status every five seconds and when the browser
 becomes visible again. This catches a check finishing elsewhere or a worker starting later;
 it does not reload your settings. **Models → Refresh** reads the runtime too.
 
@@ -247,12 +247,12 @@ found. For example **Intel NPU: Auto-detected · verified ✓** means the NPU wa
 detected and has passed validation for the loaded model. A device that is present
 but not yet proven for the current model shows **unverified**.
 
-Select the active model under **Settings → Identifying birds** to inspect it. **Current runtime**
-shows the provider that is running now, and **Automatic order** lists its verified
+Select the active model under **Settings → Identifying birds** to inspect it. The status line above the
+**Models** card names the device it runs on now, and **Automatic order** lists its verified
 fallbacks in the order YA-WAMF will try them. **Best fit** describes the model's
 accuracy and use case; it does not claim which device is active.
 
-If it fails, the pill shows **Not detected** — recheck the `devices:` and
+If it fails, the pill shows **Not available** — recheck the `devices:` and
 `group_add:` entries and that the host driver is installed.
 
 ## Intel NPU specifics

@@ -120,13 +120,14 @@ the [inference isolation roadmap](ROADMAP.md#keep-the-web-service-and-ingest-off
   each video job saves about 0.7 s net. Forty CUDA jobs in a row completed with no restart or
   fallback. What remains is production backfill under real ingest load.
 
-- **#622** Always-retained photos and visit media: implemented by #625 in `dev`.
-  Documentation and acceptance housekeeping remain; the old optional cache switches are gone.
-- **#641** SpeciesNet garden visitors: deferred feature, not an active regression or a shipped capability.
-- **#643** Identification provenance: deferred feature; do not claim every initial input source is persisted yet.
-
 ## Recently Closed (Context)
 
+- **#641** SpeciesNet garden visitors: closed November 7; shipped as the
+  [Garden animals beta](docs/features/garden-animals.md).
+- **#622** Always-retained photos and visit media: implemented by #625 and closed October 18;
+  the old optional cache switches are gone.
+- **#643** Identification provenance: implemented by #690 and closed October 11. New
+  identifications keep their actual source, crop and frame identity.
 - **#481** Thumbnail/species mismatch with multiple birds: closed October 9 after the photo-repair work and follow-up review.
 - **#640** New model investigation: closed after the catalogue integration, release artifacts and hardware/feeder evaluation were completed. New model/provider claims remain scoped to the published [validation evidence](docs/reviews/2026-10-10-model-integration-validation.md).
 
@@ -252,13 +253,13 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 - Scope: Real user key + API token, snapshot/no-snapshot paths, error handling.
 - Code: `backend/app/services/notification_service.py`, Settings test endpoint `backend/app/routers/settings.py`
 - Needs testing:
-  - Settings "Send Test Notification" succeeds against the real Pushover API
+  - Settings "Send test notification" succeeds against the real Pushover API
   - Snapshot attachment path works reliably
   - Invalid credentials or rate-limit responses surface clear UI/backend errors
 
 ### iNaturalist Submissions (OAuth + Draft/Submit Flow)
 - Scope: OAuth connect flow + creating/submitting observations from a detection.
-- Code: `backend/app/routers/inaturalist.py`, `backend/app/services/inaturalist_service.py`, UI panel: `apps/ui/src/lib/components/DetectionModal.svelte`
+- Code: `backend/app/routers/inaturalist.py`, `backend/app/services/inaturalist_service.py`, UI panel: `apps/ui/src/lib/components/record/RecordInaturalist.svelte`
 - Needs testing:
   - OAuth authorize + callback completes and stores token
   - "Draft" loads correctly for a detection
@@ -266,7 +267,7 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 
 ### NVIDIA CUDA Inference Provider (Real GPU Validation)
 - Scope: End-to-end CUDA provider behavior for ONNX models on real NVIDIA hardware.
-- Code: `backend/app/services/classifier.py`, `backend/app/services/model_manager.py`, `apps/ui/src/lib/components/settings/DetectionSettings.svelte`, `apps/ui/src/lib/pages/models/ModelManager.svelte`
+- Code: `backend/app/services/classifier_service.py`, `backend/app/services/model_manager.py`, `apps/ui/src/lib/components/settings/HardwareSettings.svelte`, `apps/ui/src/lib/pages/models/ModelManager.svelte`
 - Verified on October 4, 2026 with the published `dev-cuda` image on an RTX 4070 (driver 617.14),
   in disposable containers with no network:
   - The image reports CUDA as packaged (ONNX Runtime GPU 1.26.0 with the CUDA provider), and the

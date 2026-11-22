@@ -22,16 +22,25 @@ describe('where a saved setting lives', () => {
     it('names the part that shows each field, preferring an exact entry over a family prefix', () => {
         expect(settingsFieldPart('frigate_url')).toBe('connection');
         expect(settingsFieldPart('mqtt_port')).toBe('connection');
-        expect(settingsFieldPart('notifications_discord_webhook_url')).toBe('notifications');
-        // Garden's alerts send through the bird alert channels, so they are set in Alerts.
-        expect(settingsFieldPart('garden_notifications_enabled')).toBe('notifications');
+        // A channel's own settings are in Channels; when to notify is in the rules.
+        expect(settingsFieldPart('notifications_discord_webhook_url')).toBe('channels');
+        expect(settingsFieldPart('notifications_telegram_include_snapshot')).toBe('channels');
+        expect(settingsFieldPart('notifications_notify_on_update')).toBe('rules');
+        expect(settingsFieldPart('notifications_filter_min_confidence')).toBe('rules');
+        // Garden's alerts send through the bird alert channels, so they are set in Notifications.
+        expect(settingsFieldPart('garden_notifications_enabled')).toBe('garden-alerts');
+        expect(settingsFieldSection('garden_notifications_enabled')).toBe('notifications');
         expect(settingsFieldPart('garden_cameras')).toBe('connection');
         // Garden's naming threshold is set in the naming card, beside the birds' one.
         expect(settingsFieldPart('garden_naming_threshold')).toBe('detection');
-        expect(settingsFieldPart('inaturalist_default_latitude')).toBe('integrations');
+        expect(settingsFieldPart('inaturalist_default_latitude')).toBe('networks');
+        // Every external service is set in Integrations, BirdNET-Go and the weather among them.
+        for (const field of ['birdnet_url', 'audio_topic', 'camera_audio_mapping', 'ha_weather_entity', 'ebird_api_key', 'birdweather_station_token', 'llm_model', 'enrichment_mode']) {
+            expect(settingsFieldSection(field), field).toBe('integrations');
+        }
         expect(settingsFieldPart('llm_api_key')).toBe('ai');
         expect(settingsFieldPart('media_cache_max_size_mb')).toBe('data');
-        expect(settingsFieldPart('enrichment_sightings_source')).toBe('integrations');
+        expect(settingsFieldPart('enrichment_sightings_source')).toBe('enrichment');
     });
 
     it('keeps identification rules in Detection and everything about the models in Models', () => {
@@ -43,24 +52,25 @@ describe('where a saved setting lives', () => {
         }
     });
 
-    it('keeps what is kept in Data, repair jobs in Maintenance, and what leaves the install in Security', () => {
+    it('keeps what is kept in Data, repair jobs in Maintenance, and what leaves the install in Access & privacy', () => {
         expect(settingsFieldPart('retention_days')).toBe('data');
         expect(settingsFieldPart('frigate_missing_behavior')).toBe('data');
         expect(settingsFieldPart('auto_purge_missing_clips')).toBe('data');
         expect(settingsFieldPart('maintenance_max_concurrent')).toBe('maintenance');
         expect(settingsFieldPart('auto_analyze_unknowns')).toBe('maintenance');
-        // Telemetry is under Sharing's More options, after AI.
-        expect(settingsFieldPart('telemetry_enabled')).toBe('ai');
-        expect(settingsFieldSection('telemetry_enabled')).toBe('sharing');
+        expect(settingsFieldPart('telemetry_enabled')).toBe('telemetry');
+        expect(settingsFieldSection('telemetry_enabled')).toBe('access');
     });
 
-    it('keeps the feeder\'s location on Sharing\'s first screen, never in a part under More options', () => {
+    it('keeps the feeder\'s location on the first screen of Cameras & connection, never in a part under More options', () => {
         for (const field of ['location_latitude', 'location_longitude', 'location_automatic', 'location_state', 'location_country']) {
             const part = settingsFieldPart(field);
-            expect(part, field).toBe('security');
-            expect(settingsPartIsInMore(part ?? 'security'), field).toBe(false);
+            expect(part, field).toBe('location');
+            expect(settingsFieldSection(field), field).toBe('cameras');
+            expect(settingsPartIsInMore(part ?? 'location'), field).toBe(false);
         }
-        expect(settingsPartIsInMore(settingsFieldPart('telemetry_enabled') ?? 'security')).toBe(true);
+        expect(settingsPartIsInMore('enrichment')).toBe(true);
+        expect(settingsPartIsInMore('telemetry')).toBe(false);
     });
 
     it('has no home for a field Settings never shows', () => {
@@ -73,9 +83,9 @@ describe('where a saved setting lives', () => {
         expect(settingsFieldSection('classification_threshold')).toBe('identification');
         expect(settingsFieldSection('inference_provider')).toBe('identification');
         expect(settingsFieldSection('garden_naming_threshold')).toBe('identification');
-        expect(settingsFieldSection('notifications_discord_webhook_url')).toBe('alerts');
-        expect(settingsFieldSection('llm_api_key')).toBe('sharing');
-        expect(settingsFieldSection('auth_password')).toBe('sharing');
+        expect(settingsFieldSection('notifications_discord_webhook_url')).toBe('notifications');
+        expect(settingsFieldSection('llm_api_key')).toBe('integrations');
+        expect(settingsFieldSection('auth_password')).toBe('access');
         expect(settingsFieldSection('retention_days')).toBe('storage');
         expect(settingsFieldSection('maintenance_max_concurrent')).toBe('storage');
         expect(settingsFieldSection('accessibility_high_contrast')).toBe('display');
@@ -92,7 +102,7 @@ describe('the unsaved-changes summary', () => {
     it('counts each changed setting once and lists its sections in navigation order', () => {
         expect(summarizeUnsaved(['llm_model', 'mqtt_port', 'frigate_url', 'mqtt_port', 'threshold_nope'])).toEqual({
             count: 4,
-            sections: ['cameras', 'sharing']
+            sections: ['cameras', 'integrations']
         });
         expect(summarizeUnsaved(['retention_days', 'auto_analyze_unknowns'])).toEqual({ count: 2, sections: ['storage'] });
     });
@@ -129,7 +139,7 @@ describe('where a refused value is shown', () => {
 
 describe('which refused field is shown first', () => {
     it('prefers one in the open section, then the first in navigation order', () => {
-        expect(firstRefusedField(['mqtt_port', 'llm_model'], 'sharing')).toBe('llm_model');
+        expect(firstRefusedField(['mqtt_port', 'llm_model'], 'integrations')).toBe('llm_model');
         expect(firstRefusedField(['llm_model', 'garden_naming_threshold', 'mqtt_port'], 'storage')).toBe('mqtt_port');
         expect(firstRefusedField(['llm_model', 'garden_naming_threshold'], 'display')).toBe('garden_naming_threshold');
         expect(firstRefusedField([], 'cameras')).toBeNull();
@@ -201,12 +211,12 @@ describe('where a refused field is shown', () => {
 
     it('opens More options only for a field inside it', () => {
         expect(settingsFieldPlace('location_latitude')?.disclosures ?? []).toEqual([]);
-        expect(settingsFieldPlace('ebird_max_results')?.disclosures).toEqual(['settings-more-sharing', 'integrations-ebird-advanced']);
+        expect(settingsFieldPlace('ebird_max_results')?.disclosures).toEqual(['integrations-ebird-advanced']);
         expect(settingsFieldPlace('frigate_url')?.disclosures ?? []).toEqual([]);
         expect(settingsFieldPlace('mqtt_server')?.disclosures ?? []).toEqual([]);
         expect(settingsFieldPlace('frigate_external_url')?.disclosures).toEqual(['settings-more-cameras']);
         expect(settingsFieldPlace('recording_clip_before_seconds')?.disclosures).toEqual(['settings-more-cameras', 'connection-full-visit']);
-        expect(settingsFieldPlace('audio_buffer_hours')?.disclosures).toEqual(['settings-more-cameras', 'integrations-birdnet-advanced']);
+        expect(settingsFieldPlace('audio_buffer_hours')?.disclosures).toEqual(['integrations-birdnet-advanced']);
     });
 
     it('shows a refused concurrency by opening Storage\'s More options, since Jobs at once is a plain card inside it', () => {

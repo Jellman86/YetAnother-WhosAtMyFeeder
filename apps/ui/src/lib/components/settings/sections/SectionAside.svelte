@@ -29,10 +29,11 @@
 
     /** What each section depends on, as the live status measures it. Display depends on nothing. */
     const STATUS_KEYS: Readonly<Record<SettingsSection, readonly SubsystemKey[]>> = {
-        cameras: ['frigate', 'mqtt', 'audio'],
+        cameras: ['frigate', 'mqtt'],
         identification: ['classifier', 'finder'],
-        alerts: ['notifications'],
-        sharing: [],
+        integrations: ['audio'],
+        notifications: ['notifications'],
+        access: [],
         storage: ['storage'],
         display: []
     };
@@ -105,8 +106,8 @@
     </h3>
     {#if keys.length === 0}
         <p class="text-muted" data-section-status-note>
-            {section === 'sharing'
-                ? $_('settings.status.sharing_note', { default: 'Nothing here depends on a measured connection. Sign-in and guest access are set here; each service under More options says whether it is on.' })
+            {section === 'access'
+                ? $_('settings.status.access_note', { default: 'Nothing here depends on a measured connection. Sign-in, guest access and telemetry each say here whether they are on.' })
                 : $_('settings.status.display_note', { default: 'Nothing here depends on another service. Theme, text size, language and the accessibility choices on this device change at once. Units and the defaults for everyone wait for Save.' })}
         </p>
     {:else if !snapshot}

@@ -36,7 +36,15 @@
     import ChartFigure from '../components/ui/ChartFigure.svelte';
     import Segmented from '../components/ui/Segmented.svelte';
     import ActivityHeatmap from '../components/ActivityHeatmap.svelte';
-    import { busiestHourOfDay, weekdayHourTable } from '../leaderboard/heatmap';
+    import HeatmapSpeciesChips from '../components/HeatmapSpeciesChips.svelte';
+    import { busiestHourOfDay, keptHeatmapChoice, weekdayHourTable } from '../leaderboard/heatmap';
+    import {
+        audioHeatmapReading,
+        audioHeatmapSpeciesOptions,
+        audioSpeciesHeatmapParams,
+        keptSpeciesHeatmap,
+        type AudioHeatmapReading
+    } from './audio-heatmap-species';
     import LazyModal from '../components/LazyModal.svelte';
     import { loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
@@ -164,8 +172,62 @@
     let hasSpecies = $derived((summary?.top_species?.length ?? 0) > 0);
     // Read from the grid, which is in the viewer's time zone, so the figure names the hour the grid outlines.
     let busiestHour = $derived(busiestHourOfDay(heatmap?.cells ?? []));
+
+    // The grid can show one species' calls: "when does the Robin sing?" is the question the
+    // all-species grid cannot answer. The busiest hour above it stays the page's, for all species.
+    const heatmapSpeciesOptions = $derived(audioHeatmapSpeciesOptions(summary?.top_species ?? [], applied.species));
+    let heatmapChoice = $state<string | null>(null);
+    const heatmapSpecies = $derived(keptHeatmapChoice(heatmapChoice, heatmapSpeciesOptions));
+    // The filters of the reading on screen. A chip asks under these, never under a window chosen
+    // since that is still being read or failed to read, so its grid counts what the figures beside it count.
+    let heatmapReading = $state.raw<AudioHeatmapReading | null>(null);
+    // Kept with the species it counts and the reading it was read under, so the grid is always named
+    // for the data on screen and never stands beside another window's figures.
+    let speciesHeatmap = $state.raw<{ key: string; readingKey: string; grid: AudioActivityHeatmapResponse } | null>(null);
+    let speciesHeatmapLoading = $state(false);
+    let speciesHeatmapError = $state<string | null>(null);
+    let speciesHeatmapAttempt = $state(0);
+    $effect(() => {
+        const requested = heatmapSpecies;
+        // Each new reading of the page (window, filters, refresh) asks again under its filters.
+        const reading = heatmapReading;
+        void speciesHeatmapAttempt;
+        if (!requested || !reading) {
+            speciesHeatmapLoading = false;
+            speciesHeatmapError = null;
+            return;
+        }
+        const params = audioSpeciesHeatmapParams(reading, requested);
+        // A quicker second choice aborts this one, so an older answer never lands over it.
+        const controller = new AbortController();
+        speciesHeatmapLoading = true;
+        speciesHeatmapError = null;
+        fetchAudioActivityHeatmap(params, controller.signal)
+            .then((grid) => {
+                if (controller.signal.aborted) return;
+                speciesHeatmap = { key: requested, readingKey: reading.key, grid };
+                speciesHeatmapLoading = false;
+            })
+            .catch((failure: unknown) => {
+                if (controller.signal.aborted) return;
+                speciesHeatmapLoading = false;
+                speciesHeatmapError = getErrorMessage(failure) || 'Unable to load calls by hour and weekday.';
+                logger.warn('Audio species activity grid fetch failed', { message: speciesHeatmapError });
+            });
+        return () => controller.abort();
+    });
+    // While another species loads, the previous one's grid stays (dimmed) under its own name.
+    const shownSpeciesHeatmap = $derived(heatmapSpecies && !speciesHeatmapError ? speciesHeatmap : null);
+    const shownHeatmap = $derived(heatmapSpecies ? (shownSpeciesHeatmap?.grid ?? null) : heatmap);
+    const hasShownHeatmap = $derived((shownHeatmap?.total_count ?? 0) > 0);
+    const heatmapSubject = $derived(
+        shownSpeciesHeatmap
+            ? (heatmapSpeciesOptions.find((option) => option.key === shownSpeciesHeatmap.key)?.label ?? shownSpeciesHeatmap.key)
+            : null
+    );
+    const chosenSpeciesLabel = $derived(heatmapSpeciesOptions.find((option) => option.key === heatmapSpecies)?.label ?? '');
     const heatmapTable = $derived(
-        weekdayHourTable(heatmap?.cells ?? [], { day: $_('audio.chart.col_day', { default: 'Day' }), weekday: weekdayLabel, hour: formatHour })
+        weekdayHourTable(shownHeatmap?.cells ?? [], { day: $_('audio.chart.col_day', { default: 'Day' }), weekday: weekdayLabel, hour: formatHour })
     );
 
     function requestParams(includePaging = true) {
@@ -188,6 +250,13 @@
         apply: (nextHistory, nextSummary, nextHeatmap) => {
             history = nextHistory;
             summary = nextSummary;
+            // A species no longer offered in this window goes back to all species. A refresh of the
+            // same filters keeps the chosen species' grid, dimmed until it is read again; a grid read
+            // for other filters is never shown beside this reading's figures.
+            const reading = audioHeatmapReading(requestParams(false));
+            heatmapChoice = keptHeatmapChoice(heatmapChoice, audioHeatmapSpeciesOptions(nextSummary.top_species, applied.species));
+            speciesHeatmap = keptSpeciesHeatmap(speciesHeatmap, reading);
+            heatmapReading = reading;
             if ('heatmap' in nextHeatmap) {
                 heatmap = nextHeatmap.heatmap;
                 heatmapError = null;
@@ -204,6 +273,8 @@
             summary = null;
             heatmap = null;
             heatmapError = null;
+            heatmapReading = null;
+            speciesHeatmap = null;
             readAt = null;
             if (authStore.isGuest) selectedSpecies = null;
         },
@@ -846,12 +917,41 @@
         <div class="grid min-w-0 grid-cols-1 gap-8 xl:grid-cols-5">
             <ChartFigure
                 title={$_('audio.chart.heatmap_title', { default: 'Calls heard by hour and weekday' })}
-                description={measured && heatmap ? callsHeard(heatmap.total_count) : undefined}
-                table={measured && hasHeatmap ? heatmapTable : { columns: [], rows: [] }}
+                description={measured && shownHeatmap ? callsHeard(shownHeatmap.total_count) : undefined}
+                table={measured && hasShownHeatmap ? heatmapTable : { columns: [], rows: [] }}
                 class="min-w-0 xl:col-span-3"
             >
+                {#if measured}
+                    <HeatmapSpeciesChips
+                        options={heatmapSpeciesOptions}
+                        selected={heatmapSpecies}
+                        label={$_('audio.heatmap.species_picker', { default: 'Show calls heard from' })}
+                        onselect={(key) => (heatmapChoice = key)}
+                        data-audio-heatmap-species
+                    />
+                {/if}
                 {#if !measured}
                     {@render chartPending()}
+                {:else if heatmapSpecies}
+                    <div class="min-h-60" aria-busy={speciesHeatmapLoading} data-audio-species-heatmap>
+                        {#if speciesHeatmapError}
+                            <div class="flex min-h-60 flex-col items-center justify-center gap-2 px-4 text-center text-sm" role="status" data-audio-species-heatmap-failed>
+                                <p class="max-w-prose text-ink">{$_('audio.heatmap.species_failed', { values: { species: chosenSpeciesLabel }, default: '{species} calls by hour and weekday could not be read. Everything else on the page was read.' })}</p>
+                                <div class="flex flex-wrap items-center justify-center gap-x-4">
+                                    <button type="button" class="btn btn-secondary min-h-11 px-4 focus-visible:ring-2 focus-visible:ring-focus" onclick={() => (speciesHeatmapAttempt += 1)}>{$_('common.retry')}</button>
+                                    {@render technicalDetails(speciesHeatmapError)}
+                                </div>
+                            </div>
+                        {:else if hasShownHeatmap && shownHeatmap}
+                            <div class="mt-4 transition-opacity motion-reduce:transition-none {speciesHeatmapLoading ? 'opacity-50' : ''}" data-audio-heatmap>
+                                <ActivityHeatmap cells={shownHeatmap.cells} maxCellCount={shownHeatmap.max_cell_count} dark={isDark} dayLabel={weekdayLabel} unit="calls" subject={heatmapSubject} />
+                            </div>
+                        {:else if shownHeatmap}
+                            <div class="flex h-60 items-center justify-center px-4 text-center text-sm text-muted" data-audio-species-heatmap-empty>{$_('audio.heatmap.species_empty', { values: { species: heatmapSubject ?? '' }, default: 'No {species} calls heard in this window.' })}</div>
+                        {:else}
+                            <div class="mt-3 h-60 animate-pulse bg-surface-raised motion-reduce:animate-none" aria-hidden="true"></div>
+                        {/if}
+                    </div>
                 {:else if heatmapError}
                     <!-- Only the grid failed: said in its own frame, with the list and the other figures left standing. -->
                     <div class="flex min-h-60 flex-col items-center justify-center gap-2 px-4 text-center text-sm" role="status" data-audio-heatmap-failed>

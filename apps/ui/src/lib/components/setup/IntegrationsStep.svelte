@@ -164,7 +164,7 @@
 
         <p class="flex items-start gap-2 text-xs leading-relaxed text-muted">
             <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.7 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z" /></svg>
-            <span>{$_('setup.integrations.notifications_note', { default: 'Notification channels are configured under Settings → Alerts. Home Assistant is installed and configured externally; see the integration guide.' })}</span>
+            <span>{$_('setup.integrations.notifications_note', { default: 'Notification channels are configured under Settings → Notifications. Home Assistant is installed and configured externally; see the integration guide.' })}</span>
         </p>
     </WizardLoadState>
 </WizardStepLayout>

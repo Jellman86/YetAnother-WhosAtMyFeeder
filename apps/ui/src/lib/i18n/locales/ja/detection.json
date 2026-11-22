@@ -313,7 +313,7 @@
     "conversation_loading": "会話を読み込み中…",
     "conversation_empty": "まだ会話はありません。AI に追加の質問をしてください。",
     "conversation_placeholder": "追加の質問をしてください…",
-    "conversation_error": "AI から応答がありませんでした。設定 → 共有と統合 でプロバイダーとキーを確認してから、もう一度質問してください。",
+    "conversation_error": "AI から応答がありませんでした。設定 → 統合 でプロバイダーとキーを確認してから、もう一度質問してください。",
     "assistant": "アシスタント",
     "user": "あなた",
     "send": "送信",

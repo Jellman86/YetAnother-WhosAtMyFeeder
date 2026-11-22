@@ -4,11 +4,13 @@ YA-WAMF provides a custom component for Home Assistant to integrate your bird si
 
 ## Installation
 
-### 1. Copy Files
-Copy the `custom_components/yawamf` folder from the YA-WAMF repository to your Home Assistant `config/custom_components/` directory.
+### Option A: HACS / Home Assistant Marketplace (Custom Repository)
+1. In Home Assistant, open **HACS** → **Custom repositories** and add `https://github.com/Jellman86/YetAnother-WhosAtMyFeeder` with category **Integration**.
+2. Install **Yet Another WhosAtMyFeeder** and restart Home Assistant.
 
-### 2. Restart
-Restart Home Assistant to load the new component.
+### Option B: Manual Copy
+1. Copy the `custom_components/yawamf` folder from the YA-WAMF repository to your Home Assistant `config/custom_components/` directory.
+2. Restart Home Assistant to load the new component.
 
 ### Icon Cache Note
 Home Assistant may cache integration icons. If the icon does not update after an upgrade, hard-refresh the HA frontend or clear the browser cache.
@@ -20,7 +22,7 @@ Go to **Settings > Devices & Services > Add Integration** and search for "YA-WAM
 Enter the URL of your YA-WAMF instance (e.g., `http://192.168.1.50:9852` or `https://yoursite.example.com`).
 
 ### Authentication Notes
-If YA-WAMF authentication is enabled and **Public Access** is disabled, Home Assistant must authenticate to the YA-WAMF API.
+If YA-WAMF authentication is enabled and **Public access** is disabled, Home Assistant must authenticate to the YA-WAMF API.
 
 Supported options in the integration config:
 - Username + password (recommended): the integration logs in and uses a short-lived JWT automatically.
@@ -50,7 +52,7 @@ on the integration asking for new ones.
 
 ### Reverse Proxy Notes
 - Use the **public hostname** you configured on the proxy (not the internal container IP).
-- Ensure the proxy forwards the `/health` and `/api/stats/daily-summary` endpoints.
+- Ensure the proxy forwards the endpoints the integration calls: `/health`, `/api/auth/status`, `/api/auth/login`, `/api/stats/daily-summary` and `/api/frigate/<event>/snapshot.jpg`.
 - If your proxy enforces HTTPS, use the `https://` URL in Home Assistant.
 
 ## Sensors Provided
@@ -61,12 +63,12 @@ on the integration asking for new ones.
 | **Last Detection Event** | The raw YA-WAMF/Frigate event ID for the most recent detection. Use this as the safest trigger when you want an automation to fire for every new detection, regardless of species. |
 | **Last Detection Time** | A proper Home Assistant timestamp entity for the most recent detection time. |
 | **Bird Count (24h)** | How many detections there were in the last 24 hours. It is a rolling window, not a count since midnight, so it can go down as old visits age out. |
-| **Latest Snapshot** | (Optional) A camera entity showing the last detected bird. |
+| **Latest Bird Snapshot** | A camera entity showing the last detected bird. |
 
 ## Weather and light from your own sensors
 
 This direction is separate from the custom component above: here YA-WAMF reads from Home
-Assistant. Open **Settings → Sharing & integrations → More options → Home Assistant weather**, switch it on, and enter
+Assistant. Open **Settings → Integrations → Home Assistant weather**, switch it on, and enter
 the URL YA-WAMF can reach and a long-lived access token (Home Assistant profile, **Security**,
 **Long-lived access tokens**).
 
@@ -117,13 +119,13 @@ For automations that should fire on every new detection, prefer the event sensor
 alias: "Notify on Every New Bird Detection"
 trigger:
   - platform: state
-    entity_id: sensor.yawamf_last_detection_event
+    entity_id: sensor.ya_wamf_last_detection_event
 action:
   - service: notify.mobile_app
     data:
       message: >
         New bird detected:
-        {{ state_attr('sensor.yawamf_last_detection_event', 'species') }}
+        {{ state_attr('sensor.ya_wamf_last_detection_event', 'species') }}
 ```
 
 If you only care about a specific species, you can still filter on the species name:
@@ -132,11 +134,11 @@ If you only care about a specific species, you can still filter on the species n
 alias: "Notify on Cardinal"
 trigger:
   - platform: state
-    entity_id: sensor.yawamf_last_detection_event
+    entity_id: sensor.ya_wamf_last_detection_event
 condition:
   - condition: template
     value_template: >
-      {{ state_attr('sensor.yawamf_last_detection_event', 'species') == 'Northern Cardinal' }}
+      {{ state_attr('sensor.ya_wamf_last_detection_event', 'species') == 'Northern Cardinal' }}
 action:
   - service: notify.mobile_app
     data:

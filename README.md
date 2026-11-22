@@ -25,7 +25,8 @@ New development features require a matching `dev` image.
 ## What you can do
 
 - **Identify locally:** choose a model and validate it on your CPU, Intel GPU/NPU or NVIDIA GPU.
-  RoPE ViT-B14 remains the default; [coverage and hardware support vary by model](docs/features/ai-models.md).
+  A fresh install runs the bundled MobileNet V2 until you choose another model; the Model manager
+  suggests Small Birds as the next step. [Coverage and hardware support vary by model](docs/features/ai-models.md).
 - **Review the evidence:** explore seen visits and heard calls, inspect individual captures,
   correct species and count birds in a photograph. See [Explorer](docs/features/explorer.md).
 - **Keep important visits:** star a favourite to archive available media; manage ordinary
@@ -34,11 +35,11 @@ New development features require a matching `dev` image.
   frames when Frigate retained a usable clip.
 - **Add your own sightings:** classify and save a photograph or clip through
   [Add observation](docs/features/manual-observations.md).
-- **Review garden visitors:** current `dev` offers a [Garden animals beta](docs/features/garden-animals.md). Animals appear in the Explorer beside your birds, stored apart from bird history, with independent camera opt-in, grouped motion reviews, an adjustable animal threshold and owner-reviewed SpeciesNet suggestions.
+- **Review garden visitors:** try the [Garden animals beta](docs/features/garden-animals.md). Animals appear in the Explorer beside your birds, stored apart from bird history, with independent camera opt-in, grouped motion reviews, an adjustable animal threshold and owner-reviewed SpeciesNet suggestions.
 - **Connect other services:** [BirdNET-Go](docs/integrations/birdnet-go.md),
   [Home Assistant](docs/integrations/home-assistant.md), notifications and optional community-science exports.
 - **Share deliberately:** choose which history, camera names and media guests can see in
-  [Security settings](docs/features/authentication.md).
+  **Settings → Access & privacy** ([sign-in and public access](docs/features/authentication.md)).
 
 ## Quick Start
 
@@ -94,7 +95,7 @@ saved visit in Explorer and the **Health** page.
 
 If setup fails, follow [Getting Started](docs/setup/getting-started.md) or
 [Diagnostics & Logs](docs/troubleshooting/diagnostics.md). Keep authentication enabled before
-exposing the app outside your trusted network. Public Access is a separate, read-only choice.
+exposing the app outside your trusted network. Public access is a separate, read-only choice.
 
 ## Documentation
 

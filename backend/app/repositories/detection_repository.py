@@ -1,4 +1,4 @@
-from typing import Callable, Collection, Literal, Optional
+from typing import Callable, Collection, Literal, Mapping, Optional, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, date, timezone
 import aiosqlite
@@ -91,6 +91,15 @@ def _history_bounds_sql(start_date: datetime | None, end_date: datetime | None, 
     return sql, params
 
 
+def _outside_ranges_sql(ranges: Sequence[tuple[datetime, datetime]], column: str) -> tuple[str, list]:
+    """True for a capture outside every ``[start, end)`` range: the sealed days, whose totals count it (#949)."""
+    if not ranges:
+        return "1 = 1", []
+    clauses = " OR ".join(f"({column} >= ? AND {column} < ?)" for _ in ranges)
+    params = [serialize_storage_datetime(moment) for range_ in ranges for moment in range_]
+    return f"NOT ({clauses})", params
+
+
 def _fold_same_bird(rows: list[dict], combine: Callable[[dict, dict], None]) -> list[dict]:
     """Group summary rows that are the same bird under different identity keys.
 
@@ -159,15 +168,17 @@ def merge_species_leaderboard_rows(rows: list[dict]) -> list[dict]:
     """
 
     def combine(target: dict, row: dict) -> None:
-        target_n = int(target.get("window_count") or 0)
-        row_n = int(row.get("window_count") or 0)
-        total = target_n + row_n
-        if total:
+        # A day total has no scores, so confidence is weighed by the stored captures it averaged.
+        target_scored = int(target.get("window_scored_count", target.get("window_count")) or 0)
+        row_scored = int(row.get("window_scored_count", row.get("window_count")) or 0)
+        scored = target_scored + row_scored
+        if scored:
             target["window_avg_confidence"] = (
-                float(target.get("window_avg_confidence") or 0.0) * target_n
-                + float(row.get("window_avg_confidence") or 0.0) * row_n
-            ) / total
-        target["window_count"] = total
+                float(target.get("window_avg_confidence") or 0.0) * target_scored
+                + float(row.get("window_avg_confidence") or 0.0) * row_scored
+            ) / scored
+        target["window_scored_count"] = scored
+        target["window_count"] = int(target.get("window_count") or 0) + int(row.get("window_count") or 0)
         target["prev_count"] = int(target.get("prev_count") or 0) + int(row.get("prev_count") or 0)
         for field in (
             "window_confirmed_count",
@@ -4421,16 +4432,25 @@ class DetectionRepository:
         return _row_to_detection(row) if row else None
 
     async def get_species_leaderboard_base(
-        self, *, start_date: datetime | None = None, end_date: datetime | None = None
+        self,
+        *,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        sealed_ranges: Sequence[tuple[datetime, datetime]] = (),
     ) -> list[dict]:
-        """Get leaderboard base stats per species with taxonomy and time bounds."""
+        """Get leaderboard base stats per species with taxonomy and time bounds.
+
+        ``count`` leaves out the captures inside ``sealed_ranges``, which those days' totals count;
+        every other figure describes all stored captures.
+        """
         canonical_key = self._canonical_key_sql()
         taxonomy_join = self._taxonomy_join_sql()
         bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        live_sql, live_params = _outside_ranges_sql(sealed_ranges, "d.detection_time")
         query = f"""
-            SELECT 
+            SELECT
                 {canonical_key} as unified_id,
-                COUNT(*) as total_count, 
+                SUM(CASE WHEN {live_sql} THEN 1 ELSE 0 END) as total_count,
                 COALESCE(MAX(tc.scientific_name), MAX(d.scientific_name)) as scientific_name,
                 COALESCE(MAX(tc.manual_common_name), MAX(d.common_name), MAX(tc.common_name)) as common_name,
                 MAX(d.display_name) as display_name,
@@ -4449,12 +4469,12 @@ class DetectionRepository:
             GROUP BY {canonical_key}
             ORDER BY total_count DESC
         """
-        async with self.db.execute(query, bounds_params) as cursor:
+        async with self.db.execute(query, [*live_params, *bounds_params]) as cursor:
             rows = await cursor.fetchall()
             return [
                 {
                     "species": row[4],
-                    "count": row[1],
+                    "count": int(row[1] or 0),
                     "scientific_name": row[2],
                     "common_name": row[3],
                     "taxa_id": row[5],
@@ -4513,18 +4533,24 @@ class DetectionRepository:
         prev_end: datetime,
         *,
         public_audio_evidence: bool = False,
+        sealed_ranges: Sequence[tuple[datetime, datetime]] = (),
+        sealed_rows: Mapping[str, dict] | None = None,
     ) -> list[dict]:
         """Get leaderboard stats for a rolling window and the prior window.
 
         Notes:
         - Uses detection_time timestamps (not rollups) so it supports 24h windows.
         - Returns rows for any species that appears in either window; caller can filter to window_count > 0.
+        - Captures and visits inside ``sealed_ranges`` are left out of the counts, because
+          ``sealed_rows`` (keyed like the rows, by canonical key) carries those days' totals instead.
+          Times, confidence and cameras still describe every stored capture in the window.
         """
         canonical_key = self._canonical_key_sql()
         taxonomy_join = self._taxonomy_join_sql()
         audio_evidence_sql, audio_evidence_params = (
             await public_audio_evidence_sql(self.db) if public_audio_evidence else ("1 = 1", [])
         )
+        live_sql, live_params = _outside_ranges_sql(sealed_ranges, "d.detection_time")
         query = f"""
             SELECT
                 {canonical_key} as unified_id,
@@ -4533,8 +4559,8 @@ class DetectionRepository:
                 MAX(d.display_name) as display_name,
                 COALESCE(MAX(d.taxa_id), MAX(tc.taxa_id)) as taxa_id,
 
-                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as window_count,
-                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as prev_count,
+                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND {live_sql} THEN 1 ELSE 0 END) as window_count,
+                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND {live_sql} THEN 1 ELSE 0 END) as prev_count,
 
                 MIN(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_first_seen,
                 MAX(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_last_seen,
@@ -4542,7 +4568,8 @@ class DetectionRepository:
                 AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
                 COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count,
                 SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.manual_tagged = 1 THEN 1 ELSE 0 END) as window_confirmed_count,
-                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 AND {audio_evidence_sql} THEN 1 ELSE 0 END) as window_audio_confirmed_count
+                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 AND {audio_evidence_sql} THEN 1 ELSE 0 END) as window_audio_confirmed_count,
+                SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as window_scored_count
             FROM detections d
             {taxonomy_join}
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
@@ -4553,8 +4580,10 @@ class DetectionRepository:
         params = (
             window_start,
             window_end,
+            *live_params,
             prev_start,
             prev_end,
+            *live_params,
             window_start,
             window_end,
             window_start,
@@ -4568,6 +4597,8 @@ class DetectionRepository:
             window_start,
             window_end,
             *audio_evidence_params,
+            window_start,
+            window_end,
             prev_start,
             window_end,
         )
@@ -4576,35 +4607,43 @@ class DetectionRepository:
         visits = await self._leaderboard_visit_counts(
             key_sql=canonical_key,
             join_sql=taxonomy_join,
-            condition_sql="1 = 1",
-            condition_params=[],
+            condition_sql=live_sql,
+            condition_params=live_params,
             window_start=window_start,
             window_end=window_end,
             prev_start=prev_start,
             prev_end=prev_end,
         )
 
-        return merge_species_leaderboard_rows(
-            [
-                {
-                    "species": row[3],
-                    "scientific_name": row[1],
-                    "common_name": row[2],
-                    "taxa_id": row[4],
-                    "window_count": int(row[5] or 0),
-                    "prev_count": int(row[6] or 0),
-                    "window_first_seen": _parse_datetime(row[7]) if row[7] else None,
-                    "window_last_seen": _parse_datetime(row[8]) if row[8] else None,
-                    "window_avg_confidence": float(row[9] or 0.0),
-                    "window_camera_count": int(row[10] or 0),
-                    "window_confirmed_count": int(row[11] or 0),
-                    "window_audio_confirmed_count": int(row[12] or 0),
-                    "window_visit_count": visits.get(row[0], (0, 0))[0],
-                    "prev_visit_count": visits.get(row[0], (0, 0))[1],
-                }
-                for row in rows
-            ]
-        )
+        by_key = {
+            row[0]: {
+                "species": row[3],
+                "scientific_name": row[1],
+                "common_name": row[2],
+                "taxa_id": row[4],
+                "window_count": int(row[5] or 0),
+                "prev_count": int(row[6] or 0),
+                "window_first_seen": _parse_datetime(row[7]) if row[7] else None,
+                "window_last_seen": _parse_datetime(row[8]) if row[8] else None,
+                "window_avg_confidence": float(row[9] or 0.0),
+                "window_camera_count": int(row[10] or 0),
+                "window_confirmed_count": int(row[11] or 0),
+                "window_audio_confirmed_count": int(row[12] or 0),
+                "window_scored_count": int(row[13] or 0),
+                "window_visit_count": visits.get(row[0], (0, 0))[0],
+                "prev_visit_count": visits.get(row[0], (0, 0))[1],
+            }
+            for row in rows
+        }
+        for key, sealed in (sealed_rows or {}).items():
+            row = by_key.get(key)
+            if row is None:
+                by_key[key] = dict(sealed)
+                continue
+            for field in ("window_count", "prev_count", "window_visit_count", "prev_visit_count"):
+                row[field] += int(sealed.get(field) or 0)
+
+        return merge_species_leaderboard_rows(list(by_key.values()))
 
     async def get_species_leaderboard_window_for_labels(
         self,
@@ -5105,17 +5144,26 @@ class DetectionRepository:
         }
 
     async def get_species_aggregate_for_name(
-        self, species_name: str, *, start_date: datetime | None = None, end_date: datetime | None = None
+        self,
+        species_name: str,
+        *,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        sealed_ranges: Sequence[tuple[datetime, datetime]] = (),
     ) -> dict | None:
-        """Aggregate stats for a canonical species selection."""
+        """Aggregate stats for a canonical species selection.
+
+        ``count`` leaves out the captures inside ``sealed_ranges``; the caller adds those days' totals.
+        """
         join_sql, species_condition, params = await self._canonical_species_query_parts(
             detection_alias="d",
             species_name=species_name,
         )
         bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        live_sql, live_params = _outside_ranges_sql(sealed_ranges, "d.detection_time")
         async with self.db.execute(
             f"""
-                SELECT COUNT(*), MIN(d.detection_time), MAX(d.detection_time),
+                SELECT SUM(CASE WHEN {live_sql} THEN 1 ELSE 0 END), MIN(d.detection_time), MAX(d.detection_time),
                        AVG(d.score), MAX(d.score), MIN(d.score),
                        COUNT(DISTINCT d.camera_name)
                 FROM detections d
@@ -5123,13 +5171,13 @@ class DetectionRepository:
                 WHERE {species_condition}{bounds_sql}
                   AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
             """,
-            [*params, *bounds_params],
+            [*live_params, *params, *bounds_params],
         ) as cursor:
             row = await cursor.fetchone()
-        if not row or row[0] == 0:
+        if not row or row[1] is None:
             return None
         return {
-            "count": row[0],
+            "count": int(row[0] or 0),
             "first_seen": _parse_datetime(row[1]) if row[1] else None,
             "last_seen": _parse_datetime(row[2]) if row[2] else None,
             "avg_confidence": row[3] or 0.0,
@@ -5183,8 +5231,13 @@ class DetectionRepository:
         prev_end: datetime,
         *,
         public_audio_evidence: bool = False,
+        sealed_ranges: Sequence[tuple[datetime, datetime]] = (),
     ) -> dict | None:
-        """Aggregate leaderboard window stats for a canonical species selection."""
+        """Aggregate leaderboard window stats for a canonical species selection.
+
+        Captures and visits inside ``sealed_ranges`` are left out of the counts; the caller adds
+        those days' totals.
+        """
         join_sql, species_condition, params = await self._canonical_species_query_parts(
             detection_alias="d",
             species_name=species_name,
@@ -5192,17 +5245,19 @@ class DetectionRepository:
         audio_evidence_sql, audio_evidence_params = (
             await public_audio_evidence_sql(self.db) if public_audio_evidence else ("1 = 1", [])
         )
+        live_sql, live_params = _outside_ranges_sql(sealed_ranges, "d.detection_time")
         async with self.db.execute(
             f"""
                 SELECT
-                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as window_count,
-                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as prev_count,
+                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND {live_sql} THEN 1 ELSE 0 END) as window_count,
+                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND {live_sql} THEN 1 ELSE 0 END) as prev_count,
                     MIN(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_first_seen,
                     MAX(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.detection_time ELSE NULL END) as window_last_seen,
                     AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
                     COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count,
                     SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.manual_tagged = 1 THEN 1 ELSE 0 END) as window_confirmed_count,
-                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 AND {audio_evidence_sql} THEN 1 ELSE 0 END) as window_audio_confirmed_count
+                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? AND d.audio_confirmed = 1 AND {audio_evidence_sql} THEN 1 ELSE 0 END) as window_audio_confirmed_count,
+                    SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as window_scored_count
                 FROM detections d
                 {join_sql}
                 WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
@@ -5213,8 +5268,10 @@ class DetectionRepository:
             [
                 window_start,
                 window_end,
+                *live_params,
                 prev_start,
                 prev_end,
+                *live_params,
                 window_start,
                 window_end,
                 window_start,
@@ -5228,6 +5285,8 @@ class DetectionRepository:
                 window_start,
                 window_end,
                 *audio_evidence_params,
+                window_start,
+                window_end,
                 # The rows span both windows, or prev_count could never be anything but 0.
                 prev_start,
                 window_end,
@@ -5240,8 +5299,8 @@ class DetectionRepository:
         visits = await self._leaderboard_visit_counts(
             key_sql="'selected'",
             join_sql=join_sql,
-            condition_sql=species_condition,
-            condition_params=list(params),
+            condition_sql=f"({species_condition}) AND {live_sql}",
+            condition_params=[*params, *live_params],
             window_start=window_start,
             window_end=window_end,
             prev_start=prev_start,
@@ -5250,8 +5309,6 @@ class DetectionRepository:
         window_visits, prev_visits = visits.get("selected", (0, 0))
         window_count = int(row[0] or 0)
         prev_count = int(row[1] or 0)
-        if window_count == 0 and prev_count == 0:
-            return None
         return {
             "window_count": window_count,
             "prev_count": prev_count,
@@ -5261,6 +5318,8 @@ class DetectionRepository:
             "window_camera_count": int(row[5] or 0),
             "window_confirmed_count": int(row[6] or 0),
             "window_audio_confirmed_count": int(row[7] or 0),
+            # Stored captures the average was taken over; none means no score was measured.
+            "window_scored_count": int(row[8] or 0),
             "window_visit_count": window_visits,
             "prev_visit_count": prev_visits,
         }

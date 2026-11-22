@@ -1405,6 +1405,17 @@
             "title": "Max Confidence",
             "type": "number"
           },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
           "species": {
             "title": "Species",
             "type": "string"
@@ -12716,8 +12727,15 @@
             "type": "integer"
           },
           "window_avg_confidence": {
-            "title": "Window Avg Confidence",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Avg Confidence"
           },
           "window_camera_count": {
             "title": "Window Camera Count",
@@ -12783,7 +12801,6 @@
           "window_prev_count",
           "window_delta",
           "window_percent",
-          "window_avg_confidence",
           "window_camera_count"
         ],
         "title": "LeaderboardSpeciesItemResponse",
@@ -18639,6 +18656,18 @@
             "default": false,
             "title": "Notifications Discord Enabled"
           },
+          "notifications_discord_include_snapshot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true,
+            "title": "Notifications Discord Include Snapshot"
+          },
           "notifications_discord_username": {
             "anyOf": [
               {
@@ -19044,6 +19073,18 @@
             "default": false,
             "title": "Notifications Pushover Enabled"
           },
+          "notifications_pushover_include_snapshot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true,
+            "title": "Notifications Pushover Include Snapshot"
+          },
           "notifications_pushover_priority": {
             "anyOf": [
               {
@@ -19100,6 +19141,18 @@
             ],
             "default": false,
             "title": "Notifications Telegram Enabled"
+          },
+          "notifications_telegram_include_snapshot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true,
+            "title": "Notifications Telegram Include Snapshot"
           },
           "notifications_video_fallback_timeout": {
             "anyOf": [
@@ -21066,6 +21119,18 @@
             "default": false,
             "title": "Notifications Discord Enabled"
           },
+          "notifications_discord_include_snapshot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true,
+            "title": "Notifications Discord Include Snapshot"
+          },
           "notifications_discord_username": {
             "anyOf": [
               {
@@ -21460,6 +21525,18 @@
             "default": false,
             "title": "Notifications Pushover Enabled"
           },
+          "notifications_pushover_include_snapshot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true,
+            "title": "Notifications Pushover Include Snapshot"
+          },
           "notifications_pushover_priority": {
             "anyOf": [
               {
@@ -21516,6 +21593,18 @@
             ],
             "default": false,
             "title": "Notifications Telegram Enabled"
+          },
+          "notifications_telegram_include_snapshot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true,
+            "title": "Notifications Telegram Include Snapshot"
           },
           "notifications_video_fallback_timeout": {
             "anyOf": [
@@ -25501,7 +25590,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.24.0"
+    "version": "2.24.1"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -25877,6 +25966,25 @@
                 }
               ],
               "title": "Min Confidence"
+            }
+          },
+          {
+            "description": "Limit the grid to one species exactly, by its scientific name",
+            "in": "query",
+            "name": "scientific_name",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Limit the grid to one species exactly, by its scientific name",
+              "title": "Scientific Name"
             }
           }
         ],

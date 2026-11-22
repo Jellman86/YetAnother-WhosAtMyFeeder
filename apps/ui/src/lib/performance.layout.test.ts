@@ -178,7 +178,7 @@ describe('Settings reads operational data only for the section that shows it', (
             expect(mount).not.toContain(read);
         }
         const map = settingsSource.slice(settingsSource.indexOf('const READINGS_BY_SECTION'), settingsSource.indexOf('const readingsTaken'));
-        for (const section of ['display', 'alerts', 'identification']) {
+        for (const section of ['display', 'notifications', 'identification']) {
             expect(map).not.toContain(`${section}:`);
         }
         expect(settingsSource).toContain('untrack(() => readForSection(section, controller.signal));');

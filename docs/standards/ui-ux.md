@@ -166,8 +166,9 @@ Detail views such as Species Details are records, not miniature dashboards:
   do not wrap every section in one.
 - Keep secondary provider labels and source links visible but quiet. External data must never look
   like a local detection.
-- Detail dialogs use the established teal/emerald header language, a strong scrim, a 44px minimum
-  close target, trapped focus, `Escape` dismissal, body-scroll locking, and reduced-motion support.
+- Detail dialogs wear the shared `DialogHeader` (`apps/ui/src/lib/components/ui/`): the dialog's
+  name and the one round close button, with a 44px minimum target. They also keep a strong scrim,
+  trapped focus, `Escape` dismissal, body-scroll locking, and reduced-motion support.
 - On a phone, the dialog may become a full-height sheet using dynamic viewport units. On larger
   screens, constrain its width and height and keep one predictable internal scroll region.
 

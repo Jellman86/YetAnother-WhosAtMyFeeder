@@ -168,7 +168,7 @@
                 {#if !ebirdEnabled}
                     <p class="text-xs text-muted">
                         {$_('detection.ebird_enable_sightings')}
-                        <a href={toAppPath(settingsPartPath('integrations'))} class="ml-1 inline-flex min-h-6 items-center rounded-sm font-semibold text-accent-ink underline underline-offset-2 focus-ring">{$_('detection.ebird_configure_settings')}</a>
+                        <a href={toAppPath(settingsPartPath('networks'))} class="ml-1 inline-flex min-h-6 items-center rounded-sm font-semibold text-accent-ink underline underline-offset-2 focus-ring">{$_('detection.ebird_configure_settings')}</a>
                     </p>
                 {:else if sightingsLoading}
                     <div class="space-y-3" role="status" aria-label={$_('common.loading', { default: 'Loading' })}>

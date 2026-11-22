@@ -46,7 +46,8 @@ YA-WAMF waits briefly for Frigate to finish a new clip. It prefers a usable cach
 recording, then a partial recording, then an event clip, before asking Frigate for media. Missing
 video has bounded retries and a snapshot fallback. A shorter, decodable clip remains useful evidence.
 
-The default is **15 frames**, configurable under **Settings → Identifying birds**. Each sampled moment can
+The default is **15 frames**, configurable with **Video frames** under **Settings → Identifying
+birds → More options → Frigate and video**. Each sampled moment can
 provide a full-frame view, a timestamp-aligned Frigate crop and detector crops. Those are alternate
 views of one moment, not extra votes. A result needs repeated confident support; reliable tracked
 geometry and repeated evidence for the event's bird take priority over another bird in the scene.
@@ -65,8 +66,8 @@ When the retained photo is a whole frame from the photo search, an automatic sna
 reads it only if the visit's bird crops do not contradict it. If the crops name species and none of
 them is the whole frame's species, YA-WAMF keeps the existing identification, its score and its
 recorded input, and reports **No confident result**. Every crop counts, including crops too faint
-to be offered as the photo. **Notifications → Errors** records it as
-`snapshot_whole_frame_disputed_by_crops`, with the crop species. An owner-requested **Score again**
+to be offered as the photo. The **Health** page's **Backend warnings and errors** list records it
+as `snapshot_whole_frame_disputed_by_crops`, with the crop species. An owner-requested **Score again**
 is still applied, and so is the manual species picker.
 
 ### Correcting a name read from a whole frame
@@ -114,9 +115,10 @@ storage eviction are checked before a replacement is saved.
 
 ## Running an Analysis
 
-Open a detection and select **Score again**. The same detail view also carries **Confirm
-<species>**, **Pick a different species**, and **Edit name** for correcting an identification by
-hand, and **Ask AI Naturalist** for the behavioural note. When an event clip or fetched full-visit
+Open a detection, choose **More actions**, then **Score again**. The record also carries **Confirm
+<species>** and **Pick a different species** for correcting an identification by hand, **Change
+the common name** under **More actions** for the name shown, and **Ask the AI naturalist** for the
+behavioural note. When an event clip or fetched full-visit
 clip is available, YA-WAMF performs temporal video analysis; it does not replace that explicit video run
 with a faster snapshot-only result. If the video is unavailable, cannot form a safe consensus, or
 only produces a below-threshold candidate, it explains the downgrade and uses the best cached or
@@ -158,7 +160,7 @@ an explicit failure.
 
 **Notifications → Jobs** includes automatic and maintenance video work, delayed media retries and
 worker recovery. **Queued** means no worker has started yet. Unfinished automatic work is reclaimed
-after a container restart. Use its **Health · Diagnostics export** link to
+after a container restart. Use its **Open Health** link, then **Diagnostics export**, to
 [capture a fresh support bundle](../troubleshooting/diagnostics.md#capture-current-evidence-for-a-report).
 Missing recordings and temporary Frigate outages have bounded retries; they do not start endless
 recovery loops.
@@ -167,11 +169,11 @@ recovery loops.
 
 | Setting | Location | Description |
 |---------|----------|-------------|
-| **Frame count** | Settings → Identifying birds | Number of frames sampled per clip (default: 15). Higher values sample more of the clip but take longer and do not guarantee a better identification. |
+| **Video frames** | Settings → Identifying birds → More options → Frigate and video | Number of frames sampled per clip (default: 15). Higher values sample more of the clip but take longer and do not guarantee a better identification. |
 
 Video-job concurrency follows `CLASSIFICATION__BACKGROUND_WORKER_COUNT` (one worker when
 unset), with one clip per worker. The legacy `video_classification_max_concurrent` setting is
-ignored. See [Maintenance concurrency](../setup/configuration.md#maintenance-concurrency).
+ignored. See [Jobs at once](../setup/configuration.md#jobs-at-once).
 
 Live snapshot work takes priority over new video starts. The **Health** page reports queue
 counts, waiting ages and active phases. Queue relief and pressure counters describe scheduler

@@ -12,6 +12,7 @@
         presetSentenceKey,
         speciesSummaryKey,
         NOTIFICATION_CHANNELS_SECTION_ID,
+        NOTIFICATION_CUSTOM_RULES_ID,
         type NotifyMode,
         type PolicyChannel,
     } from '../../settings/notification-policy';
@@ -81,9 +82,22 @@
         if (preset !== 'final') openSlot = null;
     }
 
+    // Custom rules are the switches under the sentence: the menu opens them and moves focus there.
+    const customRules = useDisclosure(() => ({ id: NOTIFICATION_CUSTOM_RULES_ID }));
+    async function openCustomRules(): Promise<void> {
+        openSlot = null;
+        // Custom rules is a choice like the others: the switches below take effect only once it is made.
+        if (mode !== 'custom') onModeChange('custom');
+        customRules.open = true;
+        await tick();
+        const first = document.querySelector<HTMLElement>(`#${NOTIFICATION_CUSTOM_RULES_ID}-content button[role="switch"]`);
+        first?.scrollIntoView({ block: 'center', behavior: settingsScrollBehaviour() });
+        first?.focus({ preventScroll: true });
+    }
+
     // Species and channels are each set in one place; their words here are links to it. The species
-    // filter is under Alerts' More options, which opens first, then the link waits for it to be drawn.
-    const more = useDisclosure(() => ({ id: settingsMoreId('alerts') }));
+    // filter is under Notifications' More options, which opens first, then the link waits for it to be drawn.
+    const more = useDisclosure(() => ({ id: settingsMoreId('notifications') }));
     const FIELD_WAIT_FRAMES = 60;
     async function jumpTo(sectionId: string): Promise<void> {
         openSlot = null;
@@ -164,9 +178,16 @@
                 </div>
             {/if}
         {/each}
-        {#if mode === 'custom'}
-            <p class="mt-1 border-t border-slate-200 px-3 pt-2 text-xs text-slate-600 dark:text-slate-400 dark:border-slate-700">{$_('settings.notifications.sentence.custom_hint')}</p>
-        {/if}
+        <!-- Custom rules is the fifth choice: its triggers are switches under the sentence, and this goes to them. -->
+        <button
+            type="button"
+            onclick={() => void openCustomRules()}
+            class="mt-1 block w-full rounded-xl border-t border-line-soft px-3 py-2 text-left transition-colors hover:bg-surface-raised {mode === 'custom' ? 'bg-brand-50 dark:bg-brand-950/60' : ''}"
+            data-policy-custom-rules
+        >
+            <span class="block text-sm font-semibold text-strong">{$_('settings.notifications.sentence.custom_open', { default: 'Custom rules' })}</span>
+            <span class="mt-0.5 block text-xs text-muted">{$_('settings.notifications.sentence.custom_hint', { default: 'Your own triggers, set with the switches under this sentence. At most one alert per visit.' })}</span>
+        </button>
     </div>
 {/snippet}
 

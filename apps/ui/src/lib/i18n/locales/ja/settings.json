@@ -250,8 +250,6 @@
   "tabs": {
     "connection": "接続",
     "detection": "命名とフィルター",
-    "notifications": "通知",
-    "integrations": "統合",
     "data": "データ",
     "security": "セキュリティ",
     "appearance": "外観",
@@ -267,13 +265,22 @@
     "models": "モデル",
     "maintenance": "メンテナンス",
     "refused": "要修正",
-    "refused_note": "前回の保存で拒否された値があります"
+    "refused_note": "前回の保存で拒否された値があります",
+    "location": "位置情報",
+    "birdnet": "BirdNET-Go",
+    "weather": "Home Assistant の天気",
+    "rules": "通知の全体フィルター",
+    "channels": "チャンネル",
+    "garden-alerts": "庭の動物のアラート",
+    "telemetry": "テレメトリ",
+    "networks": "eBird、iNaturalist、BirdWeather"
   },
   "sections": {
     "cameras": "カメラと接続",
     "identification": "鳥の識別",
-    "alerts": "アラート",
-    "sharing": "共有と統合",
+    "integrations": "統合",
+    "notifications": "通知",
+    "access": "アクセスとプライバシー",
     "storage": "ストレージとメンテナンス",
     "display": "表示"
   },
@@ -299,9 +306,8 @@
       "finder": "鳥検出器",
       "audio": "BirdNET-Go",
       "storage": "ストレージ",
-      "notifications": "アラート"
+      "notifications": "通知"
     },
-    "sharing_note": "ここには測定される接続はありません。サインインとゲストアクセスはここで設定します。「その他のオプション」の各サービスに、オンかどうかが表示されます。",
     "cause": {
       "classifier": {
         "model_missing": "このインストールにありません"
@@ -317,7 +323,7 @@
       "finder": "鳥検出器は、名前を付ける前に混み合った写真から各鳥を見つけます。これは任意です。",
       "audio": "BirdNET-Go が鳴き声を聞くので、訪問と聞こえた鳴き声を照らし合わせられます。",
       "storage": "写真と動画は、このインストールのメディアフォルダーに保存されます。",
-      "notifications": "訪問がアラートの条件を満たすと、あなたのチャンネルにアラートが送られます。"
+      "notifications": "訪問が条件を満たすと、あなたのチャンネルに通知が送られます。"
     },
     "why": {
       "mqtt": {
@@ -382,18 +388,18 @@
       "failed_unsaved": "{time} にこのページのまだ保存していない値でテスト：動作しませんでした。理由を見るにはもう一度実行してください。",
       "passed_subject_unsaved": "{subject} を {time} にこのページのまだ保存していない値でテスト：正常に動作しました。",
       "failed_subject_unsaved": "{subject} を {time} にこのページのまだ保存していない値でテスト：動作しませんでした。理由を見るにはもう一度実行してください。"
-    }
+    },
+    "access_note": "ここには測定される接続に依存するものはありません。サインイン、ゲストアクセス、テレメトリーはそれぞれ、オンかどうかをここに表示します。"
   },
   "more": {
     "title": "その他のオプション",
-    "cameras": "Frigate の詳細、画像の取得元、クリップ、BirdNET-Go",
-    "sharing": "eBird、iNaturalist、BirdWeather、Home Assistant の天気、種の情報、AI、テレメトリー",
+    "cameras": "Frigate の詳細、画像ソース、クリップ",
     "identification": "ブロックした種、分布域フィルター、動画チェック、ハードウェア、ベータ機能",
     "identification_loading": "その他のオプションを開いています…",
-    "alerts": "クールダウン、言語、リンク、種のフィルター",
-    "alerts_garden": "クールダウン、言語、リンク、種のフィルター、庭の動物のアラート",
     "storage": "Frigate が訪問を失ったときの扱いと、履歴を修復・補完するジョブ",
-    "display": "日付と時刻の形式、鳥の名前の表示、Explorer のレイアウト、フォントと色、全員のアクセシビリティ既定値、単位"
+    "display": "日付と時刻の形式、鳥の名前の表示、Explorer のレイアウト、フォントと色、全員のアクセシビリティ既定値、単位",
+    "notifications": "クールダウン、言語、リンク、種のフィルター",
+    "integrations": "種のページが情報を取得する場所"
   },
   "debug": {
     "llm_prompt_style_label": "プロンプトスタイル",
@@ -602,6 +608,27 @@
       "illuminance_not_numeric": "{entity} が数値を報告しなかったため、明るさは記録されません。",
       "illuminance_out_of_range": "{entity} が 0 から 200,000 lx の範囲外の値を報告したため、記録されません。",
       "illuminance_no_answer": "テストで明るさの測定値が返されませんでした。"
+    },
+    "elsewhere_pipeline": "訪問は Frigate と MQTT ブローカーを通じて届くため、これらは「{section}」で設定します。",
+    "open_connection": "Frigate と MQTT を開く",
+    "elsewhere_location": "天気、eBird、iNaturalist、分布フィルターはすべて給餌台の位置を起点にしており、これも「{section}」で設定します。天気そのものは Open-Meteo から取得され、設定は不要です。",
+    "open_location": "給餌台の位置を開く",
+    "state": {
+      "off": "オフです。",
+      "not_set_up": "オンですが未設定です: {missing}。",
+      "no_test": "オンで設定済みです。接続テストはありません。",
+      "not_tested": "オンで設定済みです。まだテストしていません。テスト結果は次回の訪問まで保存されません。",
+      "passed": "オンです。テストは {time} に成功しました。",
+      "failed": "オンですが、テストは {time} に失敗しました: {reason}",
+      "needs_station_token": "ステーショントークンを追加してください",
+      "needs_api_key": "API キーを追加してください",
+      "inaturalist_connected": "オンです。{user} としてサインインしています。",
+      "needs_inaturalist_sign_in": "下で iNaturalist アカウントを接続してください",
+      "needs_inaturalist_app": "アプリケーション ID とシークレットを追加してください",
+      "needs_audio_topic": "BirdNET-Go が発行する MQTT トピックを追加してください",
+      "needs_ha_url": "Home Assistant の URL を追加してください",
+      "needs_ha_token": "長期アクセストークンを追加してください",
+      "needs_ha_entity": "天気エンティティまたはセンサーを選んでください"
     }
   },
   "enrichment": {
@@ -767,8 +794,8 @@
     "recording_frame_delay_desc": "最初のスナップショットから1～120秒待ち、その間に受信した最新の追跡画像メタデータを使います。識別と通知が遅くなります。すべてのイベント終了を待つ設定ではなく、保存済みの検出を再識別するものでもありません。",
     "test_connection_both": "Frigate と MQTT をテスト",
     "test_again": "もう一度テスト",
-    "stage_frigate_next": "このタブの Frigate サーバー URL と、Frigate が起動しているかを確認してください。",
-    "stage_mqtt_next": "このタブのブローカーのアドレス、ポート、サインイン情報を確認してください。",
+    "stage_frigate_next": "「{section}」のサーバー URL と、Frigate が起動しているかを確認してください。",
+    "stage_mqtt_next": "「{section}」のブローカーのアドレス、ポート、サインイン情報を確認してください。",
     "more_title": "Frigate の詳細"
   },
   "cameras": {
@@ -965,7 +992,7 @@
       "what_realtime": "すべての更新",
       "what_silent": "停止",
       "what_custom": "カスタムルール",
-      "custom_hint": "カスタムルールは下の「詳細設定」で設定します。",
+      "custom_hint": "この文の下のスイッチで設定する独自のトリガーです。1 回の訪問につきアラートは最大 1 件です。",
       "species_any": "すべての種",
       "species_all_but": "{count, plural, other {#種を除くすべて}}",
       "species_only": "{count, plural, other {#種のみ}}",
@@ -976,7 +1003,8 @@
       "channel_telegram": "Telegram",
       "channel_email": "メール",
       "confidence_chip_audio": "{value}%以上・音声確認あり",
-      "channels_jump": "チャネル: {channels}。チャネルへ移動。"
+      "channels_jump": "チャネル: {channels}。チャネルへ移動。",
+      "custom_open": "カスタムルール"
     },
     "test_channel": "チャンネル",
     "test_failed": "テストメッセージを送信できませんでした。",
@@ -1011,7 +1039,21 @@
     "channels_title": "チャンネル",
     "details_title": "クールダウン、言語、リンク、種",
     "garden_title": "庭の動物のアラート",
-    "channels_desc": "通知の送信先です。チャンネルをオンにすると設定できます。"
+    "channels_desc": "通知の送信先です。チャンネルをオンにすると設定できます。",
+    "include_snapshot": "写真を送る",
+    "include_snapshot_desc": "各アラートに訪問のスナップショットを添付します。オフにすると文章だけを送ります。",
+    "custom_rules": {
+      "title": "カスタムルール",
+      "active": "独自のトリガーです。1 回の訪問で送られるアラートは最大 1 件なので、訪問が変わってもアラートを繰り返すことはできません。繰り返したい場合は、上の文で「すべての更新」を選んでください。",
+      "desc": "これらのスイッチはカスタムルールのときだけ有効です。上の文のほかの選択は独自のトリガーを使い、これらを無視します。使うには上の文でカスタムルールを選んでください。",
+      "on_insert": "訪問が始まったとき",
+      "on_insert_desc": "Frigate が訪問を最初に報告した時点で、名前が十分に確かであればアラートを送ります。",
+      "on_update": "後で、まだアラートを送っていない場合",
+      "on_update_desc": "開始時にアラートが送られなかった場合（上のスイッチがオフ、または名前がまだ十分に確かでなかった場合）、Frigate が後で訪問を更新したときに 1 件だけ送ります。2 件目のアラートは送りません。",
+      "delay_video": "動画チェックを待つ",
+      "delay_video_desc": "動画チェックが名前を確認するまで、応答がない場合は下の秒数だけ、アラートを保留します。「{section}」で動画チェックをオンにしておく必要があります。"
+    },
+    "garden_off": "庭の動物のアラートは、「{section}」のベータ機能で庭の動物をオンにすると、ここで設定できます。"
   },
   "discord": {
     "title": "Discord通知",
@@ -1142,6 +1184,8 @@
     "gpu_setup_docs": "GPU 設定と診断ガイド",
     "inference_provider": "識別モデルの実行デバイス",
     "auto_detected": "自動検出",
+    "auto_detected_verified": "自動検出 · 検証済み ✓",
+    "auto_detected_unverified": "自動検出 · 未検証",
     "active_provider_label": "使用中",
     "intel_gpu_status": "Intel GPU",
     "provider_fallback_reason": "フォールバック:",
@@ -1280,7 +1324,7 @@
     "model_manager_repair_download": "再ダウンロードして修復",
     "model_manager_repair_needed": "このモデルのインストールは不完全です。有効化する前に再ダウンロードして、不足している種名またはモデル設定を復元してください。",
     "model_manager_location_title": "給餌台の位置情報を使用します",
-    "model_manager_location_desc": "このモデルは、設定 → 共有と統合 → 位置情報 に保存されている給餌台の座標も使用します。有効な座標が保存されていない場合は、位置情報なしで鳥を識別します。日付や位置の精度半径は使用しません。",
+    "model_manager_location_desc": "このモデルは、{place} に保存されている給餌台の座標も使用します。有効な座標が保存されていない場合は、位置情報なしで鳥を識別します。日付や位置の精度半径は使用しません。",
     "model_manager_location_link": "位置情報の設定を開く",
     "provider_intel_npu": "Intel NPU (OpenVINO)",
     "bird_finder_title": "鳥の検出",
@@ -1437,7 +1481,7 @@
     "garden_motion_toggle": "{camera} で確認用の動体写真を収集",
     "garden_naming_off": "すべての動物は、確定して名前を付けるまで「要確認」で待機します。",
     "garden_naming_elsewhere": "自動の命名は、「鳥の識別」の先頭にある鳥の識別のしきい値と一緒に設定します。",
-    "garden_alerts_elsewhere": "庭の動物のアラートは「アラート」で、送信に使うチャンネルと一緒に設定します。",
+    "garden_alerts_elsewhere": "庭の動物のアラートは「{section}」で、送信に使うチャンネルと一緒に設定します。",
     "garden_naming_threshold_help": "これはどの動物かを判断する 2 つ目のチェックです。この値以上なら動物が確定し名前が付きます。未満なら写真は「除外済み」に移り、そこから元に戻せます。",
     "garden_naming_threshold": "どの動物かこの確信度に達したら名前を付ける",
     "garden_naming": "動物に自動で名前を付ける",
@@ -1468,7 +1512,7 @@
     "garden_models_error": "アプリケーションを再起動するまで庭の処理は停止しています。",
     "garden_models_status_needed": "モデルの状態を読み込むとダウンロードできるようになります。",
     "garden_country": "動物の名前は {country} で絞り込まれます。",
-    "garden_country_missing": "国が設定されていないため、動物は自動で命名されず、種の提案も利用できません。連携で場所を設定してください。",
+    "garden_country_missing": "国が設定されていないため、動物は自動で命名されず、種の提案も利用できません。「{section}」で給餌台の位置を設定してください。",
     "garden_outcomes": "キャプチャの行き先",
     "garden_outcome_pending_review": "実行待ちのチェック、再試行待ちの失敗したチェック、設定やカタログ情報の不足、所有者による上書き。",
     "garden_outcome_confirmed": "確認した動物と、自動で名前が付いた確実な動物。自動の名前には自動と表示され、取り消せます。",
@@ -1505,14 +1549,14 @@
     "garden_step_model": "{model}をダウンロードしてください。",
     "garden_step_model_open": "庭のモデルを設定",
     "garden_step_location": "場所を設定すると、庭が国を把握して動物に名前を付けられます。",
-    "garden_step_location_open": "連携で場所を設定",
+    "garden_step_location_open": "給餌台の位置を設定",
     "garden_off_note": "庭は新しいキャプチャの収集を停止します。既存のキャプチャと設定は保持され、再びオンにすると戻ります。",
     "garden_off_effects": "オフの間、庭はエクスプローラーに表示されず、通知も止まり、飼っている鳥は野鳥として記録されます。保存済みのキャプチャには引き続き履歴の保持期間が適用されます。",
     "garden_section_cameras": "カメラ",
     "garden_section_checks": "自動チェック",
     "garden_section_models": "モデル",
     "garden_naming_help": "命名しきい値に達した動物は確認され、名前が付けられます。しきい値未満の写真は「却下」に移り、そこで元に戻せます。",
-    "garden_device_note": "自動チェックは、設定 › モデル › ハードウェア で選んだデバイスが CPU と一致すればそれを使い、失敗すると CPU に戻ります。動きのスキャンは CPU を使います。庭は鳥とカメラが空いている間に一度に 1 つずつ処理します。",
+    "garden_device_note": "自動チェックは、{place} で選んだデバイスが CPU と一致すればそれを使い、失敗すると CPU に戻ります。動きのスキャンは CPU を使います。庭は鳥とカメラが空いている間に一度に 1 つずつ処理します。",
     "garden_status_refresh": "状態を更新",
     "garden_status_loading": "庭の状態を確認しています…",
     "garden_domestic_birds_count": "{count, plural, =0 {なし} other {#種}}",
@@ -1556,7 +1600,7 @@
     "status_ready": "オフです。オンにすると {region} で記録された {count, plural, other {# 種}}に絞り込みます。",
     "status_needs_location": "オフ：位置が必要です。",
     "status_needs_location_on": "フィルターなし：位置が必要です。",
-    "status_needs_location_detail": "フィルターは「連携」で設定した位置から eBird の地域を探します。",
+    "status_needs_location_detail": "フィルターは「{section}」で設定した給餌台の位置から eBird の地域を探します。",
     "status_needs_key": "分布域フィルターを使うには eBird の API キーを追加してください。",
     "status_needs_key_detail": "分布域の情報源は eBird の地域リストだけです。BirdNET-Go は種がここにいることは示せても、いないことは示せないため、単独では何も絞り込みません。",
     "status_fetching": "お住まいの地域の eBird リストを取得しています…",
@@ -1727,7 +1771,7 @@
     "recover_revalidate": "確認して再読み込み",
     "status_missing_next_settings": "下でダウンロードするか、別のモデルを選んでください。",
     "status_missing_next_wizard": "ここでダウンロードするか、別のモデルを選んでください。",
-    "status_missing_next_about": "設定 › モデル でダウンロードしてください。",
+    "status_missing_next_about": "{place} でダウンロードしてください。",
     "status_planned": "{model} が {device} で鳥を識別します。最初の検出時に読み込まれます。",
     "status_planned_no_device": "{model} が鳥を識別します。最初の検出時に読み込まれます。",
     "status_running": "{model} が {device} で鳥を識別しています。",

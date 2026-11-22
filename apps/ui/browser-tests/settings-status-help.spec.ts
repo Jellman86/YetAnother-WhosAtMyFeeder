@@ -80,17 +80,13 @@ test.describe('beside the settings', () => {
         expect(errors).toEqual([]);
     });
 
-    test('goes to a test under More options, which then offers it from the column, with no page error', async ({ page }) => {
-        const errors = await openSection(page, '/settings/cameras');
+    test('offers BirdNET-Go\'s test from the column in Integrations, with no page error', async ({ page }) => {
+        const errors = await openSection(page, '/settings/integrations');
         const audio = item(page, 'audio');
-        // Its test is not on the page yet, so the column goes to it.
-        await audio.getByRole('button', { name: 'Go to the test: BirdNET-Go' }).click();
-        await expect(page.locator('[data-settings-more-body]')).toBeVisible();
-        await expect(page.locator('[data-settings-test="audio"]')).toBeFocused();
-        // Now on the page, the test is offered from the column; switching audio off and on again
-        // withdraws and offers it again.
+        // BirdNET-Go is on the section's first screen, so its test is offered from the column once
+        // its code has arrived; switching audio off and on again withdraws and offers it again.
         await expect(audio.getByRole('button', { name: 'Run the test: BirdNET-Go' })).toBeVisible();
-        const audioSwitch = page.locator('[data-settings-part-more="birdnet"] button[aria-checked]').first();
+        const audioSwitch = page.locator('[data-settings-part="birdnet"] button[aria-checked]').first();
         await audioSwitch.click();
         await expect(audio.getByRole('button', { name: 'Go to the test: BirdNET-Go' })).toBeVisible();
         await audioSwitch.click();
@@ -99,9 +95,8 @@ test.describe('beside the settings', () => {
     });
 
     test('goes to the BirdNET-Go switch when audio is off on this page, so focus always moves on', async ({ page }) => {
-        const errors = await openSection(page, '/settings/cameras');
-        await page.locator('[data-settings-more] > h3 > button').click();
-        const audioSwitch = page.locator('[data-settings-part-more="birdnet"] button[aria-checked]').first();
+        const errors = await openSection(page, '/settings/integrations');
+        const audioSwitch = page.locator('[data-settings-part="birdnet"] button[aria-checked]').first();
         await audioSwitch.click();
         await item(page, 'audio').getByRole('button', { name: 'Go to the test: BirdNET-Go' }).click();
         await expect(audioSwitch).toBeFocused();

@@ -67,7 +67,6 @@ class Settings(BaseSettings):
     time_format: str = Field(default="locale", description="Time format: locale, 12h, 24h")
 
     # General app settings
-    log_level: str = "INFO"
     api_key: Optional[str] = None
 
     model_config = SettingsConfigDict(env_nested_delimiter="__", env_file=".env", extra="ignore")

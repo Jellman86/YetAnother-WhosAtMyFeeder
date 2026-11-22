@@ -10,13 +10,13 @@ The system is connected to the [iNaturalist API](https://www.inaturalist.org/). 
 3. Caches the result in a local SQLite table (`taxonomy_cache`) to avoid redundant API calls.
 
 ## Display Modes
-**Settings → Display → Bird Naming Style** decides how every bird is labelled across the UI:
+**Settings → Display → More options → Bird naming style** decides how every bird is labelled across the UI:
 
 - **Standard:** common name primary, scientific name as the subtitle.
-- **Hobbyist:** scientific name primary, common name as the subtitle.
-- **Strictly Scientific:** scientific name only. Common names are hidden.
+- **Scientific name first:** scientific name primary, common name as the subtitle.
+- **Strictly scientific:** scientific name only. Common names are hidden.
 
-**Leaderboard** in the sidebar (the page itself is headed **Species**) is where the naming style
+**Leaderboard** in the sidebar is where the naming style
 is most visible, because it shows both names together:
 
 ![The Leaderboard with the Month window and the Seen filter selected: Dunnock, Prunella modularis, as the large photograph with 235 visits, and eight smaller photographs beside it, four of them (Golden-crowned Sparrow, Eastern Gray Squirrel, Brown-headed Cowbird, Dark-eyed Junco) marked Check because nobody reported them nearby. Beneath, a band reads 18 species, 289 visits, busiest hour 09:00, 8 of 18 species heard or confirmed, no Rising yet because the history needs a full earlier window, and Dunnock seen most recently](../images/leaderboard.png)
@@ -28,9 +28,10 @@ photographed. **Both** is a sum, not an intersection: a species does not need ev
 sources to appear.
 
 A visit is what the dashboard shows as one row: the frames of one species on one camera, each
-within ten minutes of the one before. A bird that sits on the feeder for twenty minutes and trips
-the camera fifteen times is one visit, so a busy regular no longer outranks birds that come and go
-simply by staying longer. **Total** has no visit counts and ranks by detections, and says so.
+within the visit gap of the one before. The gap is **Visit gap** under **Settings → Identifying
+birds → Counting visits** (60 seconds by default, from 5 to 300). A bird that stays on the feeder
+and trips the camera fifteen times, never more than the gap apart, is one visit, so a busy regular
+no longer outranks birds that come and go simply by staying longer. **Total** has no visit counts and ranks by detections, and says so.
 
 Under the photographs, one band states the window: how many species, how many detections, the
 busiest hour of the day, how many species were **heard or confirmed**, what is rising and what was
@@ -47,11 +48,11 @@ seen last. The rankings then say what stands behind each species besides the cla
 
 The **Total** window has no confirmation counts, so its evidence column only reports calls.
 
-When eBird is set up under **Settings → Sharing & integrations**, the rankings also check each species against
+When eBird is set up under **Settings → Integrations**, the rankings also check each species against
 what birders have reported within 50 km of the feeder in the last 30 days. A species that only the
 camera backs and that nobody has reported nearby is marked **Not reported within 50 km** in the
 rankings and **Check** on its photograph. This distance, like the others in these checks, is shown in
-your **Display Units**: Imperial and British show **31 mi**. **Needs a check** opens the review sheet: inspect its
+your **Display units**: Imperial and British show **31 mi**. **Needs a check** opens the review sheet: inspect its
 photographed visits, keep the ones you want selected, then confirm, rename or hide them. A missing
 nearby report is a reason to check, not proof that the classifier was wrong. Renaming applies to
 every capture of the selected visits and teaches personalised identification, so it has no undo
@@ -70,12 +71,12 @@ behind the ranking covers the whole of that earlier window: the camera's history
 BirdNET-Go's for **Heard**, and both for **Both**. On a new install the page says when records start
 instead of reporting every species as a riser.
 
-Below the rankings, **Detections over time** shows when detections happened; its legend names each
+Below the rankings, **Captures over time** shows when detections happened; its legend names each
 species and hides or restores it. **Weather overlays** add temperature and wind as small charts of
 their own directly underneath, lined up day for day with the bars, rather than as a second scale on
 the same chart, and shade rainy buckets behind the bars. A species keeps the same colour in
 that chart and in **Species composition**, whose labelled buttons can hide or restore a slice with
-a mouse, touch, or keyboard. **Hour x weekday activity** shows when this feeder is
+a mouse, touch, or keyboard. **Activity by hour and weekday** shows when this feeder is
 busy: brighter means busier in dark mode and darker means busier in light mode, and the busiest slot
 is outlined. Bars along the top add each hour across the week and the column on the right totals each
 day. Point at a slot, tap it on a phone, or focus the grid and use the arrow keys to read its day,
@@ -87,8 +88,8 @@ Heard calls can also appear between camera visits in **Explorer** when you turn 
 That is a timeline view rather than a combined ranking; see [Explore and review visits](explorer.md).
 
 ## Taxonomy Repair
-If your history contains old detections with inconsistent naming, run **Taxonomy repair** from
-**Settings → Storage & upkeep**. It scans your whole history and normalises every label against iNaturalist.
+If your history contains old detections with inconsistent naming, choose **Run full taxonomy repair**
+under **Settings → Storage & upkeep → More options → Taxonomy repair**. It scans your whole history and normalises every label against iNaturalist.
 It rewrites names only; it never deletes a detection.
 
 
@@ -140,7 +141,7 @@ alongside the model artifact and output index that produced them.
 
 ### What diagnostics tell you
 
-The **Naming Sources** card on the **Health** page reports:
+The **Naming sources** card on the **Health** page reports:
 
 - **Catalogue species** — how many identities the active release holds.
 - **Model output classes with no catalogue identity** — outputs that keep their original label text

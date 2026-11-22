@@ -70,8 +70,8 @@ test('choosing another page with unsaved changes asks first; Cancel keeps the ed
     await page.locator('#mqtt-server').fill('broker.lan');
 
     // Another Settings section keeps the draft and does not ask.
-    await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
-    await expect.poll(() => pathname(page)).toBe('/settings/sharing');
+    await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Integrations', exact: true }).click();
+    await expect.poll(() => pathname(page)).toBe('/settings/integrations');
     await expect(leaveDialog(page)).toHaveCount(0);
     await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Cameras & connection', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
@@ -335,7 +335,7 @@ test('reloading with unsaved changes asks the browser to confirm, and without th
 
 test('every Settings section opens with nothing unsaved on a sparse saved copy', async ({ page }) => {
     await openOwnerShell(page);
-    const tabs = ['Cameras & connection', 'Identifying birds', 'Alerts', 'Sharing & integrations', 'Storage & upkeep', 'Display'];
+    const tabs = ['Cameras & connection', 'Identifying birds', 'Integrations', 'Notifications', 'Access & privacy', 'Storage & upkeep', 'Display'];
     for (const tab of tabs) {
         await page.locator('[data-settings-navigation]').getByRole('link', { name: tab, exact: true }).click();
         await expect(page.locator('[data-settings-navigation] [aria-current="page"]')).toHaveText(tab);

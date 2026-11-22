@@ -216,11 +216,11 @@ the winning species up its own ancestry; it never substitutes a local runner-up.
 Higher taxa remain unresolved. No garden result reaches bird totals,
 personalization, BirdWeather, eBird or notifications.
 
-The intended camera control is **Garden animals** alongside the existing
-**Feeder** and **Nest** choices, with independent garden opt-in so a mixed camera
-can still record birds. The application collects completed Frigate animal events and offers explicit owner-requested
-SpeciesNet suggestions, independently of this tool. The application requires a tracked
-box for the crop variant; the replay’s explicitly marked whole-frame fallback is not
-used there. The application's optional motion collector uses Cedar with bounded private
-photo retention, separately from this replay. Automatic identification and local accuracy
-qualification remain separate work.
+In the application, each camera's **Watch for** choice is **Birds**, **Garden animals**
+or **Both**, separate from its **Feeder** or **Nest** role, so a mixed camera can still
+record birds. The application collects completed Frigate animal events, checks new
+captures automatically with the SpeciesNet tracked-crop model and offers owner-requested
+SpeciesNet suggestions, independently of this tool. It requires a tracked box for the
+crop variant; the replay’s explicitly marked whole-frame fallback is not used there. The
+application's optional motion collector uses Cedar with bounded private photo retention,
+separately from this replay. Local accuracy qualification remains separate work.
