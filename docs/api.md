@@ -1020,7 +1020,13 @@ Notes:
 
 ### Species and Leaderboard
 
-- `GET /api/species`
+- `GET /api/species` — every species with its all-time `count`. Days sealed by cleanup count
+  from their daily totals instead of the few captures kept from them, and captures Frigate lost
+  from live days count too, so the count does not fall when cleanup removes old captures. A
+  species seen only on sealed days keeps its row, with `first_seen`, `last_seen`, confidence and
+  `camera_count` empty, because a daily total has no capture times or scores. Those fields, and
+  the rolling `count_1d`, `count_7d`, `count_30d`, `days_seen_*` and `trend_*` figures, still
+  describe stored captures only. A guest takes no sealed day that began before the shared window.
 - `GET /api/species/search`
 - `GET /api/species/{species_name}/stats` On days sealed by cleanup, `total_sightings`,
   `daily_distribution` and `monthly_distribution` count the species' daily totals instead of
@@ -1085,7 +1091,16 @@ Notes:
   from an expired report kept after a failed refresh and during its 15-minute back-off, which is not a
   current check); `window_visit_count` and
   `window_prev_visit_count` fold captures of one canonical species on one camera with the visit gap (`visit_gap_seconds`), as the
-  dashboard does, while `window_count` stays frames)
+  dashboard does, while `window_count` stays frames). A sealed day that lies wholly inside the
+  window, or wholly inside the previous window, counts from its daily totals (captures and visits)
+  instead of the captures kept from it; a window that opens part way through a sealed day keeps
+  that day's stored captures and does not take its total. Captures Frigate lost count on their
+  live day. So the day, week and month boards keep their counts after cleanup, except for the
+  captures cleanup removed from the part-day at the start of a window. First and last seen,
+  confidence, cameras and the confirmed counts describe stored captures only:
+  `window_avg_confidence` is null for a species known only from daily totals. `history_start`
+  reaches back to the first sealed day or the oldest lost capture when either is older than every
+  stored capture.
 
 ### Taxonomy
 
