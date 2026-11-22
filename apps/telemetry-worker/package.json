@@ -17,9 +17,9 @@
     "hono": "4.13.19"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20261116.1",
+    "@cloudflare/workers-types": "5.20261119.1",
     "miniflare": "4.20260730.0",
-    "wrangler": "4.163.0"
+    "wrangler": "4.165.0"
   },
   "overrides": {
     "undici": "7.29.0"
