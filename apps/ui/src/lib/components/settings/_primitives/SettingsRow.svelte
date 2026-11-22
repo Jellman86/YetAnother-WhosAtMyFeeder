@@ -12,10 +12,15 @@
          * under its label, for lists and anything wider than the control column.
          */
         layout?: 'inline' | 'stacked' | 'block';
+        /**
+         * A field that belongs to the words, drawn under the hint: the minutes or seconds a switch
+         * turns on. The control column then holds only the switch, so the row keeps its full measure.
+         */
+        below?: Snippet;
         children: Snippet;
     }
 
-    let { label, description, labelId, descriptionId, layout = 'inline', children }: Props = $props();
+    let { label, description, labelId, descriptionId, layout = 'inline', below, children }: Props = $props();
     const wide = $derived(layout === 'block');
 </script>
 
@@ -32,6 +37,9 @@
             <span id={descriptionId} class="mt-1 block max-w-prose text-sm leading-snug text-muted">
                 {description}
             </span>
+        {/if}
+        {#if below}
+            <div class="mt-3 empty:hidden" data-settings-row-below>{@render below()}</div>
         {/if}
     </div>
     <div class="min-w-0">

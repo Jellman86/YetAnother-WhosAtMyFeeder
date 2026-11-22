@@ -25,6 +25,7 @@
         discordWebhook = $bindable(''),
         discordWebhookSaved = $bindable(false),
         discordBotName = $bindable('YA-WAMF Bird Bot'),
+        discordIncludeSnapshot = $bindable(true),
         pushoverEnabled = $bindable(false),
         pushoverUserKey = $bindable(''),
         pushoverUserSaved = $bindable(false),
@@ -32,11 +33,13 @@
         pushoverTokenSaved = $bindable(false),
         pushoverPriority = $bindable(0),
         pushoverDevice = $bindable(''),
+        pushoverIncludeSnapshot = $bindable(true),
         telegramEnabled = $bindable(false),
         telegramBotToken = $bindable(''),
         telegramTokenSaved = $bindable(false),
         telegramChatId = $bindable(''),
         telegramChatIdSaved = $bindable(false),
+        telegramIncludeSnapshot = $bindable(true),
         emailEnabled = $bindable(false),
         emailUseOAuth = $bindable(true),
         emailConnectedEmail = $bindable<string | null>(null),
@@ -67,6 +70,7 @@
         discordWebhook: string;
         discordWebhookSaved: boolean;
         discordBotName: string;
+        discordIncludeSnapshot: boolean;
         pushoverEnabled: boolean;
         pushoverUserKey: string;
         pushoverUserSaved: boolean;
@@ -74,11 +78,13 @@
         pushoverTokenSaved: boolean;
         pushoverPriority: number;
         pushoverDevice: string;
+        pushoverIncludeSnapshot: boolean;
         telegramEnabled: boolean;
         telegramBotToken: string;
         telegramTokenSaved: boolean;
         telegramChatId: string;
         telegramChatIdSaved: boolean;
+        telegramIncludeSnapshot: boolean;
         emailEnabled: boolean;
         emailUseOAuth: boolean;
         emailConnectedEmail: string | null;
@@ -222,6 +228,19 @@
                     />
                 </div>
             </div>
+            <!-- Whether the visit's photo goes with the message: the same switch on every channel. -->
+            <SettingsRow
+                labelId="setting-discord-include-snapshot"
+                label={$_('settings.notifications.include_snapshot', { default: 'Send the photo' })}
+                description={$_('settings.notifications.include_snapshot_desc', { default: 'Sends the visit\u2019s snapshot with each alert. Off sends the words alone.' })}
+            >
+                <SettingsToggle
+                    checked={discordIncludeSnapshot}
+                    labelledBy="setting-discord-include-snapshot"
+                    srLabel={$_('settings.notifications.include_snapshot', { default: 'Send the photo' })}
+                    onchange={(value) => (discordIncludeSnapshot = value)}
+                />
+            </SettingsRow>
             <button
                 type="button"
                 onclick={runDiscordTest}
@@ -283,6 +302,19 @@
                     />
                 </div>
             </div>
+            <!-- Whether the visit's photo goes with the message: the same switch on every channel. -->
+            <SettingsRow
+                labelId="setting-pushover-include-snapshot"
+                label={$_('settings.notifications.include_snapshot', { default: 'Send the photo' })}
+                description={$_('settings.notifications.include_snapshot_desc', { default: 'Sends the visit\u2019s snapshot with each alert. Off sends the words alone.' })}
+            >
+                <SettingsToggle
+                    checked={pushoverIncludeSnapshot}
+                    labelledBy="setting-pushover-include-snapshot"
+                    srLabel={$_('settings.notifications.include_snapshot', { default: 'Send the photo' })}
+                    onchange={(value) => (pushoverIncludeSnapshot = value)}
+                />
+            </SettingsRow>
             <button
                 type="button"
                 onclick={runPushoverTest}
@@ -380,6 +412,19 @@
                     />
                 </div>
             </div>
+            <!-- Whether the visit's photo goes with the message: the same switch on every channel. -->
+            <SettingsRow
+                labelId="setting-telegram-include-snapshot"
+                label={$_('settings.notifications.include_snapshot', { default: 'Send the photo' })}
+                description={$_('settings.notifications.include_snapshot_desc', { default: 'Sends the visit\u2019s snapshot with each alert. Off sends the words alone.' })}
+            >
+                <SettingsToggle
+                    checked={telegramIncludeSnapshot}
+                    labelledBy="setting-telegram-include-snapshot"
+                    srLabel={$_('settings.notifications.include_snapshot', { default: 'Send the photo' })}
+                    onchange={(value) => (telegramIncludeSnapshot = value)}
+                />
+            </SettingsRow>
             <button
                 type="button"
                 onclick={runTelegramTest}

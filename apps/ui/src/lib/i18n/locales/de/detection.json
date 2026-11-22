@@ -313,7 +313,7 @@
     "conversation_loading": "Konversation wird geladen…",
     "conversation_empty": "Noch keine Konversation. Stellen Sie der KI eine Anschlussfrage.",
     "conversation_placeholder": "Stellen Sie eine Anschlussfrage…",
-    "conversation_error": "Die KI hat nicht geantwortet. Prüfen Sie Anbieter und Schlüssel unter Einstellungen → Teilen & Integrationen und fragen Sie erneut.",
+    "conversation_error": "Die KI hat nicht geantwortet. Prüfen Sie Anbieter und Schlüssel unter Einstellungen → Integrationen und fragen Sie erneut.",
     "assistant": "Assistent",
     "user": "Sie",
     "send": "Senden",

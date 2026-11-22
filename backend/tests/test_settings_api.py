@@ -2186,3 +2186,70 @@ async def test_garden_notification_channel_mode_and_photo_choice_round_trip(clie
     # A write that leaves the mode out keeps it.
     assert (await client.post("/api/settings", json={"garden_notifications_enabled": True})).status_code == 200
     assert (await client.get("/api/settings")).json()["garden_notifications_use_bird_channels"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("channel", ["discord", "pushover", "telegram", "email"])
+async def test_settings_roundtrip_channel_snapshot_switch(client: httpx.AsyncClient, channel: str):
+    """Every channel's snapshot switch is read and saved through the API, and left alone when omitted."""
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    channel_settings = getattr(settings.notifications, channel)
+    original = channel_settings.include_snapshot
+    field = f"notifications_{channel}_include_snapshot"
+    try:
+        channel_settings.include_snapshot = True
+        before = (await client.get("/api/settings")).json()
+        assert before[field] is True
+        base_payload = {
+            "frigate_url": before["frigate_url"],
+            "mqtt_server": before["mqtt_server"],
+            "classification_threshold": before["classification_threshold"],
+        }
+
+        post_resp = await client.post("/api/settings", json={**base_payload, field: False})
+        assert post_resp.status_code == 200, post_resp.text
+        assert channel_settings.include_snapshot is False
+        assert (await client.get("/api/settings")).json()[field] is False
+
+        # A save that does not name the switch keeps it, so an older client cannot turn photos back on.
+        post_resp = await client.post("/api/settings", json=base_payload)
+        assert post_resp.status_code == 200, post_resp.text
+        assert channel_settings.include_snapshot is False
+
+        post_resp = await client.post("/api/settings", json={**base_payload, field: True})
+        assert post_resp.status_code == 200, post_resp.text
+        assert (await client.get("/api/settings")).json()[field] is True
+    finally:
+        channel_settings.include_snapshot = original
+
+
+@pytest.mark.asyncio
+async def test_settings_snapshot_switches_leave_channel_secrets_redacted_and_stored(client: httpx.AsyncClient):
+    """Saving a snapshot switch beside the redaction placeholder keeps the stored secret."""
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    discord = settings.notifications.discord
+    original = (discord.webhook_url, discord.include_snapshot)
+    try:
+        discord.webhook_url = "https://discord.example/api/webhooks/1/secret"
+        before = (await client.get("/api/settings")).json()
+        assert before["notifications_discord_webhook_url"] == "***REDACTED***"
+        post_resp = await client.post(
+            "/api/settings",
+            json={
+                "frigate_url": before["frigate_url"],
+                "mqtt_server": before["mqtt_server"],
+                "classification_threshold": before["classification_threshold"],
+                "notifications_discord_webhook_url": "***REDACTED***",
+                "notifications_discord_include_snapshot": False,
+            },
+        )
+        assert post_resp.status_code == 200, post_resp.text
+        assert discord.webhook_url == "https://discord.example/api/webhooks/1/secret"
+        assert discord.include_snapshot is False
+        after = (await client.get("/api/settings")).json()
+        assert after["notifications_discord_webhook_url"] == "***REDACTED***"
+        assert "webhooks/1/secret" not in json.dumps(after)
+    finally:
+        discord.webhook_url, discord.include_snapshot = original

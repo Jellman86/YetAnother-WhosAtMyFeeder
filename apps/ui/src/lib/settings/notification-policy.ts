@@ -2,6 +2,8 @@ export type NotifyMode = 'silent' | 'final' | 'standard' | 'realtime' | 'custom'
 
 /** The id of the Channels card, which the delivery sentence's channel words link to. */
 export const NOTIFICATION_CHANNELS_SECTION_ID = 'notification-channels';
+/** The disclosure under the delivery sentence that holds the custom-rule switches. */
+export const NOTIFICATION_CUSTOM_RULES_ID = 'notifications-custom-rules';
 
 export interface PolicyChannel {
     id: 'discord' | 'pushover' | 'telegram' | 'email';

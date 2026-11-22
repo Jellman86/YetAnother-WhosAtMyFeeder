@@ -11,7 +11,7 @@ same event later on does not report it again. Several events grouped into one Ex
 ## Setup
 1. Log in to your BirdWeather account.
 2. Find your **Station Token** in your station settings.
-3. In YA-WAMF, go to **Settings → Sharing & integrations → More options → BirdWeather**.
+3. In YA-WAMF, go to **Settings → Integrations → BirdWeather**.
 4. Enable **BirdWeather** and paste your token.
 5. Click **Save changes**.
 

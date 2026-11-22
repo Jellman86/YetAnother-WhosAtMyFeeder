@@ -3,7 +3,7 @@
   "open_health": "Health",
   "row_feed": "Frigate events",
   "row_audio": "Audio",
-  "row_alerts": "Alerts",
+  "row_alerts": "Notifications",
   "state_live": "Live",
   "state_waiting": "Waiting for events",
   "state_not_connected": "Not connected",

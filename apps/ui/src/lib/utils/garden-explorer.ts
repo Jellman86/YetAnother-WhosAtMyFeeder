@@ -1,3 +1,4 @@
+import { settingsPartPlace } from '../settings/settings-place';
 import type { GardenCapture } from '../api/garden';
 import type { DetectionVisit } from '../api/visits';
 import { heardWindow } from './heard-timeline';
@@ -205,7 +206,7 @@ export function gardenEntryText(
     if (capture.status === 'pending' && !view.review) return { title, state: waitingState(checkModel, t) };
     if (view.review === 'presence') {
         const reason = capture.automatic_check?.decision_reason;
-        if (reason === 'location_required') return { title, state: t('garden.automatic_location_required', 'Animal detected. Set a country in Settings → Integrations → Location so the model can name it automatically.') };
+        if (reason === 'location_required') return { title, state: t('garden.automatic_location_required', 'Animal detected. Set a country in {place} so the model can name it automatically.', { place: settingsPartPlace('location', (key) => t(key, key)) }) };
         if (reason === 'identity_unavailable') return { title, state: t('garden.automatic_identity_unavailable', 'Animal detected, but its name could not be bound to the local catalogue. No automatic name was saved.') };
         if (reason === 'below_threshold') return { title, state: t('garden.explorer.state_below_threshold', 'Animal detected; species below the naming threshold') };
         return { title, state: t('garden.explorer.state_manual', 'Manual review: automatic naming is off or an owner override is active') };

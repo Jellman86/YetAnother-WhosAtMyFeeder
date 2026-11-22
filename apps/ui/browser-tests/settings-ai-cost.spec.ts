@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openMoreOptions, openSettings } from './settings-page-mock';
 
-// Settings → Sharing & integrations shows a dollar amount only for usage that has a price. A model with no price is
+// Settings → Integrations shows a dollar amount only for usage that has a price. A model with no price is
 // "not priced", a total over part of the usage says what it covers, and usage with no prices at
 // all is "Cost not estimated: add prices", never a measured-looking zero.
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -17,7 +17,7 @@ async function openUsage(page: Page, usage: Record<string, unknown>): Promise<vo
             ? { json: { span: '30d', from_date: '2026-10-17T00:00:00', to_date: '2026-11-16T00:00:00', input_tokens: 5000, output_tokens: 500, total_tokens: 5500, daily: [], ...usage } }
             : undefined)
     });
-    await page.getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+    await page.getByRole('link', { name: 'Integrations', exact: true }).click();
     await openMoreOptions(page);
     await page.getByRole('button', { name: /AI usage dashboard/ }).click();
 }

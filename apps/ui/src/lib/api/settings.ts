@@ -181,6 +181,9 @@ export interface Settings {
     notifications_email_smtp_use_tls: boolean;
     notifications_email_from_email?: string | null;
     notifications_email_to_email?: string | null;
+    notifications_discord_include_snapshot?: boolean;
+    notifications_pushover_include_snapshot?: boolean;
+    notifications_telegram_include_snapshot?: boolean;
     notifications_email_include_snapshot: boolean;
     notifications_email_dashboard_url?: string | null;
     notifications_instance_url?: string | null;

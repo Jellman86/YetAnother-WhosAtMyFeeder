@@ -373,7 +373,7 @@ test('without a country, the view says naming and suggestions wait for one', asy
     await openBeta(page);
     await expect(page.locator('[data-garden-country]')).toContainText('No country is set, so animals are not named automatically');
     await expect(page.locator('[data-beta-status]')).toHaveText('On · no camera chosen · model not downloaded yet · no country set');
-    await page.locator('[data-garden-next-step="set_location"]').getByRole('button', { name: 'Set location in Integrations' }).click();
+    await page.locator('[data-garden-next-step="set_location"]').getByRole('button', { name: 'Set your feeder’s location' }).click();
     await expect(page.locator('#setting-location-mode')).toBeVisible();
 });
 
@@ -529,20 +529,19 @@ const notificationStatus = {
 const gardenNotifications: GardenHandler = (route, path) => path === '/api/garden/notifications'
     ? route.fulfill({ json: notificationStatus }) : undefined;
 
-/** Garden alerts are set in Alerts, under More options, beside the channels they send through. */
+/** Garden alerts are set in Notifications, on its first screen, after the channels they send through. */
 async function openGardenAlerts(page: Page): Promise<void> {
-    await page.getByRole('link', { name: 'Alerts', exact: true }).click();
-    await openMoreOptions(page);
+    await page.getByRole('link', { name: 'Notifications', exact: true }).click();
     await expect(page.locator('[data-garden-notifications]')).toBeVisible();
 }
 
-test('Garden alerts are set in Alerts, marked Beta, and the Garden card links to them', async ({ page }) => {
+test('Garden alerts are set in Notifications, marked Beta, and the Garden card links to them', async ({ page }) => {
     await openSettings(page, { garden_cameras: ['patio'] }, ['patio'], gardenNotifications);
     await openBeta(page);
     await expect(page.getByRole('switch', { name: 'Send Garden alerts' })).toHaveCount(0);
-    await expect(page.locator('[data-garden-alerts-elsewhere]')).toContainText('set in Alerts');
+    await expect(page.locator('[data-garden-alerts-elsewhere]')).toContainText('set in Notifications');
     await page.getByRole('button', { name: 'Open Garden alerts', exact: true }).click();
-    await expect(page.getByRole('link', { name: 'Alerts', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('link', { name: 'Notifications', exact: true })).toHaveAttribute('aria-current', 'page');
     const alerts = page.locator('[data-garden-alerts]');
     await expect(alerts).toBeVisible();
     await expect(alerts).toContainText('Beta');
@@ -613,11 +612,13 @@ test('the Garden alert choices work from the keyboard', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Garden alerts via Telegram', exact: true })).toBeVisible();
 });
 
-test('Notifications says nothing about Garden while the Garden beta is off', async ({ page }) => {
+test('Notifications says in words where Garden alerts come from while the Garden beta is off, and asks the server nothing', async ({ page }) => {
     const harness = await openSettings(page, { beta_garden_animals: false }, ['patio'], gardenNotifications);
-    await page.getByRole('link', { name: 'Alerts', exact: true }).click();
+    await page.getByRole('link', { name: 'Notifications', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Discord' })).toBeVisible();
     await expect(page.locator('[data-garden-alerts-elsewhere]')).toHaveCount(0);
+    await expect(page.locator('[data-garden-alerts]')).toHaveCount(0);
+    await expect(page.locator('[data-garden-alerts-off]')).toContainText('once Garden animals is turned on, under Beta features in Identifying birds');
     expect(harness.gardenRequests).toEqual([]);
 });
 

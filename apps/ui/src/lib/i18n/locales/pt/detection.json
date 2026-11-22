@@ -313,7 +313,7 @@
     "conversation_loading": "Carregando conversa…",
     "conversation_empty": "Ainda não há conversa. Faça uma pergunta de acompanhamento para a IA.",
     "conversation_placeholder": "Faça uma pergunta de acompanhamento…",
-    "conversation_error": "A IA não respondeu. Verifique o fornecedor e a chave em Configurações → Compartilhamento e integrações e pergunte novamente.",
+    "conversation_error": "A IA não respondeu. Verifique o fornecedor e a chave em Configurações → Integrações e pergunte novamente.",
     "assistant": "Assistente",
     "user": "Você",
     "send": "Enviar",

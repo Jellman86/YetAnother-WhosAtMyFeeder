@@ -250,8 +250,6 @@
   "tabs": {
     "connection": "Connection",
     "detection": "Naming and filters",
-    "notifications": "Notifications",
-    "integrations": "Integrations",
     "data": "Data",
     "security": "Security",
     "appearance": "Appearance",
@@ -267,13 +265,22 @@
     "models": "Models",
     "maintenance": "Maintenance",
     "refused": "needs a fix",
-    "refused_note": "Has a value the last save refused"
+    "refused_note": "Has a value the last save refused",
+    "location": "Location",
+    "birdnet": "BirdNET-Go",
+    "weather": "Home Assistant weather",
+    "rules": "Global notification filters",
+    "channels": "Channels",
+    "garden-alerts": "Garden animal alerts",
+    "telemetry": "Telemetry",
+    "networks": "eBird, iNaturalist and BirdWeather"
   },
   "sections": {
     "cameras": "Cameras & connection",
     "identification": "Identifying birds",
-    "alerts": "Alerts",
-    "sharing": "Sharing & integrations",
+    "integrations": "Integrations",
+    "notifications": "Notifications",
+    "access": "Access & privacy",
     "storage": "Storage & upkeep",
     "display": "Display"
   },
@@ -299,9 +306,8 @@
       "finder": "Bird finder",
       "audio": "BirdNET-Go",
       "storage": "Storage",
-      "notifications": "Alerts"
+      "notifications": "Notifications"
     },
-    "sharing_note": "Nothing here depends on a measured connection. Sign-in and guest access are set here; each service under More options says whether it is on.",
     "cause": {
       "classifier": {
         "model_missing": "not on this install"
@@ -317,7 +323,7 @@
       "finder": "The bird finder picks each bird out of a busy photo before it is named. It is optional.",
       "audio": "BirdNET-Go listens for birdsong, so a visit can be matched with the calls heard.",
       "storage": "Photos and video are kept in the media folder on this install.",
-      "notifications": "Alerts go out on your channels when a visit earns one."
+      "notifications": "Notifications go out on your channels when a visit earns one."
     },
     "why": {
       "mqtt": {
@@ -382,18 +388,18 @@
       "failed_unsaved": "Tested at {time} with the values on this page, not saved yet: it did not work. Run it again to see why.",
       "passed_subject_unsaved": "{subject} tested at {time} with the values on this page, not saved yet: it worked.",
       "failed_subject_unsaved": "{subject} tested at {time} with the values on this page, not saved yet: it did not work. Run it again to see why."
-    }
+    },
+    "access_note": "Nothing here depends on a measured connection. Sign-in, guest access and telemetry each say here whether they are on."
   },
   "more": {
     "title": "More options",
-    "cameras": "Frigate details, image source, clips and BirdNET-Go",
-    "sharing": "eBird, iNaturalist, BirdWeather, Home Assistant weather, species information, AI and telemetry",
+    "cameras": "Frigate details, image source and clips",
     "identification": "Blocked species, the range filter, video checks, hardware and Beta features",
     "identification_loading": "Opening more options…",
-    "alerts": "Cooldown, language, the link and the species filter",
-    "alerts_garden": "Cooldown, language, the link, the species filter and Garden animal alerts",
     "storage": "When Frigate loses a visit, and the jobs that repair or fill in the history",
-    "display": "Date and time format, how birds are named, the Explorer layout, fonts and colours, accessibility defaults for everyone, and units"
+    "display": "Date and time format, how birds are named, the Explorer layout, fonts and colours, accessibility defaults for everyone, and units",
+    "notifications": "Cooldown, language, the link and the species filter",
+    "integrations": "Where species pages get their information"
   },
   "debug": {
     "llm_prompt_style_label": "Prompt style",
@@ -602,6 +608,27 @@
       "illuminance_not_numeric": "{entity} did not report a number, so no light level is recorded.",
       "illuminance_out_of_range": "{entity} reported a value outside 0 to 200,000 lx, so it is not recorded.",
       "illuminance_no_answer": "The test returned no light reading."
+    },
+    "elsewhere_pipeline": "Frigate and the MQTT broker are how visits arrive, so they are set in {section}.",
+    "open_connection": "Open Frigate and MQTT",
+    "elsewhere_location": "The weather, eBird, iNaturalist and the range filter all start from your feeder’s location, also set in {section}. The weather itself comes from Open-Meteo and needs no setup.",
+    "open_location": "Open your feeder’s location",
+    "state": {
+      "off": "Off.",
+      "not_set_up": "On, but not set up: {missing}.",
+      "no_test": "On and set up. It has no connection test.",
+      "not_tested": "On and set up. Not tested yet; test results aren’t kept between visits.",
+      "passed": "On. The test passed at {time}.",
+      "failed": "On, but the test failed at {time}: {reason}",
+      "needs_station_token": "add your station token",
+      "needs_api_key": "add an API key",
+      "inaturalist_connected": "On, signed in as {user}.",
+      "needs_inaturalist_sign_in": "connect your iNaturalist account below",
+      "needs_inaturalist_app": "add the application ID and secret",
+      "needs_audio_topic": "add the MQTT topic BirdNET-Go publishes to",
+      "needs_ha_url": "add the Home Assistant URL",
+      "needs_ha_token": "add a long-lived access token",
+      "needs_ha_entity": "choose a weather entity or a sensor"
     }
   },
   "enrichment": {
@@ -767,8 +794,8 @@
     "recording_frame_delay_desc": "Wait 1 to 120 seconds after the first snapshot moment. Use the latest tracked snapshot metadata received during that wait. Identification and notifications arrive later. This does not wait for every event to end or reclassify saved visits.",
     "test_connection_both": "Test Frigate and MQTT",
     "test_again": "Test again",
-    "stage_frigate_next": "Check the Frigate server URL on this tab, and that Frigate is running.",
-    "stage_mqtt_next": "Check the broker address, port and sign-in on this tab.",
+    "stage_frigate_next": "Check the server URL in {section}, and that Frigate is running.",
+    "stage_mqtt_next": "Check the broker address, port and sign-in in {section}.",
     "more_title": "Frigate details"
   },
   "cameras": {
@@ -965,7 +992,7 @@
       "what_realtime": "every update",
       "what_silent": "silent",
       "what_custom": "custom rules",
-      "custom_hint": "Custom rules are set under Advanced below.",
+      "custom_hint": "Your own triggers, set with the switches under this sentence. At most one alert per visit.",
       "species_any": "any species",
       "species_all_but": "{count, plural, one {all but # species} other {all but # species}}",
       "species_only": "{count, plural, one {only # species} other {only # species}}",
@@ -976,7 +1003,8 @@
       "channel_telegram": "Telegram",
       "channel_email": "Email",
       "confidence_chip_audio": "{value}% sure and heard",
-      "channels_jump": "Channels: {channels}. Go to the channels."
+      "channels_jump": "Channels: {channels}. Go to the channels.",
+      "custom_open": "Custom rules"
     },
     "test_channel": "Channel",
     "test_failed": "The test message could not be sent.",
@@ -1011,7 +1039,21 @@
     "channels_title": "Channels",
     "details_title": "Cooldown, language, links and species",
     "garden_title": "Garden animal alerts",
-    "channels_desc": "Where alerts go. Turn a channel on to set it up."
+    "channels_desc": "Where alerts go. Turn a channel on to set it up.",
+    "include_snapshot": "Send the photo",
+    "include_snapshot_desc": "Sends the visit’s snapshot with each alert. Off sends the words alone.",
+    "custom_rules": {
+      "title": "Custom rules",
+      "active": "Your own triggers. A visit sends at most one alert, so these cannot repeat an alert as a visit changes: choose every update in the sentence above for that.",
+      "desc": "These switches take effect only with custom rules. The other choices in the sentence above set their own triggers and ignore them. Choose custom rules there to use these.",
+      "on_insert": "When a visit starts",
+      "on_insert_desc": "Sends the alert when Frigate first reports the visit, if its name is sure enough by then.",
+      "on_update": "Later, if no alert has gone",
+      "on_update_desc": "Sends the one alert when Frigate later updates the visit, if none went at the start: the switch above is off, or the name was not sure enough yet. It never sends a second alert.",
+      "delay_video": "Wait for the video check",
+      "delay_video_desc": "Holds the alert until the video check has confirmed the name, or for the seconds below if it never answers. Needs video checks on, in {section}."
+    },
+    "garden_off": "Garden animal alerts are set here once Garden animals is turned on, under Beta features in {section}."
   },
   "discord": {
     "title": "Discord notifications",
@@ -1282,7 +1324,7 @@
     "model_manager_repair_download": "Repair download",
     "model_manager_repair_needed": "This model install is incomplete. Re-download it to restore the missing species names or model configuration before activation.",
     "model_manager_location_title": "Uses your feeder location",
-    "model_manager_location_desc": "This model also uses the feeder coordinates saved in Settings → Sharing & integrations → Location. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.",
+    "model_manager_location_desc": "This model also uses the feeder coordinates saved in {place}. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.",
     "model_manager_location_link": "Open location settings",
     "provider_intel_npu": "Intel NPU (OpenVINO)",
     "bird_finder_title": "Bird finder",
@@ -1439,7 +1481,7 @@
     "garden_motion_toggle": "Collect motion review photos on {camera}",
     "garden_naming_off": "Every animal waits in Needs your call for you to confirm and name it.",
     "garden_naming_elsewhere": "Automatic naming is set with the birds’ naming threshold, at the top of Identifying birds.",
-    "garden_alerts_elsewhere": "Garden animal alerts are set in Alerts, with the channels they send through.",
+    "garden_alerts_elsewhere": "Garden animal alerts are set in {section}, with the channels they send through.",
     "garden_naming_threshold_help": "This is a second check, on which animal it is. At or above it, the animal is confirmed and named for you. Below it, its photo goes to Dismissed, where you can restore it.",
     "garden_naming_threshold": "Name an animal when this sure which one it is",
     "garden_naming": "Name animals automatically",
@@ -1471,7 +1513,7 @@
     "garden_models_error": "Garden work is stopped until the application restarts.",
     "garden_models_status_needed": "Downloads are available once the model status loads.",
     "garden_country": "Animal names are filtered for {country}.",
-    "garden_country_missing": "No country is set, so animals are not named automatically and species suggestions are unavailable. Set your location in Integrations.",
+    "garden_country_missing": "No country is set, so animals are not named automatically and species suggestions are unavailable. Set your feeder’s location in {section}.",
     "garden_outcomes": "Where captures go",
     "garden_outcome_pending_review": "Checks waiting to run, failed checks waiting for retry, missing setup or catalogue identity, and owner overrides.",
     "garden_outcome_confirmed": "Animals you confirm, and confident animals named automatically. An automatic name is marked as automatic and can be discarded.",
@@ -1507,14 +1549,14 @@
     "garden_step_model": "Download the {model}.",
     "garden_step_model_open": "Set up Garden models",
     "garden_step_location": "Set your location, so Garden knows your country and can name animals.",
-    "garden_step_location_open": "Set location in Integrations",
+    "garden_step_location_open": "Set your feeder’s location",
     "garden_off_note": "Garden stops collecting new captures. Existing captures and settings are kept and come back when you turn it on again.",
     "garden_off_effects": "While it is off, Garden is hidden in the Explorer, its alerts stop, and birds you keep are recorded as wild birds. History retention still applies to saved captures.",
     "garden_section_cameras": "Cameras",
     "garden_section_checks": "Automatic checks",
     "garden_section_models": "Models",
     "garden_naming_help": "Animals that reach the naming threshold are confirmed and named. Photos below it go to Dismissed, where you can restore them.",
-    "garden_device_note": "Automatic checks use the device chosen under Settings › Identifying birds › More options › Hardware once it agrees with the CPU, and fall back to the CPU if it fails. Motion scans use the CPU. Garden runs one job at a time while birds and cameras are idle.",
+    "garden_device_note": "Automatic checks use the device chosen under {place} once it agrees with the CPU, and fall back to the CPU if it fails. Motion scans use the CPU. Garden runs one job at a time while birds and cameras are idle.",
     "garden_status_refresh": "Refresh status",
     "garden_status_loading": "Checking Garden status…",
     "garden_domestic_birds_count": "{count, plural, =0 {None} one {# bird} other {# birds}}",
@@ -1558,7 +1600,7 @@
     "status_ready": "Off. Turning it on would filter to {count, plural, one {# species} other {# species}} recorded in {region}.",
     "status_needs_location": "Off: needs your location.",
     "status_needs_location_on": "Not filtering: needs your location.",
-    "status_needs_location_detail": "The filter uses the location set under Integrations to find your eBird region.",
+    "status_needs_location_detail": "The filter uses your feeder’s location, set in {section}, to find your eBird region.",
     "status_needs_key": "Add an eBird API key to use range filtering.",
     "status_needs_key_detail": "eBird's regional list is the only range source. BirdNET-Go can show that a species is here, but never that one is not, so on its own it filters nothing.",
     "status_fetching": "Fetching the eBird list for your area…",
@@ -1729,7 +1771,7 @@
     "recover_revalidate": "Check and load again",
     "status_missing_next_settings": "Download it below, or choose another model.",
     "status_missing_next_wizard": "Download it here, or choose another model.",
-    "status_missing_next_about": "Download it in Settings › Models.",
+    "status_missing_next_about": "Download it in {place}.",
     "status_planned": "{model} will name birds on {device}. It loads with the first visit.",
     "status_planned_no_device": "{model} will name birds. It loads with the first visit.",
     "status_running": "Naming birds with {model} on {device}.",

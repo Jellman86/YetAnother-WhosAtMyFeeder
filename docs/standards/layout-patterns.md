@@ -235,7 +235,7 @@ is known not to be able to run here, with a note that the owner decides by hand.
 failed it stays closed, says so and offers a retry, because nothing was measured. Reassurance needs a reading too: the
 backend-down screens say nothing about the data they could not ask about.
 
-An amount needs a price as well as a count. Settings → Sharing & integrations shows a cost only for usage that has a
+An amount needs a price as well as a count. Settings → Integrations shows a cost only for usage that has a
 rate (`settings/ai-cost.ts`): a model without one is "Not priced", usage with no prices is "Cost not
 estimated: add prices", and a total over part of the usage states the requests it covers. About's
 list of what leaves the network is built from the features that send each request

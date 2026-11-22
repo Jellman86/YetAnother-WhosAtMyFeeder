@@ -97,7 +97,7 @@
     "blocked_sort": "Los cantos oídos solo aparecen entre visitas cuando las visitas están en orden de tiempo.",
     "load_failed": "No se pudieron cargar los cantos oídos. Las visitas no se ven afectadas.",
     "truncated": "Esta página abarca más cantos de los que se pueden mostrar a la vez, así que faltan los más antiguos. Acota las fechas para verlos.",
-    "none_stored": "No hay cantos de BirdNET-Go guardados para el tiempo que cubren estas visitas. Si esperabas cantos, comprueba que BirdNET-Go está en marcha en Ajustes, Cámaras y conexión, Más opciones.",
+    "none_stored": "No hay cantos de BirdNET-Go guardados para el tiempo que cubren estas visitas. Si esperabas cantos, comprueba en {place} que BirdNET-Go esté funcionando.",
     "seek": "Reproducir desde un punto del canto. Las flechas mueven un segundo.",
     "play_call": "Reproducir el canto de {species}",
     "pause_call": "Pausar el canto de {species}",

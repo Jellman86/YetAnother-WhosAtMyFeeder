@@ -911,6 +911,12 @@ html[data-theme='dark'] {
     display: flex;
     margin-inline-start: auto;
   }
+
+  /* A row whose only control is a switch needs no field column: the switch takes its own width
+     and the label and help read at the card's full measure, as a channel's row does. */
+  &:has(> :last-child > .switch-track:only-child) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
 }
 
 /* Work that needs a person: a small amber dot set beside the reason in words. The words carry

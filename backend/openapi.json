@@ -18656,6 +18656,18 @@
             "default": false,
             "title": "Notifications Discord Enabled"
           },
+          "notifications_discord_include_snapshot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true,
+            "title": "Notifications Discord Include Snapshot"
+          },
           "notifications_discord_username": {
             "anyOf": [
               {
@@ -19061,6 +19073,18 @@
             "default": false,
             "title": "Notifications Pushover Enabled"
           },
+          "notifications_pushover_include_snapshot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true,
+            "title": "Notifications Pushover Include Snapshot"
+          },
           "notifications_pushover_priority": {
             "anyOf": [
               {
@@ -19117,6 +19141,18 @@
             ],
             "default": false,
             "title": "Notifications Telegram Enabled"
+          },
+          "notifications_telegram_include_snapshot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true,
+            "title": "Notifications Telegram Include Snapshot"
           },
           "notifications_video_fallback_timeout": {
             "anyOf": [
@@ -21083,6 +21119,18 @@
             "default": false,
             "title": "Notifications Discord Enabled"
           },
+          "notifications_discord_include_snapshot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true,
+            "title": "Notifications Discord Include Snapshot"
+          },
           "notifications_discord_username": {
             "anyOf": [
               {
@@ -21477,6 +21525,18 @@
             "default": false,
             "title": "Notifications Pushover Enabled"
           },
+          "notifications_pushover_include_snapshot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true,
+            "title": "Notifications Pushover Include Snapshot"
+          },
           "notifications_pushover_priority": {
             "anyOf": [
               {
@@ -21533,6 +21593,18 @@
             ],
             "default": false,
             "title": "Notifications Telegram Enabled"
+          },
+          "notifications_telegram_include_snapshot": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": true,
+            "title": "Notifications Telegram Include Snapshot"
           },
           "notifications_video_fallback_timeout": {
             "anyOf": [

@@ -3,7 +3,7 @@
   "open_health": "Estado",
   "row_feed": "Eventos de Frigate",
   "row_audio": "Audio",
-  "row_alerts": "Alertas",
+  "row_alerts": "Notificaciones",
   "state_live": "En vivo",
   "state_waiting": "Esperando eventos",
   "state_not_connected": "Sin conexión",

@@ -12,7 +12,7 @@ async function pressDiscordTest(page: Page, answer: { status: number; json: unkn
         notifications_discord_enabled: true,
         notifications_discord_webhook_url: '***REDACTED***'
     }, {
-        route: '/settings/alerts',
+        route: '/settings/notifications',
         respond: (path, method) => (path === '/api/settings/notifications/test' && method === 'POST' ? answer : undefined)
     });
     await page.getByRole('button', { name: 'Send test notification', exact: true }).first().click();
@@ -42,7 +42,7 @@ test('a test message that was not delivered fails its step with the cause and th
 test('the failure reads in German on a German page', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('preferred-language', 'de'));
     await openSettings(page, { notifications_discord_enabled: true, notifications_discord_webhook_url: '***REDACTED***' }, {
-        route: '/settings/alerts',
+        route: '/settings/notifications',
         respond: (path, method) => (path === '/api/settings/notifications/test' && method === 'POST' ? notDelivered : undefined)
     });
     await page.getByRole('button', { name: 'Testbenachrichtigung senden', exact: true }).first().click();
@@ -63,7 +63,7 @@ test('a test message the channel accepted passes', async ({ page }) => {
 test('a pass reads in German on a German page', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('preferred-language', 'de'));
     await openSettings(page, { notifications_discord_enabled: true, notifications_discord_webhook_url: '***REDACTED***' }, {
-        route: '/settings/alerts',
+        route: '/settings/notifications',
         respond: (path, method) => (path === '/api/settings/notifications/test' && method === 'POST'
             ? { status: 200, json: { status: 'ok', message: 'Test notification sent to discord' } }
             : undefined)

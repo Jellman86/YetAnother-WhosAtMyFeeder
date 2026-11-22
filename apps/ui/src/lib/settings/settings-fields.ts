@@ -22,11 +22,11 @@ const EXACT_FIELD_PARTS: Readonly<Record<string, SettingsPart>> = {
     // Garden's naming threshold sits in the naming card, beside the birds' one.
     garden_automatic_naming: 'detection',
     garden_naming_threshold: 'detection',
-    // Garden's alerts send through the bird alert channels, so they are set in Alerts.
-    garden_notifications_enabled: 'notifications',
-    garden_notifications_use_bird_channels: 'notifications',
-    garden_notification_channels: 'notifications',
-    garden_notifications_include_photo: 'notifications',
+    // Garden's alerts send through the bird alert channels, so they are set in Notifications.
+    garden_notifications_enabled: 'garden-alerts',
+    garden_notifications_use_bird_channels: 'garden-alerts',
+    garden_notification_channels: 'garden-alerts',
+    garden_notifications_include_photo: 'garden-alerts',
     nest_dedupe_minutes: 'connection',
     classification_image_source: 'connection',
     recording_frame_delay_seconds: 'connection',
@@ -48,9 +48,9 @@ const EXACT_FIELD_PARTS: Readonly<Record<string, SettingsPart>> = {
     inference_provider: 'models',
     blocked_labels: 'detection',
     blocked_species: 'detection',
-    camera_audio_mapping: 'connection',
+    camera_audio_mapping: 'birdnet',
     trusted_proxy_hosts: 'security',
-    notification_language: 'notifications',
+    notification_language: 'rules',
     strict_non_finite_output: 'models',
     beta_garden_animals: 'beta',
     display_common_names: 'appearance',
@@ -62,23 +62,28 @@ const EXACT_FIELD_PARTS: Readonly<Record<string, SettingsPart>> = {
 const PREFIX_FIELD_PARTS: ReadonlyArray<readonly [string, SettingsPart]> = [
     ['mqtt_', 'connection'],
     ['recording_clip_', 'connection'],
-    // Telemetry sits under Sharing's More options, after AI.
-    ['telemetry_', 'ai'],
+    // What leaves this install is set beside who can open it, in Access & privacy.
+    ['telemetry_', 'telemetry'],
     ['video_classification_', 'detection'],
     ['range_filter_', 'detection'],
     ['bird_model_region_', 'models'],
     ['bird_crop_', 'models'],
-    ['notifications_', 'notifications'],
+    // When to notify; each channel's own settings are in Channels.
+    ['notifications_', 'rules'],
+    ['notifications_discord_', 'channels'],
+    ['notifications_pushover_', 'channels'],
+    ['notifications_telegram_', 'channels'],
+    ['notifications_email_', 'channels'],
     ['garden_', 'beta'],
-    ['birdnet_', 'connection'],
-    ['audio_', 'connection'],
-    ['birdweather_', 'integrations'],
-    ['ha_weather_', 'integrations'],
-    ['ebird_', 'integrations'],
-    ['inaturalist_', 'integrations'],
-    // The feeder's location is on Sharing's first screen, above sign-in, never under More options.
-    ['location_', 'security'],
-    ['enrichment_', 'integrations'],
+    ['birdnet_', 'birdnet'],
+    ['audio_', 'birdnet'],
+    ['birdweather_', 'networks'],
+    ['ha_weather_', 'weather'],
+    ['ebird_', 'networks'],
+    ['inaturalist_', 'networks'],
+    // The feeder's location is on the first screen of Cameras & connection, never under More options.
+    ['location_', 'location'],
+    ['enrichment_', 'enrichment'],
     ['llm_', 'ai'],
     ['ai_', 'ai'],
     ['auth_', 'security'],
@@ -148,14 +153,12 @@ export interface SettingsFieldPlace {
     disclosures?: readonly string[];
 }
 
-// Cameras & connection's More options, which holds the Frigate details and BirdNET-Go.
+// Cameras & connection's More options, which holds the Frigate details.
 const CAMERAS_MORE = settingsMoreId('cameras');
-// Sharing & integrations' More options, which holds the other services, AI and telemetry.
-const SHARING_MORE = settingsMoreId('sharing');
 // Identifying birds' More options: blocked species, the range filter, video checks, hardware and Beta.
 const IDENTIFICATION_MORE = settingsMoreId('identification');
-// Alerts' More options: the cooldown, language, link, species filter and Garden animal alerts.
-const ALERTS_MORE = settingsMoreId('alerts');
+// Notifications' More options: the cooldown, language, link and species filter.
+const NOTIFICATIONS_MORE = settingsMoreId('notifications');
 // Storage & upkeep's More options: what happens when Frigate loses a visit, and the upkeep jobs.
 const STORAGE_MORE = settingsMoreId('storage');
 
@@ -178,21 +181,21 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     garden_labels: { labelKey: 'garden.labels', inputId: 'garden-labels', disclosures: [IDENTIFICATION_MORE, 'garden-section-cameras'] },
     garden_motion_confidence: { labelKey: 'garden.confidence', inputId: 'garden-motion-confidence', disclosures: [IDENTIFICATION_MORE, 'garden-section-cameras'] },
     garden_naming_threshold: { labelKey: 'settings.beta.garden_naming_threshold', inputId: 'garden-naming-threshold' },
-    birdnet_url: { labelKey: 'settings.integrations.birdnet.internal_url_label', inputId: 'birdnet-url', disclosures: [CAMERAS_MORE] },
-    birdnet_external_url: { labelKey: 'settings.integrations.birdnet.external_url_label', inputId: 'birdnet-external-url', disclosures: [CAMERAS_MORE] },
-    audio_topic: { labelKey: 'settings.integrations.birdnet.mqtt_topic', inputId: 'audio-topic', disclosures: [CAMERAS_MORE] },
-    audio_buffer_hours: { labelKey: 'settings.integrations.birdnet.audio_buffer_hours', inputId: 'audio-buffer', disclosures: [CAMERAS_MORE, 'integrations-birdnet-advanced'] },
-    audio_correlation_window_seconds: { labelKey: 'settings.integrations.birdnet.match_window_seconds', inputId: 'correlation-window', disclosures: [CAMERAS_MORE, 'integrations-birdnet-advanced'] },
-    inaturalist_default_latitude: { labelKey: 'settings.integrations.inaturalist.default_latitude', inputId: 'inat-lat', disclosures: [SHARING_MORE, 'integrations-inat-advanced'] },
-    inaturalist_default_longitude: { labelKey: 'settings.integrations.inaturalist.default_longitude', inputId: 'inat-lon', disclosures: [SHARING_MORE, 'integrations-inat-advanced'] },
-    inaturalist_default_place_guess: { labelKey: 'settings.integrations.inaturalist.default_place_guess', inputId: 'inat-place', disclosures: [SHARING_MORE, 'integrations-inat-advanced'] },
-    ebird_default_radius_km: { labelKey: 'settings.integrations.ebird.radius', inputId: 'ebird-radius', disclosures: [SHARING_MORE, 'integrations-ebird-advanced'] },
-    ebird_default_days_back: { labelKey: 'settings.integrations.ebird.days_back', inputId: 'ebird-days', disclosures: [SHARING_MORE, 'integrations-ebird-advanced'] },
-    ebird_max_results: { labelKey: 'settings.integrations.ebird.max_results', inputId: 'ebird-max-results', disclosures: [SHARING_MORE, 'integrations-ebird-advanced'] },
-    ebird_locale: { labelKey: 'settings.integrations.ebird.locale', inputId: 'ebird-locale', disclosures: [SHARING_MORE, 'integrations-ebird-advanced'] },
-    ha_weather_base_url: { labelKey: 'settings.integrations.ha_weather.base_url', inputId: 'ha-weather-url', disclosures: [SHARING_MORE] },
-    ha_weather_entity: { labelKey: 'settings.integrations.ha_weather.entity', inputId: 'ha-weather-entity', disclosures: [SHARING_MORE] },
-    ha_weather_illuminance_entity: { labelKey: 'settings.integrations.ha_weather.illuminance', inputId: 'ha-weather-illuminance', disclosures: [SHARING_MORE] },
+    birdnet_url: { labelKey: 'settings.integrations.birdnet.internal_url_label', inputId: 'birdnet-url' },
+    birdnet_external_url: { labelKey: 'settings.integrations.birdnet.external_url_label', inputId: 'birdnet-external-url' },
+    audio_topic: { labelKey: 'settings.integrations.birdnet.mqtt_topic', inputId: 'audio-topic' },
+    audio_buffer_hours: { labelKey: 'settings.integrations.birdnet.audio_buffer_hours', inputId: 'audio-buffer', disclosures: ['integrations-birdnet-advanced'] },
+    audio_correlation_window_seconds: { labelKey: 'settings.integrations.birdnet.match_window_seconds', inputId: 'correlation-window', disclosures: ['integrations-birdnet-advanced'] },
+    inaturalist_default_latitude: { labelKey: 'settings.integrations.inaturalist.default_latitude', inputId: 'inat-lat', disclosures: ['integrations-inat-advanced'] },
+    inaturalist_default_longitude: { labelKey: 'settings.integrations.inaturalist.default_longitude', inputId: 'inat-lon', disclosures: ['integrations-inat-advanced'] },
+    inaturalist_default_place_guess: { labelKey: 'settings.integrations.inaturalist.default_place_guess', inputId: 'inat-place', disclosures: ['integrations-inat-advanced'] },
+    ebird_default_radius_km: { labelKey: 'settings.integrations.ebird.radius', inputId: 'ebird-radius', disclosures: ['integrations-ebird-advanced'] },
+    ebird_default_days_back: { labelKey: 'settings.integrations.ebird.days_back', inputId: 'ebird-days', disclosures: ['integrations-ebird-advanced'] },
+    ebird_max_results: { labelKey: 'settings.integrations.ebird.max_results', inputId: 'ebird-max-results', disclosures: ['integrations-ebird-advanced'] },
+    ebird_locale: { labelKey: 'settings.integrations.ebird.locale', inputId: 'ebird-locale', disclosures: ['integrations-ebird-advanced'] },
+    ha_weather_base_url: { labelKey: 'settings.integrations.ha_weather.base_url', inputId: 'ha-weather-url' },
+    ha_weather_entity: { labelKey: 'settings.integrations.ha_weather.entity', inputId: 'ha-weather-entity' },
+    ha_weather_illuminance_entity: { labelKey: 'settings.integrations.ha_weather.illuminance', inputId: 'ha-weather-illuminance' },
     location_latitude: { labelKey: 'settings.location.latitude', inputId: 'location-lat' },
     location_longitude: { labelKey: 'settings.location.longitude', inputId: 'location-lon' },
     auth_username: { labelKey: 'settings.auth.username', inputId: 'auth-username' },
@@ -200,7 +203,7 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     auth_session_expiry_hours: { labelKey: 'settings.auth.session_expiry', inputId: 'auth-expiry', disclosures: ['auth-session-and-proxy'] },
     public_access_rate_limit_per_minute: { labelKey: 'settings.public_access.rate_limit', inputId: 'public-rate', disclosures: ['public-access-windows'] },
     public_access_external_base_url: { labelKey: 'settings.public_access.share_base_url', inputId: 'public-share-base-url', disclosures: ['public-access-windows'] },
-    notifications_instance_url: { labelKey: 'settings.notifications.instance_url', inputId: 'notification-instance-url', disclosures: [ALERTS_MORE] },
+    notifications_instance_url: { labelKey: 'settings.notifications.instance_url', inputId: 'notification-instance-url', disclosures: [NOTIFICATIONS_MORE] },
     inference_provider: { labelKey: 'settings.detection.inference_provider', inputId: 'inference-provider', disclosures: [IDENTIFICATION_MORE] },
     image_execution_mode: { labelKey: 'settings.detection.execution_mode', inputId: 'image-execution-mode', disclosures: [IDENTIFICATION_MORE, 'detection-memory-advanced'] },
     live_worker_count: { labelKey: 'settings.detection.worker_counts_live', inputId: 'live-worker-count', disclosures: [IDENTIFICATION_MORE, 'detection-memory-advanced'] },

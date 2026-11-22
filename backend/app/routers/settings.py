@@ -1174,16 +1174,19 @@ class SettingsUpdate(BaseModel):
     notifications_discord_enabled: Optional[bool] = False
     notifications_discord_webhook_url: Optional[str] = None
     notifications_discord_username: Optional[str] = "YA-WAMF"
+    notifications_discord_include_snapshot: Optional[bool] = True
 
     notifications_pushover_enabled: Optional[bool] = False
     notifications_pushover_user_key: Optional[str] = None
     notifications_pushover_api_token: Optional[str] = None
     notifications_pushover_priority: Optional[int] = 0
     notifications_pushover_device: Optional[str] = None
+    notifications_pushover_include_snapshot: Optional[bool] = True
 
     notifications_telegram_enabled: Optional[bool] = False
     notifications_telegram_bot_token: Optional[str] = None
     notifications_telegram_chat_id: Optional[str] = None
+    notifications_telegram_include_snapshot: Optional[bool] = True
 
     notifications_email_enabled: Optional[bool] = False
     notifications_email_only_on_end: Optional[bool] = False
@@ -1760,14 +1763,17 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "notifications_discord_enabled": settings.notifications.discord.enabled,
         "notifications_discord_webhook_url": "***REDACTED***" if settings.notifications.discord.webhook_url else None,
         "notifications_discord_username": settings.notifications.discord.username,
+        "notifications_discord_include_snapshot": settings.notifications.discord.include_snapshot,
         "notifications_pushover_enabled": settings.notifications.pushover.enabled,
         "notifications_pushover_user_key": "***REDACTED***" if settings.notifications.pushover.user_key else None,
         "notifications_pushover_api_token": "***REDACTED***" if settings.notifications.pushover.api_token else None,
         "notifications_pushover_priority": settings.notifications.pushover.priority,
         "notifications_pushover_device": settings.notifications.pushover.device,
+        "notifications_pushover_include_snapshot": settings.notifications.pushover.include_snapshot,
         "notifications_telegram_enabled": settings.notifications.telegram.enabled,
         "notifications_telegram_bot_token": "***REDACTED***" if settings.notifications.telegram.bot_token else None,
         "notifications_telegram_chat_id": "***REDACTED***" if settings.notifications.telegram.chat_id else None,
+        "notifications_telegram_include_snapshot": settings.notifications.telegram.include_snapshot,
         "notifications_email_enabled": settings.notifications.email.enabled,
         "notifications_email_only_on_end": settings.notifications.email.only_on_end,
         "notifications_email_use_oauth": settings.notifications.email.use_oauth,

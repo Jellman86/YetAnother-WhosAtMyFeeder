@@ -453,8 +453,8 @@ redacts secrets in GET and preserves stored secrets on POST via `should_update_s
 
 ### Authentication & access
 
-Optional owner sign-in with a password, turned on under **Settings → Sharing &
-integrations → Sign-in**. Signed-in requests carry a JWT bearer token; read-only media
+Optional owner sign-in with a password, turned on under **Settings → Access & privacy →
+Sign-in**. Signed-in requests carry a JWT bearer token; read-only media
 and the SSE stream also accept the session cookie, and the SSE stream takes a single-use
 ticket from `POST /api/auth/stream-ticket`. Public/guest access and privacy controls
 live in the **Public access** card in the same section. The legacy `YA_WAMF_API_KEY`

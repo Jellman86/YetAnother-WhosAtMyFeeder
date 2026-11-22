@@ -15,7 +15,7 @@ describe('the sidebar status list', () => {
         expect(statusSource).toContain('data-status-state');
         expect(en.status.row_feed).toBe('Frigate events');
         expect(en.status.row_audio).toBe('Audio');
-        expect(en.status.row_alerts).toBe('Alerts');
+        expect(en.status.row_alerts).toBe('Notifications');
         expect(en.status.state_live).toBe('Live');
         expect(en.status.state_waiting).toBe('Waiting for events');
         expect(en.status.state_not_connected).toBe('Not connected');

@@ -8,6 +8,9 @@
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
+    import { serviceState, serviceStateText } from '../../settings/service-state';
+    import { formatTime } from '../../utils/datetime';
+    import { serviceTests } from '../../settings/service-tests.svelte';
     import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
     import { testBirdNET, testMQTTPublish, checkBirdNetReachability } from '../../api/maintenance';
 
@@ -70,7 +73,19 @@
         bnResult = await runSequentialDiagnostic(steps, (stages) => (bnStages = stages), { independent: true });
         bnRunning = false;
         sessionTests.record('audio', bnResult.ok);
+        serviceTests.record('birdnet', { passed: bnResult.ok, message: bnResult.message }, bnSignature);
     }
+
+    // The group's state in words. The test describes the values it ran with, so an edit retires it.
+    // Kept for the visit, so the result is still here after another section was opened.
+    const bnTest = $derived(serviceTests.last('birdnet'));
+    const bnSignature = $derived(`${birdnetUrl}|${audioTopic}`);
+    const birdnetState = $derived(serviceStateText(serviceState({
+        enabled: birdnetEnabled,
+        missing: audioTopic.trim() ? null : $_('settings.integrations.state.needs_audio_topic', { default: 'add the MQTT topic BirdNET-Go publishes to' }),
+        signature: bnSignature,
+        test: bnTest
+    }), $_, formatTime));
 
     // Offered to the status column while the test is on the page, which is while audio is on.
     $effect(() => {
@@ -147,7 +162,7 @@
     const buttonPrimaryClass = 'btn btn-primary min-h-11 px-4 py-3';
 </script>
 
-<SettingsCard id="settings-group-integrations-birdnet" title={$_('settings.integrations.birdnet.title')} description={$_('settings.integrations.birdnet.toggle_label')} titleId="integration-birdnet-title" nested>
+<SettingsCard id="settings-group-integrations-birdnet" title={$_('settings.integrations.birdnet.title')} description={$_('settings.integrations.birdnet.toggle_label')} status={birdnetState} titleId="integration-birdnet-title">
     <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
     {#snippet actions()}
         <SettingsToggle

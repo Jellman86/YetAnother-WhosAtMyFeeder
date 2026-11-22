@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fetchVisits } from '../api/visits';
+    import { settingsPartPath } from '../settings/settings-route';
     import { onMount, untrack } from 'svelte';
     import LazyModal from '../components/LazyModal.svelte';
     import {
@@ -836,7 +837,7 @@
                 <NotableNearby
                     canConfigure={canReview}
                     refreshKey={notableRefreshKey}
-                    onconfigure={() => onnavigate?.('/settings/integrations')}
+                    onconfigure={() => onnavigate?.(settingsPartPath('networks'))}
                     onselectspecies={(species) => (selectedSpecies = species)}
                 />
 

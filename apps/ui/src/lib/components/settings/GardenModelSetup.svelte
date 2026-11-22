@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { settingsSectionName } from '../../settings/settings-place';
     /**
      * Garden's own models, downloaded only when the owner asks. The Garden API answers only while
      * the saved beta switch is on, so status waits for Apply rather than guessing. A download
@@ -172,7 +173,7 @@
                 <p class="text-xs text-slate-600 dark:text-slate-400" data-garden-country>
                     {identification.country
                         ? $_('settings.beta.garden_country', { values: { country: identification.country }, default: 'Animal names are filtered for {country}.' })
-                        : $_('settings.beta.garden_country_missing', { default: 'No country is set, so animals are not named automatically and species suggestions are unavailable. Set your location in Integrations.' })}
+                        : $_('settings.beta.garden_country_missing', { values: { section: settingsSectionName('cameras', $_) }, default: 'No country is set, so animals are not named automatically and species suggestions are unavailable. Set your feeder’s location in {section}.' })}
                 </p>
             {/if}
         {/if}

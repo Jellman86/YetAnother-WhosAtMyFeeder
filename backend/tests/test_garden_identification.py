@@ -483,4 +483,4 @@ async def test_a_missing_country_points_at_the_settings_tab_that_holds_location(
         await GardenIdentificationService()._identify("capture", GardenIdentifyRequest())
 
     assert failure.value.status_code == 409
-    assert "Settings → Sharing & integrations → Location" in failure.value.detail
+    assert "Settings → Cameras & connection → Location" in failure.value.detail

@@ -23,7 +23,7 @@ import advancedSectionSource from './_primitives/AdvancedSection.svelte?raw';
 import settingsCardSource from './_primitives/SettingsCard.svelte?raw';
 import healthSource from '../../pages/Errors.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
-import sharingSource from './sections/SharingSection.svelte?raw';
+import accessSource from './sections/AccessSection.svelte?raw';
 
 const settingsSources = [
     accessibilitySource,
@@ -66,7 +66,7 @@ describe('Settings progressive disclosure', () => {
     it('keeps optional, analytical, and destructive work out of the default hierarchy', () => {
         // Telemetry is what leaves the installation, so it sits with Security, beside who can reach it.
         expect(connectionSource).not.toContain('settings.telemetry.title');
-        const security = sharingSource.slice(sharingSource.indexOf('data-settings-part="security"'));
+        const security = accessSource.slice(accessSource.indexOf('data-settings-part="security"'));
         expect(security).toContain('<TelemetrySettings');
         expect(aiSource).toContain('id="ai-usage"');
         expect(appearanceSource).toContain('id="appearance-typography-and-colour"');

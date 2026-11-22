@@ -8,10 +8,11 @@
   "species": "Que aves visitam mais, com que frequência e quando.",
   "health": "Se o YA-WAMF está funcionando, o que o computador está fazendo e o que aconteceu.",
   "settings_section": {
-    "cameras": "De onde vêm os eventos: o Frigate, o broker MQTT e as câmeras observadas.",
+    "cameras": "O Frigate, o broker MQTT, as câmeras a observar e a localização do seu comedouro.",
     "identification": "Quão certo um nome precisa ser, os modelos que encontram e nomeiam as aves com o seu hardware, e os recursos ainda em beta.",
-    "alerts": "Quando você é avisado de uma visita, e por quais canais.",
-    "sharing": "A localização do seu comedouro e quem pode abrir esta instalação; depois, os outros serviços dos quais o YA-WAMF lê ou para os quais informa, as descrições por IA e a telemetria.",
+    "integrations": "Todos os outros serviços que o YA-WAMF lê ou para os quais envia dados: BirdNET-Go, o tempo do Home Assistant, eBird, iNaturalist, BirdWeather e o provedor de IA.",
+    "notifications": "Quando você fica sabendo de uma visita, os canais para onde vai a mensagem e o que cada um envia.",
+    "access": "Quem pode abrir esta instalação, o que os convidados podem ver e o que o YA-WAMF envia sobre si mesmo.",
     "storage": "O que é mantido e por quanto tempo, um backup destas configurações e as tarefas que reparam ou completam o histórico.",
     "display": "Como o YA-WAMF aparece e nomeia as aves, além de contraste, uma fonte de leitura, movimento e avisos falados."
   },

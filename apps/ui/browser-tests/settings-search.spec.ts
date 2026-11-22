@@ -72,11 +72,11 @@ test.describe('on a wide screen', () => {
         await expect(found(page)).toHaveCount(0, { timeout: 5_000 });
     });
 
-    test('a synonym finds the cooldown under Alerts\' More options, which opens for it', async ({ page }) => {
+    test('a synonym finds the cooldown under Notifications\' More options, which opens for it', async ({ page }) => {
         await openSettings(page);
         await search(page).fill('quiet');
         const option = results(page).filter({ hasText: 'Notification cooldown' });
-        await expect(option).toContainText('Alerts › More options');
+        await expect(option).toContainText('Notifications › More options');
         await option.click();
         await expect(page.getByRole('switch', { name: 'Notification cooldown' })).toBeFocused();
         await expect(page.locator('[data-settings-more] button[aria-expanded]').first()).toHaveAttribute('aria-expanded', 'true');
@@ -170,9 +170,10 @@ test.describe('on a wide screen', () => {
         await expect(beside).toBeVisible();
         await expect(beside).toHaveText(await page.locator('[data-settings-search-note]').innerText());
         expect(await aiSwitch.getAttribute('aria-describedby')).toContain('settings-found-note');
-        expect(await beside.evaluate((note) => Boolean(note.closest('[data-settings-row]')))).toBe(true);
+        // The AI provider's switch is beside its heading, so the note is in that group's header.
+        expect(await beside.evaluate((note) => Boolean(note.closest('#settings-group-ai-connection header')))).toBe(true);
         // Another section, and the note has gone from both places.
-        await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Alerts', exact: true }).click();
+        await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Notifications', exact: true }).click();
         await expect(page.locator('[data-settings-search-note]')).toHaveText('');
         await expect(beside).toHaveCount(0);
     });
@@ -191,12 +192,12 @@ test.describe('on a wide screen', () => {
         const rail = page.locator('[data-settings-navigation]');
         await search(page).fill('prompt style');
         await page.keyboard.press('Enter');
-        await rail.getByRole('link', { name: 'Alerts', exact: true }).click();
-        await expect(rail.getByRole('link', { name: 'Alerts', exact: true })).toHaveAttribute('aria-current', 'page');
+        await rail.getByRole('link', { name: 'Notifications', exact: true }).click();
+        await expect(rail.getByRole('link', { name: 'Notifications', exact: true })).toHaveAttribute('aria-current', 'page');
         // Long enough for the old jump to have gone to the switch and come back for the reader.
         await page.waitForTimeout(3500);
-        await expect(rail.getByRole('link', { name: 'Alerts', exact: true })).toHaveAttribute('aria-current', 'page');
-        await expect(page.locator('main')).toHaveAttribute('data-fixture-route', '/settings/alerts');
+        await expect(rail.getByRole('link', { name: 'Notifications', exact: true })).toHaveAttribute('aria-current', 'page');
+        await expect(page.locator('main')).toHaveAttribute('data-fixture-route', '/settings/notifications');
         await expect(found(page)).toHaveCount(0);
         await expect(page.locator('[data-settings-found-note]')).toHaveCount(0);
         await expect(page.locator('[data-settings-search-note]')).toHaveText('');

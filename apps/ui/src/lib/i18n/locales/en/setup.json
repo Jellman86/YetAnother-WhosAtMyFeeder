@@ -21,7 +21,7 @@
   },
   "account": {
     "title": "Owner account and access",
-    "already": "Authentication is already configured. Manage it in Settings → Sharing & integrations.",
+    "already": "Authentication is already configured. Manage it in Settings → Access & privacy.",
     "description": "Protect the dashboard with an owner password, or run without authentication on a trusted network."
   },
   "connection": {
@@ -85,7 +85,7 @@
     "validation_success": "The check finished: this model runs on this machine.",
     "verified": "Runs on: {list}",
     "location_title": "Feeder location",
-    "location_hint": "Checking or continuing saves these coordinates first. They are the same feeder location as Settings → Sharing & integrations → Location. This model does not use the date or an accuracy radius.",
+    "location_hint": "Checking or continuing saves these coordinates first. They are the same feeder location as {place}. This model does not use the date or an accuracy radius.",
     "location_incomplete": "Enter both latitude and longitude, or leave both empty.",
     "location_empty": "No location will be used: this model identifies birds without it.",
     "ram_note": "About {ram} MB of memory recommended.",
@@ -127,7 +127,7 @@
     "note_bw": "Report to community stations. Add a station token in Settings.",
     "note_ebird": "Nearby sightings, maps and an optional range filter. Add an API key in Settings.",
     "note_inat": "Owner-reviewed submissions. Connect your account in Settings.",
-    "notifications_note": "Notification channels are configured under Settings → Alerts. Home Assistant is installed and configured externally; see the integration guide."
+    "notifications_note": "Notification channels are configured under Settings → Notifications. Home Assistant is installed and configured externally; see the integration guide."
   },
   "history": {
     "title": "Import visits Frigate still has",
@@ -182,7 +182,7 @@
   "skip": "Skip setup",
   "skip_failed": "Setup could not be skipped because YA-WAMF did not answer. Check that it is running, then try again.",
   "skip_confirm_title": "Skip setup and open the app?",
-  "skip_confirm_body_no_account": "The app will run without a password until you set one under Settings → Sharing & integrations. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.",
+  "skip_confirm_body_no_account": "The app will run without a password until you set one under Settings → Access & privacy. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.",
   "skip_confirm_body": "Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.",
   "skip_confirm_action": "Skip and open the app",
   "back": "Back",

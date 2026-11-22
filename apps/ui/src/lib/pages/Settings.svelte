@@ -92,8 +92,9 @@
     import { settingsScrollBehaviour } from '../settings/scroll-behaviour';
     import CamerasSection from '../components/settings/sections/CamerasSection.svelte';
     import IdentificationSection from '../components/settings/sections/IdentificationSection.svelte';
-    import AlertsSection from '../components/settings/sections/AlertsSection.svelte';
-    import SharingSection from '../components/settings/sections/SharingSection.svelte';
+    import NotificationsSection from '../components/settings/sections/NotificationsSection.svelte';
+    import IntegrationsSection from '../components/settings/sections/IntegrationsSection.svelte';
+    import AccessSection from '../components/settings/sections/AccessSection.svelte';
     import StorageSection from '../components/settings/sections/StorageSection.svelte';
     import DisplaySection from '../components/settings/sections/DisplaySection.svelte';
     import SectionAside from '../components/settings/sections/SectionAside.svelte';
@@ -367,6 +368,9 @@
     let pushoverTokenSaved = $state(false);
     let pushoverPriority = $state(0);
     let pushoverDevice = $state('');
+    let discordIncludeSnapshot = $state(true);
+    let pushoverIncludeSnapshot = $state(true);
+    let telegramIncludeSnapshot = $state(true);
 
     let telegramEnabled = $state(false);
     let telegramToken = $state('');
@@ -885,6 +889,9 @@
             { field: 'notifications_pushover_api_token', draft: pushoverToken, saved: normalizeSecret(s.notifications_pushover_api_token) },
             { field: 'notifications_pushover_priority', draft: pushoverPriority, saved: s.notifications_pushover_priority ?? 0 },
             { field: 'notifications_pushover_device', draft: pushoverDevice, saved: s.notifications_pushover_device ?? '' },
+            { field: 'notifications_discord_include_snapshot', draft: discordIncludeSnapshot, saved: s.notifications_discord_include_snapshot ?? true },
+            { field: 'notifications_pushover_include_snapshot', draft: pushoverIncludeSnapshot, saved: s.notifications_pushover_include_snapshot ?? true },
+            { field: 'notifications_telegram_include_snapshot', draft: telegramIncludeSnapshot, saved: s.notifications_telegram_include_snapshot ?? true },
 
             { field: 'notifications_telegram_enabled', draft: telegramEnabled, saved: s.notifications_telegram_enabled ?? false },
             { field: 'notifications_telegram_bot_token', draft: telegramToken, saved: normalizeSecret(s.notifications_telegram_bot_token) },
@@ -1257,8 +1264,10 @@
         // BirdNET-Go's sources are read when its mapping is shown (audioSourcesShown below), not here.
         cameras: ['cameras', 'recordingClips'],
         // Models reads the classifier itself, when the pushed model revision moves.
-        // Security names the running version.
-        sharing: ['version'],
+        // BirdNET-Go's mapping names the cameras Frigate has.
+        integrations: ['cameras'],
+        // Telemetry names the running version.
+        access: ['version'],
         storage: ['classifier', 'storage', 'cache', 'backfill']
     };
     const readingsTaken = new Set<SectionReading>();
@@ -1281,7 +1290,7 @@
 
     /** The open section's readings again, for the page's own refresh. */
     function rereadSection(section: SettingsSection): Promise<void>[] {
-        const readings = [...(READINGS_BY_SECTION[section] ?? []), ...(section === 'cameras' && audioSourcesShown ? ['audioSources' as const] : [])];
+        const readings = [...(READINGS_BY_SECTION[section] ?? []), ...(section === 'integrations' && audioSourcesShown ? ['audioSources' as const] : [])];
         return readings.map((reading) => {
             readingsTaken.add(reading);
             return takeReading(reading, sectionReadings?.signal);
@@ -1301,11 +1310,12 @@
         }
     }
 
-    // BirdNET-Go's sources map its microphones to the cameras, under Cameras & connection's More
-    // options and only while audio is on. They are read the first time that is shown in this visit,
+    // BirdNET-Go's sources map its microphones to the cameras, under its advanced options in
+    // Integrations and only while audio is on. They are read the first time that is shown in this visit,
     // not every time the section opens, so an install without BirdNET-Go never asks for them.
+    const BIRDNET_MAPPING_DISCLOSURE = 'integrations-birdnet-advanced';
     const audioSourcesShown = $derived(
-        activeSection === 'cameras' && disclosures.isOpen(settingsMoreId('cameras')) === true && birdnetEnabled
+        activeSection === 'integrations' && disclosures.isOpen(BIRDNET_MAPPING_DISCLOSURE) === true && birdnetEnabled
     );
     $effect(() => {
         if (!audioSourcesShown || !authStore.showSettings) return;
@@ -1529,25 +1539,26 @@
         return () => untrack(() => cancelLanding());
     });
 
-    // The range filter's next steps live in Integrations; land on the field itself, not the top of the section.
-    // A field hidden behind its switch (the key while eBird is off, coordinates while the location
-    // is automatic) falls back to that switch, which is the step that reveals it.
-    async function openSharingField(place: 'first screen' | 'more options', ...selectors: string[]): Promise<void> {
-        // The location is on the section's first screen; the services are under More options.
-        if (place === 'more options') disclosures.setOpen(settingsMoreId('sharing'), true);
-        openSection(settingsSectionOfPart('integrations'));
-        const field = await fieldInOpenedPart(() => Promise.all([SETTINGS_PART_LOADERS.security(), SETTINGS_PART_LOADERS.integrations()]), () =>
+    // A link from another section lands on the field itself, not the top of its section. A field
+    // hidden behind its switch (the key while eBird is off, coordinates while the location is
+    // automatic) falls back to that switch, which is the step that reveals it.
+    async function openFieldInPart(part: SettingsPart, ...selectors: string[]): Promise<void> {
+        openSection(settingsSectionOfPart(part));
+        const field = await fieldInOpenedPart(SETTINGS_PART_LOADERS[part], () =>
             selectors.map((selector) => document.querySelector<HTMLElement>(selector)).find(Boolean) ?? null
         );
         field?.scrollIntoView({ block: 'center' });
         field?.focus({ preventScroll: true });
     }
+    const openLocationField = (): Promise<void> =>
+        openFieldInPart('location', '#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)');
+    const openEbirdField = (): Promise<void> =>
+        openFieldInPart('networks', '#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]');
 
-    // The status column offers each part's test where it is run: the connection test and the channel
-    // tests on their section's first screen, BirdNET-Go's under Cameras & connection's More options.
+    // The status column offers each part's test where it is run: the connection test in Cameras &
+    // connection, the channel tests in Notifications and BirdNET-Go's in Integrations.
     async function openSectionTest(key: TestedSubsystem): Promise<void> {
-        const part = key === 'notifications' ? 'notifications' : 'connection';
-        if (key === 'audio') disclosures.setOpen(settingsMoreId('cameras'), true);
+        const part: SettingsPart = key === 'notifications' ? 'channels' : key === 'audio' ? 'birdnet' : 'connection';
         openSection(settingsSectionOfPart(part));
         const selector = key === 'notifications'
             ? '[data-settings-test="notifications"]:not([disabled])'
@@ -1557,7 +1568,7 @@
         // BirdNET-Go switched off on this page, its switch. Focus always moves to where to go on.
         const target = button ?? (key === 'notifications'
             ? document.getElementById(`${NOTIFICATION_CHANNELS_SECTION_ID}-title`)
-            : key === 'audio' ? document.querySelector<HTMLElement>('[data-settings-part-more="birdnet"] button[aria-checked]') : null);
+            : key === 'audio' ? document.querySelector<HTMLElement>('[data-settings-part="birdnet"] button[aria-checked]') : null);
         if (target && !button && !target.matches('button, a, input, select, textarea')) target.setAttribute('tabindex', '-1');
         target?.scrollIntoView({ block: 'center' });
         target?.focus({ preventScroll: true });
@@ -1566,7 +1577,7 @@
     // A test from the status column runs with the values on this page. Its result carries the
     // section's unsaved changes as a signature, so an edit, a Discard or a Save after it retires it.
     function unsavedSignature(key: TestedSubsystem): string {
-        const section: SettingsSection = key === 'notifications' ? 'alerts' : 'cameras';
+        const section: SettingsSection = key === 'notifications' ? 'notifications' : key === 'audio' ? 'integrations' : 'cameras';
         const fields = changedSettingFields.filter((field) => settingsFieldSection(field) === section);
         if (fields.length === 0) return '';
         const payload = buildSettingsPayload() as Record<string, unknown>;
@@ -1593,14 +1604,14 @@
         field?.focus({ preventScroll: true });
     }
 
-    // Garden's alerts are set in Alerts, under More options; Garden's card links straight to them.
+    // Garden's alerts are set in Notifications, after the channels they send through; Garden's
+    // card links straight to them.
     async function openGardenAlerts(): Promise<void> {
-        disclosures.setOpen(settingsMoreId('alerts'), true);
-        openSection(settingsSectionOfPart('notifications'));
+        openSection(settingsSectionOfPart('garden-alerts'));
         // The block is drawn at once, but its switch comes with Garden alerts' own code, so the wait
         // is for the switch itself.
         const toggle = await fieldInOpenedPart(
-            () => Promise.all([SETTINGS_PART_LOADERS.notifications(), loadGardenNotificationSettings()]),
+            SETTINGS_PART_LOADERS['garden-alerts'],
             () => document.querySelector<HTMLElement>('[data-garden-alerts] button[aria-checked]')
         );
         document.querySelector<HTMLElement>('[data-garden-alerts]')?.scrollIntoView({ block: 'start' });
@@ -2787,6 +2798,9 @@
         }
         pushoverPriority = settings.notifications_pushover_priority ?? 0;
         pushoverDevice = settings.notifications_pushover_device ?? '';
+        discordIncludeSnapshot = settings.notifications_discord_include_snapshot ?? true;
+        pushoverIncludeSnapshot = settings.notifications_pushover_include_snapshot ?? true;
+        telegramIncludeSnapshot = settings.notifications_telegram_include_snapshot ?? true;
 
         telegramEnabled = settings.notifications_telegram_enabled ?? false;
         if (settings.notifications_telegram_bot_token === '***REDACTED***') {
@@ -3063,6 +3077,9 @@
             notifications_pushover_api_token: pushoverToken,
             notifications_pushover_priority: pushoverPriority,
             notifications_pushover_device: pushoverDevice || null,
+            notifications_discord_include_snapshot: discordIncludeSnapshot,
+            notifications_pushover_include_snapshot: pushoverIncludeSnapshot,
+            notifications_telegram_include_snapshot: telegramIncludeSnapshot,
 
             notifications_telegram_enabled: telegramEnabled,
             notifications_telegram_bot_token: telegramToken,
@@ -3501,17 +3518,14 @@
                 {recordingClipCapabilityLoading}
                 {camerasLoading}
                 {loadCameras}
-                bind:birdnetEnabled
-                bind:birdnetUrl
-                bind:birdnetExternalUrl
-                bind:audioTopic
-                bind:audioBufferHours
-                bind:audioCorrelationWindowSeconds
-                bind:cameraAudioMapping
-                {birdnetSourceOptions}
-                {loadingBirdnetSources}
-                {birdnetSourcesError}
-                {availableCameras}
+                bind:locationAuto
+                bind:locationLat
+                bind:locationLon
+                bind:locationState
+                bind:locationCountry
+                savedLocation={settingsStore.settings
+                                    ? { latitude: settingsStore.settings.location_latitude ?? null, longitude: settingsStore.settings.location_longitude ?? null }
+                                    : null}
             />
         {:else if activeSection === 'identification'}
             <!-- Identifying birds: detection, models and Beta features -->
@@ -3531,10 +3545,10 @@
                 {videoCircuitOpen}
                 {videoCircuitUntil}
                 {videoCircuitFailures}
-                onopenlocationsettings={() => openSharingField('first screen', '#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
+                onopenlocationsettings={() => void openLocationField()}
                 bind:rangeFilterEnabled
                 bind:rangeFilterRegionLevel
-                onopenebirdsettings={() => openSharingField('more options', '#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]')}
+                onopenebirdsettings={() => void openEbirdField()}
                 onopenactivitylog={onNavigate ? () => onNavigate('/system-health') : undefined}
                 onopenmanualobservation={onNavigate ? () => onNavigate('/observations/new') : undefined}
                 bind:liveWorkerCount
@@ -3555,16 +3569,16 @@
                 bind:labels={gardenLabels}
                 bind:motionConfidence={gardenMotionConfidence}
                 onOpenAlerts={() => void openGardenAlerts()}
-                onOpenLocation={() => openSharingField('first screen', '#location-lat', '#setting-location-mode + div input[type="radio"]:not(:checked)')}
+                onOpenLocation={() => void openLocationField()}
                 bind:automaticNaming={gardenAutomaticNaming}
                 bind:namingThreshold={gardenNamingThreshold}
                 bind:domesticBirds={gardenDomesticBirds}
                 onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}
                 onOpenCameras={openCameraSettings}
             />
-        {:else if activeSection === 'alerts'}
-            <!-- Alerts: notifications -->
-            <AlertsSection
+        {:else if activeSection === 'notifications'}
+            <!-- Notifications: when to notify, the channels and Garden's alerts -->
+            <NotificationsSection
                 bind:notifyMinConfidence={filterConfidence}
                 bind:notifyAudioOnly={filterAudioOnly}
                 bind:filterSpeciesMode
@@ -3580,6 +3594,7 @@
                 bind:discordWebhook
                 bind:discordWebhookSaved
                 bind:discordBotName={discordUsername}
+                bind:discordIncludeSnapshot
                 bind:pushoverEnabled
                 bind:pushoverUserKey={pushoverUser}
                 bind:pushoverUserSaved
@@ -3587,11 +3602,13 @@
                 bind:pushoverTokenSaved
                 bind:pushoverPriority
                 bind:pushoverDevice
+                bind:pushoverIncludeSnapshot
                 bind:telegramEnabled
                 bind:telegramBotToken={telegramToken}
                 bind:telegramTokenSaved
                 bind:telegramChatId
                 bind:telegramChatIdSaved
+                bind:telegramIncludeSnapshot
                 bind:notificationLanguage
                 bind:emailEnabled
                 bind:emailUseOAuth
@@ -3628,9 +3645,9 @@
                 {disconnectEmailOAuth}
                 onActionFeedback={handleActionFeedback}
             />
-        {:else if activeSection === 'sharing'}
-            <!-- Sharing & integrations: integrations, AI and security -->
-            <SharingSection
+        {:else if activeSection === 'integrations'}
+            <!-- Integrations: BirdNET-Go, the weather, eBird, iNaturalist, BirdWeather and AI -->
+            <IntegrationsSection
                 weatherUnitSystem={locationWeatherUnitSystem}
                 bind:birdweatherEnabled
                 bind:birdweatherStationToken
@@ -3664,11 +3681,8 @@
                 bind:inaturalistDefaultLon
                 bind:inaturalistDefaultPlace
                 bind:inaturalistConnectedUser
-                bind:locationAuto
-                bind:locationLat
-                bind:locationLon
-                bind:locationState
-                bind:locationCountry
+                {locationLat}
+                {locationLon}
                 {prepareInaturalistOAuth}
                 initiateInaturalistOAuth={initiateInaturalistOAuth}
                 disconnectInaturalistOAuth={disconnectInaturalistOAuth}
@@ -3678,9 +3692,26 @@
                                 }}
                 exportEbirdCsv={exportEbirdCsv}
                 onActionFeedback={handleActionFeedback}
-                savedLocation={settingsStore.settings
-                                    ? { latitude: settingsStore.settings.location_latitude ?? null, longitude: settingsStore.settings.location_longitude ?? null }
-                                    : null}
+                bind:birdnetEnabled
+                bind:birdnetUrl
+                bind:birdnetExternalUrl
+                bind:audioTopic
+                bind:audioBufferHours
+                bind:audioCorrelationWindowSeconds
+                bind:cameraAudioMapping
+                {birdnetSourceOptions}
+                {loadingBirdnetSources}
+                {birdnetSourcesError}
+                {availableCameras}
+                enrichmentDraft={enrichmentDraft}
+                onOpenEbird={() => void openEbirdField()}
+                aiDraft={aiDraft}
+                onAiChange={(edit: Partial<AiDraft>) => (aiDraft = editAiDraft(aiDraft, edit))}
+                onOpenPart={openPart}
+            />
+        {:else if activeSection === 'access'}
+            <!-- Access & privacy: sign-in, guest access and telemetry -->
+            <AccessSection
                 bind:authEnabled
                 bind:authUsername
                 bind:authHasPassword
@@ -3714,10 +3745,6 @@
                 {telemetryPlatform}
                 {telemetryPayloadPreview}
                 {versionInfo}
-                enrichmentDraft={enrichmentDraft}
-                onOpenEbird={() => openSharingField('more options', '#ebird-api-key', 'button[aria-labelledby="integration-ebird-title"]')}
-                aiDraft={aiDraft}
-                onAiChange={(edit: Partial<AiDraft>) => (aiDraft = editAiDraft(aiDraft, edit))}
             />
         {:else if activeSection === 'storage'}
             <!-- Storage & upkeep: data and maintenance -->

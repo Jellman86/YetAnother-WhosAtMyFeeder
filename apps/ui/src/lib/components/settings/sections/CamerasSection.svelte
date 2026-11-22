@@ -4,12 +4,13 @@
     import LazyRoute from '../../LazyRoute.svelte';
     import SectionMore from './SectionMore.svelte';
     import type ConnectionSettingsView from '../ConnectionSettings.svelte';
-    import type BirdnetSettingsView from '../BirdnetSettings.svelte';
-    import { loadBirdnetSettings, loadConnectionSettings } from './part-loaders';
+    import type LocationSettingsView from '../LocationSettings.svelte';
+    import { loadConnectionSettings, loadLocationSettings } from './part-loaders';
 
-    // Cameras & connection: where events come from. First the Frigate address, the MQTT broker and
-    // the cameras to watch; under More options the rest of Frigate and the BirdNET-Go connection.
-    type Props = Omit<ComponentProps<typeof ConnectionSettingsView>, 'region'> & ComponentProps<typeof BirdnetSettingsView>;
+    // Cameras & connection: where events come from and where the feeder is. First the Frigate
+    // address, the MQTT broker, the cameras to watch and the feeder's location, which the weather,
+    // the range filter and three integrations all read; under More options the rest of Frigate.
+    type Props = Omit<ComponentProps<typeof ConnectionSettingsView>, 'region'> & ComponentProps<typeof LocationSettingsView>;
 
     let {
         frigateUrl = $bindable(),
@@ -39,17 +40,12 @@
         recordingClipCapabilityLoading,
         camerasLoading,
         loadCameras,
-        birdnetEnabled = $bindable(),
-        birdnetUrl = $bindable(),
-        birdnetExternalUrl = $bindable(),
-        audioTopic = $bindable(),
-        audioBufferHours = $bindable(),
-        audioCorrelationWindowSeconds = $bindable(),
-        cameraAudioMapping = $bindable(),
-        birdnetSourceOptions,
-        loadingBirdnetSources,
-        birdnetSourcesError,
-        availableCameras
+        locationAuto = $bindable(),
+        locationLat = $bindable(),
+        locationLon = $bindable(),
+        locationState = $bindable(),
+        locationCountry = $bindable(),
+        savedLocation
     }: Props = $props();
 </script>
 
@@ -91,7 +87,23 @@
         </LazyRoute>
     </div>
 
-    <SectionMore section="cameras" summary={$_('settings.more.cameras', { default: 'Frigate details, image source, clips and BirdNET-Go' })}>
+    <!-- Where the feeder is: a fact about it, like its cameras, on the section Settings opens on. -->
+    <div class="space-y-8" data-settings-part="location" data-settings-location>
+        <LazyRoute loader={loadLocationSettings} label={$_('settings.location.title')}>
+        {#snippet content(LocationSettings)}
+        <LocationSettings
+            bind:locationAuto
+            bind:locationLat
+            bind:locationLon
+            bind:locationState
+            bind:locationCountry
+            {savedLocation}
+        />
+        {/snippet}
+        </LazyRoute>
+    </div>
+
+    <SectionMore section="cameras" summary={$_('settings.more.cameras', { default: 'Frigate details, image source and clips' })}>
         <div class="space-y-8" data-settings-part-more="connection">
             <LazyRoute loader={loadConnectionSettings} label={$_('settings.tabs.connection')}>
             {#snippet content(ConnectionSettings)}
@@ -124,25 +136,6 @@
                 {camerasLoading}
                 {loadCameras}
                 region="more"
-            />
-            {/snippet}
-            </LazyRoute>
-        </div>
-        <div class="space-y-8" data-settings-part-more="birdnet">
-            <LazyRoute loader={loadBirdnetSettings} label={$_('settings.integrations.birdnet.title')}>
-            {#snippet content(BirdnetSettings)}
-            <BirdnetSettings
-                bind:birdnetEnabled
-                bind:birdnetUrl
-                bind:birdnetExternalUrl
-                bind:audioTopic
-                bind:audioBufferHours
-                bind:audioCorrelationWindowSeconds
-                bind:cameraAudioMapping
-                {birdnetSourceOptions}
-                {loadingBirdnetSources}
-                {birdnetSourcesError}
-                {availableCameras}
             />
             {/snippet}
             </LazyRoute>

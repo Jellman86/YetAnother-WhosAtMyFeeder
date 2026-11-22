@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { settingsSectionName } from '../../settings/settings-place';
     import SettingsSubheading from './_primitives/SettingsSubheading.svelte';
     import Separator from '../Separator.svelte';
     import { onDestroy, onMount } from 'svelte';
@@ -170,7 +171,7 @@
     const detail = $derived.by(() => {
         if (!status) return '';
         if (status.reason === 'needs_location') {
-            return $_('settings.range_filter.status_needs_location_detail', { default: 'The filter uses the location set under Integrations to find your eBird region.' });
+            return $_('settings.range_filter.status_needs_location_detail', { values: { section: settingsSectionName('cameras', $_) }, default: 'The filter uses your feeder’s location, set in {section}, to find your eBird region.' });
         }
         if (status.reason === 'needs_ebird_key') {
             return $_('settings.range_filter.status_needs_key_detail', { default: "eBird's regional list is the only range source. BirdNET-Go can show that a species is here, but it can never show that one is not, so on its own it filters nothing." });

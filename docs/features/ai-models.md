@@ -142,7 +142,7 @@ host-gated provider limits.
 
 ![The identification model in use in Settings → Identifying birds: the location-aware DINOv2 model, with what it is, its memory estimate and its location guidance](../images/model-manager-dino.png)
 
-DINOv2 uses the saved feeder coordinates at inference time. Set them in **Settings → Sharing & integrations
+DINOv2 uses the saved feeder coordinates at inference time. Set them in **Settings → Cameras & connection
 → Your feeder’s location**, or in the setup wizard's model step, before validating. A complete `(0, 0)` is valid;
 a missing location is explicitly represented as absent. The setup wizard saves coordinates before
 the check, blocks incomplete pairs, and shows the provider it will save on **Continue**. Changing
@@ -207,7 +207,7 @@ For advanced insights, YA-WAMF can send high-confidence snapshots to a Large Lan
 
 The LLM analyzes the image context (weather, behavior, plumage) and provides a short, educational summary of what the bird is doing. This feature requires an API key.
 
-Use **Test AI connection** under **Settings → Sharing & integrations → More options → AI provider** to check credentials, vision support and a representative
+Use **Test AI connection** under **Settings → Integrations → AI provider** to check credentials, vision support and a representative
 five-frame request before analysing detections. The dialog keeps failures and retry guidance
 visible. A successful connection test is not a latency benchmark or a guarantee against later
 provider outages. Optional AI analysis sends selected images to the configured external provider.

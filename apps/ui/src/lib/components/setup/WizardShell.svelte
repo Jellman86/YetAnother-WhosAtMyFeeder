@@ -140,7 +140,7 @@
                     </p>
                     <p id="skip-setup-body" class="mt-1 text-sm leading-relaxed text-muted">
                         {#if authStore.needsInitialSetup}
-                            {$_('setup.skip_confirm_body_no_account', { default: 'The app will run without a password until you set one under Settings → Sharing & integrations. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
+                            {$_('setup.skip_confirm_body_no_account', { default: 'The app will run without a password until you set one under Settings → Access & privacy. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
                         {:else}
                             {$_('setup.skip_confirm_body', { default: 'Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
                         {/if}

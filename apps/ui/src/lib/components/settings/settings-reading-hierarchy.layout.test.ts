@@ -61,13 +61,25 @@ describe('Settings heading hierarchy', () => {
         expect(read('sections', 'SectionMore.svelte')).toContain('<h3 class="text-xl font-semibold text-strong">');
     });
 
+    it('gives a row whose only control is a switch the card\'s full measure, from the shared row rule', () => {
+        const appCss = readFileSync(join(SETTINGS_DIR, '..', '..', '..', 'app.css'), 'utf8');
+        const rules = read('NotificationSettings.svelte');
+        // One rule in the kit, so no row sets its own columns: the field column is 20rem, and a
+        // switch alone needs none of it.
+        expect(appCss).toContain('grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);');
+        expect(appCss).toMatch(/&:has\(> :last-child > \.switch-track:only-child\) \{\s*grid-template-columns: minmax\(0, 1fr\) auto;/);
+        // The cooldown's minutes sit under its words, so its control column holds only the switch.
+        const cooldown = rules.slice(rules.indexOf('data-notification-cooldown'), rules.indexOf('<!-- Notification Language -->'));
+        expect(cooldown.indexOf('id="notification-cooldown-minutes"')).toBeLessThan(cooldown.indexOf('<SettingsToggle'));
+    });
+
     it('starts every heading on the left edge its card starts on', () => {
         // A heading inset from its card read as a second, ragged left edge on a phone.
         const offenders = components()
             .filter(([, source]) => /<(?:header|h[2-6]|div|p)\b[^>]*class="[^"]*\bpl-1\b[^"]*"[^>]*(?:data-settings-section-heading|data-beta-intro)|<header class="[^"]*\bpl-1\b/.test(source))
             .map(([name]) => name);
         expect(offenders).toEqual([]);
-        expect(read('sections', 'AlertsSection.svelte')).toContain('<div class="flex flex-wrap items-center gap-2">');
+        expect(read('sections', 'NotificationsSection.svelte')).toContain('<div class="flex flex-wrap items-center gap-2">');
     });
 
     it('leaves every other heading to the shared primitives, so no level is chosen by hand', () => {
@@ -77,7 +89,7 @@ describe('Settings heading hierarchy', () => {
             'sections/SectionAside.svelte': /<h3\b/g,
             // Groups under More options that are not cards: a beta feature, and Garden's alerts.
             'BetaFeatureCard.svelte': /<h4\b/g,
-            'sections/AlertsSection.svelte': /<h4\b/g
+            'sections/NotificationsSection.svelte': /<h3\b/g
         };
         const offenders: string[] = [];
         for (const [name, source] of components()) {

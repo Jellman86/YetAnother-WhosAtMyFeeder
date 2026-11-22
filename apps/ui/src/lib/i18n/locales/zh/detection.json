@@ -313,7 +313,7 @@
     "conversation_loading": "正在加载对话…",
     "conversation_empty": "还没有对话。向 AI 提一个后续问题吧。",
     "conversation_placeholder": "提出一个后续问题…",
-    "conversation_error": "AI 没有回应。请在“设置 → 共享与集成”中检查提供商和密钥，然后再问一次。",
+    "conversation_error": "AI 没有回应。请在“设置 → 集成”中检查提供商和密钥，然后再问一次。",
     "assistant": "助手",
     "user": "你",
     "send": "发送",

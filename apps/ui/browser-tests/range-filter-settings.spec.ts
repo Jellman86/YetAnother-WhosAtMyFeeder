@@ -82,7 +82,7 @@ test('with no location the switch is disabled with the reason and a way to set o
     await expect(card(page)).toContainText('Set a location first.');
     await expect(card(page).locator('[data-range-filter-facts]')).toHaveCount(0);
     await card(page).getByRole('button', { name: 'Set location' }).click();
-    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/sharing');
+    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/cameras');
     // With an automatic location the coordinates are hidden, so the Manual choice that reveals them takes focus.
     await expect(page.locator('#location-lat').or(page.locator('#setting-location-mode + div input[type="radio"]:not(:checked)'))).toBeFocused();
 });
@@ -96,7 +96,7 @@ test('without an eBird key it names the missing key and that BirdNET-Go alone ne
     // Work that needs a person is marked by the kit's amber dot beside the words, not a tinted box.
     await expect(panel(page).locator('[data-range-filter-chip] .attention-dot')).toHaveCount(1);
     await card(page).getByRole('button', { name: 'Add eBird key' }).click();
-    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/sharing');
+    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/integrations');
     // eBird is off in this fixture, so its switch, the step that reveals the key field, takes focus.
     await expect(page.getByRole('switch', { name: 'eBird' })).toBeFocused();
 });

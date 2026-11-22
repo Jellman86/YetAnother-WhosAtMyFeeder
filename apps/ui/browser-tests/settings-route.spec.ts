@@ -43,9 +43,14 @@ test('older and loose Settings addresses open the section they name at its canon
     for (const [address, path, label, anchor] of [
         ['/settings', '/settings/cameras', 'Cameras & connection', ''],
         ['/settings/', '/settings/cameras', 'Cameras & connection', ''],
-        ['/settings#notifications', '/settings/alerts', 'Alerts', '#notifications'],
+        ['/settings#notifications', '/settings/notifications', 'Notifications', ''],
+        ['/settings/alerts', '/settings/notifications', 'Notifications', ''],
+        ['/settings/sharing', '/settings/access', 'Access & privacy', ''],
+        ['/settings/sharing#integrations', '/settings/integrations', 'Integrations', ''],
+        ['/settings/sharing#ai', '/settings/integrations', 'Integrations', '#ai'],
+        ['/settings/ai', '/settings/integrations', 'Integrations', '#ai'],
         ['/settings/debug', '/settings/identification', 'Identifying birds', '#models'],
-        ['/settings/security/', '/settings/sharing', 'Sharing & integrations', '#security'],
+        ['/settings/security/', '/settings/access', 'Access & privacy', '#security'],
         ['/settings/not-a-tab', '/settings/cameras', 'Cameras & connection', ''],
         ['/settings/display', '/settings/display', 'Display', '']
     ] as const) {
@@ -205,12 +210,12 @@ test('landing on a part below a paused video check keeps the alert that says so 
 
 test('a loose address keeps its part when it is rewritten, so a reload lands there again', async ({ page }) => {
     await openOwnerShell(page);
-    await page.goto('/settings/sharing/#security');
-    await expectSection(page, '/settings/sharing', 'Sharing & integrations', '#security');
-    await expectAtPart(page, 'security');
+    await page.goto('/settings/integrations/#ai');
+    await expectSection(page, '/settings/integrations', 'Integrations', '#ai');
+    await expectAtPart(page, 'ai');
     await page.reload();
-    await expectSection(page, '/settings/sharing', 'Sharing & integrations', '#security');
-    await expectAtPart(page, 'security');
+    await expectSection(page, '/settings/integrations', 'Integrations', '#ai');
+    await expectAtPart(page, 'ai');
 });
 
 test('Health is a page of its own, and the old Settings addresses open it', async ({ page }) => {
@@ -230,8 +235,8 @@ test('choosing a section, Back and a later non-canonical address all keep the se
     await page.goto('/settings/cameras');
     await expectSection(page, '/settings/cameras', 'Cameras & connection');
 
-    await settingsNav(page).getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
-    await expectSection(page, '/settings/sharing', 'Sharing & integrations');
+    await settingsNav(page).getByRole('link', { name: 'Access & privacy', exact: true }).click();
+    await expectSection(page, '/settings/access', 'Access & privacy');
 
     await page.goBack();
     await expectSection(page, '/settings/cameras', 'Cameras & connection');
