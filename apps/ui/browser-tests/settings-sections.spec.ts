@@ -239,6 +239,10 @@ test('a row with only a switch reads at the card\'s measure, and the AI provider
     await cooldown.getByRole('switch', { name: 'Notification cooldown' }).click();
     await expect(page.locator('#notification-cooldown-minutes')).toBeVisible();
     expect((await measure(cooldown)).words).toBe(off.words);
+    // The custom rule with a seconds field keeps the measure too.
+    await page.locator('[data-advanced-section] > button', { hasText: 'Custom rules' }).click();
+    const videoWait = await measure(page.locator('[data-settings-row]', { has: page.locator('#setting-notify-delay-video') }));
+    expect(videoWait.words).toBeGreaterThan(videoWait.row * 0.75);
     // No run of space between the Telegram link's words and what follows them.
     const preview = page.getByText('Link on Telegram\'s button:', { exact: false }).first();
     const [label, value] = [await preview.boundingBox(), await page.getByText('none yet, so Telegram messages have no button.').boundingBox()];

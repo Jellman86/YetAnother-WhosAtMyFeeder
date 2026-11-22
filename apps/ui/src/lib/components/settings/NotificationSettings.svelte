@@ -279,15 +279,9 @@
                 label={$_('settings.notifications.custom_rules.delay_video', { default: 'Wait for the video check' })}
                 description={$_('settings.notifications.custom_rules.delay_video_desc', { values: { section: settingsSectionName('identification', $_) }, default: 'Holds the alert until the video check has confirmed the name, or for the seconds below if it never answers. Needs video checks on, in {section}.' })}
             >
-                <div class="space-y-3">
-                    <SettingsToggle
-                        checked={notifyDelayUntilVideo}
-                        labelledBy="setting-notify-delay-video"
-                        disabled={!customRules}
-                        describedBy="notifications-custom-rules-why"
-                        srLabel={$_('settings.notifications.custom_rules.delay_video', { default: 'Wait for the video check' })}
-                        onchange={(on) => setCustomRule('video', on)}
-                    />
+                <!-- The seconds sit under the words they belong to, so the control column holds only
+                     the switch and the row keeps the card's measure, as the rows above it do. -->
+                {#snippet below()}
                     {#if notifyDelayUntilVideo}
                         <div class="flex flex-wrap items-center gap-2">
                             <input
@@ -305,7 +299,15 @@
                             <span id="notification-video-fallback-unit" class="text-sm text-muted">{$_('settings.notifications.video_fallback_seconds')}</span>
                         </div>
                     {/if}
-                </div>
+                {/snippet}
+                <SettingsToggle
+                    checked={notifyDelayUntilVideo}
+                    labelledBy="setting-notify-delay-video"
+                    disabled={!customRules}
+                    describedBy="notifications-custom-rules-why"
+                    srLabel={$_('settings.notifications.custom_rules.delay_video', { default: 'Wait for the video check' })}
+                    onchange={(on) => setCustomRule('video', on)}
+                />
             </SettingsRow>
         </AdvancedSection>
 </SettingsCard>
