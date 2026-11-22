@@ -250,8 +250,6 @@
   "tabs": {
     "connection": "Connexion",
     "detection": "Dénomination et filtres",
-    "notifications": "Notifications",
-    "integrations": "Intégrations",
     "data": "Données",
     "security": "Sécurité",
     "appearance": "Apparence",
@@ -308,7 +306,7 @@
       "finder": "Détecteur d’oiseaux",
       "audio": "BirdNET-Go",
       "storage": "Stockage",
-      "notifications": "Alertes"
+      "notifications": "Notifications"
     },
     "cause": {
       "classifier": {
@@ -325,7 +323,7 @@
       "finder": "Le détecteur d’oiseaux repère chaque oiseau dans une photo chargée avant qu’il soit nommé. Il est facultatif.",
       "audio": "BirdNET-Go écoute les chants, pour qu’une visite puisse être rapprochée de ce qui a été entendu.",
       "storage": "Les photos et vidéos sont conservées dans le dossier des médias de cette installation.",
-      "notifications": "Les alertes partent sur vos canaux quand une visite en mérite une."
+      "notifications": "Les notifications partent sur vos canaux quand une visite en mérite une."
     },
     "why": {
       "mqtt": {
@@ -619,7 +617,7 @@
       "off": "Désactivé.",
       "not_set_up": "Activé, mais non configuré : {missing}.",
       "no_test": "Activé et configuré. Il n’y a pas de test de connexion.",
-      "not_tested": "Activé et configuré. Non testé pendant cette visite : les résultats de test ne sont pas conservés.",
+      "not_tested": "Activé et configuré. Pas encore testé ; les résultats de test ne sont pas conservés d’une visite à l’autre.",
       "passed": "Activé. Le test a réussi à {time}.",
       "failed": "Activé, mais le test a échoué à {time} : {reason}",
       "needs_station_token": "ajoutez le jeton de votre station",
@@ -994,7 +992,7 @@
       "what_realtime": "chaque mise à jour",
       "what_silent": "silencieux",
       "what_custom": "règles personnalisées",
-      "custom_hint": "Réglez les déclencheurs exacts avec les interrupteurs Règles personnalisées, sous cette phrase.",
+      "custom_hint": "Vos propres déclencheurs, réglés avec les interrupteurs sous cette phrase. Au plus une alerte par visite.",
       "species_any": "toutes les espèces",
       "species_all_but": "{count, plural, one {toutes les espèces sauf #} other {toutes les espèces sauf #}}",
       "species_only": "{count, plural, one {seulement # espèce} other {seulement # espèces}}",
@@ -1046,12 +1044,12 @@
     "include_snapshot_desc": "Envoie l’instantané de la visite avec chaque alerte. Désactivé, seul le texte est envoyé.",
     "custom_rules": {
       "title": "Règles personnalisées",
-      "active": "Ces interrupteurs sont vos règles personnalisées. Choisissez un préréglage dans la phrase ci-dessus pour les remplacer.",
-      "desc": "Les interrupteurs que règle le choix ci-dessus. En modifier un transforme ce choix en règles personnalisées.",
-      "on_insert": "Quand une visite est enregistrée pour la première fois",
-      "on_insert_desc": "Une alerte dès que la visite a un nom.",
-      "on_update": "Quand une visite change",
-      "on_update_desc": "Une autre alerte chaque fois que Frigate met la visite à jour, par exemple avec une meilleure photo ou un nouveau nom.",
+      "active": "Vos propres déclencheurs. Une visite envoie au plus une alerte : ils ne peuvent donc pas la répéter quand la visite change. Pour cela, choisissez chaque mise à jour dans la phrase ci-dessus.",
+      "desc": "Ces interrupteurs n’ont d’effet qu’avec les règles personnalisées. Les autres choix de la phrase ci-dessus fixent leurs propres déclencheurs et les ignorent. Choisissez-y les règles personnalisées pour les utiliser.",
+      "on_insert": "Quand une visite commence",
+      "on_insert_desc": "Envoie l’alerte quand Frigate signale la visite pour la première fois, si le nom est alors assez sûr.",
+      "on_update": "Plus tard, si aucune alerte n’est partie",
+      "on_update_desc": "Envoie l’unique alerte quand Frigate met la visite à jour plus tard, si aucune n’est partie au début : parce que l’interrupteur ci-dessus est désactivé ou que le nom n’était pas encore assez sûr. Elle n’envoie jamais de seconde alerte.",
       "delay_video": "Attendre la vérification vidéo",
       "delay_video_desc": "Retient l’alerte jusqu’à ce que la vérification vidéo ait confirmé le nom, ou pendant les secondes ci-dessous si elle ne répond jamais. Les vérifications vidéo doivent être activées dans {section}."
     },

@@ -2421,7 +2421,7 @@
         {:else if heardActive && heardGroups !== null && heardGroups.length === 0 && pageVisits.length > 0}
             <!-- Nothing stored is not the same as nothing heard: BirdNET-Go may have been offline. -->
             <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-explorer-heard-notice>
-                {$_('events.heard.none_stored', { values: { place: settingsPartPlace('birdnet', $_) }, default: 'No BirdNET-Go calls are stored for the time these visits cover. If calls were expected, check that BirdNET-Go is running in {place}.' })}
+                {$_('events.heard.none_stored', { values: { place: settingsPartPlace('birdnet', $_) }, default: 'No BirdNET-Go calls are stored for the time these visits cover. If calls were expected, check BirdNET-Go’s connection in {place}.' })}
             </p>
         {:else if heardActive && heardTruncated}
             <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-muted" role="status" data-explorer-heard-notice>

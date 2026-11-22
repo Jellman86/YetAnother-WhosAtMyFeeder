@@ -60,7 +60,7 @@
 >
     {#if alreadyConfigured}
         <div class="rounded-md bg-accent-soft p-3 text-sm text-accent-ink">
-            {$_('setup.account.already', { default: 'Authentication is already configured. Manage it in Settings → Sharing & integrations.' })}
+            {$_('setup.account.already', { default: 'Authentication is already configured. Manage it in Settings → Access & privacy.' })}
         </div>
     {:else}
         {#if !skipAuth}

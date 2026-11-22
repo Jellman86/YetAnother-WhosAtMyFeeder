@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { settingsGroupPlace, settingsSectionName } from '../../settings/settings-place';
+    import { settingsMoreGroupPlace, settingsSectionName } from '../../settings/settings-place';
     import SettingsSubheading from './_primitives/SettingsSubheading.svelte';
     /**
      * Garden animals as one card on Settings → Identifying birds. The switch stages the beta in the
@@ -249,7 +249,7 @@
                 <GardenCollectionStatus {service} blockedBy={summary.steps.some((step) => step.kind === 'download_model') ? 'model' : cameras.length === 0 ? 'camera' : null} />
 
                 <p class="text-xs text-slate-600 dark:text-slate-400">
-                    {$_('settings.beta.garden_device_note', { values: { place: settingsGroupPlace('identification', 'settings.detection.hardware_title', $_) }, default: 'Automatic checks use the device chosen under {place} once it agrees with the CPU, and fall back to the CPU if it fails. Motion scans use the CPU. Garden runs one job at a time while birds and cameras are idle.' })}
+                    {$_('settings.beta.garden_device_note', { values: { place: settingsMoreGroupPlace('identification', 'settings.detection.hardware_title', $_) }, default: 'Automatic checks use the device chosen under {place} once it agrees with the CPU, and fall back to the CPU if it fails. Motion scans use the CPU. Garden runs one job at a time while birds and cameras are idle.' })}
                     <a href={`${DOCS}#verify-which-device-ran-a-model`} target="_blank" rel="noopener noreferrer" class="focus-ring font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
                         {$_('settings.beta.learn_more', { default: 'Learn more' })}
                     </a>

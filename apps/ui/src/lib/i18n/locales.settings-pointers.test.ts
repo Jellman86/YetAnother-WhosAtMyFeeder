@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SETTINGS_SECTION_ORDER } from '../settings/settings-route';
+import { SETTINGS_SECTION_ORDER, SETTINGS_SECTION_PARTS } from '../settings/settings-route';
 import { authoredLocale } from './authored-locales';
 
 const LANGUAGES = ['en', 'de', 'es', 'fr', 'it', 'ja', 'pt', 'ru', 'zh'] as const;
@@ -44,6 +44,24 @@ function settingsDestinations(language: string): string[] {
     return [...SETTINGS_SECTION_ORDER.map((section) => text(dictionary, `settings.sections.${section}`)), text(dictionary, 'nav.setup_wizard')];
 }
 
+/**
+ * The pointers that go on past their section to something that section does not hold. After
+ * "Settings → <section>", a further arrow must lead to one of that section's parts, by the name the
+ * section's own list gives it, or to its More options.
+ */
+function stalePartPointers(pointers: readonly Pointer[], dictionary: unknown): Array<{ key: string; after: string }> {
+    return pointers.flatMap(({ key, target }) => {
+        const section = SETTINGS_SECTION_ORDER.find((id) => target.startsWith(text(dictionary, `settings.sections.${id}`)));
+        if (!section) return [];
+        const rest = target.slice(text(dictionary, `settings.sections.${section}`).length);
+        const arrow = /^\s*(?:→|->)\s*(?=\S)/.exec(rest);
+        if (!arrow) return [];
+        const after = rest.slice(arrow[0].length);
+        const places = [...SETTINGS_SECTION_PARTS[section].map((part) => text(dictionary, `settings.tabs.${part}`)), text(dictionary, 'settings.more.title')];
+        return places.some((place) => after.startsWith(place)) ? [] : [{ key, after }];
+    });
+}
+
 describe('"Settings → …" pointers in copy', () => {
     it.each(LANGUAGES)('%s names a real Settings section after every arrow', (language) => {
         const destinations = settingsDestinations(language);
@@ -51,6 +69,22 @@ describe('"Settings → …" pointers in copy', () => {
             ({ target }) => !destinations.some((destination) => target.startsWith(destination))
         );
         expect(stale).toEqual([]);
+    });
+
+    it.each(LANGUAGES)('%s names a real part of the section after a second arrow', (language) => {
+        expect(stalePartPointers(settingsPointers(language), authoredLocale(language))).toEqual([]);
+    });
+
+    it('catches a part that does not exist, and passes one that does', () => {
+        const dictionary = authoredLocale('en');
+        expect(stalePartPointers([{ key: 'made.up', target: 'Notifications → Quiet hours to mute alerts.' }], dictionary)).toEqual([
+            { key: 'made.up', after: 'Quiet hours to mute alerts.' }
+        ]);
+        expect(stalePartPointers([
+            { key: 'real.part', target: 'Notifications → Channels, then Discord.' },
+            { key: 'real.more', target: 'Notifications → More options → Species filter.' },
+            { key: 'section.only', target: 'Notifications.' }
+        ], dictionary)).toEqual([]);
     });
 
     it('finds the pointers it is meant to guard', () => {
@@ -109,7 +143,8 @@ describe('"Settings → …" pointers in copy', () => {
         const dictionary = authoredLocale(language);
         const settingsWord = text(dictionary, 'nav.settings');
         const sectionNames = SETTINGS_SECTION_ORDER.map((id) => text(dictionary, `settings.sections.${id}`));
-        const formerTabs = ['connection', 'detection', 'models', 'beta', 'notifications', 'integrations', 'ai', 'security', 'data', 'maintenance', 'appearance', 'accessibility']
+        // The Notifications and Integrations tabs became sections of those names, so they are not here.
+        const formerTabs = ['connection', 'detection', 'models', 'beta', 'ai', 'security', 'data', 'maintenance', 'appearance', 'accessibility']
             .map((id) => text(dictionary, `settings.tabs.${id}`))
             // A section may share a former tab's name, as German Alerts shares Notifications'.
             .filter((name) => !sectionNames.includes(name));

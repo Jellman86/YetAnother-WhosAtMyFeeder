@@ -250,8 +250,6 @@
   "tabs": {
     "connection": "连接",
     "detection": "命名与筛选",
-    "notifications": "通知",
-    "integrations": "集成",
     "data": "数据",
     "security": "安全",
     "appearance": "外观",
@@ -308,7 +306,7 @@
       "finder": "鸟类检测器",
       "audio": "BirdNET-Go",
       "storage": "存储",
-      "notifications": "提醒"
+      "notifications": "通知"
     },
     "cause": {
       "classifier": {
@@ -325,7 +323,7 @@
       "finder": "鸟类检测器会在命名前从繁杂的照片中找出每只鸟。它是可选的。",
       "audio": "BirdNET-Go 聆听鸟鸣，这样到访可以与听到的鸣叫对应起来。",
       "storage": "照片和视频保存在此安装的媒体文件夹中。",
-      "notifications": "当到访符合条件时，提醒会通过你的频道发出。"
+      "notifications": "当到访符合条件时，通知会通过你的频道发出。"
     },
     "why": {
       "mqtt": {
@@ -619,7 +617,7 @@
       "off": "已关闭。",
       "not_set_up": "已开启，但尚未设置：{missing}。",
       "no_test": "已开启并已设置。没有连接测试。",
-      "not_tested": "已开启并已设置。本次访问尚未测试：测试结果不会保留。",
+      "not_tested": "已开启并已设置。尚未测试；测试结果不会在两次访问之间保留。",
       "passed": "已开启。测试于 {time} 通过。",
       "failed": "已开启，但测试于 {time} 失败：{reason}",
       "needs_station_token": "请添加站点令牌",
@@ -994,7 +992,7 @@
       "what_realtime": "每次更新",
       "what_silent": "静默",
       "what_custom": "自定义规则",
-      "custom_hint": "用这句话下方“自定义规则”中的开关来设定确切的触发条件。",
+      "custom_hint": "你自己的触发条件，用这句话下方的开关设定。每次访问最多一条提醒。",
       "species_any": "任何物种",
       "species_all_but": "{count, plural, other {除 # 个物种外的全部}}",
       "species_only": "{count, plural, other {仅 # 个物种}}",
@@ -1046,12 +1044,12 @@
     "include_snapshot_desc": "每条提醒都附带访问的快照。关闭后只发送文字。",
     "custom_rules": {
       "title": "自定义规则",
-      "active": "这些开关就是你的自定义规则。在上方句子中选择预设即可替换它们。",
-      "desc": "上方选项所设定的开关。更改其中一个，该选项就变为自定义规则。",
-      "on_insert": "首次记录访问时",
-      "on_insert_desc": "访问一有名称就发送一条提醒。",
-      "on_update": "访问发生变化时",
-      "on_update_desc": "每当 Frigate 更新该访问（例如有了更好的照片或新名称）时，再发送一条提醒。",
+      "active": "你自己的触发条件。一次访问最多发送一条提醒，因此访问变化时无法重复提醒：如需重复，请在上方句子中选择每次更新。",
+      "desc": "这些开关仅在自定义规则下生效。上方句子中的其他选项使用各自的触发条件，并忽略这些开关。要使用它们，请在上方选择自定义规则。",
+      "on_insert": "访问开始时",
+      "on_insert_desc": "当 Frigate 首次报告该访问时，如果名称已足够确定，就发送提醒。",
+      "on_update": "稍后，如果尚未发送提醒",
+      "on_update_desc": "如果开始时没有发出提醒（上方开关已关闭，或名称当时还不够确定），当 Frigate 之后更新该访问时发送这唯一的一条提醒。绝不会发送第二条。",
       "delay_video": "等待视频检查",
       "delay_video_desc": "在视频检查确认名称之前暂缓提醒；如果一直没有结果，则等待下方的秒数。需要在“{section}”中开启视频检查。"
     },

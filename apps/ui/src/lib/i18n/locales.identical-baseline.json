@@ -381,7 +381,9 @@
     "video_player.clip_badge",
     "visits.capture_view",
     "visits.captures",
-    "visits.total_captures"
+    "visits.total_captures",
+    "status.row_alerts",
+    "settings.status.subsystem.notifications"
   ],
   "it": [
     "about.instance.uptime_hours",

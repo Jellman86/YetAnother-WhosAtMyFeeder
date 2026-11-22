@@ -250,8 +250,6 @@
   "tabs": {
     "connection": "Conexão",
     "detection": "Nomeação e filtros",
-    "notifications": "Notificações",
-    "integrations": "Integrações",
     "data": "Dados",
     "security": "Segurança",
     "appearance": "Aparência",
@@ -308,7 +306,7 @@
       "finder": "Localizador de aves",
       "audio": "BirdNET-Go",
       "storage": "Armazenamento",
-      "notifications": "Alertas"
+      "notifications": "Notificações"
     },
     "cause": {
       "classifier": {
@@ -325,7 +323,7 @@
       "finder": "O localizador de aves encontra cada ave numa foto cheia antes de ela ser nomeada. Ele é opcional.",
       "audio": "O BirdNET-Go escuta os cantos, para que uma visita possa ser relacionada ao que foi ouvido.",
       "storage": "Fotos e vídeos ficam na pasta de mídia desta instalação.",
-      "notifications": "Os alertas saem pelos seus canais quando uma visita merece um."
+      "notifications": "As notificações saem pelos seus canais quando uma visita merece uma."
     },
     "why": {
       "mqtt": {
@@ -619,7 +617,7 @@
       "off": "Desativado.",
       "not_set_up": "Ativado, mas não configurado: {missing}.",
       "no_test": "Ativado e configurado. Não tem teste de conexão.",
-      "not_tested": "Ativado e configurado. Não testado nesta visita: os resultados dos testes não são guardados.",
+      "not_tested": "Ativado e configurado. Ainda não testado; os resultados dos testes não são guardados entre visitas.",
       "passed": "Ativado. O teste passou às {time}.",
       "failed": "Ativado, mas o teste falhou às {time}: {reason}",
       "needs_station_token": "adicione o token da sua estação",
@@ -994,7 +992,7 @@
       "what_realtime": "cada atualização",
       "what_silent": "em silêncio",
       "what_custom": "regras personalizadas",
-      "custom_hint": "Defina os gatilhos exatos com os interruptores de Regras personalizadas, abaixo desta frase.",
+      "custom_hint": "Os seus próprios gatilhos, definidos com os interruptores abaixo desta frase. No máximo um alerta por visita.",
       "species_any": "qualquer espécie",
       "species_all_but": "{count, plural, one {todas menos # espécie} other {todas menos # espécies}}",
       "species_only": "{count, plural, one {apenas # espécie} other {apenas # espécies}}",
@@ -1046,12 +1044,12 @@
     "include_snapshot_desc": "Envia o instantâneo da visita com cada alerta. Desativado, envia só o texto.",
     "custom_rules": {
       "title": "Regras personalizadas",
-      "active": "Estes interruptores são as suas regras personalizadas. Escolha uma predefinição na frase acima para substituí-las.",
-      "desc": "Os interruptores que a opção acima define. Alterar um deles transforma essa opção em regras personalizadas.",
-      "on_insert": "Quando uma visita é registrada pela primeira vez",
-      "on_insert_desc": "Um alerta assim que a visita tem um nome.",
-      "on_update": "Quando uma visita muda",
-      "on_update_desc": "Outro alerta sempre que o Frigate atualiza a visita, por exemplo com uma foto melhor ou um novo nome.",
+      "active": "Os seus próprios gatilhos. Uma visita envia no máximo um alerta, por isso não podem repeti-lo quando a visita muda: para isso, escolha cada atualização na frase acima.",
+      "desc": "Estes interruptores só têm efeito com regras personalizadas. As outras opções da frase acima definem seus próprios gatilhos e os ignoram. Escolha ali regras personalizadas para usá-los.",
+      "on_insert": "Quando uma visita começa",
+      "on_insert_desc": "Envia o alerta quando o Frigate informa a visita pela primeira vez, se o nome já for seguro o bastante.",
+      "on_update": "Mais tarde, se nenhum alerta foi enviado",
+      "on_update_desc": "Envia o único alerta quando o Frigate atualiza a visita mais tarde, se nenhum saiu no início: porque o interruptor acima está desativado ou o nome ainda não era seguro o bastante. Nunca envia um segundo alerta.",
       "delay_video": "Aguardar a verificação de vídeo",
       "delay_video_desc": "Retém o alerta até a verificação de vídeo confirmar o nome, ou pelos segundos abaixo se ela nunca responder. Requer as verificações de vídeo ativadas em {section}."
     },

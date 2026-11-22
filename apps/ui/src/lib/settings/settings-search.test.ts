@@ -150,7 +150,7 @@ describe('settings search over the real index', () => {
         // "ai" finds the AI settings, not every word with those letters in it.
         const ai = searchSettings('ai', prepareSettings(searchable('en')), { limit: 50 });
         expect(ai.total).toBe(ai.matches.length);
-        expect(ai.matches.map((match) => match.item.anchor)).toContain('setting-llm-enabled');
+        expect(ai.matches.map((match) => match.item.anchor)).toContain('settings-group-ai-connection');
         expect(ai.matches.map((match) => match.item.anchor)).not.toContain('settings-group-data-maintenance-jobs');
     });
 

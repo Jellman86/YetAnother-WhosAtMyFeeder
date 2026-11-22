@@ -34,7 +34,7 @@ describe('what an integration says about itself', () => {
         expect(serviceStateText({ kind: 'not_set_up', missing: 'add the API key' }, translate, time)).toBe('On, but not set up: add the API key.');
         expect(serviceStateText({ kind: 'passed', at: 1 }, translate, time)).toBe('On. The test passed at 10:32.');
         expect(serviceStateText({ kind: 'failed', at: 1, reason: 'The token was refused.' }, translate, time)).toBe('On, but the test failed at 10:32: The token was refused.');
-        expect(serviceStateText({ kind: 'not_tested' }, translate, time)).toContain('Not tested on this visit');
+        expect(serviceStateText({ kind: 'not_tested' }, translate, time)).toContain('Not tested yet; test results aren\u2019t kept between visits.');
         expect(serviceStateText({ kind: 'no_test' }, translate, time)).toContain('no connection test');
     });
 });

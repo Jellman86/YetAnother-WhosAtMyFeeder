@@ -170,7 +170,8 @@ test.describe('on a wide screen', () => {
         await expect(beside).toBeVisible();
         await expect(beside).toHaveText(await page.locator('[data-settings-search-note]').innerText());
         expect(await aiSwitch.getAttribute('aria-describedby')).toContain('settings-found-note');
-        expect(await beside.evaluate((note) => Boolean(note.closest('[data-settings-row]')))).toBe(true);
+        // The AI provider's switch is beside its heading, so the note is in that group's header.
+        expect(await beside.evaluate((note) => Boolean(note.closest('#settings-group-ai-connection header')))).toBe(true);
         // Another section, and the note has gone from both places.
         await page.locator('[data-settings-navigation]').getByRole('link', { name: 'Notifications', exact: true }).click();
         await expect(page.locator('[data-settings-search-note]')).toHaveText('');

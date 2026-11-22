@@ -86,6 +86,8 @@
     const customRules = useDisclosure(() => ({ id: NOTIFICATION_CUSTOM_RULES_ID }));
     async function openCustomRules(): Promise<void> {
         openSlot = null;
+        // Custom rules is a choice like the others: the switches below take effect only once it is made.
+        if (mode !== 'custom') onModeChange('custom');
         customRules.open = true;
         await tick();
         const first = document.querySelector<HTMLElement>(`#${NOTIFICATION_CUSTOM_RULES_ID}-content button[role="switch"]`);
@@ -176,7 +178,7 @@
                 </div>
             {/if}
         {/each}
-        <!-- The exact triggers are switches of their own, under the sentence; this goes to them. -->
+        <!-- Custom rules is the fifth choice: its triggers are switches under the sentence, and this goes to them. -->
         <button
             type="button"
             onclick={() => void openCustomRules()}
@@ -184,7 +186,7 @@
             data-policy-custom-rules
         >
             <span class="block text-sm font-semibold text-strong">{$_('settings.notifications.sentence.custom_open', { default: 'Custom rules' })}</span>
-            <span class="mt-0.5 block text-xs text-muted">{$_('settings.notifications.sentence.custom_hint', { default: 'Set the exact triggers with the Custom rules switches under this sentence.' })}</span>
+            <span class="mt-0.5 block text-xs text-muted">{$_('settings.notifications.sentence.custom_hint', { default: 'Your own triggers, set with the switches under this sentence. At most one alert per visit.' })}</span>
         </button>
     </div>
 {/snippet}

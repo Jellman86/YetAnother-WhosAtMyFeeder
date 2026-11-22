@@ -7,8 +7,9 @@
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
-    import { serviceState, serviceStateText, type ServiceTest } from '../../settings/service-state';
+    import { serviceState, serviceStateText } from '../../settings/service-state';
     import { formatTime } from '../../utils/datetime';
+    import { serviceTests } from '../../settings/service-tests.svelte';
     import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
     import { testBirdWeather } from '../../api/maintenance';
     import type { WeatherUnitSystem } from '../../utils/weather-units';
@@ -149,11 +150,12 @@
             (stages) => (bwStages = stages)
         );
         bwRunning = false;
-        bwTest = { passed: bwResult.ok, message: bwResult.message, at: Date.now(), signature: bwSignature };
+        serviceTests.record('birdweather', { passed: bwResult.ok, message: bwResult.message }, bwSignature);
     }
 
     // Each group's state in words. A test describes the values it ran with, so an edit retires it.
-    let bwTest = $state<ServiceTest | null>(null);
+    // Kept for the visit, so the result is still here after another section was opened.
+    const bwTest = $derived(serviceTests.last('birdweather'));
     const bwSignature = $derived(birdweatherStationToken);
     const stateText = (reading: Parameters<typeof serviceState>[0]): string => serviceStateText(serviceState(reading), $_, formatTime);
     const birdweatherState = $derived(stateText({

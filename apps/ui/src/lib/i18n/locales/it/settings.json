@@ -250,8 +250,6 @@
   "tabs": {
     "connection": "Connessione",
     "detection": "Denominazione e filtri",
-    "notifications": "Notifiche",
-    "integrations": "Integrazioni",
     "data": "Dati",
     "security": "Sicurezza",
     "appearance": "Aspetto",
@@ -308,7 +306,7 @@
       "finder": "Rilevatore di uccelli",
       "audio": "BirdNET-Go",
       "storage": "Archiviazione",
-      "notifications": "Avvisi"
+      "notifications": "Notifiche"
     },
     "cause": {
       "classifier": {
@@ -325,7 +323,7 @@
       "finder": "Il rilevatore di uccelli individua ogni uccello in una foto affollata prima di nominarlo. È facoltativo.",
       "audio": "BirdNET-Go ascolta i canti, così una visita può essere abbinata a ciò che si è sentito.",
       "storage": "Foto e video sono conservati nella cartella dei media di questa installazione.",
-      "notifications": "Gli avvisi partono sui tuoi canali quando una visita ne merita uno."
+      "notifications": "Le notifiche partono sui tuoi canali quando una visita ne merita una."
     },
     "why": {
       "mqtt": {
@@ -619,7 +617,7 @@
       "off": "Disattivato.",
       "not_set_up": "Attivo, ma non configurato: {missing}.",
       "no_test": "Attivo e configurato. Non ha un test di connessione.",
-      "not_tested": "Attivo e configurato. Non testato in questa visita: i risultati dei test non vengono conservati.",
+      "not_tested": "Attivo e configurato. Non ancora testato; i risultati dei test non vengono conservati tra una visita e l’altra.",
       "passed": "Attivo. Il test è riuscito alle {time}.",
       "failed": "Attivo, ma il test è fallito alle {time}: {reason}",
       "needs_station_token": "aggiungi il token della stazione",
@@ -994,7 +992,7 @@
       "what_realtime": "ogni aggiornamento",
       "what_silent": "in silenzio",
       "what_custom": "regole personalizzate",
-      "custom_hint": "Imposta i trigger esatti con gli interruttori Regole personalizzate, sotto questa frase.",
+      "custom_hint": "I tuoi trigger, impostati con gli interruttori sotto questa frase. Al massimo un avviso per visita.",
       "species_any": "qualsiasi specie",
       "species_all_but": "{count, plural, one {tutte tranne # specie} other {tutte tranne # specie}}",
       "species_only": "{count, plural, one {solo # specie} other {solo # specie}}",
@@ -1046,12 +1044,12 @@
     "include_snapshot_desc": "Invia l’istantanea della visita con ogni avviso. Se disattivato, invia solo il testo.",
     "custom_rules": {
       "title": "Regole personalizzate",
-      "active": "Questi interruttori sono le tue regole personalizzate. Scegli una preimpostazione nella frase qui sopra per sostituirle.",
-      "desc": "Gli interruttori impostati dalla scelta qui sopra. Cambiarne uno trasforma la scelta in regole personalizzate.",
-      "on_insert": "Quando una visita viene registrata per la prima volta",
-      "on_insert_desc": "Un avviso non appena la visita ha un nome.",
-      "on_update": "Quando una visita cambia",
-      "on_update_desc": "Un altro avviso ogni volta che Frigate aggiorna la visita, ad esempio con una foto migliore o un nuovo nome.",
+      "active": "I tuoi trigger. Una visita invia al massimo un avviso, quindi non possono ripeterlo quando la visita cambia: per questo scegli ogni aggiornamento nella frase qui sopra.",
+      "desc": "Questi interruttori hanno effetto solo con le regole personalizzate. Le altre scelte nella frase qui sopra impostano i propri trigger e li ignorano. Scegli lì le regole personalizzate per usarli.",
+      "on_insert": "Quando inizia una visita",
+      "on_insert_desc": "Invia l’avviso quando Frigate segnala la visita per la prima volta, se il nome è già abbastanza sicuro.",
+      "on_update": "Più tardi, se non è partito alcun avviso",
+      "on_update_desc": "Invia l’unico avviso quando Frigate aggiorna la visita più tardi, se all’inizio non ne è partito nessuno: perché l’interruttore qui sopra è disattivato o il nome non era ancora abbastanza sicuro. Non invia mai un secondo avviso.",
       "delay_video": "Attendi il controllo video",
       "delay_video_desc": "Trattiene l’avviso finché il controllo video non conferma il nome, o per i secondi qui sotto se non risponde mai. Richiede i controlli video attivi in {section}."
     },

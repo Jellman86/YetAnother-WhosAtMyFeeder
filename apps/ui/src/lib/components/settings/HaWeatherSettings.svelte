@@ -7,8 +7,9 @@
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
-    import { serviceState, serviceStateText, type ServiceTest } from '../../settings/service-state';
+    import { serviceState, serviceStateText } from '../../settings/service-state';
     import { formatTime } from '../../utils/datetime';
+    import { serviceTests } from '../../settings/service-tests.svelte';
     import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult, type DiagnosticStep } from '../../utils/diagnostic-runner';
     import { illuminanceStepOutcome, isHomeAssistantEntityId, type IlluminanceStepText } from '../../utils/illuminance';
     import { testHaWeather } from '../../api/maintenance';
@@ -111,11 +112,12 @@
         }
         hawResult = await runSequentialDiagnostic(steps, (stages) => (hawStages = stages));
         hawRunning = false;
-        hawTest = { passed: hawResult.ok, message: hawResult.message, at: Date.now(), signature: hawSignature };
+        serviceTests.record('ha_weather', { passed: hawResult.ok, message: hawResult.message }, hawSignature);
     }
 
     // The group's state in words. The test describes the values it ran with, so an edit retires it.
-    let hawTest = $state<ServiceTest | null>(null);
+    // Kept for the visit, so the result is still here after another section was opened.
+    const hawTest = $derived(serviceTests.last('ha_weather'));
     const hawSignature = $derived([haWeatherBaseUrl, haWeatherAccessToken, haWeatherEntity, haWeatherIlluminanceEntity].join('|'));
     const hawMissing = $derived(
         !haWeatherBaseUrl.trim()

@@ -24,7 +24,7 @@ export function settingsPartPlace(part: SettingsPart, translate: Translate): str
     return [settingsSectionPlace(settingsSectionOfPart(part), translate), translate(`settings.tabs.${part}`)].join(ARROW);
 }
 
-/** "Settings → <section> → <group>", for a group that is not a part, named by its own heading. */
-export function settingsGroupPlace(section: SettingsSection, headingKey: string, translate: Translate): string {
-    return [settingsSectionPlace(section, translate), translate(headingKey)].join(ARROW);
+/** "Settings → <section> → More options → <group>", for a group behind the section's More options. */
+export function settingsMoreGroupPlace(section: SettingsSection, headingKey: string, translate: Translate): string {
+    return [settingsSectionPlace(section, translate), translate('settings.more.title'), translate(headingKey)].join(ARROW);
 }

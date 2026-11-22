@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { authoredLocale } from '../i18n/authored-locales';
 import { SETTINGS_PART_ORDER, SETTINGS_SECTION_ORDER } from './settings-route';
-import { settingsGroupPlace, settingsPartPlace, settingsSectionName, settingsSectionPlace } from './settings-place';
+import { settingsMoreGroupPlace, settingsPartPlace, settingsSectionName, settingsSectionPlace } from './settings-place';
 
 const LANGUAGES = ['en', 'de', 'es', 'fr', 'it', 'ja', 'pt', 'ru', 'zh'] as const;
 
@@ -21,7 +21,8 @@ describe('a place in Settings, named from the navigation labels', () => {
         expect(settingsPartPlace('birdnet', t)).toBe('Settings → Integrations → BirdNET-Go');
         expect(settingsSectionPlace('access', t)).toBe('Settings → Access & privacy');
         expect(settingsSectionName('notifications', t)).toBe('Notifications');
-        expect(settingsGroupPlace('identification', 'settings.detection.hardware_title', t)).toBe('Settings → Identifying birds → Hardware');
+        // Hardware is behind Identifying birds' More options, so the place says so.
+        expect(settingsMoreGroupPlace('identification', 'settings.detection.hardware_title', t)).toBe('Settings → Identifying birds → More options → Hardware');
     });
 
     it.each(LANGUAGES)('%s has a name for every section and every part', (language) => {

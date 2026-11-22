@@ -12,8 +12,9 @@
     import { costReading, formatUsd } from '../../settings/ai-cost';
     import { matchingPromptStyle, promptTemplatesFor } from '../../settings/llm-prompt-templates';
     import SettingsCard from './_primitives/SettingsCard.svelte';
-    import { serviceState, serviceStateText, type ServiceTest } from '../../settings/service-state';
+    import { serviceState, serviceStateText } from '../../settings/service-state';
     import { formatTime } from '../../utils/datetime';
+    import { serviceTests } from '../../settings/service-tests.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
@@ -93,12 +94,13 @@
             };
         } finally {
             testRunning = false;
-            if (testResult) aiTest = { passed: testResult.status === 'ok', message: testResult.message, at: Date.now(), signature: aiSignature };
+            if (testResult) serviceTests.record('ai', { passed: testResult.status === 'ok', message: testResult.message }, aiSignature);
         }
     }
 
     // The group's state in words. The test describes the values it ran with, so an edit retires it.
-    let aiTest = $state<ServiceTest | null>(null);
+    // Kept for the visit, so the result is still here after another section was opened.
+    const aiTest = $derived(serviceTests.last('ai'));
     const aiSignature = $derived([draft.llmProvider, draft.llmModel, draft.llmApiKey].join('|'));
     const aiState = $derived(serviceStateText(serviceState({
         enabled: draft.llmEnabled,
@@ -176,20 +178,19 @@
     <SettingsCard
         id="settings-group-ai-connection"
         title={$_('settings.ai.connection_title', { default: 'AI provider' })}
+        description={$_('settings.llm.enabled_desc', { default: 'Lets you ask an AI provider to describe a visit from its record. Needs an API key from the provider, who bills each request.' })}
         status={aiState}
+        titleId="integration-ai-title"
     >
-        <SettingsRow
-            labelId="setting-llm-enabled"
-            label={$_('settings.llm.enabled')}
-            description={$_('settings.llm.enabled_desc', { default: 'Lets you ask an AI provider to describe a visit from its record. Needs an API key from the provider, who bills each request.' })}
-        >
+        <!-- The card's own switch, named by its title, as every other integration has. -->
+        {#snippet actions()}
             <SettingsToggle
                 checked={draft.llmEnabled}
-                labelledBy="setting-llm-enabled"
-                srLabel={$_('settings.llm.enabled')}
+                labelledBy="integration-ai-title"
+                srLabel={$_('settings.ai.connection_title', { default: 'AI provider' })}
                 onchange={(v) => onchange({ llmEnabled: v })}
             />
-        </SettingsRow>
+        {/snippet}
 
         {#if draft.llmEnabled}
         <SettingsRow

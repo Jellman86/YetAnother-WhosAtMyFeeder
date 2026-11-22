@@ -25,7 +25,7 @@ for (const width of [1440, 390] as const) {
                 await expect(page.getByRole('heading', { level: 3, name, exact: true }), name).toBeVisible();
             }
             // Nothing is measured in the background, so a state never says "connected".
-            await expect(group(page, 'settings-group-integrations-birdnet').locator('[data-settings-card-status]')).toHaveText('On and set up. Not tested on this visit: test results are not kept.');
+            await expect(group(page, 'settings-group-integrations-birdnet').locator('[data-settings-card-status]')).toHaveText('On and set up. Not tested yet; test results aren\u2019t kept between visits.');
             await expect(group(page, 'settings-group-integrations-ebird').locator('[data-settings-card-status]')).toHaveText('On, but not set up: add an API key.');
             await expect(group(page, 'settings-group-integrations-birdweather').locator('[data-settings-card-status]')).toHaveText('Off.');
             await expect(group(page, 'settings-group-integrations-ha-weather').locator('[data-settings-card-status]')).toHaveText('Off.');
@@ -66,7 +66,7 @@ test('a test that fails says so in the group\'s own state, with the time and the
     });
     const birdweather = group(page, 'settings-group-integrations-birdweather');
     const state = birdweather.locator('[data-settings-card-status]');
-    await expect(state).toHaveText('On and set up. Not tested on this visit: test results are not kept.');
+    await expect(state).toHaveText('On and set up. Not tested yet; test results aren\u2019t kept between visits.');
     await birdweather.getByRole('button', { name: 'Test connection' }).click();
     const dialog = page.getByRole('dialog', { name: 'BirdWeather connection test' });
     await expect(dialog).toContainText('BirdWeather did not accept the station token.');
@@ -74,7 +74,7 @@ test('a test that fails says so in the group\'s own state, with the time and the
     await expect(state).toHaveText(/^On, but the test failed at \d{1,2}:\d{2}.*: BirdWeather did not accept the station token\.$/);
     // Typing a new token retires the result: it described the old one.
     await birdweather.locator('#birdweather-token').fill('new-token');
-    await expect(state).toHaveText('On and set up. Not tested on this visit: test results are not kept.');
+    await expect(state).toHaveText('On and set up. Not tested yet; test results aren\u2019t kept between visits.');
 });
 
 test('an unsaved change to a moved setting survives leaving its section, and the save bar names where it is now', async ({ page }) => {
@@ -129,30 +129,69 @@ for (const channel of ['discord', 'pushover', 'telegram'] as const) {
     });
 }
 
-test('custom rules are reached from the sentence, and a changed switch is saved as a custom mode', async ({ page }) => {
-    const harness = await openSettings(page, { notifications_mode: 'standard', notifications_notify_on_insert: true, notifications_notify_on_update: false, notifications_delay_until_video: false }, { route: '/settings/notifications' });
-    await page.getByRole('button', { name: /^new visits/ }).click();
-    const menu = page.getByRole('dialog', { name: 'Notification mode' });
-    await expect(menu.locator('[data-policy-custom-rules]')).toContainText('Set the exact triggers with the Custom rules switches under this sentence.');
-    await menu.locator('[data-policy-custom-rules]').click();
-    const onInsert = page.getByRole('switch', { name: 'When a visit is first recorded' });
-    await expect(onInsert).toBeFocused();
-    await expect(onInsert).toHaveAttribute('aria-checked', 'true');
-    // Opening them changes nothing.
+test('custom rules are a choice in the sentence; their switches cannot be changed on any other choice', async ({ page }) => {
+    const harness = await openSettings(page, { notifications_mode: 'realtime', notifications_notify_on_insert: true, notifications_notify_on_update: true, notifications_delay_until_video: false }, { route: '/settings/notifications' });
+    // On "every update" the switches are shown, but disabled, with the reason beside them.
+    await page.locator('[data-advanced-section] > button', { hasText: 'Custom rules' }).click();
+    const later = page.getByRole('switch', { name: 'Later, if no alert has gone' });
+    await expect(later).toBeDisabled();
+    await expect(page.getByRole('switch', { name: 'When a visit starts' })).toBeDisabled();
+    await expect(page.getByRole('switch', { name: 'Wait for the video check' })).toBeDisabled();
+    await expect(page.locator('[data-custom-rules-note="inactive"]')).toContainText('take effect only with custom rules');
+    await later.click({ force: true });
+    await expect(later).toHaveAttribute('aria-checked', 'true');
+    // Looking at them, and pressing one, changed nothing.
     await expect(saveBar(page)).toHaveCount(0);
 
-    await page.getByRole('switch', { name: 'When a visit changes' }).click();
+    // Custom rules is chosen in the sentence, which says what it costs: one alert per visit.
+    await page.getByRole('button', { name: /^every update/ }).click();
+    const menu = page.getByRole('dialog', { name: 'Notification mode' });
+    await expect(menu.locator('[data-policy-custom-rules]')).toContainText('At most one alert per visit.');
+    await menu.locator('[data-policy-custom-rules]').click();
     await expect(page.getByRole('button', { name: /^custom rules/ })).toBeVisible();
+    await expect(page.locator('[data-custom-rules-note="active"]')).toContainText('A visit sends at most one alert');
+    const starts = page.getByRole('switch', { name: 'When a visit starts' });
+    await expect(starts).toBeFocused();
+    await expect(starts).toBeEnabled();
+    await expect(later).toBeEnabled();
+    await later.click();
+    await expect(later).toHaveAttribute('aria-checked', 'false');
     await saveButton(page).click();
     await expect.poll(() => harness.writes.length).toBe(1);
-    expect(harness.writes[0]).toMatchObject({ notifications_mode: 'custom', notifications_notify_on_insert: true, notifications_notify_on_update: true, notifications_delay_until_video: false });
+    expect(harness.writes[0]).toMatchObject({ notifications_mode: 'custom', notifications_notify_on_insert: true, notifications_notify_on_update: false, notifications_delay_until_video: false });
 
-    // A preset in the sentence sets all three again.
+    // A preset in the sentence sets all three again, and locks them.
     await page.getByRole('button', { name: /^custom rules/ }).click();
-    await page.getByRole('dialog', { name: 'Notification mode' }).getByRole('button', { name: /^new visits/ }).click();
-    await expect(page.getByRole('switch', { name: 'When a visit changes' })).toHaveAttribute('aria-checked', 'false');
+    await page.getByRole('dialog', { name: 'Notification mode' }).getByRole('button', { name: /^every update/ }).click();
+    await expect(later).toHaveAttribute('aria-checked', 'true');
+    await expect(later).toBeDisabled();
     await discardButton(page).click();
-    await expect(page.getByRole('switch', { name: 'When a visit changes' })).toHaveAttribute('aria-checked', 'true');
+    await expect(later).toHaveAttribute('aria-checked', 'false');
+    await expect(later).toBeEnabled();
+});
+
+test('a test result is still shown after opening another section and coming back', async ({ page }) => {
+    await openSettings(page, { birdweather_enabled: true, birdweather_station_token: '***REDACTED***' }, {
+        route: '/settings/integrations',
+        respond: (path, method) => (path === '/api/settings/birdweather/test' && method === 'POST'
+            ? { json: { status: 'error', message: 'BirdWeather did not accept the station token.' } }
+            : undefined)
+    });
+    const state = group(page, 'settings-group-integrations-birdweather').locator('[data-settings-card-status]');
+    await group(page, 'settings-group-integrations-birdweather').getByRole('button', { name: 'Test connection' }).click();
+    await page.getByRole('dialog', { name: 'BirdWeather connection test' }).getByRole('button', { name: 'Close' }).first().click();
+    const failed = /^On, but the test failed at \d{1,2}:\d{2}.*: BirdWeather did not accept the station token\.$/;
+    await expect(state).toHaveText(failed);
+    const said = await state.innerText();
+
+    await section(page, 'Display').click();
+    await expect(group(page, 'settings-group-integrations-birdweather')).toHaveCount(0);
+    await section(page, 'Integrations').click();
+    // The same result, with the same time: it was run on this visit, and the card still says so.
+    await expect(state).toHaveText(said);
+    // An edit to what it ran with still retires it.
+    await page.locator('#birdweather-token').fill('new-token');
+    await expect(state).toHaveText('On and set up. Not tested yet; test results aren\u2019t kept between visits.');
 });
 
 test('search finds a moved setting and opens it where it is now', async ({ page }) => {
@@ -173,4 +212,55 @@ test('search finds a moved setting and opens it where it is now', async ({ page 
     await box.press('Enter');
     await expect(section(page, 'Cameras & connection')).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('[data-settings-found]')).toHaveCount(1);
+});
+
+test('a row with only a switch reads at the card\'s measure, and the AI provider has its switch at its heading', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openSettings(page, { beta_garden_animals: true }, { route: '/settings/notifications' });
+    // "Send Garden alerts": a label, its help and a switch. The words take the room a field would.
+    const garden = page.locator('[data-garden-alerts] [data-settings-row]').first();
+    await expect(garden).toBeVisible();
+    const measure = async (row: typeof garden): Promise<{ words: number; row: number }> => ({
+        words: (await row.locator(':scope > div').first().boundingBox())?.width ?? 0,
+        row: (await row.boundingBox())?.width ?? 0
+    });
+    const gardenSizes = await measure(garden);
+    expect(gardenSizes.words).toBeGreaterThan(gardenSizes.row * 0.75);
+    // The switch still ends on the card's right edge.
+    const toggle = await garden.getByRole('switch').boundingBox();
+    const rowBox = await garden.boundingBox();
+    expect(Math.abs((toggle?.x ?? 0) + (toggle?.width ?? 0) - ((rowBox?.x ?? 0) + (rowBox?.width ?? 0)))).toBeLessThan(2);
+
+    // The cooldown keeps that measure off and on: its minutes sit under its words.
+    await page.locator('[data-settings-more] > h3 > button').click();
+    const cooldown = page.locator('[data-notification-cooldown]');
+    const off = await measure(cooldown);
+    expect(off.words).toBeGreaterThan(off.row * 0.75);
+    await cooldown.getByRole('switch', { name: 'Notification cooldown' }).click();
+    await expect(page.locator('#notification-cooldown-minutes')).toBeVisible();
+    expect((await measure(cooldown)).words).toBe(off.words);
+    // No run of space between the Telegram link's words and what follows them.
+    const preview = page.getByText('Link on Telegram\'s button:', { exact: false }).first();
+    const [label, value] = [await preview.boundingBox(), await page.getByText('none yet, so Telegram messages have no button.').boundingBox()];
+    expect((value?.x ?? 0) - ((label?.x ?? 0) + (label?.width ?? 0))).toBeLessThanOrEqual(6);
+
+    await section(page, 'Integrations').click();
+    const ai = group(page, 'settings-group-ai-connection');
+    const aiSwitch = ai.locator('header').getByRole('switch', { name: 'AI provider' });
+    await expect(aiSwitch).toHaveAttribute('aria-checked', 'false');
+    await expect(ai.locator('[data-settings-card-status]')).toHaveText('Off.');
+    await expect(page.locator('#llm-model')).toHaveCount(0);
+    await aiSwitch.click();
+    await expect(ai.locator('[data-settings-card-status]')).toHaveText('On, but not set up: add an API key.');
+    await expect(page.locator('#llm-model')).toBeVisible();
+});
+
+test('the status column and the sidebar call it Notifications', async ({ page }) => {
+    await openSettings(page, {}, {
+        route: '/settings/notifications',
+        respond: (path) => (path === '/api/status' ? { json: { captured_at: new Date().toISOString(), subsystems: [{ key: 'notifications', state: 'off', cause: 'none_enabled' }] } } : undefined)
+    });
+    const status = page.locator('[data-settings-section-status="side"]');
+    await expect(status).toBeVisible();
+    await expect(status).not.toContainText('Alerts');
 });

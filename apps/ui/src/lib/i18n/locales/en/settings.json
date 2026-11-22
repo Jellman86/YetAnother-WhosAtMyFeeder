@@ -250,8 +250,6 @@
   "tabs": {
     "connection": "Connection",
     "detection": "Naming and filters",
-    "notifications": "Notifications",
-    "integrations": "Integrations",
     "data": "Data",
     "security": "Security",
     "appearance": "Appearance",
@@ -308,7 +306,7 @@
       "finder": "Bird finder",
       "audio": "BirdNET-Go",
       "storage": "Storage",
-      "notifications": "Alerts"
+      "notifications": "Notifications"
     },
     "cause": {
       "classifier": {
@@ -325,7 +323,7 @@
       "finder": "The bird finder picks each bird out of a busy photo before it is named. It is optional.",
       "audio": "BirdNET-Go listens for birdsong, so a visit can be matched with the calls heard.",
       "storage": "Photos and video are kept in the media folder on this install.",
-      "notifications": "Alerts go out on your channels when a visit earns one."
+      "notifications": "Notifications go out on your channels when a visit earns one."
     },
     "why": {
       "mqtt": {
@@ -619,7 +617,7 @@
       "off": "Off.",
       "not_set_up": "On, but not set up: {missing}.",
       "no_test": "On and set up. It has no connection test.",
-      "not_tested": "On and set up. Not tested on this visit: test results are not kept.",
+      "not_tested": "On and set up. Not tested yet; test results aren’t kept between visits.",
       "passed": "On. The test passed at {time}.",
       "failed": "On, but the test failed at {time}: {reason}",
       "needs_station_token": "add your station token",
@@ -994,7 +992,7 @@
       "what_realtime": "every update",
       "what_silent": "silent",
       "what_custom": "custom rules",
-      "custom_hint": "Set the exact triggers with the Custom rules switches under this sentence.",
+      "custom_hint": "Your own triggers, set with the switches under this sentence. At most one alert per visit.",
       "species_any": "any species",
       "species_all_but": "{count, plural, one {all but # species} other {all but # species}}",
       "species_only": "{count, plural, one {only # species} other {only # species}}",
@@ -1046,12 +1044,12 @@
     "include_snapshot_desc": "Sends the visit’s snapshot with each alert. Off sends the words alone.",
     "custom_rules": {
       "title": "Custom rules",
-      "active": "These switches are your custom rules. Choose a preset in the sentence above to replace them.",
-      "desc": "The switches the choice above sets. Changing one turns that choice into custom rules.",
-      "on_insert": "When a visit is first recorded",
-      "on_insert_desc": "One alert as soon as the visit has a name.",
-      "on_update": "When a visit changes",
-      "on_update_desc": "Another alert each time Frigate updates the visit, for example with a better photo or a new name.",
+      "active": "Your own triggers. A visit sends at most one alert, so these cannot repeat an alert as a visit changes: choose every update in the sentence above for that.",
+      "desc": "These switches take effect only with custom rules. The other choices in the sentence above set their own triggers and ignore them. Choose custom rules there to use these.",
+      "on_insert": "When a visit starts",
+      "on_insert_desc": "Sends the alert when Frigate first reports the visit, if its name is sure enough by then.",
+      "on_update": "Later, if no alert has gone",
+      "on_update_desc": "Sends the one alert when Frigate later updates the visit, if none went at the start: the switch above is off, or the name was not sure enough yet. It never sends a second alert.",
       "delay_video": "Wait for the video check",
       "delay_video_desc": "Holds the alert until the video check has confirmed the name, or for the seconds below if it never answers. Needs video checks on, in {section}."
     },

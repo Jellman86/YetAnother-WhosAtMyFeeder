@@ -250,8 +250,6 @@
   "tabs": {
     "connection": "Conexión",
     "detection": "Nombres y filtros",
-    "notifications": "Notificaciones",
-    "integrations": "Integraciones",
     "data": "Datos",
     "security": "Seguridad",
     "appearance": "Apariencia",
@@ -308,7 +306,7 @@
       "finder": "Buscador de aves",
       "audio": "BirdNET-Go",
       "storage": "Almacenamiento",
-      "notifications": "Alertas"
+      "notifications": "Notificaciones"
     },
     "cause": {
       "classifier": {
@@ -325,7 +323,7 @@
       "finder": "El buscador de aves localiza cada ave en una foto llena antes de nombrarla. Es opcional.",
       "audio": "BirdNET-Go escucha los cantos, para que una visita pueda relacionarse con lo oído.",
       "storage": "Las fotos y los vídeos se guardan en la carpeta de medios de esta instalación.",
-      "notifications": "Las alertas salen por tus canales cuando una visita merece una."
+      "notifications": "Las notificaciones salen por tus canales cuando una visita merece una."
     },
     "why": {
       "mqtt": {
@@ -619,7 +617,7 @@
       "off": "Desactivado.",
       "not_set_up": "Activado, pero sin configurar: {missing}.",
       "no_test": "Activado y configurado. No tiene prueba de conexión.",
-      "not_tested": "Activado y configurado. No se ha probado en esta visita: los resultados de las pruebas no se guardan.",
+      "not_tested": "Activado y configurado. Aún sin probar; los resultados de las pruebas no se guardan entre visitas.",
       "passed": "Activado. La prueba se superó a las {time}.",
       "failed": "Activado, pero la prueba falló a las {time}: {reason}",
       "needs_station_token": "añade el token de tu estación",
@@ -994,7 +992,7 @@
       "what_realtime": "cada actualización",
       "what_silent": "en silencio",
       "what_custom": "reglas personalizadas",
-      "custom_hint": "Define los disparadores exactos con los interruptores de Reglas personalizadas, bajo esta frase.",
+      "custom_hint": "Tus propios disparadores, definidos con los interruptores bajo esta frase. Como máximo una alerta por visita.",
       "species_any": "cualquier especie",
       "species_all_but": "{count, plural, one {todas menos # especie} other {todas menos # especies}}",
       "species_only": "{count, plural, one {solo # especie} other {solo # especies}}",
@@ -1046,12 +1044,12 @@
     "include_snapshot_desc": "Envía la instantánea de la visita con cada alerta. Desactivado, solo se envía el texto.",
     "custom_rules": {
       "title": "Reglas personalizadas",
-      "active": "Estos interruptores son tus reglas personalizadas. Elige un ajuste predefinido en la frase de arriba para sustituirlas.",
-      "desc": "Los interruptores que fija la opción de arriba. Si cambias uno, esa opción pasa a ser reglas personalizadas.",
-      "on_insert": "Cuando se registra una visita por primera vez",
-      "on_insert_desc": "Una alerta en cuanto la visita tiene nombre.",
-      "on_update": "Cuando cambia una visita",
-      "on_update_desc": "Otra alerta cada vez que Frigate actualiza la visita, por ejemplo con una foto mejor o un nombre nuevo.",
+      "active": "Tus propios disparadores. Una visita envía como máximo una alerta, así que no pueden repetirla cuando la visita cambia: para eso elige cada actualización en la frase de arriba.",
+      "desc": "Estos interruptores solo tienen efecto con reglas personalizadas. Las demás opciones de la frase de arriba fijan sus propios disparadores y los ignoran. Elige allí reglas personalizadas para usarlos.",
+      "on_insert": "Cuando empieza una visita",
+      "on_insert_desc": "Envía la alerta cuando Frigate informa de la visita por primera vez, si para entonces el nombre es lo bastante seguro.",
+      "on_update": "Más tarde, si aún no se ha enviado ninguna",
+      "on_update_desc": "Envía la única alerta cuando Frigate actualiza la visita más tarde, si no salió ninguna al principio: porque el interruptor de arriba está desactivado o el nombre aún no era lo bastante seguro. Nunca envía una segunda alerta.",
       "delay_video": "Esperar a la comprobación de vídeo",
       "delay_video_desc": "Retiene la alerta hasta que la comprobación de vídeo confirma el nombre, o durante los segundos de abajo si nunca responde. Requiere activar las comprobaciones de vídeo en {section}."
     },

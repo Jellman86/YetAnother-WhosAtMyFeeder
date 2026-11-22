@@ -100,7 +100,7 @@ Some settings have since moved within that map:
 | Garden animal alerts | Beta features (Garden, Alerts) | Notifications, after the channels, marked Beta |
 | Notification cooldown, language, link and species filter | Alerts | Notifications, under **More options** |
 | **Send the photo** for Discord, Pushover and Telegram | Environment variables only | Notifications, in each channel |
-| Custom notification rules | Environment variables only | Notifications, under the sentence (**Custom rules**) |
+| Custom notification rules | Environment variables only | Notifications: **custom rules** in the sentence, with its switches under it |
 | When Frigate loses a visit; the repair and fill-in jobs, with **Jobs at once** | Storage & upkeep | Storage & upkeep, under **More options** |
 | Date and time format, naming style, Explorer layout, fonts and colours, Units | Display | Display, under **More options** |
 | The accessibility switches, saved for everyone | Display | Display, under **More options**, as **Defaults for everyone**; **Accessibility on this device** stays outside More options |
@@ -360,9 +360,10 @@ cooldown, the notification language, the link and the species filter. The senten
 open More options at the species filter.
 
 Each channel has **Send the photo**: on, the visit's snapshot goes with the alert; off, the words
-go alone. Under the sentence, **Custom rules** holds the three switches a delivery mode sets (alert
-when a visit is first recorded, alert again when it changes, and wait for the video check).
-Changing one turns the mode into custom rules; choosing a mode in the sentence sets them again.
+go alone. **Custom rules** is a fifth choice in the sentence for your own triggers, with three switches under
+it. It sends at most one alert per visit; on any other choice the switches are shown disabled,
+because those modes set their own triggers. See
+[Notification modes](../features/notifications.md#notification-modes).
 
 ![Settings → Notifications: the Global notification filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", then the Channels card with Discord, Pushover, Telegram and email, and More options folded with the cooldown, language, link and species filter](../images/settings-notifications.png)
 

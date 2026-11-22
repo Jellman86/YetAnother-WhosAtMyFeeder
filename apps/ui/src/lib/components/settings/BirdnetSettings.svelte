@@ -8,8 +8,9 @@
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
-    import { serviceState, serviceStateText, type ServiceTest } from '../../settings/service-state';
+    import { serviceState, serviceStateText } from '../../settings/service-state';
     import { formatTime } from '../../utils/datetime';
+    import { serviceTests } from '../../settings/service-tests.svelte';
     import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
     import { testBirdNET, testMQTTPublish, checkBirdNetReachability } from '../../api/maintenance';
 
@@ -72,11 +73,12 @@
         bnResult = await runSequentialDiagnostic(steps, (stages) => (bnStages = stages), { independent: true });
         bnRunning = false;
         sessionTests.record('audio', bnResult.ok);
-        bnTest = { passed: bnResult.ok, message: bnResult.message, at: Date.now(), signature: bnSignature };
+        serviceTests.record('birdnet', { passed: bnResult.ok, message: bnResult.message }, bnSignature);
     }
 
     // The group's state in words. The test describes the values it ran with, so an edit retires it.
-    let bnTest = $state<ServiceTest | null>(null);
+    // Kept for the visit, so the result is still here after another section was opened.
+    const bnTest = $derived(serviceTests.last('birdnet'));
     const bnSignature = $derived(`${birdnetUrl}|${audioTopic}`);
     const birdnetState = $derived(serviceStateText(serviceState({
         enabled: birdnetEnabled,

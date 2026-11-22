@@ -52,7 +52,7 @@ export function serviceStateText(state: ServiceState, translate: Translate, time
         case 'no_test':
             return translate('settings.integrations.state.no_test', { default: 'On and set up. It has no connection test.' });
         case 'not_tested':
-            return translate('settings.integrations.state.not_tested', { default: 'On and set up. Not tested on this visit: test results are not kept.' });
+            return translate('settings.integrations.state.not_tested', { default: 'On and set up. Not tested yet; test results aren\u2019t kept between visits.' });
         case 'passed':
             return translate('settings.integrations.state.passed', { values: { time: time(state.at) }, default: 'On. The test passed at {time}.' });
         case 'failed':

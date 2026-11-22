@@ -136,7 +136,7 @@ test('the icon rail carries the same words as names and tooltips', async ({ page
     await expect(railRow(page, 'feed')).toHaveAttribute('title', 'Frigate events: Live');
     await expect(railRow(page, 'feed')).toHaveText('Frigate events: Live');
     await expect(railRow(page, 'audio')).toHaveAttribute('title', 'Audio: Off');
-    await expect(railRow(page, 'alerts')).toHaveAttribute('title', 'Alerts: On');
+    await expect(railRow(page, 'alerts')).toHaveAttribute('title', 'Notifications: On');
     // Each icon is a pointer target of its own for its tooltip, and none spills out of the rail.
     const railBox = await rail(page).boundingBox();
     for (const id of ['feed', 'audio', 'alerts']) {

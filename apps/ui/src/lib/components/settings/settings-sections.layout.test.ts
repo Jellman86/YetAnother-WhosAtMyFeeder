@@ -9,6 +9,9 @@ import rulesSource from './NotificationSettings.svelte?raw';
 import sentenceSource from './NotificationPolicySentence.svelte?raw';
 import cardSource from './_primitives/SettingsCard.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
+import aiSource from './AISettings.svelte?raw';
+import enSettings from '../../i18n/locales/en/settings.json';
+import enStatus from '../../i18n/locales/en/status.json';
 import { SETTINGS_SECTION_PARTS, type SettingsSection } from '../../settings/settings-route';
 import { settingsSearchEntry, settingsSearchInMore, settingsSearchSection } from '../../settings/settings-search-index';
 import { settingsPartIsInMore } from '../../settings/settings-more';
@@ -109,21 +112,36 @@ describe('every notification channel', () => {
 });
 
 describe('custom notification rules', () => {
-    it('are three switches under the sentence, and changing one makes the mode custom', () => {
+    it('are three switches under the sentence that can be changed only while custom rules is the choice', () => {
         for (const id of ['setting-notify-on-insert', 'setting-notify-on-update', 'setting-notify-delay-video']) {
             expect(rulesSource).toContain(`labelId="${id}"`);
             expect(settingsSearchEntry(id)?.disclosures).toEqual(['notifications-custom-rules']);
         }
         expect(rulesSource).toContain('id={NOTIFICATION_CUSTOM_RULES_ID}');
-        expect(rulesSource).toContain("notifyMode = 'custom';");
+        // The backend reads the switches only in custom mode, so outside it they are disabled, with the reason beside them.
+        expect(rulesSource).toContain("const customRules = $derived(notifyMode === 'custom');");
+        expect(rulesSource.match(/disabled=\{!customRules\}/g)).toHaveLength(4);
+        expect(rulesSource.match(/describedBy="notifications-custom-rules-why"/g)).toHaveLength(3);
+        expect(rulesSource).toContain('if (!customRules) return;');
+        // A switch never changes the mode by itself: an owner on a preset cannot lose it by touching one.
+        expect(rulesSource).not.toContain("notifyMode = 'custom'");
         // The switches are on the first screen, in the card that holds the sentence.
         expect(rulesSource.indexOf('id={NOTIFICATION_CUSTOM_RULES_ID}')).toBeLessThan(rulesSource.indexOf('{:else}'));
     });
 
-    it('are what the sentence points at, by opening them', () => {
+    it('are a choice in the sentence, which then goes to them', () => {
         expect(sentenceSource).toContain('data-policy-custom-rules');
+        expect(sentenceSource).toContain("if (mode !== 'custom') onModeChange('custom');");
         expect(sentenceSource).toContain('customRules.open = true;');
-        expect(sentenceSource).toContain("settings.notifications.sentence.custom_hint");
+    });
+
+    it('say what the backend does: one alert per visit, and no second alert from "later"', () => {
+        const copy = enSettings.notifications.custom_rules;
+        expect(copy.active).toContain('at most one alert');
+        expect(copy.on_update_desc).toContain('It never sends a second alert.');
+        expect(copy.desc).toContain('take effect only with custom rules');
+        expect(`${copy.on_update} ${copy.on_update_desc}`).not.toMatch(/another alert|each time/i);
+        expect(enSettings.notifications.sentence.custom_hint).toContain('At most one alert per visit.');
     });
 });
 
@@ -133,7 +151,7 @@ describe('a setting that moved is found where it is now', () => {
         ['settings-group-integrations-birdnet', 'integrations'],
         ['setting-birdnet-url', 'integrations'],
         ['settings-group-integrations-ha-weather', 'integrations'],
-        ['setting-llm-enabled', 'integrations'],
+        ['settings-group-ai-connection', 'integrations'],
         ['setting-location-mode', 'cameras'],
         ['setting-telemetry', 'access'],
         ['settings-group-auth', 'access'],
@@ -154,5 +172,30 @@ describe('a setting that moved is found where it is now', () => {
             const entry = settingsSearchEntry(anchor);
             expect(entry && settingsSearchInMore(entry), anchor).toBe(true);
         }
+    });
+});
+
+describe('how the sections read', () => {
+    it('puts the AI provider\'s switch beside its heading, as every other integration has', () => {
+        const card = aiSource.slice(aiSource.indexOf('id="settings-group-ai-connection"'), aiSource.indexOf('{#if draft.llmEnabled}'));
+        expect(card).toContain('titleId="integration-ai-title"');
+        expect(card).toContain('{#snippet actions()}');
+        expect(card).toContain('labelledBy="integration-ai-title"');
+        expect(card).toContain('status={aiState}');
+        expect(card).not.toContain('<SettingsRow');
+        // What was behind the old switch row is behind the group's switch now.
+        expect(settingsSearchEntry('setting-llm-enabled')).toBeNull();
+        expect(settingsSearchEntry('setting-llm-model')?.behind).toBe('settings-group-ai-connection');
+    });
+
+    it('calls notifications by the section\'s name wherever their status is shown', () => {
+        expect(enSettings.sections.notifications).toBe('Notifications');
+        expect(enSettings.status.subsystem.notifications).toBe('Notifications');
+        expect(enSettings.status.purpose.notifications).toMatch(/^Notifications go out/);
+        expect(enStatus.row_alerts).toBe('Notifications');
+    });
+
+    it('words an untested integration without claiming a result', () => {
+        expect(enSettings.integrations.state.not_tested).toBe('On and set up. Not tested yet; test results aren\u2019t kept between visits.');
     });
 });

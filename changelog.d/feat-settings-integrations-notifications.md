@@ -12,13 +12,18 @@
   need `NOTIFICATIONS__<CHANNEL>__INCLUDE_SNAPSHOT=false` in the environment. `/api/settings`
   carries `notifications_discord_include_snapshot`, `notifications_pushover_include_snapshot` and
   `notifications_telegram_include_snapshot`.
-- **Custom notification rules can be set in Settings.** Under the sentence in Notifications,
-  **Custom rules** holds the three switches a delivery mode sets: alert when a visit is first
-  recorded, alert again when it changes, and wait for the video check. An install whose mode was
-  `custom` could see that but had nowhere to change it.
+- **Custom notification rules can be set in Settings.** **Custom rules** is now a choice in the
+  Notifications sentence, with three switches under it: alert when a visit starts, alert later if
+  none has gone yet, and wait for the video check. Custom rules send at most one alert per visit,
+  and the copy says so. On any other choice the switches are shown disabled, because those modes
+  set their own triggers. An install whose mode was `custom` could see that but had nowhere to
+  change it.
+- **An integration's test result stays on its card** when you open another section and come back,
+  until you change a value it ran with or reload the page.
 - **Old Settings links still work.** `/settings/alerts` opens Notifications, `/settings/sharing`
   opens Access & privacy, and `/settings/sharing#integrations` or `#ai` opens that place in
   Integrations. Search finds every moved setting where it is now.
 - **Messages that send you to a setting name its real place.** Sentences that pointed at
   "Sharing & integrations → Location", "Settings › Models › Hardware" or "this tab" now take the
   section's name from the navigation itself, in every language, so they cannot go stale again.
+- **The status column and the sidebar say Notifications,** not Alerts, to match the section.

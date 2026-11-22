@@ -159,11 +159,21 @@ Choose a delivery mode with the first highlighted part of the sentence in **Sett
 - **silent**: disable all notifications. The sentence then reads "Stay silent and keep recording
   visits".
 
-**Custom rules**, under the sentence, holds the three switches a mode sets: **When a visit is first
-recorded** (`notify_on_insert`), **When a visit changes** (`notify_on_update`) and **Wait for the
-video check** (`delay_until_video`, with the seconds to wait before sending anyway). Changing one
-makes the mode `custom`, and the sentence then reads **custom rules**. Choosing one of the modes
-above sets all three again.
+**Custom rules** is a fifth choice in the same menu, for owners who want their own triggers. It
+sends **at most one alert per visit**, and its three switches are under the sentence:
+
+- **When a visit starts** (`notify_on_insert`): send the alert when Frigate first reports the
+  visit, if its name is sure enough by then.
+- **Later, if no alert has gone** (`notify_on_update`): send the one alert when Frigate later
+  updates the visit, if none went at the start, because the first switch is off or the name was not
+  sure enough yet. It never sends a second alert.
+- **Wait for the video check** (`delay_until_video`): hold the alert until the video check has
+  confirmed the name, or for the seconds you set if it never answers.
+
+The switches take effect only with custom rules. The four modes above set their own triggers and
+ignore `notify_on_insert` and `notify_on_update`, so on those modes the switches are shown
+disabled, with that reason. Custom rules cannot repeat an alert as a visit changes (only **every
+update** does that) and cannot wait for Frigate to end the visit (only **confirmed visits** does).
 
 Delayed video notifications wait for the associated photo work within the notification
 timeout. They use the visit's accepted identification and current audio confirmation,
