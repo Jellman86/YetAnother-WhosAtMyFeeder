@@ -35,6 +35,7 @@ from app.utils.canonical_species import should_hide_species_label
 from app.utils.frigate_coordinates import frigate_snapshot_crop_box, restore_frigate_hint_box
 from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
 from app.config import settings
+from app.config_models import DEFAULT_WORKER_HARD_DEADLINE_SECONDS
 from app.utils.python_subprocess import python_subprocess_launch
 from app.services.native_crash_quarantine import (
     NativeCrashQuarantine,
@@ -1015,7 +1016,8 @@ class ClassifierService:
                 getattr(settings.classification, "video_classification_timeout_seconds", 180) or 180.0
             )
             image_hard_deadline_seconds = float(
-                getattr(settings.classification, "worker_hard_deadline_seconds", 35.0) or 35.0
+                getattr(settings.classification, "worker_hard_deadline_seconds", DEFAULT_WORKER_HARD_DEADLINE_SECONDS)
+                or DEFAULT_WORKER_HARD_DEADLINE_SECONDS
             )
             background_hard_deadline_seconds = max(
                 image_hard_deadline_seconds,
@@ -4193,7 +4195,14 @@ class ClassifierService:
                 raise ClassificationLeaseExpiredError(
                     "live",
                     "live_image_inference",
-                    float(getattr(settings.classification, "worker_hard_deadline_seconds", 35.0) or 35.0),
+                    float(
+                        getattr(
+                            settings.classification,
+                            "worker_hard_deadline_seconds",
+                            DEFAULT_WORKER_HARD_DEADLINE_SECONDS,
+                        )
+                        or DEFAULT_WORKER_HARD_DEADLINE_SECONDS
+                    ),
                 ) from None
             raise BackgroundImageClassificationUnavailableError("background_image_worker_timed_out") from None
 

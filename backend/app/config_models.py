@@ -381,6 +381,11 @@ class FrigateSettings(BaseModel):
     )
 
 
+# The live classifier lease is 30 s; the hard deadline sits just past it so a
+# stuck worker is killed only after its request has already been given up.
+DEFAULT_WORKER_HARD_DEADLINE_SECONDS = 35.0
+
+
 class ClassificationSettings(BaseModel):
     model: str = "rope_vit_b14_inat21"
     threshold: float = 0.7
@@ -499,7 +504,10 @@ class ClassificationSettings(BaseModel):
         default=30.0, ge=1.0, le=300.0, description="Video classifier worker heartbeat timeout in seconds"
     )
     worker_hard_deadline_seconds: float = Field(
-        default=60.0, ge=1.0, le=300.0, description="Hard deadline before killing a stuck classifier worker"
+        default=DEFAULT_WORKER_HARD_DEADLINE_SECONDS,
+        ge=1.0,
+        le=300.0,
+        description="Hard deadline before killing a stuck classifier worker",
     )
     background_worker_hard_deadline_seconds: float = Field(
         default=120.0, ge=1.0, le=600.0, description="Hard deadline before killing a stuck background classifier worker"
