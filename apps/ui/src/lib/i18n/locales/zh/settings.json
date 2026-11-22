@@ -1184,6 +1184,8 @@
     "gpu_setup_docs": "GPU 设置与诊断指南",
     "inference_provider": "识别模型运行在",
     "auto_detected": "已自动检测",
+    "auto_detected_verified": "已自动检测 · 已验证 ✓",
+    "auto_detected_unverified": "已自动检测 · 未验证",
     "active_provider_label": "当前生效",
     "intel_gpu_status": "Intel GPU",
     "provider_fallback_reason": "回退：",

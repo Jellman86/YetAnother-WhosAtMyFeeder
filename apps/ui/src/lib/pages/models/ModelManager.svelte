@@ -724,7 +724,7 @@
                     >
                         {activating === model.id
                             ? $_('settings.detection.model_manager_activating', { default: 'Activating…' })
-                            : $_('settings.detection.model_manager_activate', { default: 'Use this model' })}
+                            : $_('settings.detection.model_manager_activate', { default: 'Activate' })}
                     </button>
                 {:else if ready && !selected && !validated}
                     <button

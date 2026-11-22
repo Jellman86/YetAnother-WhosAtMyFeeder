@@ -1184,6 +1184,8 @@
     "gpu_setup_docs": "Leitfaden für GPU-Einrichtung & Diagnose",
     "inference_provider": "Bestimmungsmodell läuft auf",
     "auto_detected": "Automatisch erkannt",
+    "auto_detected_verified": "Automatisch erkannt · geprüft ✓",
+    "auto_detected_unverified": "Automatisch erkannt · ungeprüft",
     "active_provider_label": "Aktiv",
     "intel_gpu_status": "Intel-GPU",
     "provider_fallback_reason": "Fallback:",

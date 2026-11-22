@@ -116,7 +116,7 @@
     "checks_summary": "{count, plural, one {# specie potrebbe avere un nome errato: {species}.} other {# specie potrebbero avere un nome errato: {species}.}}",
     "checks_body": "{count, plural, one {Solo la fotocamera la conferma e nessun birdwatcher l’ha segnalata entro {distance}.} other {Solo la fotocamera le conferma e nessun birdwatcher le ha segnalate entro {distance}.}}",
     "checks_body_plain": "{count, plural, one {Solo la fotocamera la conferma.} other {Solo la fotocamera le conferma.}}",
-    "checks_open": "Apri i controlli nella pagina Specie",
+    "checks_open": "Apri i controlli nella Classifica",
     "checks_loading": "Ricerca di specie con un nome forse errato…",
     "checks_unavailable": "Impossibile leggere il controllo di areale, quindi non si sa se una specie ha un nome errato.",
     "checks_more": "altre {count}",

@@ -210,19 +210,19 @@ test('favouriting a capture opened from its visit marks that capture in the visi
     await toggle.click();
     const row = item.locator('[data-visit-capture="first-1"]');
     await expect(row).toBeVisible();
-    await expect(row).not.toContainText('Favorited');
+    await expect(row).not.toContainText('Favourited');
 
     await row.getByRole('button', { name: /^Open Dunnock capture at/ }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('button', { name: 'Add favorite', exact: true }).click();
-    await expect(dialog.getByRole('button', { name: 'Remove favorite', exact: true })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Add favourite', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: 'Remove favourite', exact: true })).toBeVisible();
     expect([...favourites]).toEqual(['first-1']);
     await dialog.locator('[data-detection-modal-close]').click();
     await expect(dialog).toHaveCount(0);
 
     await toggle.click();
-    await expect(row).toContainText('Favorited');
-    await expect(item.locator('[data-visit-capture="first-2"]')).not.toContainText('Favorited');
+    await expect(row).toContainText('Favourited');
+    await expect(item.locator('[data-visit-capture="first-2"]')).not.toContainText('Favourited');
     expect(errors).toEqual([]);
 });
 

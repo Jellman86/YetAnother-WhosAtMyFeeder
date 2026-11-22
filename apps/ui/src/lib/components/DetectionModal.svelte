@@ -1356,13 +1356,13 @@
                 detection.archive_state = null;
                 archiveStatus = null;
                 detectionsStore.updateDetection({ ...detection, is_favorite: false, archive_state: null });
-                toastStore.success($_('detection.favorite_removed', { default: 'Removed from favorites' }));
+                toastStore.success($_('detection.favorite_removed', { default: 'Removed from favourites' }));
             } else {
                 const result = await favoriteDetection(detection.frigate_event);
                 detection.is_favorite = true;
                 detection.archive_state = asArchiveState(result.archive_state) ?? 'pending';
                 detectionsStore.updateDetection({ ...detection, is_favorite: true, archive_state: detection.archive_state });
-                toastStore.success($_('detection.favorite_added', { default: 'Added to favorites' }));
+                toastStore.success($_('detection.favorite_added', { default: 'Added to favourites' }));
             }
         } catch (e) {
             toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
@@ -2268,8 +2268,8 @@
                                                 onclick={handleFavoriteToggle}
                                                 disabled={favoritePending}
                                                 class="pointer-events-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-lg backdrop-blur-xs transition-colors disabled:opacity-60 focus-ring-on-dark {detection.is_favorite ? 'border-on-media-accent bg-accent text-accent-fg hover:bg-accent-hover' : 'border-on-media/35 bg-media/45 text-on-media hover:bg-media/60'}"
-                                                title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
-                                                aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                                                title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favourite' }) : $_('detection.favorite_add', { default: 'Add favourite' })}
+                                                aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favourite' }) : $_('detection.favorite_add', { default: 'Add favourite' })}
                                             >
                                                 {#if favoritePending}
                                                     <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>

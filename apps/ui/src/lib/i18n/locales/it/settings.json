@@ -1184,6 +1184,8 @@
     "gpu_setup_docs": "Guida alla configurazione e diagnostica GPU",
     "inference_provider": "Il modello di identificazione gira su",
     "auto_detected": "Rilevato automaticamente",
+    "auto_detected_verified": "Rilevato automaticamente · verificato ✓",
+    "auto_detected_unverified": "Rilevato automaticamente · non verificato",
     "active_provider_label": "Attivo",
     "intel_gpu_status": "GPU Intel",
     "provider_fallback_reason": "Fallback:",

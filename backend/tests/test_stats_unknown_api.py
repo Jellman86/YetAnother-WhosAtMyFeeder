@@ -450,10 +450,24 @@ def _timeline_point(payload: dict, bucket_start: str) -> dict:
     raise AssertionError(f"Missing timeline point {bucket_start=}")
 
 
+ZONE_SOURCES = ["header", "instance"]
+
+
+def _new_york_from(zone_source: str, monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
+    """New York named by the viewer's header (which beats TZ), or by the instance's TZ alone, as curl or HA sends."""
+    if zone_source == "header":
+        monkeypatch.setenv("TZ", "Asia/Tokyo")
+        return {"X-Timezone": "America/New_York"}
+    monkeypatch.setenv("TZ", "America/New_York")
+    return {}
+
+
 @pytest.mark.asyncio
+@pytest.mark.parametrize("zone_source", ZONE_SOURCES)
 async def test_activity_heatmap_uses_request_timezone_for_hour_and_weekday_buckets(
     client: httpx.AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
+    zone_source: str,
 ):
     settings.auth.enabled = False
     settings.public_access.enabled = False
@@ -485,7 +499,7 @@ async def test_activity_heatmap_uses_request_timezone_for_hour_and_weekday_bucke
         response = await client.get(
             "/api/stats/detections/activity-heatmap",
             params={"span": "week"},
-            headers={"X-Timezone": "America/New_York"},
+            headers=_new_york_from(zone_source, monkeypatch),
         )
         assert response.status_code == 200, response.text
         payload = response.json()
@@ -503,9 +517,11 @@ async def test_activity_heatmap_uses_request_timezone_for_hour_and_weekday_bucke
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("zone_source", ZONE_SOURCES)
 async def test_daily_summary_uses_request_timezone_for_hourly_distribution(
     client: httpx.AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
+    zone_source: str,
 ):
     settings.auth.enabled = False
     settings.public_access.enabled = False
@@ -535,7 +551,7 @@ async def test_daily_summary_uses_request_timezone_for_hourly_distribution(
     try:
         response = await client.get(
             "/api/stats/daily-summary",
-            headers={"X-Timezone": "America/New_York"},
+            headers=_new_york_from(zone_source, monkeypatch),
         )
         assert response.status_code == 200, response.text
         payload = response.json()
@@ -546,9 +562,11 @@ async def test_daily_summary_uses_request_timezone_for_hourly_distribution(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("zone_source", ZONE_SOURCES)
 async def test_timeline_uses_request_timezone_for_daily_points_and_compare_series(
     client: httpx.AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
+    zone_source: str,
 ):
     settings.auth.enabled = False
     settings.public_access.enabled = False
@@ -578,7 +596,7 @@ async def test_timeline_uses_request_timezone_for_daily_points_and_compare_serie
         response = await client.get(
             "/api/stats/detections/timeline",
             params={"span": "week", "compare_species": ["Common Wood-Pigeon"]},
-            headers={"X-Timezone": "America/New_York"},
+            headers=_new_york_from(zone_source, monkeypatch),
         )
         assert response.status_code == 200, response.text
         payload = response.json()

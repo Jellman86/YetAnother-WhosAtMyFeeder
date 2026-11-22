@@ -24,7 +24,7 @@ from app.services.canonical_identity_repair_service import canonical_identity_re
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.utils.tasks import create_background_task
-from app.utils.timezone import get_user_timezone
+from app.utils.timezone import calendar_timezone
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -577,7 +577,7 @@ async def backfill_detections(
     - 'custom': Use start_date and end_date parameters
     """
     lang = get_user_language(request)
-    user_timezone = get_user_timezone(request)
+    user_timezone = calendar_timezone(request)
     if _RESET_IN_PROGRESS:
         raise HTTPException(status_code=409, detail="A database reset is in progress.")
     holder_id = _maintenance_holder_id("backfill_detections_sync", str(uuid4()))
@@ -651,7 +651,7 @@ async def backfill_detections_async(
 ):
     """Run detection backfill in the background and return a job status."""
     lang = get_user_language(request)
-    user_timezone = get_user_timezone(request)
+    user_timezone = calendar_timezone(request)
     taxonomy_status = canonical_identity_repair_service.get_status()
     if taxonomy_status.get("is_running"):
         raise HTTPException(
@@ -812,7 +812,7 @@ async def backfill_weather(
 ):
     """Backfill missing weather fields for detections in a date range."""
     lang = get_user_language(request)
-    user_timezone = get_user_timezone(request)
+    user_timezone = calendar_timezone(request)
     if _RESET_IN_PROGRESS:
         raise HTTPException(status_code=409, detail="A database reset is in progress.")
     holder_id = _maintenance_holder_id("backfill_weather_sync", str(uuid4()))
@@ -1180,7 +1180,7 @@ async def backfill_weather_async(
     job = await _start_weather_backfill_async(
         backfill_request,
         lang,
-        user_timezone=get_user_timezone(request),
+        user_timezone=calendar_timezone(request),
     )
     if job is None:
         # raise_on_busy defaults to True so this should not happen, but guard

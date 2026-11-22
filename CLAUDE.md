@@ -294,18 +294,23 @@ CI is where the Definition of Done is enforced. Keep CI and the local commands i
 workflow in the same commit. CI is allowed to be stricter than a local run, never
 looser.
 
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — **backend**: repo-wide
-  `ruff check .` and `ruff format --check .` (every tracked Python path, §7),
-  Alembic migration smoke (`upgrade → downgrade → upgrade`), migration path matrix
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — **backend**: the immutable Action
+  reference check (`check_action_pins.py`), repo-wide `ruff check .` and `ruff format --check .`
+  (every tracked Python path, §7), Alembic migration smoke (`upgrade → downgrade → upgrade`) for
+  the detection history and, separately, for the species catalogue, migration path matrix
   ([`backend/scripts/ci_migration_path_check.py`](backend/scripts/ci_migration_path_check.py)),
-  single-Alembic-head check, and `pytest`. **frontend**: `npm ci` → `npm run check`
-  → `npm run lint:dead` (knip: no unused files, exports, or packages) → `npm run lint:tokens`
-  (the design-token ratchet and contrast proof) → `npm test` (which includes the copy lint, with a second step that refuses a raised copy baseline) → `npm run build` → `npm run check:cache`
-  (chunk names stable across a one-page change).
+  `pytest`, the single-Alembic-head check for both streams, and the OpenAPI artifact and frontend
+  OpenAPI types `--check`s. **frontend**: `npm ci` → `npm run check` → `npm run lint:dead` (knip:
+  no unused files, exports, or packages) → `npm run lint:tokens` (the design-token ratchet and
+  contrast proof) → on pull requests, `npm run tokens:check-base` and `npm run copy:check-base`
+  against the target branch (the token and copy-lint baselines may only fall) → `npm test` (which
+  includes the copy lint) → `npm run build` → `npm run check:cache` (chunk names stable across a
+  one-page change).
   **production bundle**: `npm run build`, then `npm run test:browser:production`, a Chromium smoke of
   the built bundle served from `dist`. It checks every page, every chunk, German and the lazy features,
   with no console errors. The fixture suite runs on the dev server, which does not split code.
-  **browser**: the complete Chromium fixture suite, with failure screenshots and traces retained.
+  **browser**: the complete Chromium fixture suite in two shards, with failure screenshots and
+  traces retained.
   **intel image**: when the Dockerfile, `docker/`, the Intel requirements or the motion decoder
   change, builds the Intel image without publishing it and runs the flavor smoke test, including
   the Garden motion VA-API decoder check.
@@ -319,7 +324,8 @@ looser.
   registry by the frontend tests, so a new request needs a registry entry, a row and its wording in
   every locale. What the guard cannot see is listed in the registry's `manual_review`; a change to
   a registered module is reviewed by hand for a new destination.
-  **telemetry worker**: dependency check.
+  **telemetry worker**: `npm ci` and `npm test`. **docs and compose**: the docs consistency check
+  and `docker compose config` for each compose file.
 - [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) — CodeQL scanning
   for Python and TypeScript.
 - [`.github/workflows/docs-quality.yml`](.github/workflows/docs-quality.yml) — runs

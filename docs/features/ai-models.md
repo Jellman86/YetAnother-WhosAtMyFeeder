@@ -105,9 +105,13 @@ clear the original crash evidence or make the installation healthy. See
 See [Model Accuracy & Benchmarks](model-accuracy.md) for dated accuracy panels. Coverage, download
 size and memory estimates are listed in the [model release](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/tag/models).
 
+A fresh install runs the bundled MobileNet V2, the small birds-only starter model, until you choose
+another one. The Model manager suggests Small Birds as the next step, or RoPE ViT-B14 when Small
+Birds is not offered; a Raspberry Pi image is only offered the starter model.
+
 | Model | Position |
 |---|---|
-| **RoPE ViT-B14 (224 px)** | Default wildlife-wide classifier; 10,000 outputs. |
+| **RoPE ViT-B14 (224 px)** | Wildlife-wide classifier, the suggested step up when Small Birds is not offered; 10,000 outputs. |
 | **ConvNeXt Large** | Larger wildlife-wide alternative; compare on your own feeder images. |
 | **EVA-02 Large** | Large comparison model. The reporter's sustained Intel GPU/backfill fault in [#490](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/490) remains unconfirmed; another host's passing check does not close it. |
 

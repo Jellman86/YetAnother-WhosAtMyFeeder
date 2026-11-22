@@ -1184,6 +1184,8 @@
     "gpu_setup_docs": "GPU 設定と診断ガイド",
     "inference_provider": "識別モデルの実行デバイス",
     "auto_detected": "自動検出",
+    "auto_detected_verified": "自動検出 · 検証済み ✓",
+    "auto_detected_unverified": "自動検出 · 未検証",
     "active_provider_label": "使用中",
     "intel_gpu_status": "Intel GPU",
     "provider_fallback_reason": "フォールバック:",

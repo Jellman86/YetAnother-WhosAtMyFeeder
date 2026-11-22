@@ -1184,6 +1184,8 @@
     "gpu_setup_docs": "Руководство по настройке и диагностике GPU",
     "inference_provider": "Модель определения работает на",
     "auto_detected": "Определено автоматически",
+    "auto_detected_verified": "Определено автоматически · проверено ✓",
+    "auto_detected_unverified": "Определено автоматически · не проверено",
     "active_provider_label": "Активен",
     "intel_gpu_status": "Intel GPU",
     "provider_fallback_reason": "Резервный режим:",

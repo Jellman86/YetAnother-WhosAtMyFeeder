@@ -1192,6 +1192,8 @@
     "openvino_status": "OpenVINO",
     "intel_gpu_status": "Intel GPU",
     "auto_detected": "Auto-detected",
+    "auto_detected_verified": "Auto-detected · verified ✓",
+    "auto_detected_unverified": "Auto-detected · unverified",
     "selected_provider_label": "Selected",
     "active_provider_label": "Active",
     "inference_backend_label": "Backend",

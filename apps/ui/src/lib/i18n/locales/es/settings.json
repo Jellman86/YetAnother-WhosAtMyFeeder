@@ -1184,6 +1184,8 @@
     "gpu_setup_docs": "Guía de configuración y diagnóstico de GPU",
     "inference_provider": "El modelo de identificación se ejecuta en",
     "auto_detected": "Detectado automáticamente",
+    "auto_detected_verified": "Detectado automáticamente · verificado ✓",
+    "auto_detected_unverified": "Detectado automáticamente · sin verificar",
     "active_provider_label": "Activo",
     "intel_gpu_status": "GPU Intel",
     "provider_fallback_reason": "Fallback:",

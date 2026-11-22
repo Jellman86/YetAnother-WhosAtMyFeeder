@@ -25,7 +25,8 @@ New development features require a matching `dev` image.
 ## What you can do
 
 - **Identify locally:** choose a model and validate it on your CPU, Intel GPU/NPU or NVIDIA GPU.
-  RoPE ViT-B14 remains the default; [coverage and hardware support vary by model](docs/features/ai-models.md).
+  A fresh install runs the bundled MobileNet V2 until you choose another model; the Model manager
+  suggests Small Birds as the next step. [Coverage and hardware support vary by model](docs/features/ai-models.md).
 - **Review the evidence:** explore seen visits and heard calls, inspect individual captures,
   correct species and count birds in a photograph. See [Explorer](docs/features/explorer.md).
 - **Keep important visits:** star a favourite to archive available media; manage ordinary

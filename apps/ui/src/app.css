@@ -588,10 +588,11 @@ html[data-theme='dark'] {
   @apply rounded-2xl border border-line-soft bg-surface transition-colors duration-200;
 }
 
-/* Depth for dialogs (docs/standards/ui-ux.md, Depth). Four parts, each one job:
+/* Depth (docs/standards/design-tokens.md, Depth). Five parts, each one job:
    the scrim dims the page so the dialog is the brightest surface on screen; the dialog surface is
-   edged and lifted off it; a well is the recessed ground inside a dialog; and a raised panel
-   stands on a well to group what belongs together. A panel on plain dialog ground stays `card-base`. */
+   edged and lifted off it; a well is the recessed ground inside a dialog; a raised panel stands on
+   a well to group what belongs together; and a media frame edges and lifts a photograph or a
+   player as one object. A panel on plain dialog ground stays `card-base`. */
 @utility dialog-scrim {
   background-color: rgb(var(--scrim) / var(--scrim-strength));
 }

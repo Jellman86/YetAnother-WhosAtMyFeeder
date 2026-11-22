@@ -241,7 +241,7 @@
                 />
             </BetaSection>
 
-            <BetaSection id="garden-section-checks" title={$_('settings.beta.garden_section_checks', { default: 'Automatic checks and naming' })} openByDefault>
+            <BetaSection id="garden-section-checks" title={$_('settings.beta.garden_section_checks', { default: 'Automatic checks' })} openByDefault>
                 <p class="text-sm text-muted" data-garden-naming-elsewhere>
                     {$_('settings.beta.garden_naming_elsewhere', { default: 'Automatic naming is set with the birds\' naming threshold, at the top of Identifying birds.' })}
                 </p>

@@ -27,7 +27,7 @@ from app.database import get_db
 from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository, match_audio_history_visual_events
 from app.utils.language import get_user_language
-from app.utils.timezone import get_user_timezone
+from app.utils.timezone import calendar_timezone
 from app.utils.audio_localization import localize_audio_detections
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.api_datetime import serialize_api_datetime
@@ -442,7 +442,7 @@ async def get_audio_activity_heatmap(
             maximum_end=window.public_end,
             scientific_name=scientific_name,
         )
-    grid = weekday_hour_grid(utc_hourly_counts, get_user_timezone(request))
+    grid = weekday_hour_grid(utc_hourly_counts, calendar_timezone(request))
     window_end = min(window.end_date, window.public_end) if window.public_end else window.end_date
     return AudioActivityHeatmapResponse(
         window_start=serialize_api_datetime(window.start_date),

@@ -235,3 +235,15 @@ async def test_scientific_name_matches_names_stored_as_birdnet_sent_them(client:
     ).json()
 
     assert payload["total_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_route_without_a_header_uses_the_instance_time_zone(client: httpx.AsyncClient, monkeypatch):
+    """curl and Home Assistant send no X-Timezone; their hours are the instance's, as their day already is."""
+    monkeypatch.setenv("TZ", "Asia/Kolkata")
+    await _seed(ROWS)
+
+    payload = (await client.get("/api/audio/activity-heatmap", params={"days": 14})).json()
+
+    assert _cell(payload, 1, 13) == 3
+    assert _cell(payload, 1, 8) == 0
