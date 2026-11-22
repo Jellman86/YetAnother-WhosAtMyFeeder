@@ -180,14 +180,14 @@ async function shot(name, locator) {
     await locator.screenshot({ path: `${images}/${name}.png`, animations: 'disabled' });
     captured.push(name); console.log(`Captured ${name}`);
 }
-// Settings is organised by task in six sections; a part is opened by its route, as a link would.
+// Settings is organised by task in seven sections; a part is opened by its route, as a link would.
 async function openSettings(route) {
     await page.goto(`${base}/browser-tests/settings-backfill.html?route=${encodeURIComponent(route)}`);
     await page.locator('[data-settings-content]').waitFor();
     await page.waitForTimeout(350);
 }
 async function openMoreOptions() {
-    const toggle = page.locator('[data-settings-more] > h2 > button');
+    const toggle = page.locator('[data-settings-more] > h3 > button');
     if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
     await page.locator('[data-settings-more-body]').waitFor();
     await page.waitForTimeout(350);
@@ -224,18 +224,17 @@ try {
     for (const [route, name, section, from] of [
         ['/settings/cameras', 'settings-connection', 'cameras'],
         ['/settings/identification', 'settings-detection', 'identification'],
-        ['/settings/alerts', 'settings-notifications', 'alerts'],
-        // The sign-in and guest access the authentication guide describes, below the feeder's location.
-        ['/settings/sharing', 'settings-security', 'sharing', 'Sign-in'],
+        ['/settings/notifications', 'settings-notifications', 'notifications'],
+        // The sign-in and guest access the authentication guide describes.
+        ['/settings/access', 'settings-security', 'access', 'Sign-in'],
         ['/settings/storage', 'settings-data', 'storage']
     ]) {
         await openSettings(route);
         await shotSection(name, section, from);
     }
-    // BirdNET-Go is set up with the cameras, under Cameras & connection's More options.
-    await openSettings('/settings/cameras');
-    await openMoreOptions();
-    await shot('settings-integrations', page.locator('[data-settings-part-more="birdnet"]'));
+    // BirdNET-Go is in Integrations, with every other external service.
+    await openSettings('/settings/integrations');
+    await shot('settings-integrations', page.locator('[data-settings-part="birdnet"]'));
     await openSettings('/settings/models');
     // The chosen model's card in the model list, with its memory estimate and location guidance.
     const selectedModel = page.locator('[data-current-model]');

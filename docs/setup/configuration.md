@@ -5,7 +5,7 @@ supported [environment overrides](environment-variables.md) take precedence on r
 
 ## How Settings is laid out
 
-Settings is organised by the task you came to do, in six sections. On a wide screen they are listed
+Settings is organised by the task you came to do, in seven sections. On a wide screen they are listed
 in a rail beside the settings, so a section's first setting is at the top of the page; a **Skip to
 the settings** link moves keyboard focus past it. On a phone or a narrow window a **Settings
 section** list names the section you are in. A section holding unsaved changes is marked "unsaved"
