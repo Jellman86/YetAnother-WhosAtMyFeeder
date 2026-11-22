@@ -317,12 +317,13 @@ A header or `TZ` that does not name a real zone is ignored (and logged once), ne
 Every other day, hour and weekday the API buckets by uses the same zone: `daily-summary`'s
 `window=today` and its hour buckets, the timeline's buckets, both activity heatmaps, the
 species stats distributions, custom backfill dates and the local time an AI analysis is given.
-So a client with no header gets hours in the instance's zone that agree with its day. A guest's shared window is applied after the zone
-is resolved, so no header can widen it. A day runs from local midnight
+So a client with no header gets hours in the instance's zone that agree with its day. A guest's
+shared window is applied after the zone is resolved, so no header can widen it. A day runs from local midnight
 to the last instant before the next local midnight, so a capture at 23:30 local time belongs to
 that day even when it is already the next day in UTC, and a day that changes the clock is 23 or
-25 hours long. Both bounds are inclusive. The range may span at most 365 days; a longer range
-is rejected with `400`. Any other word is rejected with `422`.
+25 hours long. Both bounds are inclusive. The end day may be at most 365 days after the start
+day, so a range holds up to 366 calendar days: a whole calendar year, leap years included. A
+longer range is rejected with `400`. Any other word is rejected with `422`.
 
 ```bash
 # Everything from today, oldest first in pages of 500, then today's visits in one request.
@@ -1620,8 +1621,8 @@ archived videos return 404 so the player uses the retained MP4; no archive trans
 
 Backfill accepts `day`, `week`, `month`, or `custom`. Custom `start_date` and `end_date` values are
 calendar dates in the zone `X-Timezone` names, else the container's `TZ`, else UTC, and the final
-day is inclusive. Detection import is idempotent by Frigate event ID: a stronger image result can update classification fields, but it
-preserves existing audio confirmation, weather, same-species taxonomy, the strongest Frigate score,
+day is inclusive. Detection import is idempotent by Frigate event ID: a stronger image result
+can update classification fields, but it preserves existing audio confirmation, weather, same-species taxonomy, the strongest Frigate score,
 and sublabel evidence. Backfill applies the same confidence, abstention, blocked-species, and trusted-
 sublabel rules as live ingest. Completed snapshots are requested explicitly without a crop and valid,
 aligned Frigate box/region metadata restores Frigate's tracked-object crop locally before that shared
@@ -1666,8 +1667,8 @@ snapshot, not a destructive queue-control API.
     `top_species` row carries its `scientific_name` (null when the calls were stored without one):
     `species` is translated, so the scientific name is what asks the activity grid for that species
   - `GET /api/audio/activity-heatmap` — calls heard by weekday and hour, in the zone the
-    `X-Timezone` header names, else the container's `TZ`, else UTC. It takes the summary's window (`days`, or
-    `start_date`/`end_date`) and filters (`species`, `source`, `min_confidence`), so its
+    `X-Timezone` header names, else the container's `TZ`, else UTC. It takes the summary's window
+    (`days`, or `start_date`/`end_date`) and filters (`species`, `source`, `min_confidence`), so its
     `total_count` always equals the summary's `total`. Cells have the camera grid's shape
     (`day_of_week` 0 for Sunday, `hour`, `count`) with `max_cell_count`, and `window_start` and
     `window_end` state the window counted. Optional `scientific_name` limits it to one species exactly
