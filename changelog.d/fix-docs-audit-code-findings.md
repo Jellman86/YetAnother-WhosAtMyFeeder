@@ -21,3 +21,9 @@
   device note points to **Settings › Identifying birds › More options › Hardware**, and English
   spells "Favourite" one way throughout. The Intel GPU and NPU chips' "verified" and "unverified"
   are translated. The Unraid template says the media cache lives in `/config/media_cache`.
+- **A settings backup that names no model keeps the bundled one.** A fresh install runs the bundled
+  MobileNet V2, and its saved selection is that model's file name. Settings built from an imported
+  backup without `classification.model` used to name RoPE ViT-B14 instead, a model the install had
+  not downloaded. Both now share one default. The README and the model guides no longer call RoPE
+  ViT-B14 the default: it is the wildlife-wide model the Model manager suggests when Small Birds is
+  not offered.

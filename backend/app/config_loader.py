@@ -14,6 +14,7 @@ from .config_models import (
     AccessibilitySettings,
     AppearanceSettings,
     BirdWeatherSettings,
+    BUNDLED_CLASSIFIER_FILE,
     HomeAssistantWeatherSettings,
     ClassificationSettings,
     DEFAULT_AI_ANALYSIS_PROMPT,
@@ -323,7 +324,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         default_inference_provider = "auto"
 
     classification_data = {
-        "model": "model.tflite",
+        "model": BUNDLED_CLASSIFIER_FILE,
         "threshold": 0.7,
         "min_confidence": 0.4,
         "blocked_labels": [],
