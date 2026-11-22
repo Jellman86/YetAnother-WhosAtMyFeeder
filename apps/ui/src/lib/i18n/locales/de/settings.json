@@ -267,13 +267,22 @@
     "models": "Modelle",
     "maintenance": "Wartung",
     "refused": "muss korrigiert werden",
-    "refused_note": "Enthält einen Wert, den das letzte Speichern abgelehnt hat"
+    "refused_note": "Enthält einen Wert, den das letzte Speichern abgelehnt hat",
+    "location": "Standort",
+    "birdnet": "BirdNET-Go",
+    "weather": "Home-Assistant-Wetter",
+    "rules": "Globale Benachrichtigungsfilter",
+    "channels": "Kanäle",
+    "garden-alerts": "Benachrichtigungen zu Gartentieren",
+    "telemetry": "Telemetrie",
+    "networks": "eBird, iNaturalist und BirdWeather"
   },
   "sections": {
     "cameras": "Kameras & Verbindung",
     "identification": "Vögel bestimmen",
-    "alerts": "Benachrichtigungen",
-    "sharing": "Teilen & Integrationen",
+    "integrations": "Integrationen",
+    "notifications": "Benachrichtigungen",
+    "access": "Zugriff & Datenschutz",
     "storage": "Speicher & Wartung",
     "display": "Anzeige"
   },
@@ -301,7 +310,6 @@
       "storage": "Speicher",
       "notifications": "Benachrichtigungen"
     },
-    "sharing_note": "Hier hängt nichts von einer gemessenen Verbindung ab. Anmeldung und Gastzugang werden hier eingestellt; jeder Dienst unter Weitere Optionen zeigt, ob er eingeschaltet ist.",
     "cause": {
       "classifier": {
         "model_missing": "nicht auf dieser Installation"
@@ -382,18 +390,18 @@
       "failed_unsaved": "Um {time} mit den noch nicht gespeicherten Werten dieser Seite getestet: Es hat nicht funktioniert. Führen Sie ihn erneut aus, um den Grund zu sehen.",
       "passed_subject_unsaved": "{subject} um {time} mit den noch nicht gespeicherten Werten dieser Seite getestet: Es hat funktioniert.",
       "failed_subject_unsaved": "{subject} um {time} mit den noch nicht gespeicherten Werten dieser Seite getestet: Es hat nicht funktioniert. Führen Sie ihn erneut aus, um den Grund zu sehen."
-    }
+    },
+    "access_note": "Nichts hier hängt von einer gemessenen Verbindung ab. Anmeldung, Gastzugang und Telemetrie zeigen hier jeweils, ob sie eingeschaltet sind."
   },
   "more": {
     "title": "Weitere Optionen",
-    "cameras": "Frigate-Details, Bildquelle, Clips und BirdNET-Go",
-    "sharing": "eBird, iNaturalist, BirdWeather, Home-Assistant-Wetter, Arteninformationen, KI und Telemetrie",
+    "cameras": "Frigate-Details, Bildquelle und Clips",
     "identification": "Blockierte Arten, Verbreitungsfilter, Videoprüfungen, Hardware und Beta-Funktionen",
     "identification_loading": "Weitere Optionen werden geöffnet…",
-    "alerts": "Abkühlzeit, Sprache, Link und Artenfilter",
-    "alerts_garden": "Abkühlzeit, Sprache, Link, Artenfilter und Benachrichtigungen zu Gartentieren",
     "storage": "Wenn Frigate einen Besuch verliert, und die Aufgaben, die den Verlauf reparieren oder ergänzen",
-    "display": "Datums- und Zeitformat, Vogelnamen, Explorer-Ansicht, Schriften und Farben, Barrierefreiheit für alle sowie Einheiten"
+    "display": "Datums- und Zeitformat, Vogelnamen, Explorer-Ansicht, Schriften und Farben, Barrierefreiheit für alle sowie Einheiten",
+    "notifications": "Abkühlzeit, Sprache, Link und Artenfilter",
+    "integrations": "Woher Artseiten ihre Informationen beziehen"
   },
   "debug": {
     "llm_prompt_style_label": "Prompt-Stil",
@@ -602,6 +610,27 @@
       "illuminance_not_numeric": "{entity} hat keine Zahl gemeldet, daher wird keine Helligkeit gespeichert.",
       "illuminance_out_of_range": "{entity} hat einen Wert außerhalb von 0 bis 200.000 lx gemeldet, daher wird er nicht gespeichert.",
       "illuminance_no_answer": "Der Test hat keinen Helligkeitswert zurückgegeben."
+    },
+    "elsewhere_pipeline": "Über Frigate und den MQTT-Broker treffen Besuche ein, daher werden sie unter {section} eingestellt.",
+    "open_connection": "Frigate und MQTT öffnen",
+    "elsewhere_location": "Wetter, eBird, iNaturalist und der Verbreitungsfilter gehen alle vom Standort Ihres Futterplatzes aus, der ebenfalls unter {section} eingestellt wird. Das Wetter selbst kommt von Open-Meteo und braucht keine Einrichtung.",
+    "open_location": "Standort des Futterplatzes öffnen",
+    "state": {
+      "off": "Aus.",
+      "not_set_up": "Ein, aber nicht eingerichtet: {missing}.",
+      "no_test": "Ein und eingerichtet. Es gibt keinen Verbindungstest.",
+      "not_tested": "Ein und eingerichtet. Bei diesem Besuch nicht getestet: Testergebnisse werden nicht aufbewahrt.",
+      "passed": "Ein. Der Test war um {time} erfolgreich.",
+      "failed": "Ein, aber der Test ist um {time} fehlgeschlagen: {reason}",
+      "needs_station_token": "Stations-Token eintragen",
+      "needs_api_key": "API-Schlüssel eintragen",
+      "inaturalist_connected": "Ein, angemeldet als {user}.",
+      "needs_inaturalist_sign_in": "unten Ihr iNaturalist-Konto verbinden",
+      "needs_inaturalist_app": "Anwendungs-ID und Secret eintragen",
+      "needs_audio_topic": "das MQTT-Topic eintragen, auf dem BirdNET-Go veröffentlicht",
+      "needs_ha_url": "Home-Assistant-URL eintragen",
+      "needs_ha_token": "langlebiges Zugriffstoken eintragen",
+      "needs_ha_entity": "Wetter-Entität oder Sensor wählen"
     }
   },
   "enrichment": {
@@ -767,8 +796,8 @@
     "recording_frame_delay_desc": "1 bis 120 Sekunden nach dem ersten Schnappschuss warten. Die neuesten währenddessen empfangenen Metadaten des verfolgten Schnappschusses werden verwendet. Bestimmung und Benachrichtigungen erfolgen später. Dies wartet nicht auf jedes Ereignisende und bestimmt gespeicherte Besuche nicht neu.",
     "test_connection_both": "Frigate und MQTT testen",
     "test_again": "Erneut testen",
-    "stage_frigate_next": "Prüfen Sie die Frigate-Server-URL auf diesem Tab und ob Frigate läuft.",
-    "stage_mqtt_next": "Prüfen Sie Broker-Adresse, Port und Anmeldung auf diesem Tab.",
+    "stage_frigate_next": "Prüfen Sie die Server-URL unter {section} und ob Frigate läuft.",
+    "stage_mqtt_next": "Prüfen Sie Broker-Adresse, Port und Anmeldung unter {section}.",
     "more_title": "Frigate-Details"
   },
   "cameras": {
@@ -965,7 +994,7 @@
       "what_realtime": "jede Aktualisierung",
       "what_silent": "still",
       "what_custom": "eigene Regeln",
-      "custom_hint": "Eigene Regeln werden unten unter Erweitert festgelegt.",
+      "custom_hint": "Legen Sie die genauen Auslöser mit den Schaltern unter „Eigene Regeln“ unterhalb dieses Satzes fest.",
       "species_any": "allen Arten",
       "species_all_but": "{count, plural, one {allen außer # Art} other {allen außer # Arten}}",
       "species_only": "{count, plural, one {nur # Art} other {nur # Arten}}",
@@ -976,7 +1005,8 @@
       "channel_telegram": "Telegram",
       "channel_email": "E-Mail",
       "confidence_chip_audio": "{value} % Sicherheit und gehört",
-      "channels_jump": "Kanäle: {channels}. Zu den Kanälen."
+      "channels_jump": "Kanäle: {channels}. Zu den Kanälen.",
+      "custom_open": "Eigene Regeln"
     },
     "test_channel": "Kanal",
     "test_failed": "Die Testnachricht konnte nicht gesendet werden.",
@@ -1011,7 +1041,21 @@
     "channels_title": "Kanäle",
     "details_title": "Abkühlzeit, Sprache, Links und Arten",
     "garden_title": "Benachrichtigungen zu Gartentieren",
-    "channels_desc": "Wohin Benachrichtigungen gehen. Schalten Sie einen Kanal ein, um ihn einzurichten."
+    "channels_desc": "Wohin Benachrichtigungen gehen. Schalten Sie einen Kanal ein, um ihn einzurichten.",
+    "include_snapshot": "Foto mitsenden",
+    "include_snapshot_desc": "Sendet mit jeder Benachrichtigung den Schnappschuss des Besuchs. Aus sendet nur den Text.",
+    "custom_rules": {
+      "title": "Eigene Regeln",
+      "active": "Diese Schalter sind Ihre eigenen Regeln. Wählen Sie im Satz oben eine Vorgabe, um sie zu ersetzen.",
+      "desc": "Die Schalter, die die Auswahl oben setzt. Wenn Sie einen ändern, wird aus der Auswahl eine eigene Regel.",
+      "on_insert": "Wenn ein Besuch erstmals erfasst wird",
+      "on_insert_desc": "Eine Benachrichtigung, sobald der Besuch einen Namen hat.",
+      "on_update": "Wenn sich ein Besuch ändert",
+      "on_update_desc": "Eine weitere Benachrichtigung, sooft Frigate den Besuch aktualisiert, etwa mit einem besseren Foto oder einem neuen Namen.",
+      "delay_video": "Auf die Videoprüfung warten",
+      "delay_video_desc": "Hält die Benachrichtigung zurück, bis die Videoprüfung den Namen bestätigt hat, oder für die Sekunden unten, falls sie nie antwortet. Dafür müssen Videoprüfungen unter {section} eingeschaltet sein."
+    },
+    "garden_off": "Benachrichtigungen zu Gartentieren werden hier eingestellt, sobald Gartentiere unter den Beta-Funktionen in {section} eingeschaltet ist."
   },
   "discord": {
     "title": "Discord-Benachrichtigungen",
@@ -1280,7 +1324,7 @@
     "model_manager_repair_download": "Download reparieren",
     "model_manager_repair_needed": "Diese Modellinstallation ist unvollständig. Laden Sie das Modell erneut herunter, um die fehlenden Artnamen oder die Modellkonfiguration vor der Aktivierung wiederherzustellen.",
     "model_manager_location_title": "Nutzt den Standort Ihres Futterplatzes",
-    "model_manager_location_desc": "Dieses Modell nutzt zusätzlich die Koordinaten des Futterplatzes, die unter Einstellungen → Teilen & Integrationen → Standort gespeichert sind. Sind keine gültigen Koordinaten gespeichert, bestimmt es Vögel ohne Standort. Datum und Genauigkeitsradius des Standorts werden nicht verwendet.",
+    "model_manager_location_desc": "Dieses Modell nutzt zusätzlich die Koordinaten des Futterplatzes, die unter {place} gespeichert sind. Sind keine gültigen Koordinaten gespeichert, bestimmt es Vögel ohne Standort. Datum und Genauigkeitsradius des Standorts werden nicht verwendet.",
     "model_manager_location_link": "Standort-Einstellungen öffnen",
     "provider_intel_npu": "Intel-NPU (OpenVINO)",
     "bird_finder_title": "Vogelsuche",
@@ -1437,7 +1481,7 @@
     "garden_motion_toggle": "Bewegungsfotos zur Prüfung sammeln auf {camera}",
     "garden_naming_off": "Jedes Tier wartet unter „Erfordert Ihre Entscheidung“, bis Sie es bestätigen und benennen.",
     "garden_naming_elsewhere": "Die automatische Benennung wird mit der Benennungsschwelle der Vögel eingestellt, oben unter Vögel bestimmen.",
-    "garden_alerts_elsewhere": "Benachrichtigungen zu Gartentieren werden unter Benachrichtigungen eingestellt, bei den Kanälen, über die sie gesendet werden.",
+    "garden_alerts_elsewhere": "Benachrichtigungen zu Gartentieren werden unter {section} eingestellt, bei den Kanälen, über die sie gesendet werden.",
     "garden_naming_threshold_help": "Dies ist eine zweite Prüfung, welches Tier es ist. Ab diesem Wert wird das Tier für Sie bestätigt und benannt. Darunter kommt sein Foto zu Verworfen, wo Sie es wiederherstellen können.",
     "garden_naming_threshold": "Ein Tier benennen, wenn so sicher, welches es ist",
     "garden_naming": "Tiere automatisch benennen",
@@ -1468,7 +1512,7 @@
     "garden_models_error": "Die Gartenarbeit ist bis zum Neustart der Anwendung angehalten.",
     "garden_models_status_needed": "Downloads sind verfügbar, sobald der Modellstatus geladen ist.",
     "garden_country": "Tiernamen werden für {country} gefiltert.",
-    "garden_country_missing": "Kein Land festgelegt, daher werden Tiere nicht automatisch benannt und Artvorschläge sind nicht verfügbar. Legen Sie Ihren Standort unter Integrationen fest.",
+    "garden_country_missing": "Kein Land festgelegt, daher werden Tiere nicht automatisch benannt und Artvorschläge sind nicht verfügbar. Legen Sie den Standort Ihres Futterplatzes unter {section} fest.",
     "garden_outcomes": "Wohin Aufnahmen gelangen",
     "garden_outcome_pending_review": "Prüfungen, die noch laufen sollen, fehlgeschlagene Prüfungen vor dem nächsten Versuch, fehlende Einrichtung oder Katalogzuordnung und Überschreibungen durch Sie.",
     "garden_outcome_confirmed": "Tiere, die Sie bestätigen, und sichere Tiere mit automatischem Namen. Ein automatischer Name ist als automatisch markiert und kann verworfen werden.",
@@ -1505,14 +1549,14 @@
     "garden_step_model": "Laden Sie das {model} herunter.",
     "garden_step_model_open": "Gartenmodelle einrichten",
     "garden_step_location": "Legen Sie Ihren Standort fest, damit der Garten Ihr Land kennt und Tiere benennen kann.",
-    "garden_step_location_open": "Standort unter Integrationen festlegen",
+    "garden_step_location_open": "Standort des Futterplatzes festlegen",
     "garden_off_note": "Der Garten sammelt keine neuen Aufnahmen mehr. Vorhandene Aufnahmen und Einstellungen bleiben erhalten und sind wieder da, wenn Sie ihn erneut einschalten.",
     "garden_off_effects": "Solange er aus ist, ist der Garten im Explorer ausgeblendet, seine Meldungen stoppen und Vögel, die Sie halten, werden als Wildvögel erfasst. Die Aufbewahrungsdauer gilt weiterhin für gespeicherte Aufnahmen.",
     "garden_section_cameras": "Kameras",
     "garden_section_checks": "Automatische Prüfungen",
     "garden_section_models": "Modelle",
     "garden_naming_help": "Tiere, die die Benennungsschwelle erreichen, werden bestätigt und benannt. Fotos darunter kommen zu Verworfen, wo Sie sie wiederherstellen können.",
-    "garden_device_note": "Automatische Prüfungen nutzen das unter Einstellungen › Modelle › Hardware gewählte Gerät, sobald es mit der CPU übereinstimmt, und fallen bei einem Fehler auf die CPU zurück. Bewegungsscans nutzen die CPU. Der Garten führt jeweils eine Aufgabe aus, während Vögel und Kameras ruhen.",
+    "garden_device_note": "Automatische Prüfungen nutzen das unter {place} gewählte Gerät, sobald es mit der CPU übereinstimmt, und fallen bei einem Fehler auf die CPU zurück. Bewegungsscans nutzen die CPU. Der Garten führt jeweils eine Aufgabe aus, während Vögel und Kameras ruhen.",
     "garden_status_refresh": "Status aktualisieren",
     "garden_status_loading": "Gartenstatus wird geprüft…",
     "garden_domestic_birds_count": "{count, plural, =0 {Keine} one {# Vogel} other {# Vögel}}",
@@ -1556,7 +1600,7 @@
     "status_ready": "Aus. Eingeschaltet würde auf {count, plural, one {# Art} other {# Arten}} gefiltert, die in {region} erfasst wurden.",
     "status_needs_location": "Aus: braucht Ihren Standort.",
     "status_needs_location_on": "Filtert nicht: braucht Ihren Standort.",
-    "status_needs_location_detail": "Der Filter findet Ihre eBird-Region über den Standort, der unter Integrationen eingetragen ist.",
+    "status_needs_location_detail": "Der Filter findet Ihre eBird-Region über den Standort Ihres Futterplatzes, der unter {section} eingetragen wird.",
     "status_needs_key": "Fügen Sie einen eBird-API-Schlüssel hinzu, um den Verbreitungsfilter zu nutzen.",
     "status_needs_key_detail": "Die regionale eBird-Liste ist die einzige Quelle für Verbreitungsgebiete. BirdNET-Go kann zeigen, dass eine Art hier vorkommt, aber nie, dass sie fehlt; allein filtert es daher nichts.",
     "status_fetching": "Die eBird-Liste für Ihre Gegend wird abgerufen…",
@@ -1727,7 +1771,7 @@
     "recover_revalidate": "Prüfen und erneut laden",
     "status_missing_next_settings": "Laden Sie es unten herunter oder wählen Sie ein anderes Modell.",
     "status_missing_next_wizard": "Laden Sie es hier herunter oder wählen Sie ein anderes Modell.",
-    "status_missing_next_about": "Laden Sie es unter Einstellungen › Modelle herunter.",
+    "status_missing_next_about": "Laden Sie es unter {place} herunter.",
     "status_planned": "{model} wird die Vögel auf {device} bestimmen. Es wird mit dem ersten Besuch geladen.",
     "status_planned_no_device": "{model} wird die Vögel bestimmen. Es wird mit dem ersten Besuch geladen.",
     "status_running": "Die Vögel werden mit {model} auf {device} bestimmt.",

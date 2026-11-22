@@ -85,7 +85,7 @@ the change, and save the URL in **Settings → Cameras & connection**. Keep inte
 environment overrides if you manage configuration externally.
 
 Authentication is disabled initially. Set an admin password during setup or
-under **Settings → Sharing & integrations** before exposing the service beyond a trusted
+under **Settings → Access & privacy** before exposing the service beyond a trusted
 network. See [Authentication & Access](../features/authentication.md).
 
 ## Optional: hardware acceleration

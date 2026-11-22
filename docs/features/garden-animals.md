@@ -69,7 +69,7 @@ steps with a button for each: choose a camera, download a required model, or set
 Garden knows your country. While Garden is on, its settings sit in collapsible sections:
 **Cameras** and **Automatic checks and naming** open, and **Models**, **Domestic birds you keep**
 and **Where captures go** closed until you open them. Garden's alerts are not on the card: **Open
-Garden alerts** takes you to them in **Settings → Alerts**. While it is off, the card says
+Garden alerts** takes you to them in **Settings → Notifications**. While it is off, the card says
 what off means and what Garden needs, and offers no downloads.
 
 Which cameras watch for Garden animals is chosen once per camera in **Settings → Cameras & connection →
@@ -291,7 +291,7 @@ Garden is not using it for a run of checks. On CPU the process stays loaded for 
 without a check. Either way it stops as soon as bird work is waiting, when the model or device
 changes, and after 500 checks; memory use has not been measured for this beta. Checks you start from a Garden capture in the Explorer use the same device preference and
 fail rather than silently switch devices. Automatic naming and species suggestions need a
-country in **Settings → Sharing & integrations → Your feeder’s location**; the view says when it is missing.
+country in **Settings → Cameras & connection → Your feeder’s location**; the view says when it is missing.
 
 If bird classification recovers successfully on its isolated CPU fallback, Garden
 can use idle periods again. The bird pipeline remains visibly degraded and its
@@ -482,7 +482,7 @@ you still make the review decision. Bird work retains priority.
 
 To request a species suggestion, open a confirmed animal in the Explorer:
 
-1. Set a recognised country name or ISO code in **Settings → Sharing & integrations → Your feeder’s location**. Filtering
+1. Set a recognised country name or ISO code in **Settings → Cameras & connection → Your feeder’s location**. Filtering
    runs locally; coordinates are not sent to the model.
 2. Choose a garden model, about **224 MB** per variant, and download it under
    **Settings → Identifying birds → More options → Garden animals → Models** if the capture's record says it is missing. The default
@@ -541,7 +541,7 @@ dismissed automatically again. A name the catalogue cannot bind waits in **Needs
 only when its score reached the threshold. The configured
 species threshold is authoritative;
 a separate coarse presence floor does not prevent an otherwise qualifying animal name.
-Without a recognised country in **Settings → Sharing & integrations → Your feeder’s location**, or a catalogue identity, the
+Without a recognised country in **Settings → Cameras & connection → Your feeder’s location**, or a catalogue identity, the
 capture stays pending with the missing requirement explained. Failed checks stay pending
 and retry after five minutes; failures are never treated as low confidence. Person evidence anywhere in the top results
 removes the capture. Turn automatic naming off to review and name every animal yourself.
@@ -704,7 +704,7 @@ person to confirm presence. Manual confirmation remains available as an override
 
 ## Send Garden notifications
 
-Garden alerts are off by default and are set in **Settings → Alerts → More options → Garden animal
+Garden alerts are off by default and are set in **Settings → Notifications → Garden animal
 alerts**, marked Beta, beside the channels themselves. The Garden card links there while the beta
 is on.
 
@@ -714,7 +714,7 @@ is on.
    configured for birds. Or pick **Choose channels** and select channels
    yourself; they use the saved credentials, and their bird switches can stay off.
 3. Keep **Include the photo** on to attach the picture, or turn it off for text only.
-4. Select **Save changes**. Set **Instance address** under **Settings → Alerts → More options** if
+4. Select **Save changes**. Set **Instance address** under **Settings → Notifications → More options** if
    you want messages to link back to the capture.
 
 An alert is sent when a confirmed animal gets an accepted species name: automatic

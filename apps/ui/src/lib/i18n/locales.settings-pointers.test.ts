@@ -62,11 +62,47 @@ describe('"Settings → …" pointers in copy', () => {
         const dictionary = authoredLocale(language);
         const settingsWord = text(dictionary, 'nav.settings');
         const section = (id: string): string => text(dictionary, `settings.sections.${id}`);
-        // Location, and the country read from it, is a card in Sharing & integrations; importing
-        // missed detections is a job in Storage & upkeep.
-        expect(text(dictionary, 'garden.country_missing')).toContain(`${settingsWord} → ${section('sharing')}`);
-        expect(text(dictionary, 'garden.automatic_location_required')).toContain(`${settingsWord} → ${section('sharing')}`);
+        // Importing missed detections is a job in Storage & upkeep; the AI key is an integration;
+        // sign-in is in Access & privacy; the channels are in Notifications.
         expect(text(dictionary, 'events.empty_desc')).toContain(`${settingsWord} → ${section('storage')}`);
+        expect(text(dictionary, 'detection.ai.conversation_error')).toContain(`${settingsWord} → ${section('integrations')}`);
+        expect(text(dictionary, 'setup.account.already')).toContain(`${settingsWord} → ${section('access')}`);
+        expect(text(dictionary, 'setup.integrations.notifications_note')).toContain(`${settingsWord} → ${section('notifications')}`);
+    });
+
+    it.each(LANGUAGES)('%s leaves a place that has moved before to the navigation labels', (language) => {
+        const dictionary = authoredLocale(language);
+        // These name the feeder location, BirdNET-Go and Hardware, which have each moved section. The
+        // sentence holds a slot; settings-place.ts fills it from the section and part labels.
+        for (const key of ['garden.country_missing', 'garden.automatic_location_required', 'setup.model.location_hint', 'settings.detection.model_manager_location_desc', 'events.heard.none_stored', 'settings.beta.garden_device_note', 'settings.models.status_missing_next_about']) {
+            expect(text(dictionary, key), key).toContain('{place}');
+        }
+        for (const key of ['settings.beta.garden_country_missing', 'settings.beta.garden_alerts_elsewhere', 'settings.range_filter.status_needs_location_detail', 'settings.frigate.stage_frigate_next', 'settings.frigate.stage_mqtt_next', 'settings.notifications.garden_off', 'settings.integrations.elsewhere_pipeline']) {
+            expect(text(dictionary, key), key).toContain('{section}');
+        }
+    });
+
+    // What Sharing & integrations was called in each language. It was split into Integrations and
+    // Access & privacy, so no sentence may still name it.
+    const RETIRED_SECTION_NAMES: Readonly<Record<(typeof LANGUAGES)[number], string>> = {
+        en: 'Sharing & integrations',
+        de: 'Teilen & Integrationen',
+        es: 'Compartir e integraciones',
+        fr: 'Partage et intégrations',
+        it: 'Condivisione e integrazioni',
+        ja: '共有と統合',
+        pt: 'Compartilhamento e integrações',
+        ru: 'Обмен и интеграции',
+        zh: '共享与集成'
+    };
+
+    it.each(LANGUAGES)('%s names no section that Settings no longer has', (language) => {
+        const dictionary = authoredLocale(language);
+        const retired = RETIRED_SECTION_NAMES[language];
+        expect(strings(dictionary, '').filter(([, value]) => value.includes(retired)).map(([key]) => key)).toEqual([]);
+        // The older pointer style, "Settings › Models", named tabs that are parts now.
+        const settingsWord = text(dictionary, 'nav.settings');
+        expect(strings(dictionary, '').filter(([, value]) => value.includes(`${settingsWord} ›`)).map(([key]) => key)).toEqual([]);
     });
 
     it.each(LANGUAGES)('%s no longer points at a tab Settings no longer has', (language) => {

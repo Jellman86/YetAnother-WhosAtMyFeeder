@@ -15,7 +15,7 @@ import gardenServiceSource from './garden-service-status.svelte.ts?raw';
 import detectionSource from './DetectionSettings.svelte?raw';
 import notificationSource from './NotificationSettings.svelte?raw';
 import identificationSource from './sections/IdentificationSection.svelte?raw';
-import alertsSource from './sections/AlertsSection.svelte?raw';
+import notificationsSectionSource from './sections/NotificationsSection.svelte?raw';
 import enSettings from '../../i18n/locales/en/settings.json';
 
 const en = { settings: enSettings };
@@ -108,10 +108,10 @@ describe('Garden animals is a beta feature', () => {
     });
 
     it('sets Garden alerts once, in Alerts with the channels they send through; Garden only links there', () => {
-        expect(alertsSource).toContain('<GardenNotificationSettings');
-        expect(alertsSource).toContain('bind:enabled={gardenNotificationsEnabled}');
-        expect(alertsSource).toContain('birdChannels={channels}');
-        expect(alertsSource).toContain("label={$_('settings.beta.chip', { default: 'Beta' })}");
+        expect(notificationsSectionSource).toContain('<GardenNotificationSettings');
+        expect(notificationsSectionSource).toContain('bind:enabled={gardenNotificationsEnabled}');
+        expect(notificationsSectionSource).toContain('birdChannels={channels}');
+        expect(notificationsSectionSource).toContain("label={$_('settings.beta.chip', { default: 'Beta' })}");
         expect(gardenBetaSource).not.toContain('<GardenNotificationSettings');
         expect(gardenBetaSource).toContain('data-garden-alerts-elsewhere');
         expect(gardenBetaSource).toContain('onclick={onOpenAlerts}');

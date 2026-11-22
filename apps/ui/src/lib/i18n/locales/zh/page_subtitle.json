@@ -8,10 +8,11 @@
   "species": "哪些鸟最常来、多频繁以及何时来。",
   "health": "YA-WAMF 是否正常运行、主机在做什么，以及发生了什么。",
   "settings_section": {
-    "cameras": "事件来源：Frigate、它的 MQTT 代理以及要监视的摄像头。",
+    "cameras": "Frigate、其 MQTT 代理、要监视的摄像头以及喂食器位置。",
     "identification": "命名需要多大把握、发现和识别鸟类的模型及其硬件，以及仍处于测试阶段的功能。",
-    "alerts": "何时通知您有到访，以及通过哪些渠道发送。",
-    "sharing": "你的喂食器位置和谁可以打开此安装，然后是 YA-WAMF 读取或上报的其他服务、AI 描述和遥测。",
+    "integrations": "YA-WAMF 读取或上报的所有其他服务：BirdNET-Go、Home Assistant 天气、eBird、iNaturalist、BirdWeather 和 AI 提供商。",
+    "notifications": "何时收到访问通知、消息发送到哪些渠道，以及每个渠道发送什么。",
+    "access": "谁可以打开此安装、访客可以看到什么，以及 YA-WAMF 发送哪些关于自身的信息。",
     "storage": "保留什么、保留多久、这些设置的备份，以及修复或补全历史的任务。",
     "display": "YA-WAMF 的外观和鸟类名称的显示方式，以及对比度、阅读字体、动画和语音播报。"
   },

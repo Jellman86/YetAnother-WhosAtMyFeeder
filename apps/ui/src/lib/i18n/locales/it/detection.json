@@ -313,7 +313,7 @@
     "conversation_loading": "Caricamento conversazione…",
     "conversation_empty": "Nessuna conversazione ancora. Fai una domanda di approfondimento all'IA.",
     "conversation_placeholder": "Fai una domanda di approfondimento…",
-    "conversation_error": "L'IA non ha risposto. Controlla fornitore e chiave in Impostazioni → Condivisione e integrazioni, poi chiedi di nuovo.",
+    "conversation_error": "L'IA non ha risposto. Controlla fornitore e chiave in Impostazioni → Integrazioni, poi chiedi di nuovo.",
     "assistant": "Assistente",
     "user": "Tu",
     "send": "Invia",

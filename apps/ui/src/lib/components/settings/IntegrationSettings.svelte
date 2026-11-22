@@ -7,6 +7,8 @@
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
+    import { serviceState, serviceStateText, type ServiceTest } from '../../settings/service-state';
+    import { formatTime } from '../../utils/datetime';
     import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
     import { testBirdWeather } from '../../api/maintenance';
     import type { WeatherUnitSystem } from '../../utils/weather-units';
@@ -147,7 +149,36 @@
             (stages) => (bwStages = stages)
         );
         bwRunning = false;
+        bwTest = { passed: bwResult.ok, message: bwResult.message, at: Date.now(), signature: bwSignature };
     }
+
+    // Each group's state in words. A test describes the values it ran with, so an edit retires it.
+    let bwTest = $state<ServiceTest | null>(null);
+    const bwSignature = $derived(birdweatherStationToken);
+    const stateText = (reading: Parameters<typeof serviceState>[0]): string => serviceStateText(serviceState(reading), $_, formatTime);
+    const birdweatherState = $derived(stateText({
+        enabled: birdweatherEnabled,
+        missing: birdweatherStationToken || birdweatherStationTokenSaved ? null : $_('settings.integrations.state.needs_station_token', { default: 'add your station token' }),
+        signature: bwSignature,
+        test: bwTest
+    }));
+    const ebirdState = $derived(stateText({
+        enabled: ebirdEnabled,
+        missing: ebirdApiKey || ebirdApiKeySaved ? null : $_('settings.integrations.state.needs_api_key', { default: 'add an API key' }),
+        signature: ''
+    }));
+    // iNaturalist's own measure is the account it is signed in to, which the server reports.
+    const inaturalistState = $derived(
+        inaturalistEnabled && inaturalistConnectedUser
+            ? $_('settings.integrations.state.inaturalist_connected', { values: { user: inaturalistConnectedUser }, default: 'On, signed in as {user}.' })
+            : stateText({
+                enabled: inaturalistEnabled,
+                missing: (inaturalistClientId || inaturalistClientIdSaved) && (inaturalistClientSecret || inaturalistClientSecretSaved)
+                    ? $_('settings.integrations.state.needs_inaturalist_sign_in', { default: 'connect your iNaturalist account below' })
+                    : $_('settings.integrations.state.needs_inaturalist_app', { default: 'add the application ID and secret' }),
+                signature: ''
+            })
+    );
 
     async function connectInaturalist(): Promise<void> {
         // Open while the click still owns browser activation. Waiting for a save
@@ -212,7 +243,7 @@
 
 
 <div class="space-y-8">
-    <SettingsCard id="settings-group-integrations-inaturalist" nested title={$_('settings.integrations.inaturalist.title')} description={$_('settings.integrations.inaturalist.toggle_label')} titleId="integration-inaturalist-title">
+    <SettingsCard id="settings-group-integrations-inaturalist" title={$_('settings.integrations.inaturalist.title')} description={$_('settings.integrations.inaturalist.toggle_label')} status={inaturalistState} titleId="integration-inaturalist-title">
         <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
         {#snippet actions()}
             <SettingsToggle
@@ -372,7 +403,7 @@
         {/if}
     </SettingsCard>
 
-    <SettingsCard id="settings-group-integrations-ebird" nested title={$_('settings.integrations.ebird.title')} description={$_('settings.integrations.ebird.toggle_label')} titleId="integration-ebird-title">
+    <SettingsCard id="settings-group-integrations-ebird" title={$_('settings.integrations.ebird.title')} description={$_('settings.integrations.ebird.toggle_label')} status={ebirdState} titleId="integration-ebird-title">
         <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
         {#snippet actions()}
             <SettingsToggle
@@ -547,7 +578,7 @@
         {/if}
     </SettingsCard>
 
-    <SettingsCard id="settings-group-integrations-birdweather" nested title={$_('settings.integrations.birdweather.title')} description={$_('settings.integrations.birdweather.toggle_label')} titleId="integration-birdweather-title">
+    <SettingsCard id="settings-group-integrations-birdweather" title={$_('settings.integrations.birdweather.title')} description={$_('settings.integrations.birdweather.toggle_label')} status={birdweatherState} titleId="integration-birdweather-title">
         <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
         {#snippet actions()}
             <SettingsToggle

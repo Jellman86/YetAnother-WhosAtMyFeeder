@@ -12,6 +12,8 @@
     import { costReading, formatUsd } from '../../settings/ai-cost';
     import { matchingPromptStyle, promptTemplatesFor } from '../../settings/llm-prompt-templates';
     import SettingsCard from './_primitives/SettingsCard.svelte';
+    import { serviceState, serviceStateText, type ServiceTest } from '../../settings/service-state';
+    import { formatTime } from '../../utils/datetime';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
@@ -91,8 +93,19 @@
             };
         } finally {
             testRunning = false;
+            if (testResult) aiTest = { passed: testResult.status === 'ok', message: testResult.message, at: Date.now(), signature: aiSignature };
         }
     }
+
+    // The group's state in words. The test describes the values it ran with, so an edit retires it.
+    let aiTest = $state<ServiceTest | null>(null);
+    const aiSignature = $derived([draft.llmProvider, draft.llmModel, draft.llmApiKey].join('|'));
+    const aiState = $derived(serviceStateText(serviceState({
+        enabled: draft.llmEnabled,
+        missing: draft.llmApiKey || draft.llmApiKeySaved ? null : $_('settings.integrations.state.needs_api_key', { default: 'add an API key' }),
+        signature: aiSignature,
+        test: aiTest
+    }), $_, formatTime));
 
     async function loadUsage() {
         loadingUsage = true;
@@ -162,8 +175,8 @@
 
     <SettingsCard
         id="settings-group-ai-connection"
-        nested
         title={$_('settings.ai.connection_title', { default: 'AI provider' })}
+        status={aiState}
     >
         <SettingsRow
             labelId="setting-llm-enabled"

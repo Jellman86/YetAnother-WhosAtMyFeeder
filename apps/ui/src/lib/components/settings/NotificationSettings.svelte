@@ -16,6 +16,9 @@
     import { NOTIFICATION_CHANNELS_SECTION_ID, type PolicyChannel } from '../../settings/notification-policy';
     import { requestErrorMessage } from '../../settings/error-message';
     import FieldRefusal from './_primitives/FieldRefusal.svelte';
+    import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import { settingsSectionName } from '../../settings/settings-place';
+    import { NOTIFICATION_CUSTOM_RULES_ID } from '../../settings/notification-policy';
     import { settingsFieldErrorLookup } from '../../settings/field-error-context';
 
     // Alerts' rules: when to notify, as one sentence (the section's first screen), and the cooldown,
@@ -107,6 +110,15 @@
         if (mode !== 'custom') {
             applyPreset(mode);
         }
+    }
+
+    // The three switches a preset writes. Changing one by hand is what "custom rules" means, so the
+    // sentence above then says so; choosing a preset there writes all three again.
+    function setCustomRule(rule: 'insert' | 'update' | 'video', on: boolean): void {
+        if (rule === 'insert') notifyOnInsert = on;
+        else if (rule === 'update') notifyOnUpdate = on;
+        else notifyDelayUntilVideo = on;
+        notifyMode = 'custom';
     }
 
     const speciesFilterSectionId = 'notification-species-filter-section';
@@ -220,6 +232,70 @@
             {channels}
             channelsSectionId={NOTIFICATION_CHANNELS_SECTION_ID}
         />
+
+        <!-- The exact triggers behind the sentence. Closed until wanted: the presets cover most owners. -->
+        <AdvancedSection
+            id={NOTIFICATION_CUSTOM_RULES_ID}
+            title={$_('settings.notifications.custom_rules.title', { default: 'Custom rules' })}
+            description={notifyMode === 'custom'
+                ? $_('settings.notifications.custom_rules.active', { default: 'These switches are your custom rules. Choose a preset in the sentence above to replace them.' })
+                : $_('settings.notifications.custom_rules.desc', { default: 'The switches the choice above sets. Changing one turns that choice into custom rules.' })}
+        >
+            <SettingsRow
+                labelId="setting-notify-on-insert"
+                label={$_('settings.notifications.custom_rules.on_insert', { default: 'When a visit is first recorded' })}
+                description={$_('settings.notifications.custom_rules.on_insert_desc', { default: 'One alert as soon as the visit has a name.' })}
+            >
+                <SettingsToggle
+                    checked={notifyOnInsert}
+                    labelledBy="setting-notify-on-insert"
+                    srLabel={$_('settings.notifications.custom_rules.on_insert', { default: 'When a visit is first recorded' })}
+                    onchange={(on) => setCustomRule('insert', on)}
+                />
+            </SettingsRow>
+            <SettingsRow
+                labelId="setting-notify-on-update"
+                label={$_('settings.notifications.custom_rules.on_update', { default: 'When a visit changes' })}
+                description={$_('settings.notifications.custom_rules.on_update_desc', { default: 'Another alert each time Frigate updates the visit, for example with a better photo or a new name.' })}
+            >
+                <SettingsToggle
+                    checked={notifyOnUpdate}
+                    labelledBy="setting-notify-on-update"
+                    srLabel={$_('settings.notifications.custom_rules.on_update', { default: 'When a visit changes' })}
+                    onchange={(on) => setCustomRule('update', on)}
+                />
+            </SettingsRow>
+            <SettingsRow
+                labelId="setting-notify-delay-video"
+                label={$_('settings.notifications.custom_rules.delay_video', { default: 'Wait for the video check' })}
+                description={$_('settings.notifications.custom_rules.delay_video_desc', { values: { section: settingsSectionName('identification', $_) }, default: 'Holds the alert until the video check has confirmed the name, or for the seconds below if it never answers. Needs video checks on, in {section}.' })}
+            >
+                <div class="space-y-3">
+                    <SettingsToggle
+                        checked={notifyDelayUntilVideo}
+                        labelledBy="setting-notify-delay-video"
+                        srLabel={$_('settings.notifications.custom_rules.delay_video', { default: 'Wait for the video check' })}
+                        onchange={(on) => setCustomRule('video', on)}
+                    />
+                    {#if notifyDelayUntilVideo}
+                        <div class="flex flex-wrap items-center gap-2">
+                            <input
+                                id="notification-video-fallback"
+                                type="number"
+                                min="0"
+                                step="5"
+                                value={notifyVideoFallbackTimeout}
+                                oninput={(event) => (notifyVideoFallbackTimeout = Math.max(0, Math.floor(Number(event.currentTarget.value) || 0)))}
+                                class="input-base min-h-11 w-24"
+                                aria-labelledby="notification-video-fallback-label notification-video-fallback-unit"
+                            />
+                            <span id="notification-video-fallback-label" class="sr-only">{$_('settings.notifications.video_fallback_timeout')}</span>
+                            <span id="notification-video-fallback-unit" class="text-sm text-muted">{$_('settings.notifications.video_fallback_seconds')}</span>
+                        </div>
+                    {/if}
+                </div>
+            </SettingsRow>
+        </AdvancedSection>
 </SettingsCard>
 {:else}
 <SettingsCard id="settings-group-notifications-details" nested title={$_('settings.notifications.details_title', { default: 'Cooldown, language, links and species' })}>

@@ -38,7 +38,7 @@ New development features require a matching `dev` image.
 - **Connect other services:** [BirdNET-Go](docs/integrations/birdnet-go.md),
   [Home Assistant](docs/integrations/home-assistant.md), notifications and optional community-science exports.
 - **Share deliberately:** choose which history, camera names and media guests can see in
-  **Settings → Sharing & integrations** ([sign-in and public access](docs/features/authentication.md)).
+  **Settings → Access & privacy** ([sign-in and public access](docs/features/authentication.md)).
 
 ## Quick Start
 

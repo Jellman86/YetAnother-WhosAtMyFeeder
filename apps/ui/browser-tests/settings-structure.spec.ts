@@ -45,14 +45,14 @@ test.describe('on a wide screen', () => {
         await expect(rail(page).getByRole('link', { name: 'Identifying birds', exact: true })).not.toContainText('unsaved');
     });
 
-    test('telemetry and the species information sources are under Sharing\'s More options', async ({ page }) => {
+    test('telemetry is on the first screen of Access & privacy, and the species information sources are under Integrations\' More options', async ({ page }) => {
         await openSettings(page, { ebird_enabled: false, enrichment_sightings_source: 'disabled' });
         await expect(page.getByText('Anonymous usage', { exact: false }).first()).toHaveCount(0);
-        await rail(page).getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
-        await openMoreOptions(page);
-        await expect(page.getByRole('switch', { name: /telemetry/i }).first()).toBeVisible();
+        await rail(page).getByRole('link', { name: 'Access & privacy', exact: true }).click();
+        await expect(page.locator('[data-settings-more]')).toHaveCount(0);
+        await expect(page.getByText('Anonymous usage statistics', { exact: true }).first()).toBeVisible();
 
-        await rail(page).getByRole('link', { name: 'Sharing & integrations', exact: true }).click();
+        await rail(page).getByRole('link', { name: 'Integrations', exact: true }).click();
         await openMoreOptions(page);
         const sources = page.locator('[data-enrichment-summary]');
         await expect(sources).toContainText('Not shown: needs an eBird API key');

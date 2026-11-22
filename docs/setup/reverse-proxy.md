@@ -70,7 +70,7 @@ the hostname to your network. It assumes NPM terminates browser HTTPS. `$scheme`
 records the connection that NPM received; behind another TLS-terminating proxy,
 configure a trusted upstream header policy instead. Never blindly trust a public
 client's `X-Forwarded-Proto` or `X-Forwarded-For`. Add the actual proxy addresses to
-**Settings → Sharing & integrations → Sign-in → Session & reverse proxy → Trusted proxy hosts** (or `SYSTEM__TRUSTED_PROXY_HOSTS`).
+**Settings → Access & privacy → Sign-in → Session & reverse proxy → Trusted proxy hosts** (or `SYSTEM__TRUSTED_PROXY_HOSTS`).
 
 ```nginx
 # Docker DNS Resolver (Required for dynamic container resolution)

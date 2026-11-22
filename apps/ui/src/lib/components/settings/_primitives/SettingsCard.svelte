@@ -7,6 +7,8 @@
     interface Props {
         title: string;
         description?: string;
+        /** The group's state in words, such as an integration's: on, what it still needs, its last test. */
+        status?: string;
         // Trailing controls beside the heading, such as the switch for the whole section.
         actions?: Snippet;
         /**
@@ -26,7 +28,7 @@
         children: Snippet;
     }
 
-    let { title, description, actions, collapsible = false, openByDefault = false, id, titleId, nested = false, underPageTitle = false, children }: Props = $props();
+    let { title, description, status, actions, collapsible = false, openByDefault = false, id, titleId, nested = false, underPageTitle = false, children }: Props = $props();
 
     const uid = $props.id();
     markInsideCard();
@@ -69,6 +71,9 @@
             </svelte:element>
             {#if description}
                 <p class="mt-1 max-w-prose text-sm leading-relaxed text-muted">{description}</p>
+            {/if}
+            {#if status}
+                <p class="mt-1 max-w-prose text-sm font-medium leading-relaxed text-ink" data-settings-card-status>{status}</p>
             {/if}
         </div>
         {#if actions}

@@ -104,7 +104,7 @@ example counts or runtime values into product guarantees.
 | `model-manager-dino.png` | The DINO model in use, its memory estimate and location guidance. Refreshed 18 November 2026 |
 | `settings-integrations.png` | The BirdNET-Go card, in Cameras & connection under More options. Refreshed 18 November 2026 |
 | `settings-notifications.png` | Alerts: the delivery sentence and the channels. Refreshed 18 November 2026 |
-| `settings-security.png` | Sharing & integrations: sign-in and public access. Refreshed 18 November 2026 |
+| `settings-security.png` | Access & privacy: sign-in and public access. Refreshed 18 November 2026 |
 | `settings-data.png` | Storage & upkeep: history retention and the Photos and video card with an example measurement. Refreshed 18 November 2026 |
 | `settings-media-retention.png` | The Photos and video card in Storage & upkeep, with the per-species limits opened. Refreshed 18 November 2026 |
 | `settings-health.png` | System status and recorded visits in the What happened timeline |

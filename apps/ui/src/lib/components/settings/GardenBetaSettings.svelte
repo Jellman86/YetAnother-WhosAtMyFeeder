@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { settingsGroupPlace, settingsSectionName } from '../../settings/settings-place';
     import SettingsSubheading from './_primitives/SettingsSubheading.svelte';
     /**
      * Garden animals as one card on Settings → Identifying birds. The switch stages the beta in the
@@ -178,7 +179,7 @@
                                 </button>
                             {:else if step.kind === 'set_location' && onOpenLocation}
                                 <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenLocation}>
-                                    {$_('settings.beta.garden_step_location_open', { default: 'Set location in Integrations' })}
+                                    {$_('settings.beta.garden_step_location_open', { default: 'Set your feeder\u2019s location' })}
                                 </button>
                             {/if}
                         </li>
@@ -248,7 +249,7 @@
                 <GardenCollectionStatus {service} blockedBy={summary.steps.some((step) => step.kind === 'download_model') ? 'model' : cameras.length === 0 ? 'camera' : null} />
 
                 <p class="text-xs text-slate-600 dark:text-slate-400">
-                    {$_('settings.beta.garden_device_note', { default: 'Automatic checks use the device chosen under Settings › Models › Hardware once it agrees with the CPU, and fall back to the CPU if it fails. Motion scans use the CPU. Garden runs one job at a time while birds and cameras are idle.' })}
+                    {$_('settings.beta.garden_device_note', { values: { place: settingsGroupPlace('identification', 'settings.detection.hardware_title', $_) }, default: 'Automatic checks use the device chosen under {place} once it agrees with the CPU, and fall back to the CPU if it fails. Motion scans use the CPU. Garden runs one job at a time while birds and cameras are idle.' })}
                     <a href={`${DOCS}#verify-which-device-ran-a-model`} target="_blank" rel="noopener noreferrer" class="focus-ring font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
                         {$_('settings.beta.learn_more', { default: 'Learn more' })}
                     </a>
@@ -320,7 +321,7 @@
             <!-- Garden's alerts send through the bird alert channels, so they are set in Alerts. -->
             <div class="flex flex-wrap items-center justify-between gap-3" data-garden-alerts-elsewhere>
                 <p class="min-w-0 flex-1 basis-60 text-sm text-muted">
-                    {$_('settings.beta.garden_alerts_elsewhere', { default: 'Garden animal alerts are set in Alerts, with the channels they send through.' })}
+                    {$_('settings.beta.garden_alerts_elsewhere', { values: { section: settingsSectionName('notifications', $_) }, default: 'Garden animal alerts are set in {section}, with the channels they send through.' })}
                 </p>
                 {#if onOpenAlerts}
                     <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenAlerts}>

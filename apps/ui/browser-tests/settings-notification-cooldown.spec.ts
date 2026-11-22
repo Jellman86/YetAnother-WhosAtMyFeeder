@@ -32,8 +32,8 @@ async function openNotifications(page: Page): Promise<Settings[]> {
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    await page.getByRole('link', { name: 'Alerts', exact: true }).click();
-    // The cooldown is under Alerts' More options.
+    await page.getByRole('link', { name: 'Notifications', exact: true }).click();
+    // The cooldown is under Notifications' More options.
     await openMoreOptions(page);
     return writes;
 }

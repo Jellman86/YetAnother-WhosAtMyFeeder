@@ -45,8 +45,8 @@ Sends rich embeds with snapshot previews to a Discord channel.
 
 - **Webhook URL:** Create a webhook in your Discord server settings.
 - **Bot username:** Custom name for the bot (default: "YA-WAMF").
-- **Snapshots:** Includes the detection image. On by default; there is no switch for it in
-  Settings, so set `NOTIFICATIONS__DISCORD__INCLUDE_SNAPSHOT=false` to send text only.
+- **Send the photo:** Includes the detection image. On by default; switch it off to send text
+  only (`NOTIFICATIONS__DISCORD__INCLUDE_SNAPSHOT`).
 
 ### Pushover
 Sends push notifications to your mobile device via the Pushover app.
@@ -54,16 +54,16 @@ Sends push notifications to your mobile device via the Pushover app.
 - **User key:** Your user identifier.
 - **API token:** Create a new application in Pushover to get this.
 - **Priority:** Adjust the alert priority (-2 to 2).
-- **Snapshots:** Attaches the detection image. On by default; set
-  `NOTIFICATIONS__PUSHOVER__INCLUDE_SNAPSHOT=false` to send text only.
+- **Send the photo:** Attaches the detection image. On by default; switch it off to send text
+  only (`NOTIFICATIONS__PUSHOVER__INCLUDE_SNAPSHOT`).
 
 ### Telegram
 Sends messages or photos to a Telegram chat.
 
 - **Bot token:** From `@BotFather`.
 - **Chat ID:** The user or group ID to send messages to.
-- **Snapshots:** Sends a photo message with a caption. On by default; set
-  `NOTIFICATIONS__TELEGRAM__INCLUDE_SNAPSHOT=false` to send just text.
+- **Send the photo:** Sends a photo message with a caption. On by default; switch it off to send
+  just text (`NOTIFICATIONS__TELEGRAM__INCLUDE_SNAPSHOT`).
 
 ### Email
 Send rich HTML emails with optional snapshots.
@@ -75,7 +75,7 @@ Send rich HTML emails with optional snapshots.
 
 ## Linking back to the detection
 
-Set **Instance address** under **Settings → Alerts → More options** to the address you use to open
+Set **Instance address** under **Settings → Notifications → More options** to the address you use to open
 YA-WAMF, for example `https://feeder.example.com`. Every notification then links to the detection
 it announces, at `<address>/events?event=<id>`:
 
@@ -105,12 +105,12 @@ honoured when the newer one is unset.
 
 ## Filtering
 
-**Settings → Alerts** states your filter as a sentence, and every highlighted part of it is
+**Settings → Notifications** states your filter as a sentence, and every highlighted part of it is
 a control:
 
 > Tell me about **new visits** that are at least **70% sure** of **any species** on **Discord**
 
-![Settings → Alerts: the Global notification filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", then the Channels card with Discord, Pushover, Telegram and email](../images/settings-notifications.png)
+![Settings → Notifications: the Global notification filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", then the Channels card with Discord, Pushover, Telegram and email](../images/settings-notifications.png)
 
 ### Minimum confidence
 Only alert at or above this score (default `0.7`). Raise it to reduce alerts for lower-confidence
@@ -123,7 +123,7 @@ evidence, but both models can still make mistakes. Visits without matching audio
 an alert. The sentence changes to **"70% sure and heard"** when it is on.
 
 ### Species filter
-Three modes, chosen with the tiles under **Species filter** in **Settings → Alerts → More options**.
+Three modes, chosen with the tiles under **Species filter** in **Settings → Notifications → More options**.
 The species part of the sentence links there:
 
 | Mode | Effect |
@@ -137,7 +137,7 @@ different UI language does not quietly break your filter.
 
 ### Notification cooldown
 A minimum gap in minutes between notifications, across all channels, set under **Settings →
-Alerts → More options** (off by default, stored as `0`).
+Notifications → More options** (off by default, stored as `0`).
 Use it to reduce notification frequency when the feeder is busy.
 
 When enabled, only one delivery can begin at a time, even when separate visits
@@ -149,7 +149,7 @@ it cannot guarantee whether a remote service accepted a request interrupted in t
 
 ## Notification Modes
 
-Choose a delivery mode with the first highlighted part of the sentence in **Settings → Alerts**:
+Choose a delivery mode with the first highlighted part of the sentence in **Settings → Notifications**:
 
 - **new visits** (Standard, the default): notify once a visit is confirmed.
 - **confirmed visits** (Final-only): notify only when Frigate ends the event and video analysis
@@ -159,9 +159,11 @@ Choose a delivery mode with the first highlighted part of the sentence in **Sett
 - **silent**: disable all notifications. The sentence then reads "Stay silent and keep recording
   visits".
 
-A configuration that sets the triggers itself (`mode` `custom` with `notify_on_insert`,
-`notify_on_update` and `delay_until_video`) shows **custom rules** in the sentence. Settings has no
-controls for those triggers; choosing one of the modes above replaces them.
+**Custom rules**, under the sentence, holds the three switches a mode sets: **When a visit is first
+recorded** (`notify_on_insert`), **When a visit changes** (`notify_on_update`) and **Wait for the
+video check** (`delay_until_video`, with the seconds to wait before sending anyway). Changing one
+makes the mode `custom`, and the sentence then reads **custom rules**. Choosing one of the modes
+above sets all three again.
 
 Delayed video notifications wait for the associated photo work within the notification
 timeout. They use the visit's accepted identification and current audio confirmation,
@@ -171,7 +173,7 @@ rejected. Deleted, hidden, blocked and unknown visits are checked again before d
 ## Garden animals
 
 While the Garden animals beta is on, its alerts about named animals are set in
-**Settings → Alerts → More options → Garden animal alerts**, marked Beta, beside the channels they
+**Settings → Notifications → Garden animal alerts**, marked Beta, beside the channels they
 send through; the Garden card links there. By default they use your bird
 channels, meaning the ones switched on and configured, and attach the animal photo.
 You can choose channels for Garden alone instead. Bird filters, notification mode
@@ -188,6 +190,6 @@ alert is sent, what it contains and who can open its link.
 
 ## Setup
 
-Go to **Settings → Alerts** to configure all of this. Saved webhooks, tokens, and
+Go to **Settings → Notifications** to configure all of this. Saved webhooks, tokens, and
 passwords display as `***REDACTED***` and are preserved when you save other settings, so you never
 have to re-enter a working credential.

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { settingsSectionName } from '../../settings/settings-place';
     import Separator from '../Separator.svelte';
     import { onDestroy, onMount } from 'svelte';
     import { sessionTests } from '../../settings/session-tests.svelte';
@@ -137,7 +138,7 @@
                 {
                     id: 'frigate',
                     label: $_('settings.frigate.stage_frigate', { default: 'Frigate API' }),
-                    nextStep: $_('settings.frigate.stage_frigate_next', { default: 'Check the Frigate server URL on this tab, and that Frigate is running.' }),
+                    nextStep: $_('settings.frigate.stage_frigate_next', { values: { section: settingsSectionName('cameras', $_) }, default: 'Check the server URL in {section}, and that Frigate is running.' }),
                     run: async () => {
                         const r = await testFrigateConnection(frigateUrl.trim());
                         return {
@@ -151,7 +152,7 @@
                 {
                     id: 'mqtt',
                     label: $_('settings.frigate.stage_mqtt', { default: 'MQTT broker publish' }),
-                    nextStep: $_('settings.frigate.stage_mqtt_next', { default: 'Check the broker address, port and sign-in on this tab.' }),
+                    nextStep: $_('settings.frigate.stage_mqtt_next', { values: { section: settingsSectionName('cameras', $_) }, default: 'Check the broker address, port and sign-in in {section}.' }),
                     run: () => testMQTTPublish({
                         server: mqttServer.trim(),
                         port: mqttPort,

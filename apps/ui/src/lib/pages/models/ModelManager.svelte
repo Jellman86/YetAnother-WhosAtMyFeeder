@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { settingsPartPlace } from '../../settings/settings-place';
+    import { settingsPartPath } from '../../settings/settings-route';
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
@@ -787,10 +789,10 @@
                     {$_('settings.detection.model_manager_location_title', { default: 'Uses your feeder location' })}
                 </p>
                 <p class="mt-1 max-w-prose leading-relaxed">
-                    {$_('settings.detection.model_manager_location_desc', { default: 'This model also uses the feeder coordinates saved in Settings → Sharing & integrations → Location. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.' })}
+                    {$_('settings.detection.model_manager_location_desc', { values: { place: settingsPartPlace('location', $_) }, default: 'This model also uses the feeder coordinates saved in {place}. If no valid coordinates are saved, it identifies birds without location. It does not use the date or a location accuracy radius.' })}
                 </p>
                 <a
-                    href={toAppPath('/settings/sharing')}
+                    href={toAppPath(settingsPartPath('location'))}
                     onclick={handleLocationSettingsClick}
                     class="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-brand-300 dark:hover:text-brand-200"
                 >

@@ -13,7 +13,7 @@ in both. **Setup wizard** is a button under the list.
 
 **Search settings** is the first thing in that navigation, on every screen size. Type a setting's
 name, what it does, or a word such as "password", "GPU" or "backup", in the language the interface
-is in. Each result says where the setting lives ("Alerts › More options"). Choosing one opens that
+is in. Each result says where the setting lives ("Notifications › More options"). Choosing one opens that
 section, opens **More options** and any advanced group around the setting, scrolls to it and puts
 the keyboard on its control, with an outline for a moment. A setting that only appears while a
 switch is on takes you to that switch, with the reason beside it. Press **/** anywhere on Settings to reach the
@@ -24,7 +24,7 @@ The section you are in is named above its settings and stays at the top of the w
 scroll. Under it each group of settings has its own heading and its own raised card.
 
 Each section opens with a **Status** line read from the system's live status: one chip per part
-it depends on, such as Frigate, MQTT and BirdNET-Go for Cameras & connection, with **Details in
+it depends on, such as Frigate and MQTT for Cameras & connection, with **Details in
 Health** for the cause. A part not measured yet says so rather than showing a state. Then come
 the choices most owners need, and one **More options** disclosure holds the rest of the section.
 
@@ -35,7 +35,7 @@ scrolls sideways.
 
 In that column each chip says what the part is for and its cause in words, saying only what was
 measured ("Frigate answers, and no camera is reported offline"), never a code. While the reading is
-out of date the causes are left out and the column says so. Frigate, MQTT, BirdNET-Go and Alerts
+out of date the causes are left out and the column says so. Frigate, MQTT, BirdNET-Go and the notification channels
 have tests of their own. YA-WAMF keeps no test result, so a result is shown only for a test run
 during this visit, with the time it ran; a reload forgets it. A test runs with the values on the
 page: when they are not saved yet, the result says so, and an edit, **Discard changes** or **Save
@@ -46,10 +46,11 @@ with words only for a part that needs a look.
 
 | Section | What lives there |
 |---|---|
-| **Cameras & connection** | Where events come from: Frigate, its MQTT broker, the cameras to watch, and BirdNET-Go for audio. |
+| **Cameras & connection** | Where events come from and where your feeder is: Frigate, its MQTT broker, the cameras to watch, and your feeder's location. |
 | **Identifying birds** | How sure a name must be, the models that find and name birds, the hardware they run on, and features still in Beta. |
-| **Alerts** | When you hear about a visit, and the channels the message goes to. |
-| **Sharing & integrations** | Other services YA-WAMF reads from or reports to, your location, AI descriptions, who can open this install, and what leaves it. |
+| **Integrations** | Every other service YA-WAMF reads from or reports to: BirdNET-Go, Home Assistant weather, eBird, iNaturalist, BirdWeather and the AI provider. Each has its own switch, its state in words and its own test. |
+| **Notifications** | When you hear about a visit, the channels the message goes to and what each one sends, and Garden animal alerts. |
+| **Access & privacy** | Who can open this install, what guests may see, and what YA-WAMF sends about itself. |
 | **Storage & upkeep** | What is kept and for how long, a backup of these settings, and the jobs that repair or fill in the history, then deleting it. |
 | **Display** | How YA-WAMF looks and names birds, and contrast, a reading font, motion and spoken updates. |
 
@@ -68,27 +69,38 @@ it opens the section, scrolled to that part.
 | Detection | Identifying birds | `/settings/identification#detection` |
 | Models | Identifying birds | `/settings/identification#models` |
 | Beta features | Identifying birds | `/settings/identification#beta` |
-| Notifications | Alerts | `/settings/alerts#notifications` |
-| Integrations (with species information sources) | Sharing & integrations | `/settings/sharing#integrations` |
-| AI | Sharing & integrations | `/settings/sharing#ai` |
-| Security (with telemetry) | Sharing & integrations | `/settings/sharing#security` |
+| Notifications | Notifications | `/settings/notifications` |
+| Integrations (with species information sources) | Integrations | `/settings/integrations` |
+| AI | Integrations | `/settings/integrations#ai` |
+| Security | Access & privacy | `/settings/access#security` |
 | Data | Storage & upkeep | `/settings/storage#data` |
 | Maintenance | Storage & upkeep | `/settings/storage#maintenance` |
 | Appearance | Display | `/settings/display#appearance` |
 | Accessibility | Display | `/settings/display#accessibility` |
 
+Two sections were later renamed and split. **Alerts** is **Notifications**. **Sharing &
+integrations** became **Integrations**, for the services, and **Access & privacy**, for sign-in,
+guest access and telemetry. Their addresses still work: `/settings/alerts` opens Notifications,
+`/settings/sharing` opens Access & privacy, and `/settings/sharing#integrations` or
+`/settings/sharing#ai` opens that place in Integrations.
+
 Some settings have since moved within that map:
 
 | Setting | Was in | Now in |
 |---|---|---|
-| BirdNET-Go (connection, MQTT topic, audio buffer, source mapping, **Test BirdNET-Go**) | Integrations | Cameras & connection, under **More options** |
-| Your feeder's location | Integrations | Sharing & integrations, first |
+| BirdNET-Go (connection, MQTT topic, audio buffer, source mapping, **Test BirdNET-Go**) | Integrations, then Cameras & connection | Integrations |
+| Your feeder's location | Integrations, then Sharing & integrations | Cameras & connection, after the cameras |
 | **Display units** | Integrations (Location) | Display (**Units**) |
-| eBird, iNaturalist, BirdWeather, Home Assistant weather, species information sources, AI, telemetry | Sharing & integrations | Sharing & integrations, under **More options** |
+| eBird, iNaturalist, BirdWeather, Home Assistant weather, AI | Sharing & integrations, under **More options** | Integrations |
+| Species information sources | Sharing & integrations, under **More options** | Integrations, under **More options** |
+| Sign-in and public access | Sharing & integrations | Access & privacy |
+| Telemetry | Sharing & integrations, under **More options** | Access & privacy |
 | Garden's **Name animals automatically** and its naming threshold | Beta features (Garden, Automatic checks) | Identifying birds, **Naming threshold** card, marked Beta |
 | Blocked labels, range filter, Frigate and video, **Hardware** (with the runtime report), Beta features | Identifying birds | Identifying birds, under **More options** |
-| Garden animal alerts | Beta features (Garden, Alerts) | Alerts, under **More options**, marked Beta |
-| Notification cooldown, language, link and species filter | Alerts | Alerts, under **More options** |
+| Garden animal alerts | Beta features (Garden, Alerts) | Notifications, after the channels, marked Beta |
+| Notification cooldown, language, link and species filter | Alerts | Notifications, under **More options** |
+| **Send the photo** for Discord, Pushover and Telegram | Environment variables only | Notifications, in each channel |
+| Custom notification rules | Environment variables only | Notifications, under the sentence (**Custom rules**) |
 | When Frigate loses a visit; the repair and fill-in jobs, with **Jobs at once** | Storage & upkeep | Storage & upkeep, under **More options** |
 | Date and time format, naming style, Explorer layout, fonts and colours, Units | Display | Display, under **More options** |
 | The accessibility switches, saved for everyone | Display | Display, under **More options**, as **Defaults for everyone**; **Accessibility on this device** stays outside More options |
@@ -122,14 +134,15 @@ you want the UI to control that field.
 
 ## Cameras & connection
 
-Where events come from: Frigate, its MQTT broker, the cameras to watch, and BirdNET-Go for audio.
+Where events come from and where your feeder is: Frigate, its MQTT broker, the cameras to watch,
+and your feeder's location.
 
 ### Connection
 
 Where bird events come from. The Frigate address, the MQTT broker and the cameras to watch are
 shown first. **More options** holds the rest of Frigate's settings (the labels to act on, the
-public Frigate URL, the image used for the first identification, and clips) and the
-[BirdNET-Go](#birdnet-go) connection.
+public Frigate URL, the image used for the first identification, and clips).
+[BirdNET-Go](#birdnet-go) is set up in Integrations.
 
 ![Settings → Cameras & connection: the Frigate server URL, the MQTT broker's address, port and sign-in with Test Frigate and MQTT, then the Cameras to watch list where the feeder camera watches for birds](../images/settings-connection.png)
 
@@ -174,17 +187,17 @@ migration:
 > retention alone can leave the start or end of the requested window missing. Settings
 > checks this coverage and names any camera that needs attention.
 
-#### BirdNET-Go
+### Your feeder's location
 
-Under **More options**, because like Frigate it is a source of events: the audio **MQTT topic**
-(default `birdnet/text`), two URLs, the audio buffer and match window, and **BirdNET source mapping
-(Optional)**, which ties each audio source to a Frigate camera. **BirdNET-Go internal URL** is the
-address the backend uses to fetch spectrograms (usually the Docker network name); **BirdNET-Go
-browser URL** is the public address dashboard links open, and falls back to the internal one when
-empty. **Test BirdNET-Go** checks that BirdNET-Go can be reached, runs the broker publish and sends
-a test call through the real pipeline. See [BirdNET-Go](../integrations/birdnet-go.md).
-
-![The BirdNET-Go card under Cameras & connection's More options, switched on, with the internal URL the backend uses, the browser URL dashboard links open, the MQTT topic and Test BirdNET-Go](../images/settings-integrations.png)
+After the cameras, on the section's first screen, because it is a fact about the feeder that
+several features read. Your latitude and longitude, used for the weather recorded with each visit, nearby eBird sightings,
+the range filter, location-aware models such as DINOv2, and observations sent to iNaturalist.
+**Auto-detect** resolves it from your network; **Manual entry** pins exact coordinates. The place
+looked up for the point fills the optional `state` and `country` used by the eBird export. DINOv2
+uses both saved coordinates, including a valid zero, or neutral metadata when either is absent or
+invalid. It does not receive a capture date or location uncertainty. Saving changed coordinates
+reloads the classifier workers. This is the same location configured in the model step of the
+setup wizard.
 
 ## Identifying birds
 
@@ -334,18 +347,24 @@ features are under the section's **More options**; Garden's naming switch and th
 | **Name animals automatically** | In the **Naming threshold** card, marked Beta. On by default (`FRIGATE__GARDEN_AUTOMATIC_NAMING`). Confirms and names an animal when the automatic check's species score reaches the naming threshold, marked as automatic. Off: every animal waits for your review. |
 | **Name an animal when this sure which one it is** | In the **Naming threshold** card, below the switch. Shown as 70% to 99% (default 80%, saved as 0.7 to 0.99, `FRIGATE__GARDEN_NAMING_THRESHOLD`). Higher values name fewer animals and leave more for you. A photo below it is dismissed and can be restored from Dismissed. Existing captures are not renamed. |
 
-## Alerts
+## Notifications
 
-When you hear about a visit, and the channels the message goes to.
+Every way YA-WAMF tells you something: when you hear about a visit, the channels the message goes
+to, and Garden animal alerts. The older address `/settings/alerts` opens this section.
 
-### Notifications
+### When to notify and channels
 
 Which visits earn an alert, then where alerts go. The delivery sentence and the **Channels** card
-come first. **More options** holds the cooldown, the notification language, the link and the
-species filter, and while Garden animals is on, Garden's own alerts. The sentence's species words
+come first, then Garden's own alerts while Garden animals is on. **More options** holds the
+cooldown, the notification language, the link and the species filter. The sentence's species words
 open More options at the species filter.
 
-![Settings → Alerts: the Global notification filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", then the Channels card with Discord, Pushover, Telegram and email, and More options folded with the cooldown, language, link and species filter](../images/settings-notifications.png)
+Each channel has **Send the photo**: on, the visit's snapshot goes with the alert; off, the words
+go alone. Under the sentence, **Custom rules** holds the three switches a delivery mode sets (alert
+when a visit is first recorded, alert again when it changes, and wait for the video check).
+Changing one turns the mode into custom rules; choosing a mode in the sentence sets them again.
+
+![Settings → Notifications: the Global notification filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", then the Channels card with Discord, Pushover, Telegram and email, and More options folded with the cooldown, language, link and species filter](../images/settings-notifications.png)
 
 The filter reads as a sentence — *Tell me about **new visits** that are at least **70% sure**
 of **any species** on **Discord*** — and each highlighted part is a control.
@@ -367,9 +386,9 @@ See [Notifications](../features/notifications.md) for per-platform setup.
 
 ### Garden notifications
 
-Garden alerts are off by default. While the beta is on they are set in **Settings → Alerts → More
-options → Garden animal alerts**, marked Beta, beside the channels they send through; the Garden
-card links there. The channels themselves are set up once, in Alerts. They follow
+Garden alerts are off by default. While the beta is on they are set in **Settings → Notifications → Garden animal
+alerts**, marked Beta, after the channels they send through; the Garden
+card links there. The channels themselves are set up once, in Notifications. They follow
 the bird channels that are switched on and configured, or channels you choose;
 save with **Save changes**. See
 [Garden notifications](../features/garden-animals.md#send-garden-notifications)
@@ -385,32 +404,35 @@ for eligibility, photos, privacy and delivery status.
 Environment overrides take precedence on restart. Without overrides, the Garden
 notification choices persist in `/config/config.json`.
 
-## Sharing & integrations
+## Integrations
 
-Your feeder's location and who can open this install come first. **More options** holds the other
-services YA-WAMF reads from or reports to, where species pages get their information, AI
-descriptions and telemetry. An address such as `/settings/sharing#ai` opens More options at that
-part.
+Every other service YA-WAMF reads from or reports to, each as its own group: BirdNET-Go, Home
+Assistant weather, eBird, iNaturalist, BirdWeather and the AI provider. Each group has its own
+switch and says its state in words under its name: off, on but not set up (with what is missing),
+set up but not tested on this visit, or the result of the last test with its time. Test results
+are not kept, so a state never claims a connection that was not measured. **More options** holds
+where species pages get their information. Frigate and MQTT are in
+[Cameras & connection](#cameras--connection), with [your feeder's location](#your-feeders-location);
+the weather itself comes from Open-Meteo and needs no setup. The older addresses
+`/settings/sharing#integrations` and `/settings/sharing#ai` open this section.
 
-### Your feeder's location
+### BirdNET-Go
 
-Your latitude and longitude, used for the weather recorded with each visit, nearby eBird sightings,
-the range filter, location-aware models such as DINOv2, and observations sent to iNaturalist.
-**Auto-detect** resolves it from your network; **Manual entry** pins exact coordinates. The place
-looked up for the point fills the optional `state` and `country` used by the eBird export. DINOv2
-uses both saved coordinates, including a valid zero, or neutral metadata when either is absent or
-invalid. It does not receive a capture date or location uncertainty. Saving changed coordinates
-reloads the classifier workers. This is the same location configured in the model step of the
-setup wizard.
+The first group in Integrations: the audio **MQTT topic**
+(default `birdnet/text`), two URLs, the audio buffer and match window, and **BirdNET source mapping
+(Optional)**, which ties each audio source to a Frigate camera. **BirdNET-Go internal URL** is the
+address the backend uses to fetch spectrograms (usually the Docker network name); **BirdNET-Go
+browser URL** is the public address dashboard links open, and falls back to the internal one when
+empty. **Test BirdNET-Go** checks that BirdNET-Go can be reached, runs the broker publish and sends
+a test call through the real pipeline. See [BirdNET-Go](../integrations/birdnet-go.md).
 
-### Integrations
+![The BirdNET-Go card in Integrations, switched on, with the internal URL the backend uses, the browser URL dashboard links open, the MQTT topic and Test BirdNET-Go](../images/settings-integrations.png)
 
-Under **More options**: other services YA-WAMF talks to. Credentials are redacted as `***REDACTED***` once saved, and
+### eBird, iNaturalist, BirdWeather and Home Assistant weather
+
+Credentials are redacted as `***REDACTED***` once saved, and
 a saved credential can be re-tested without typing it again.
 
-
-- **BirdNET-Go** is set up with the cameras, under
-  [Cameras & connection → More options](#birdnet-go).
 - **BirdWeather** — enter your **Station token** to contribute identified detections to the
   community project. **Test connection** sends a mock "Eurasian Blue Tit (Test)" detection to your station.
 - **eBird** — an API key enables nearby and notable sightings. Enable the integration to show
@@ -422,13 +444,13 @@ a saved credential can be re-tested without typing it again.
   than borrowing forecast values. An optional **Illuminance entity** stores a lux sensor's
   reading with each new detection. See
   [Home Assistant](../integrations/home-assistant.md#weather-and-light-from-your-own-sensors).
-- **Location** is its own card, first in the section: see [Your feeder's location](#your-feeders-location).
+- **Location** is set in Cameras & connection: see [Your feeder's location](#your-feeders-location).
 
 ### Species information sources
 
-The **Enrichment sources** card at the end of **Integrations** is a read-only summary of which source currently answers each
+The **Enrichment sources** card under **More options** in **Integrations** is a read-only summary of which source currently answers each
 question about a species, so you can see in one place where the description on a species card
-came from. The old `/settings/enrichment` address opens Integrations. Nearby sightings,
+came from. The old `/settings/enrichment` address opens it. Nearby sightings,
 seasonality and rarity need eBird: while eBird has no API key they read "Not shown: needs an eBird
 API key", with **Go to eBird** beside them.
 
@@ -463,11 +485,16 @@ on the leaderboard.
   estimate used. A cost is shown only for models that have a price: a model without one reads
   "Not priced", and the total says how many requests it covers and which models it leaves out.
 
+## Access & privacy
+
+Who can open this install, what guests may see, and what YA-WAMF sends about itself. Everything is
+on the first screen. The older address `/settings/sharing` opens this section.
+
 ### Security
 
 Who can reach YA-WAMF, and what a visitor can see.
 
-![Settings → Sharing & integrations: the Sign-in card switched on, with the profile picture, the owner user name and the new password fields, then Public access switched off, and More options folded with the other services](../images/settings-security.png)
+![Settings → Access & privacy: the Sign-in card switched on, with the profile picture, the owner user name and the new password fields, then Public access switched off](../images/settings-security.png)
 
 - **Sign-in** — turn on sign-in, set the **Owner user name** and password, and choose the
   **Session expiry (hours)** under **Session & reverse proxy**. Saved passwords display as `***REDACTED***` and are preserved when you
@@ -485,6 +512,11 @@ Who can reach YA-WAMF, and what a visitor can see.
 
 See [Reverse Proxy](reverse-proxy.md) for routing, HTTPS headers and live-stream requirements.
 
+### Telemetry
+
+Two switches, both off by default: **Anonymous usage statistics** and **Anonymous health
+diagnostics**. See [Telemetry](../features/telemetry.md) for exactly what each sends.
+
 ## Storage & upkeep
 
 What is kept and for how long, and a backup of these settings, come first. **More options** holds
@@ -497,7 +529,7 @@ More options.
 What YA-WAMF keeps and for how long: retention, photos and video, what happens when Frigate
 loses a visit, and the configuration backup. Repair and fill-in jobs, and the actions that delete
 history, are in [Maintenance](#maintenance). Telemetry, what leaves this installation, is in
-Sharing & integrations, under **More options** (see [Telemetry](../features/telemetry.md)).
+[Access & privacy](#access--privacy) (see [Telemetry](../features/telemetry.md)).
 
 ![Settings → Storage & upkeep: the Retention policy card keeping everything, then Photos and video with Frigate event-clip copies, 326 MB used, 8 archived favourites and a 2 GB storage limit](../images/settings-data.png)
 

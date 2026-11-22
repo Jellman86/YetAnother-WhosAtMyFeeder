@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { settingsPartPlace } from '../settings/settings-place';
     import ModelExecutionEvidence from './ModelExecutionEvidence.svelte';
     import { _ } from 'svelte-i18n';
     import type { GardenCapture } from '../api/garden';
@@ -21,7 +22,7 @@
             <p>{$_('garden.automatic_score', { default: 'Species score {score}%; naming threshold {threshold}%.', values: { score: Math.round(assessment.naming_score * 100), threshold: Math.round(assessment.naming_threshold * 100) } })}</p>
         {/if}
     {:else if assessment.decision_reason === 'location_required'}
-        <p>{$_('garden.automatic_location_required', { default: 'Animal detected. Set a country in Settings → Sharing & integrations → Location so the model can name it automatically.' })}</p>
+        <p>{$_('garden.automatic_location_required', { values: { place: settingsPartPlace('location', $_) }, default: 'Animal detected. Set a country in {place} so the model can name it automatically.' })}</p>
     {:else if assessment.decision_reason === 'identity_unavailable'}
         <p>{$_('garden.automatic_identity_unavailable', { default: 'Animal detected, but its name could not be bound to the local catalogue. No automatic name was saved.' })}</p>
     {:else if assessment.decision_reason === 'bird_camera'}

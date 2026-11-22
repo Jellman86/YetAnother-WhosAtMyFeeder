@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import before from './settings-reachability.before.json';
 import { analyseSettings, type ControlPath } from './settings-reachability.analysis';
-import { canonicalSettingsPath, settingsPartPath, settingsSectionFromRoute, settingsSectionOfPart, type SettingsPart, type SettingsSection } from './settings-route';
+import { canonicalSettingsPath, settingsSectionFromRoute, settingsSectionOfPart, type SettingsPart, type SettingsSection } from './settings-route';
 import { settingsFieldPart, settingsFieldSection } from './settings-fields';
 
 // Settings as it was before it was organised by task, frozen in settings-reachability.before.json
@@ -21,7 +21,7 @@ import { settingsFieldPart, settingsFieldSection } from './settings-fields';
 interface Frozen {
     controls: ControlPath[];
     ids: Record<string, string[]>;
-    savedFields: Record<string, SettingsPart>;
+    savedFields: Record<string, string>;
 }
 const frozen = before as unknown as Frozen;
 
@@ -30,51 +30,53 @@ const frozen = before as unknown as Frozen;
  * control without an id has moved when every field it saves has.
  */
 const MOVED: Readonly<Record<string, SettingsPart>> = {
-    // BirdNET-Go is a source of events, like Frigate, so it is set up with the cameras.
-    birdnet_enabled: 'connection',
-    birdnet_url: 'connection',
-    birdnet_external_url: 'connection',
-    audio_topic: 'connection',
-    audio_buffer_hours: 'connection',
-    audio_correlation_window_seconds: 'connection',
-    camera_audio_mapping: 'connection',
-    'birdnet-url': 'connection',
-    'birdnet-external-url': 'connection',
-    'audio-topic': 'connection',
-    'integrations-birdnet-advanced': 'connection',
-    'audio-buffer': 'connection',
-    'correlation-window': 'connection',
-    'birdnet-source-options': 'connection',
+    // BirdNET-Go is an external service like the others, so it has its own part in Integrations.
+    birdnet_enabled: 'birdnet',
+    birdnet_url: 'birdnet',
+    birdnet_external_url: 'birdnet',
+    audio_topic: 'birdnet',
+    audio_buffer_hours: 'birdnet',
+    audio_correlation_window_seconds: 'birdnet',
+    camera_audio_mapping: 'birdnet',
+    'birdnet-url': 'birdnet',
+    'birdnet-external-url': 'birdnet',
+    'audio-topic': 'birdnet',
+    'integrations-birdnet-advanced': 'birdnet',
+    'audio-buffer': 'birdnet',
+    'correlation-window': 'birdnet',
+    'birdnet-source-options': 'birdnet',
     // Units are how numbers read, so they are set in Display with the rest of how YA-WAMF looks.
     location_weather_unit_system: 'appearance',
     'weather-unit-system': 'appearance',
-    // The feeder's location has its own card on Sharing's first screen, so it belongs to the
-    // first part there; telemetry sits under More options, after AI. Both stay in Sharing.
-    location_automatic: 'security',
-    location_country: 'security',
-    location_latitude: 'security',
-    location_longitude: 'security',
-    location_state: 'security',
-    telemetry_enabled: 'ai',
-    telemetry_health_enabled: 'ai',
+    // The feeder's location is a fact about the feeder, so it is set with the cameras; telemetry is
+    // what leaves the install, so it is set in Access & privacy beside who can open it.
+    'location-lat': 'location',
+    'location-lon': 'location',
+    location_automatic: 'location',
+    location_country: 'location',
+    location_latitude: 'location',
+    location_longitude: 'location',
+    location_state: 'location',
+    telemetry_enabled: 'telemetry',
+    telemetry_health_enabled: 'telemetry',
     // Garden's automatic naming and its threshold sit in the naming card, beside the birds' threshold.
     garden_automatic_naming: 'detection',
     garden_naming_threshold: 'detection',
     'garden-naming-threshold': 'detection',
-    // Garden's alerts send through the bird alert channels, so they are set in Alerts.
-    garden_notifications_enabled: 'notifications',
-    garden_notifications_use_bird_channels: 'notifications',
-    garden_notification_channels: 'notifications',
-    garden_notifications_include_photo: 'notifications',
-    'garden-section-alerts': 'notifications'
+    // Garden's alerts send through the bird alert channels, so they are set in Notifications.
+    garden_notifications_enabled: 'garden-alerts',
+    garden_notifications_use_bird_channels: 'garden-alerts',
+    garden_notification_channels: 'garden-alerts',
+    garden_notifications_include_photo: 'garden-alerts',
+    'garden-section-alerts': 'garden-alerts'
 };
 
 /**
  * Controls that save nothing and have no id (a test or an action button), moved on purpose: by the
  * part they left and the part that now shows them.
  */
-const MOVED_ACTIONS: ReadonlyArray<{ what: string; from: SettingsPart; to: SettingsPart }> = [
-    { what: 'Test BirdNET-Go', from: 'integrations', to: 'connection' }
+const MOVED_ACTIONS: ReadonlyArray<{ what: string; from: SettingsSection; to: SettingsSection }> = [
+    // The AI usage dashboard's buttons were on the AI tab's own page; AI is a part of Integrations now.
 ];
 
 /**
@@ -110,11 +112,28 @@ const sources = import.meta.glob<string>(['../components/**/*.svelte', '../pages
 });
 const current = analyseSettings(sources, HOST);
 
-const FORMER_TABS: readonly SettingsPart[] = ['connection', 'detection', 'models', 'integrations', 'ai', 'notifications', 'security', 'data', 'maintenance', 'beta', 'appearance', 'accessibility'];
+/**
+ * Where each of the twelve tabs went: the section that holds what it held, and the address its own
+ * address now opens. The Integrations and Notifications tabs became sections of those names.
+ */
+const FORMER_TABS: Readonly<Record<string, { section: SettingsSection; address: string }>> = {
+    connection: { section: 'cameras', address: '/settings/cameras#connection' },
+    detection: { section: 'identification', address: '/settings/identification#detection' },
+    models: { section: 'identification', address: '/settings/identification#models' },
+    beta: { section: 'identification', address: '/settings/identification#beta' },
+    integrations: { section: 'integrations', address: '/settings/integrations' },
+    ai: { section: 'integrations', address: '/settings/integrations#ai' },
+    notifications: { section: 'notifications', address: '/settings/notifications' },
+    security: { section: 'access', address: '/settings/access#security' },
+    data: { section: 'storage', address: '/settings/storage#data' },
+    maintenance: { section: 'storage', address: '/settings/storage#maintenance' },
+    appearance: { section: 'display', address: '/settings/display#appearance' },
+    accessibility: { section: 'display', address: '/settings/display#accessibility' }
+};
 
 /** The section a former tab now lives in, unless what it held moved on purpose. */
 function sectionOf(area: string, moved?: SettingsPart): SettingsSection {
-    return settingsSectionOfPart(moved ?? (area as SettingsPart));
+    return moved ? settingsSectionOfPart(moved) : FORMER_TABS[area].section;
 }
 
 /** How many controls write each payload entry in each section; `(no setting)` for none. */
@@ -155,12 +174,19 @@ describe('the frozen twelve-tab page', () => {
 });
 
 describe('every former Settings tab', () => {
-    it.each(FORMER_TABS)('%s: its address opens the section that holds it, at its place', (part) => {
-        const section = settingsSectionOfPart(part);
-        expect(canonicalSettingsPath(`/settings/${part}`, '')).toBe(settingsPartPath(part));
-        expect(canonicalSettingsPath('/settings', part)).toBe(settingsPartPath(part));
-        expect(settingsSectionFromRoute(`/settings/${part}`)).toBe(section);
-        expect(settingsPartPath(part)).toBe(`/settings/${section}#${part}`);
+    it.each(Object.entries(FORMER_TABS))('%s: its address opens the section that holds it, at its place', (tab, { section, address }) => {
+        // An address that is already canonical is left alone.
+        expect(canonicalSettingsPath(`/settings/${tab}`, '') ?? `/settings/${tab}`).toBe(address);
+        expect(canonicalSettingsPath('/settings', tab)).toBe(address);
+        expect(settingsSectionFromRoute(`/settings/${tab}`)).toBe(section);
+        expect(settingsSectionFromRoute(address)).toBe(section);
+    });
+
+    it('holds its place in the older Sharing & integrations and Alerts addresses too', () => {
+        expect(canonicalSettingsPath('/settings/sharing', 'integrations')).toBe(FORMER_TABS.integrations.address);
+        expect(canonicalSettingsPath('/settings/sharing', 'ai')).toBe(FORMER_TABS.ai.address);
+        expect(canonicalSettingsPath('/settings/sharing', 'security')).toBe(FORMER_TABS.security.address);
+        expect(canonicalSettingsPath('/settings/alerts', 'notifications')).toBe(FORMER_TABS.notifications.address);
     });
 });
 
@@ -188,8 +214,8 @@ describe('every control the twelve tabs rendered', () => {
     it('is matched, with or without an id: no section has fewer controls saving a setting than its tabs had', () => {
         const was = countBySectionAndEntry(frozen.controls, (control, area) => sectionOf(area, movedPart(control)));
         for (const { from, to } of MOVED_ACTIONS) {
-            const left = `${settingsSectionOfPart(from)} | (no setting)`;
-            const arrived = `${settingsSectionOfPart(to)} | (no setting)`;
+            const left = `${from} | (no setting)`;
+            const arrived = `${to} | (no setting)`;
             was.set(left, (was.get(left) ?? 0) - 1);
             was.set(arrived, (was.get(arrived) ?? 0) + 1);
         }
@@ -228,8 +254,10 @@ describe('every element id the twelve tabs rendered', () => {
 
 describe('every saved setting', () => {
     it.each(Object.entries(frozen.savedFields))('%s is shown by the section its former tab moved to', (field, formerPart) => {
-        const part = MOVED[field] ?? formerPart;
-        expect(settingsFieldPart(field)).toBe(part);
-        expect(settingsFieldSection(field)).toBe(settingsSectionOfPart(part));
+        // A field moved on purpose is held to its new part; any other to the section its tab became.
+        const moved = MOVED[field];
+        if (moved) expect(settingsFieldPart(field)).toBe(moved);
+        expect(settingsFieldPart(field)).not.toBeNull();
+        expect(settingsFieldSection(field)).toBe(sectionOf(formerPart, moved));
     });
 });

@@ -26,7 +26,7 @@ test('Integrations opens with nothing unsaved, even when the place lookup names 
             return { json: { place_guess: 'Westminster, England', state: 'England', country: 'United Kingdom' } };
         }
     });
-    await tabLink(page, 'Sharing & integrations').click();
+    await tabLink(page, 'Cameras & connection').click();
     await expect(page.locator('#location-lat')).toBeVisible();
     await expect.poll(() => lookups).toBeGreaterThan(0);
     // Give a late effect the chance to write into the draft before asserting nothing did.
@@ -37,7 +37,7 @@ test('Integrations opens with nothing unsaved, even when the place lookup names 
     await page.locator('#location-lat').fill('52.2');
     await expect(saveBar(page)).toBeVisible();
     await openSaveDetails(page);
-    await expect(saveDetails(page)).toContainText('Sharing & integrations');
+    await expect(saveDetails(page)).toContainText('Cameras & connection');
 });
 
 test('the save bar counts the changes, names their sections, and Discard restores every saved value', async ({ page }) => {
@@ -54,17 +54,17 @@ test('the save bar counts the changes, names their sections, and Discard restore
 
     await page.locator('#mqtt-server').fill('broker.lan');
     await page.locator('#frigate-url').fill('http://frigate.lan:5000');
-    await tabLink(page, 'Sharing & integrations').click();
+    await tabLink(page, 'Integrations').click();
     await openMoreOptions(page);
     await page.getByRole('combobox', { name: /^Provider/ }).selectOption({ label: 'Claude' });
     await expect(page.locator('#llm-model')).toHaveValue('claude-opus-4-8');
 
     // Frigate URL and MQTT broker in Cameras & connection; provider and the model it brings in
-    // Sharing & integrations.
+    // Integrations.
     await expect(saveBar(page)).toContainText('4 unsaved changes');
     await openSaveDetails(page);
     await expect(saveDetails(page).getByRole('button', { name: 'Cameras & connection', exact: true })).toBeVisible();
-    await expect(saveDetails(page).getByRole('button', { name: 'Sharing & integrations', exact: true })).toBeVisible();
+    await expect(saveDetails(page).getByRole('button', { name: 'Integrations', exact: true })).toBeVisible();
 
     await saveDetails(page).getByRole('button', { name: 'Cameras & connection', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
@@ -73,7 +73,7 @@ test('the save bar counts the changes, names their sections, and Discard restore
     await expect(saveBar(page)).toHaveCount(0);
     await expect(page.locator('#mqtt-server')).toHaveValue('mqtt');
     await expect(page.locator('#frigate-url')).toHaveValue('http://frigate:5000');
-    await tabLink(page, 'Sharing & integrations').click();
+    await tabLink(page, 'Integrations').click();
     await expect(page.locator('#llm-model')).toHaveValue('gemini-3.1-pro-preview');
     expect(harness.writes).toEqual([]);
 
@@ -211,7 +211,7 @@ test('a value the server refuses opens its tab and puts focus on it', async ({ p
         })
     });
     await page.locator('#frigate-url').fill('frigate.lan');
-    await tabLink(page, 'Sharing & integrations').click();
+    await tabLink(page, 'Integrations').click();
     await saveButton(page).click();
     await expect(tabLink(page, 'Cameras & connection')).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('#frigate-url')).toBeFocused();
@@ -276,7 +276,7 @@ test('a refused value inside a collapsed section opens that section and focuses 
     await expect(proposal).toHaveAttribute('aria-invalid', 'true');
 });
 
-test('a refused eBird value opens Sharing\'s More options and eBird\'s advanced options, and focuses it', async ({ page }) => {
+test('a refused eBird value opens Integrations and eBird\'s advanced options, and focuses it', async ({ page }) => {
     await openSettings(page, { ebird_enabled: true, ebird_api_key: '***REDACTED***', ebird_max_results: 25 }, {
         refuseWrite: () => ({
             status: 422,
@@ -286,8 +286,9 @@ test('a refused eBird value opens Sharing\'s More options and eBird\'s advanced 
     await page.locator('#mqtt-server').fill('broker.lan');
     await saveButton(page).click();
 
-    await expect(tabLink(page, 'Sharing & integrations')).toHaveAttribute('aria-current', 'page');
-    await expect(page.locator('[data-settings-more] > h3 > button')).toHaveAttribute('aria-expanded', 'true');
+    await expect(tabLink(page, 'Integrations')).toHaveAttribute('aria-current', 'page');
+    // eBird is on the section's first screen, so its More options stays closed.
+    await expect(page.locator('[data-settings-more] > h3 > button')).toHaveAttribute('aria-expanded', 'false');
     const maxResults = page.locator('#ebird-max-results');
     await expect(maxResults).toBeFocused();
     await expect(maxResults).toHaveAttribute('aria-invalid', 'true');
@@ -304,7 +305,7 @@ test('a refused value inside a collapsed Advanced section on another tab opens i
         })
     });
     await page.locator('#mqtt-server').fill('broker.lan');
-    await tabLink(page, 'Sharing & integrations').click();
+    await tabLink(page, 'Integrations').click();
     await saveButton(page).click();
     await expect(tabLink(page, 'Cameras & connection')).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('#recording-clip-before')).toBeFocused();

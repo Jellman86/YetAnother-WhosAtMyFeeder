@@ -9,7 +9,7 @@ import notificationChannelsSource from './NotificationChannelsSettings.svelte?ra
 // Alerts' rules and its channels are two components; these checks read them as one.
 const notificationSource = `${notificationRulesSource}\n${notificationChannelsSource}`;
 import settingsPageSource from '../../pages/Settings.svelte?raw';
-import sharingSource from './sections/SharingSection.svelte?raw';
+import accessSource from './sections/AccessSection.svelte?raw';
 import enSettings from '../../i18n/locales/en/settings.json';
 
 const en = { settings: enSettings };
@@ -97,7 +97,7 @@ describe('notification test buttons', () => {
 
 describe('the HTTPS warning', () => {
     it('is translated and takes the attention tone in every mode', () => {
-        const band = sharingSource.slice(sharingSource.indexOf('{#if authStore.httpsWarning}'));
+        const band = accessSource.slice(accessSource.indexOf('{#if authStore.httpsWarning}'));
         const markup = band.slice(0, band.indexOf('{/if}'));
         expect(markup).not.toContain('Security Warning:');
         expect(markup).toContain("settings.security.https_warning'");

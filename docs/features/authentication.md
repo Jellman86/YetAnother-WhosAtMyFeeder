@@ -13,7 +13,7 @@ turn on a separate read-only public view to share your detections.
 
 By default, authentication is **disabled** to allow easy first-time setup. To enable it:
 
-1.  Navigate to **Settings → Sharing & integrations**.
+1.  Navigate to **Settings → Access & privacy**.
 2.  Set a strong password.
 3.  Turn on **Sign-in** (the switch in the card's header).
 4.  (Optional) Turn on **Public access** (the switch in its card's header) if you want to share your dashboard.
@@ -83,9 +83,9 @@ has already completed setup does not reopen the wizard.
 Public Access lets anyone with the link browse your detections while the settings and every
 management action stay behind your login.
 
-![Settings → Sharing & integrations: the Sign-in card switched on, with the profile picture, the owner user name and the new password fields, then Public access switched off](../images/settings-security.png)
+![Settings → Access & privacy: the Sign-in card switched on, with the profile picture, the owner user name and the new password fields, then Public access switched off](../images/settings-security.png)
 
-- **Enable:** in **Settings → Sharing & integrations**, turn on **Public access** with the switch in
+- **Enable:** in **Settings → Access & privacy**, turn on **Public access** with the switch in
   its card's header. Sign-in must be on first.
 - Guests cannot change settings, delete, hide, or reclassify detections, or start new AI
   Naturalist analysis. They can read analysis you have already run.
@@ -160,7 +160,7 @@ a glance which view you are looking at.
 
 ## Reverse Proxy & Trusted Hosts
 
-If you run YA-WAMF behind a reverse proxy (e.g., Nginx or Cloudflare Tunnel), you should **explicitly set Trusted proxy hosts** in **Settings → Sharing & integrations → Sign-in → Session & reverse proxy**.
+If you run YA-WAMF behind a reverse proxy (e.g., Nginx or Cloudflare Tunnel), you should **explicitly set Trusted proxy hosts** in **Settings → Access & privacy → Sign-in → Session & reverse proxy**.
 
 - This tells YA-WAMF which proxy IPs, CIDR ranges, or hostnames/container names are allowed to set `X-Forwarded-*` headers.
 - The default is permissive (trusts all proxies) for compatibility with existing installs.

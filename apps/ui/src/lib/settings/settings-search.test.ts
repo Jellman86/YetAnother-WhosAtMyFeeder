@@ -117,7 +117,7 @@ describe('settings search over the real index', () => {
     it('puts "Cameras to watch" first for "camera", ahead of settings that only mention a camera', () => {
         expect(anchors('en', 'camera')[0]).toBe('settings-group-cameras');
         expect(anchors('en', 'camera', 'cameras')[0]).toBe('settings-group-cameras');
-        expect(anchors('en', 'camera', 'sharing')[0]).toBe('settings-group-cameras');
+        expect(anchors('en', 'camera', 'access')[0]).toBe('settings-group-cameras');
         const all = anchors('en', 'camera');
         expect(all.indexOf('settings-group-cameras')).toBeLessThan(all.indexOf('setting-public-show-cameras'));
     });

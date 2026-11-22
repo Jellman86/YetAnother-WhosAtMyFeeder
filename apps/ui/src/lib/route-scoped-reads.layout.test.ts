@@ -23,12 +23,13 @@ describe('each read belongs to the route and task that shows it', () => {
         const loadSettings = body(settingsSource, 'async function loadSettings(');
         expect(loadSettings).not.toContain('fetchAudioSources');
         expect(loadSettings).not.toContain('loadRecordingClipCapability');
-        // BirdNET-Go's sources are read only when its camera mapping is shown: under Cameras &
-        // connection's More options, with audio on (settings-tab-readings.spec.ts counts the reads).
+        // BirdNET-Go's sources are read only when its camera mapping is shown: under its advanced
+        // options in Integrations, with audio on (settings-tab-readings.spec.ts counts the reads).
         expect(settingsSource).toContain("cameras: ['cameras', 'recordingClips'],");
-        expect(settingsSource).toContain("activeSection === 'cameras' && disclosures.isOpen(settingsMoreId('cameras')) === true && birdnetEnabled");
+        expect(settingsSource).toContain("activeSection === 'integrations' && disclosures.isOpen(BIRDNET_MAPPING_DISCLOSURE) === true && birdnetEnabled");
+        expect(settingsSource).toContain("integrations: ['cameras'],");
         expect(settingsSource).toContain("readOnce('audioSources', sectionReadings.signal)");
-        expect(settingsSource).toContain("sharing: ['version'],");
+        expect(settingsSource).toContain("access: ['version'],");
         expect(settingsSource).toContain("storage: ['classifier', 'storage', 'cache', 'backfill']");
     });
 

@@ -836,7 +836,7 @@
                 <NotableNearby
                     canConfigure={canReview}
                     refreshKey={notableRefreshKey}
-                    onconfigure={() => onnavigate?.('/settings/integrations')}
+                    onconfigure={() => onnavigate?.('/settings/integrations#networks')}
                     onselectspecies={(species) => (selectedSpecies = species)}
                 />
 

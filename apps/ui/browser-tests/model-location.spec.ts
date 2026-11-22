@@ -48,8 +48,8 @@ for (const width of [1280, 390]) {
         await openTab('models', 'Identifying birds');
         const location = page.getByRole('link', { name: 'Open location settings', exact: true });
         await expect(location).toBeVisible();
-        // The location is the first card in Sharing & integrations, so the address is the section's top.
-        await expect(location).toHaveAttribute('href', '/settings/sharing');
+        // The location is a part of Cameras & connection, so the address names it.
+        await expect(location).toHaveAttribute('href', '/settings/cameras#location');
         await expect(page.getByText('Uses your feeder location', { exact: true })).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
         await location.scrollIntoViewIfNeeded();
@@ -57,9 +57,9 @@ for (const width of [1280, 390]) {
         const readsBeforeLink = settingsReads;
         await location.click();
         if (width < 768) {
-            await expect(page.getByRole('combobox', { name: 'Settings section', exact: true })).toHaveValue('sharing');
+            await expect(page.getByRole('combobox', { name: 'Settings section', exact: true })).toHaveValue('cameras');
         } else {
-            await expect(page.getByRole('link', { name: 'Sharing & integrations', exact: true })).toHaveAttribute('aria-current', 'page');
+            await expect(page.getByRole('link', { name: 'Cameras & connection', exact: true })).toHaveAttribute('aria-current', 'page');
         }
         await openTab('detection', 'Identifying birds');
         await expect(slider).toHaveValue('0.75');

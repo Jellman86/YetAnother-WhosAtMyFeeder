@@ -97,7 +97,7 @@
     "blocked_sort": "只有来访按时间排序时，听到的鸣叫才会出现在来访之间。",
     "load_failed": "无法加载听到的鸣叫。来访不受影响。",
     "truncated": "本页包含的鸣叫多于一次能显示的数量，因此省略了最早的鸣叫。缩小日期范围即可看到。",
-    "none_stored": "这些来访覆盖的时间内没有保存任何 BirdNET-Go 鸣叫。如果本应有鸣叫，请在设置的“摄像头与连接”的“更多选项”中确认 BirdNET-Go 正在运行。",
+    "none_stored": "这些访问所覆盖的时间内没有保存 BirdNET-Go 的鸣叫。如果本应有鸣叫，请在“{place}”中检查 BirdNET-Go 是否正在运行。",
     "seek": "从鸣叫的某一点开始播放。方向键移动一秒。",
     "play_call": "播放 {species} 的鸣叫",
     "pause_call": "暂停 {species} 的鸣叫",

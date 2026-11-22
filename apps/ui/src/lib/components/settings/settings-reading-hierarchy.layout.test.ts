@@ -67,7 +67,7 @@ describe('Settings heading hierarchy', () => {
             .filter(([, source]) => /<(?:header|h[2-6]|div|p)\b[^>]*class="[^"]*\bpl-1\b[^"]*"[^>]*(?:data-settings-section-heading|data-beta-intro)|<header class="[^"]*\bpl-1\b/.test(source))
             .map(([name]) => name);
         expect(offenders).toEqual([]);
-        expect(read('sections', 'AlertsSection.svelte')).toContain('<div class="flex flex-wrap items-center gap-2">');
+        expect(read('sections', 'NotificationsSection.svelte')).toContain('<div class="flex flex-wrap items-center gap-2">');
     });
 
     it('leaves every other heading to the shared primitives, so no level is chosen by hand', () => {
@@ -77,7 +77,7 @@ describe('Settings heading hierarchy', () => {
             'sections/SectionAside.svelte': /<h3\b/g,
             // Groups under More options that are not cards: a beta feature, and Garden's alerts.
             'BetaFeatureCard.svelte': /<h4\b/g,
-            'sections/AlertsSection.svelte': /<h4\b/g
+            'sections/NotificationsSection.svelte': /<h3\b/g
         };
         const offenders: string[] = [];
         for (const [name, source] of components()) {
