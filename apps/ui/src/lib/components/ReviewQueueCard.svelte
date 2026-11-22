@@ -34,7 +34,7 @@
         needsYourCall({ canReview: true, queueStatus: status, queueTotal: queue.total, checksStatus: checks.status, checkCount: checks.names.length })
     );
 
-    // A long list of names would bury the sentence; the rest are counted and named on the Species page.
+    // A long list of names would bury the sentence; the rest are counted and named on the Leaderboard.
     const NAMED_CHECKS = 3;
     const checkNames = $derived.by(() => {
         const named = checks.names.slice(0, NAMED_CHECKS);
@@ -248,14 +248,14 @@
                               default: '{count, plural, one {Only the camera backs it.} other {Only the camera backs them.}}'
                           })}
                 </p>
-                <!-- It leaves the page for the Species page, so it says so and points onward. -->
+                <!-- It leaves the page for the Leaderboard, so it says so and points onward. -->
                 <button
                     type="button"
                     class="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold text-accent-ink transition-colors hover:bg-accent-soft focus-ring"
                     onclick={() => onopenchecks?.()}
                     data-review-queue-open-checks
                 >
-                    {$_('dashboard.review_queue.checks_open', { default: 'Open the checks on the Species page' })}
+                    {$_('dashboard.review_queue.checks_open', { default: 'Open the checks on the Leaderboard' })}
                     <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" />
                     </svg>

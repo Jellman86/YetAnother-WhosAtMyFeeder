@@ -14,8 +14,9 @@ from app.database import get_db
 from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.daily_totals_repository import DailyTotalsRepository
 from app.repositories.detection_repository import DetectionRepository
-from app.services.daily_history import DayCoverage, coverage, first_whole_day, sealed_ranges
+from app.services.daily_history import DayCoverage, coverage, first_whole_day, local_midnight_utc, sealed_ranges
 from app.services.daily_totals_lookup import species_history_keys
+from app.services.sealed_species_counts import CountWindow, SealedSpecies, sealed_species_counts, with_sealed_species
 from app.utils.calendar_day import instance_timezone, local_date
 from app.repositories.species_repository import SpeciesRepository
 from app.models import (
@@ -59,7 +60,7 @@ from app.utils.public_access import (
     public_events_window,
     public_event_query_bounds,
 )
-from app.utils.timezone import get_user_timezone
+from app.utils.timezone import calendar_timezone
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
@@ -110,7 +111,8 @@ class LeaderboardSpeciesItemResponse(BaseModel):
     window_percent: float
     window_first_seen: str | None = None
     window_last_seen: str | None = None
-    window_avg_confidence: float
+    # Null when every capture in the window is known only from a daily total, which has no scores.
+    window_avg_confidence: float | None = None
     window_camera_count: int
     window_confirmed_count: int = 0
     window_audio_confirmed_count: int = 0
@@ -939,7 +941,20 @@ async def get_species_list(request: Request, auth: AuthContext = Depends(get_aut
     async with get_db() as db:
         repo = DetectionRepository(db)
         await repo.ensure_recent_rollups(90)
-        stats = await repo.get_species_leaderboard_base(**bounds)
+        # The all-time count keeps the captures an age cleanup removed: a sealed day counts from its
+        # daily total and its kept captures are left out, so nothing counts twice (#949).
+        zone = instance_timezone()
+        guest_start = bounds["start_date"].replace(tzinfo=None) if bounds else None
+        sealed = await sealed_species_counts(
+            db,
+            [CountWindow(guest_start, datetime.now(timezone.utc).replace(tzinfo=None))],
+            zone=zone,
+            floor=first_whole_day(guest_start, zone) if guest_start else None,
+        )
+        sealed_unknown = sealed.pop_unknown()
+        stats = with_sealed_species(
+            await repo.get_species_leaderboard_base(**bounds, sealed_ranges=sealed.ranges), sealed.by_key
+        )
         unified_metrics = await repo.get_unified_species_window_metrics(**bounds)
 
         # Transform unknown bird labels for display and aggregate counts
@@ -1015,8 +1030,11 @@ async def get_species_list(request: Request, auth: AuthContext = Depends(get_aut
             )
 
         # Add aggregated "Unknown Bird" entry if any were found
-        unknown_stats = await repo.get_species_aggregate_for_name("Unknown Bird", **bounds)
-        if unknown_stats:
+        unknown_stats = await repo.get_species_aggregate_for_name("Unknown Bird", **bounds, sealed_ranges=sealed.ranges)
+        if sealed_unknown:
+            unknown_stats = unknown_stats or {"count": 0}
+            unknown_stats["count"] += sum(species.captures[0] for species in sealed_unknown)
+        if unknown_stats and unknown_stats["count"] > 0:
             unknown_rollup = await repo.get_window_metrics_for_species_name("Unknown Bird", **bounds)
             trend_delta = unknown_rollup.get("count_7d", 0) - unknown_rollup.get("count_prev_7d", 0)
             trend_pct = 0.0
@@ -1048,6 +1066,37 @@ async def get_species_list(request: Request, auth: AuthContext = Depends(get_aut
             filtered_stats.sort(key=lambda x: x["count"], reverse=True)
 
         return filtered_stats
+
+
+def _measured_confidence(row: dict) -> float | None:
+    """The window's average score, or None when no stored capture in it was scored."""
+    if int(row.get("window_scored_count") or 0) == 0:
+        return None
+    return float(row.get("window_avg_confidence") or 0.0)
+
+
+def _sealed_leaderboard_row(species: SealedSpecies, *, counts: bool = True) -> dict:
+    """A leaderboard row for captures only a daily total or a lost-capture record still holds.
+
+    It has counts but no capture times, scores or cameras to describe.
+    """
+    return {
+        "species": species.species,
+        "scientific_name": species.scientific_name,
+        "common_name": species.common_name,
+        "taxa_id": species.taxa_id,
+        "window_count": species.captures[0] if counts else 0,
+        "prev_count": species.captures[1] if counts else 0,
+        "window_visit_count": species.visits[0] if counts else 0,
+        "prev_visit_count": species.visits[1] if counts else 0,
+        "window_first_seen": None,
+        "window_last_seen": None,
+        "window_avg_confidence": 0.0,
+        "window_scored_count": 0,
+        "window_camera_count": 0,
+        "window_confirmed_count": 0,
+        "window_audio_confirmed_count": 0,
+    }
 
 
 @router.get("/leaderboard/species", response_model=LeaderboardSpeciesResponse)
@@ -1091,12 +1140,27 @@ async def get_leaderboard_species(
     # is what an owner's diagnostics showed as this route holding one for 5.1 s.
     async with get_db() as db:
         repo = DetectionRepository(db)
+        # Days an age cleanup sealed are counted from their daily totals, so the board keeps its
+        # counts after cleanup; their stored captures are left out so nothing counts twice (#949).
+        zone = instance_timezone()
+        guest_start = None if auth.is_owner else bounds["start_date"].replace(tzinfo=None)
+        # A guest sees no sealed day that began before their window, not even its boundary day.
+        history_floor = first_whole_day(guest_start, zone) if guest_start else None
+        sealed = await sealed_species_counts(
+            db,
+            [CountWindow(window_start, window_end), CountWindow(prev_start, prev_end)],
+            zone=zone,
+            floor=history_floor,
+        )
+        sealed_unknown = sealed.pop_unknown()
         rows = await repo.get_species_leaderboard_window(
             window_start=window_start,
             window_end=window_end,
             prev_start=prev_start,
             prev_end=prev_end,
             public_audio_evidence=not auth.is_owner,
+            sealed_ranges=sealed.ranges,
+            sealed_rows={key: _sealed_leaderboard_row(species) for key, species in sealed.by_key.items()},
         )
         unknown = await repo.get_species_leaderboard_window_for_name(
             species_name="Unknown Bird",
@@ -1105,8 +1169,32 @@ async def get_leaderboard_species(
             prev_start=prev_start,
             prev_end=prev_end,
             public_audio_evidence=not auth.is_owner,
+            sealed_ranges=sealed.ranges,
         )
-        history_start, _ = await repo.get_detection_time_bounds(**bounds)
+        if sealed_unknown:
+            unknown = unknown or _sealed_leaderboard_row(sealed_unknown[0], counts=False)
+            for species in sealed_unknown:
+                unknown["window_count"] += species.captures[0]
+                unknown["prev_count"] += species.captures[1]
+                unknown["window_visit_count"] += species.visits[0]
+                unknown["prev_visit_count"] += species.visits[1]
+        oldest_stored, _ = await repo.get_detection_time_bounds(**bounds)
+        totals_repo = DailyTotalsRepository(db)
+        first_sealed = await totals_repo.first_sealed_day(history_floor)
+        # History reaches back to the first sealed day or the oldest capture Frigate lost, if either
+        # is older than every stored capture, as the timeline's does.
+        history_start = min(
+            (
+                instant
+                for instant in (
+                    oldest_stored.replace(tzinfo=None) if oldest_stored else None,
+                    local_midnight_utc(first_sealed, zone) if first_sealed is not None else None,
+                    await totals_repo.oldest_lost_capture(guest_start),
+                )
+                if instant is not None
+            ),
+            default=None,
+        )
 
     nearby_lookup = await nearby_species_service.lookup()
     nearby = nearby_lookup.report
@@ -1152,7 +1240,7 @@ async def get_leaderboard_species(
                 "window_percent": pct,
                 "window_first_seen": serialize_api_datetime(r.get("window_first_seen")),
                 "window_last_seen": serialize_api_datetime(r.get("window_last_seen")),
-                "window_avg_confidence": r.get("window_avg_confidence", 0.0),
+                "window_avg_confidence": _measured_confidence(r),
                 "window_camera_count": r.get("window_camera_count", 0),
                 "window_confirmed_count": r.get("window_confirmed_count", 0),
                 "window_audio_confirmed_count": r.get("window_audio_confirmed_count", 0)
@@ -1183,7 +1271,7 @@ async def get_leaderboard_species(
                 "window_percent": pct,
                 "window_first_seen": serialize_api_datetime(unknown.get("window_first_seen")),
                 "window_last_seen": serialize_api_datetime(unknown.get("window_last_seen")),
-                "window_avg_confidence": unknown.get("window_avg_confidence", 0.0),
+                "window_avg_confidence": _measured_confidence(unknown),
                 "window_camera_count": unknown.get("window_camera_count", 0),
                 "window_confirmed_count": unknown.get("window_confirmed_count", 0),
                 "window_audio_confirmed_count": unknown.get("window_audio_confirmed_count", 0)
@@ -1222,7 +1310,7 @@ async def get_species_stats(
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
-    user_tz = get_user_timezone(request)
+    user_tz = calendar_timezone(request)
     async with get_db() as db:
         repo = DetectionRepository(db)
 

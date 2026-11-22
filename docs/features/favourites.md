@@ -115,7 +115,14 @@ from which day their counts come from daily totals.
   time. The grid says so when older days come from daily totals.
 - **Delete all history** deletes the daily totals and lost-capture records too, and its
   confirmation says so.
-- The ranked lists on the Leaderboard count their rolling day, week or month from stored captures.
+- The ranked lists on the Leaderboard count sealed days from these totals too: the all-time list
+  counts every sealed day, and the rolling day, week and month count each sealed day that lies
+  wholly inside them. A window that opens part way through a sealed day counts only the captures
+  still stored from that day. A species seen only on sealed days keeps its place, with no
+  confidence or first and last sighting, because a total has no scores or times.
+- A capture corrected or added after its day was sealed does not change that day's counts: a kept
+  favourite re-tagged as another species still counts as the old one on the charts and the
+  Leaderboard, and a capture backfilled into a sealed day is not counted.
 - Downgrading YA-WAMF below the release that added daily totals deletes them, and they cannot be
   rebuilt: for days cleanup has already removed they are the only copy of the counts.
 

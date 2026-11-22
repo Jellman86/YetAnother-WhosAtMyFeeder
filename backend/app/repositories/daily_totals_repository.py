@@ -21,7 +21,7 @@ twice. The contract:
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, tzinfo
 
@@ -55,6 +55,18 @@ class SpeciesDayTotal:
     display_name: str
     capture_count: int
     visit_count: int
+
+
+@dataclass(frozen=True)
+class SpeciesWindowTotal:
+    species_key: str
+    display_name: str
+    scientific_name: str | None
+    common_name: str | None
+    taxa_id: int | None
+    labels: frozenset[str]
+    captures: list[int]
+    visits: list[int]
 
 
 @dataclass(frozen=True)
@@ -138,6 +150,56 @@ class DailyTotalsRepository(DetectionRepository):
         ) as cursor:
             rows = await cursor.fetchall()
         return [SpeciesDayTotal(date.fromisoformat(str(row[0])), *row[1:]) for row in rows]
+
+    async def window_totals(self, spans: Sequence[tuple[date | None, date] | None]) -> list[SpeciesWindowTotal]:
+        """Sealed totals summed per canonical species for each inclusive ``(first, last)`` day span.
+
+        A span of None takes nothing; a ``first`` of None reaches back to the first sealed day. The
+        labels each key was stored under come back too, so Unknown bird is classified without
+        reading the whole table.
+        """
+        present = [span for span in spans if span is not None]
+        if not present:
+            return []
+        columns, params = [], []
+        for metric in ("capture_count", "visit_count"):
+            for span in spans:
+                if span is None:
+                    columns.append("0")
+                    continue
+                first, last = span
+                columns.append(f"SUM(CASE WHEN day >= ? AND day <= ? THEN {metric} ELSE 0 END)")
+                params.extend([(first or date.min).isoformat(), last.isoformat()])
+        first = None if any(span[0] is None for span in present) else min(span[0] for span in present)
+        bounds = [(first or date.min).isoformat(), max(span[1] for span in present).isoformat()]
+        async with self.db.execute(
+            f"""SELECT species_key, MAX(display_name), MAX(scientific_name), MAX(common_name), MAX(taxa_id),
+                    {", ".join(columns)}
+                FROM species_daily_totals WHERE day >= ? AND day <= ?
+                GROUP BY species_key""",
+            [*params, *bounds],
+        ) as cursor:
+            rows = await cursor.fetchall()
+        labels: dict[str, set[str]] = {}
+        async with self.db.execute(
+            "SELECT DISTINCT species_key, display_name FROM species_daily_totals WHERE day >= ? AND day <= ?", bounds
+        ) as cursor:
+            for key, label in await cursor.fetchall():
+                labels.setdefault(str(key), set()).add(str(label or ""))
+        count = len(spans)
+        return [
+            SpeciesWindowTotal(
+                species_key=str(row[0]),
+                display_name=str(row[1] or row[0]),
+                scientific_name=row[2],
+                common_name=row[3],
+                taxa_id=row[4],
+                labels=frozenset(labels.get(str(row[0]), ())),
+                captures=[int(value or 0) for value in row[5 : 5 + count]],
+                visits=[int(value or 0) for value in row[5 + count : 5 + 2 * count]],
+            )
+            for row in rows
+        ]
 
     async def species_keys(
         self, names: Collection[str], *, species_ids: Collection[int], taxa_id: int | None = None

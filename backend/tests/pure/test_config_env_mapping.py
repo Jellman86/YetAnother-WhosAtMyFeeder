@@ -1,10 +1,12 @@
 import json
+import os
 
 import pytest
 
 import app.config as config_module
 from app.config import Settings
 from app.config_loader import CLASSIFICATION_ENV_OVERRIDES
+from app.config_models import ClassificationSettings
 
 
 @pytest.mark.parametrize("value", [12, 45, 120])
@@ -338,6 +340,37 @@ def test_classification_override_matrix_covers_all_mapped_env_keys():
     covered_env_keys = {case[1] for case in CLASSIFICATION_ENV_PRECEDENCE_CASES}
     mapped_env_keys = {env_key for env_keys in CLASSIFICATION_ENV_OVERRIDES.values() for env_key in env_keys}
     assert covered_env_keys == mapped_env_keys
+
+
+WORKER_BUDGET_FIELDS = [
+    field
+    for field in ClassificationSettings.model_fields
+    if field.startswith("worker_") or field.endswith(("_hard_deadline_seconds", "_heartbeat_timeout_seconds"))
+]
+
+
+@pytest.mark.parametrize("field", WORKER_BUDGET_FIELDS)
+def test_classifier_worker_budget_loader_default_matches_the_model_default(monkeypatch, tmp_path, field):
+    """The loader and the model once disagreed on the live hard deadline (35 s against 60 s)."""
+    for env_key in [key for key in os.environ if key.startswith("CLASSIFICATION__")]:
+        monkeypatch.delenv(env_key)
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    loaded = Settings.load()
+
+    assert getattr(loaded.classification, field) == getattr(ClassificationSettings(), field)
+
+
+def test_live_worker_hard_deadline_defaults_to_35_seconds(monkeypatch, tmp_path):
+    monkeypatch.delenv("CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS", raising=False)
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    assert Settings.load().classification.worker_hard_deadline_seconds == 35.0
+    assert ClassificationSettings().worker_hard_deadline_seconds == 35.0
 
 
 def test_classification_startup_load_env_precedence_with_full_file_payload(monkeypatch, tmp_path):

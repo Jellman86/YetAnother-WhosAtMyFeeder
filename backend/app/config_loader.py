@@ -14,12 +14,14 @@ from .config_models import (
     AccessibilitySettings,
     AppearanceSettings,
     BirdWeatherSettings,
+    BUNDLED_CLASSIFIER_FILE,
     HomeAssistantWeatherSettings,
     ClassificationSettings,
     DEFAULT_AI_ANALYSIS_PROMPT,
     DEFAULT_AI_CONVERSATION_PROMPT,
     DEFAULT_AI_CHART_PROMPT,
     DEFAULT_LLM_MODEL,
+    DEFAULT_WORKER_HARD_DEADLINE_SECONDS,
     DEFAULT_TRUSTED_PROXY_HOSTS,
     EbirdSettings,
     EnrichmentSettings,
@@ -322,7 +324,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         default_inference_provider = "auto"
 
     classification_data = {
-        "model": "model.tflite",
+        "model": BUNDLED_CLASSIFIER_FILE,
         "threshold": 0.7,
         "min_confidence": 0.4,
         "blocked_labels": [],
@@ -378,7 +380,9 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "video_worker_heartbeat_timeout_seconds": float(
             os.environ.get("CLASSIFICATION__VIDEO_WORKER_HEARTBEAT_TIMEOUT_SECONDS", "30.0")
         ),
-        "worker_hard_deadline_seconds": float(os.environ.get("CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS", "35.0")),
+        "worker_hard_deadline_seconds": float(
+            os.environ.get("CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS", DEFAULT_WORKER_HARD_DEADLINE_SECONDS)
+        ),
         "background_worker_hard_deadline_seconds": float(
             os.environ.get("CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS", "120.0")
         ),

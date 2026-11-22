@@ -381,8 +381,23 @@ class FrigateSettings(BaseModel):
     )
 
 
+# The live classifier lease is 30 s; the hard deadline sits just past it so a
+# stuck worker is killed only after its request has already been given up.
+DEFAULT_WORKER_HARD_DEADLINE_SECONDS = 35.0
+
+
+# The saved selection on an install where nobody chose a model: the bundled MobileNet V2's file
+# name, not a catalogue id. The model manager reads it as no choice and runs `mobilenet_v2_birds`
+# from the bundled assets, and the TFLite backend opens the file by this name. Choosing a model in
+# the Model manager replaces it with that model's catalogue id.
+BUNDLED_CLASSIFIER_FILE = "model.tflite"
+
+
 class ClassificationSettings(BaseModel):
-    model: str = "rope_vit_b14_inat21"
+    model: str = Field(
+        default=BUNDLED_CLASSIFIER_FILE,
+        description="The chosen classifier's catalogue id, or the bundled model's file name when none was chosen",
+    )
     threshold: float = 0.7
     min_confidence: float = Field(
         default=0.4, ge=0.0, le=1.0, description="Minimum confidence floor (reject below this)"
@@ -499,7 +514,10 @@ class ClassificationSettings(BaseModel):
         default=30.0, ge=1.0, le=300.0, description="Video classifier worker heartbeat timeout in seconds"
     )
     worker_hard_deadline_seconds: float = Field(
-        default=60.0, ge=1.0, le=300.0, description="Hard deadline before killing a stuck classifier worker"
+        default=DEFAULT_WORKER_HARD_DEADLINE_SECONDS,
+        ge=1.0,
+        le=300.0,
+        description="Hard deadline before killing a stuck classifier worker",
     )
     background_worker_hard_deadline_seconds: float = Field(
         default=120.0, ge=1.0, le=600.0, description="Hard deadline before killing a stuck background classifier worker"

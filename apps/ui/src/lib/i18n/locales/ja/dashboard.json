@@ -116,7 +116,7 @@
     "checks_summary": "{count, plural, other {#種の名前が誤っている可能性があります: {species}。}}",
     "checks_body": "{count, plural, other {カメラのみが根拠で、半径{distance}以内で観察者の報告はありません。}}",
     "checks_body_plain": "{count, plural, other {カメラのみが根拠です。}}",
-    "checks_open": "種ページで確認を開く",
+    "checks_open": "リーダーボードで確認を開く",
     "checks_loading": "名前が誤っている可能性のある種を確認しています…",
     "checks_unavailable": "分布チェックを読み込めなかったため、名前が誤っている種があるかは不明です。",
     "checks_more": "他{count}種",

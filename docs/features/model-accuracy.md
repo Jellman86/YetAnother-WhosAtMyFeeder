@@ -61,7 +61,7 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 ### What the March panel showed
 
 - **EVA-02 Large** achieved the highest top-1 accuracy in this March panel (68.3% raw) but is slow (~1.6s) and requires ~3GB RAM.
-- **RoPE ViT-B14** remains the configured default. This panel measured 63.3% top-1 / 80.0% top-5 at 493ms; that result does not establish a universal best model. Letterboxing gives a marginal top-1 gain (+1.7%) at the cost of top-5 (−5.0%).
+- **RoPE ViT-B14** is the wildlife-wide model the Model manager suggests when Small Birds is not offered; a fresh install runs the bundled MobileNet V2. This panel measured 63.3% top-1 / 80.0% top-5 at 493ms; that result does not establish a universal best model. Letterboxing gives a marginal top-1 gain (+1.7%) at the cost of top-5 (−5.0%).
 - **ConvNeXt Large** matches RoPE top-1 but is twice as slow (976ms) with no accuracy advantage.
 - **Letterboxing** makes no meaningful difference across any model (±1–7% top-1). Raw preprocessing is recommended as the default.
 - **Legacy TFLite MobileNet V2** is fast (13ms) but has fewer labels and lower top-5 accuracy. Hidden in the UI by default and labelled as legacy.

@@ -34,7 +34,7 @@ from app.utils.public_access import (
     effective_public_events_days,
 )
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
-from app.utils.timezone import calendar_timezone, get_user_timezone
+from app.utils.timezone import calendar_timezone
 from app.utils.calendar_day import instance_timezone, local_date, today_so_far
 from app.services.daily_history import (
     coverage,
@@ -529,10 +529,10 @@ async def get_daily_summary(
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
-    user_tz = get_user_timezone(request)
+    user_tz = calendar_timezone(request)
     end_dt = utc_naive_now()
     if window == "today":
-        start_dt, _ = today_so_far(now=end_dt.replace(tzinfo=timezone.utc), zone=calendar_timezone(request))
+        start_dt, _ = today_so_far(now=end_dt.replace(tzinfo=timezone.utc), zone=user_tz)
     else:
         start_dt = end_dt - timedelta(hours=24)
     if not auth.is_owner:
@@ -823,7 +823,7 @@ async def get_detection_timeline_span(
     """
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     lang = get_user_language(request)
-    user_tz = get_user_timezone(request)
+    user_tz = calendar_timezone(request)
 
     # Everything below is annotation from an external weather API and pure
     # shaping of rows already read. The connection is released first so a
@@ -1327,7 +1327,7 @@ async def get_detection_activity_heatmap(
                 window_start = now
             window_end = now
 
-        user_tz = get_user_timezone(request)
+        user_tz = calendar_timezone(request)
         utc_hourly_counts = await repo.get_activity_heatmap_utc_hourly_counts(
             window_start, window_end, species_name=species_name
         )

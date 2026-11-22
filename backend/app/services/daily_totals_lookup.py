@@ -19,7 +19,7 @@ from app.utils.canonical_species import should_hide_species_label
 UNKNOWN_BIRD = "Unknown Bird"
 
 
-def _is_unknown_label(label: str) -> bool:
+def is_unknown_label(label: str) -> bool:
     return should_hide_species_label(label, extra_unknown_labels=settings.classification.unknown_bird_labels)
 
 
@@ -28,7 +28,7 @@ async def species_history_keys(
 ) -> set[str]:
     repo = DailyTotalsRepository(db)
     if species_name == UNKNOWN_BIRD:
-        return await repo.unknown_species_keys(_is_unknown_label)
+        return await repo.unknown_species_keys(is_unknown_label)
     names = {species_name, *aliases}
     species_ids: set[int] = set()
     for name in names:

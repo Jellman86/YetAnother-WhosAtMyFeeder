@@ -116,7 +116,7 @@
     "checks_summary": "{count, plural, one {# Art ist möglicherweise falsch benannt: {species}.} other {# Arten sind möglicherweise falsch benannt: {species}.}}",
     "checks_body": "{count, plural, one {Nur die Kamera stützt sie, und niemand hat sie im Umkreis von {distance} gemeldet.} other {Nur die Kamera stützt sie, und niemand hat sie im Umkreis von {distance} gemeldet.}}",
     "checks_body_plain": "{count, plural, one {Nur die Kamera stützt sie.} other {Nur die Kamera stützt sie.}}",
-    "checks_open": "Prüfungen auf der Artenseite öffnen",
+    "checks_open": "Prüfungen in der Bestenliste öffnen",
     "checks_loading": "Suche nach Arten, die möglicherweise falsch benannt sind…",
     "checks_unavailable": "Die Gebietsprüfung konnte nicht gelesen werden, daher ist unbekannt, ob eine Art falsch benannt ist.",
     "checks_more": "{count} weitere",

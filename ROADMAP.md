@@ -82,8 +82,8 @@ The gap between the `CLAUDE.md` contract and the codebase is closed to the point
 release ships against the full bar. Tracked assessment:
 [Gold-Standard Review](docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md).
 
-- ✅ **CI enforcement** — Ruff lint + format gates, backend coverage floor ratcheted 20%→60%
-  (measured ~65%), and `CONTRIBUTING.md` rewritten against the contract.
+- ✅ **CI enforcement** — Ruff lint + format gates, backend coverage floor ratcheted 20%→70%
+  (`fail_under` in `backend/.coveragerc`), and `CONTRIBUTING.md` rewritten against the contract.
 - ✅ **API contract** — build-time OpenAPI artifact (`backend/openapi.json`) with a CI drift
   check, and a generated SPA type contract (`apps/ui/src/lib/api/generated/openapi.ts`) with a
   CI freshness check, so backend/frontend drift fails review.
@@ -488,38 +488,6 @@ the page shape must be recorded in `docs/standards/layout-patterns.md` first.
 reading the docs; no control on that surface names a subsystem; the existing tests for frame
 replacement and reclassification still pass unchanged.
 
-#### Durable media archive and retention floors 📚
-**Priority:** P2 | **Effort:** M | **Status:** ✅ Shipped in `dev`; move to Delivered at the next release
-([#178](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/178))
-
-Favourites already protect their detection row and existing cached snapshot/clip from scheduled and
-manual retention cleanup. Complete the stronger durability contract requested in #178: when a visit
-is favourited, durably acquire its best snapshot and available clip into a dedicated archive before
-Frigate rotates them; expose acquisition state and failures; and make unfavourite/archive deletion
-an explicit owner choice. Add bounded rolling snapshot retention with both an age window and a
-configurable per-species minimum, without automatically downloading every video.
-
-**Acceptance:** archive writes are atomic and restart-safe; a favourite is not reported protected
-until requested assets are durable (or an honest unavailable state is recorded); normal cache clear
-cannot remove archived media; storage usage and destructive actions are visible; per-species floors
-are canonical-taxon based; backup/restore is documented; and tests cover Frigate expiry, concurrent
-favourite/unfavourite, partial downloads, cleanup order, and disk-pressure failure.
-
-#### Always keep photos and visit media 📷
-**Priority:** P1 | **Effort:** M | **Status:** ✅ Shipped in `dev`; move to Delivered at the next release
-([#622](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/622))
-
-The "Media Cache" and "Snapshots" switches are gone. With either off, YA-WAMF kept no photo of its
-own: a visit went blank when Frigate dropped its event and the photo repair after a reclassify had
-nowhere to save (#481). Photographs, full-visit clips, previews and visit films are always kept,
-within retention and the size budget; keeping copies of Frigate's own event clips stays a choice.
-Installs that had a switch off had best-available snapshots (and, with the cache off, full-visit
-clips) turned off once so disk use did not jump. An unwritable media folder is reported in
-`/health`, cache stats, an owner notification and the settings card.
-
-**Follow-up:** measure whether best-available frames can be stored smaller than JPEG 90 without a
-visible loss; on a live install they were 92% of photo storage.
-
 #### Let confident video corrections teach the initial identification 🎓
 **Priority:** P2 | **Effort:** M | **Status:** ☐ After the next release (feature freeze until then)
 
@@ -597,49 +565,8 @@ Ollama is unavailable.
 CSV export (eBird format) is shipped. Add a first-class, safe full-database backup and restore
 flow so users can snapshot and recover their detection history and config.
 
-#### Home Assistant integration: survive a reload 🔁
-**Priority:** P1 | **Effort:** S | **Status:** ✅ Shipped in `dev`; move to Delivered at the next release
-
-A review of `custom_components/yawamf` on 2026-09-07 (verified against Home Assistant core `dev`)
-found that the sidebar proxy does not survive an integration reload, which is what every options
-change triggers:
-
-- `async_unregister_ingress_panel` awaits `frontend.async_remove_panel`, but that is a synchronous
-  `@callback` returning `None`. The `await` raises `TypeError`, the bare `except` swallows it at
-  debug level, and the panel is never removed. The next setup then logs "Overwriting panel yawamf"
-  as an exception and the panel keeps the **old** ingress token URL.
-- `async_register_ingress` calls `hass.http.register_view` on every setup. Views cannot be
-  unregistered and aiohttp answers with the first-registered route, so after a reload the old
-  `YAWAMFIngressView` (old token, old URL, old credentials) keeps serving until Home Assistant
-  restarts. Changing the URL or credentials in the options flow silently does nothing for the
-  sidebar. Worse, the old view holds the unloaded coordinator, which has stopped polling and so
-  stops refreshing its login token; the sidebar keeps working only until that token expires, then
-  answers with 401s until Home Assistant restarts.
-- `YAWAMFIngressAssetView` registers unauthenticated views at Home Assistant's root
-  (`/favicon.ico`, `/manifest.json`, …). The files are public on YA-WAMF anyway, so nothing secret
-  leaks; the cost is that the integration squats root paths on the Home Assistant origin, and
-  `/manifest.json` is already owned by HA's frontend so that one is dead. The SPA resolves assets
-  through `window.__YAWAMF_APP_BASE_PATH`, so they are not needed.
-
-Smaller gaps found in the same pass: the Last Bird sensor skips the state write when the event id
-is unchanged, so it never becomes `unavailable` when the coordinator fails; the camera entity
-re-downloads and re-scales the full snapshot on every image request with no per-event cache and no
-timeout; the config flow validates with no request timeout; a 401/403 raises `UpdateFailed` instead
-of `ConfigEntryAuthFailed` (no reauth flow); `manifest.json` lacks `dependencies: ["http",
-"frontend"]` and an `integration_type`; and `docs/integrations/home-assistant.md` still describes
-the count sensor as "since midnight" when it is a rolling 24-hour window.
-
-**Acceptance (met):** the ingress view is registered once per HA run and reads the live coordinator
-and token from `hass.data`; the panel is removed with a plain call and re-registered with
-`update=True`; an options change to URL or credentials takes effect in the sidebar without
-restarting HA and logs no exception; the root asset views are gone; the proxy refreshes the login
-before forwarding; the sensor writes state on availability changes; the camera caches per
-`frigate_event` and times out; the config flow times out; auth failures start reauth; the manifest
-declares its dependencies; the doc matches the sensor; and
-`backend/tests/test_home_assistant_sensor.py` covers the reload path, reauth, and the camera cache.
-
 #### Home Assistant OS add-on 🏠
-**Priority:** P3 | **Effort:** M | **Status:** ☐ Proposed ([#49](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/49))
+**Priority:** P3 | **Effort:** M | **Status:** ☐ Proposed ([#49](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/49), closed; tracked here)
 
 Wrap the monolithic image as an installable HA Supervisor add-on so HAOS users can deploy from
 the add-on store without a docker-compose stack. A companion `addon-yawamf` repo would carry the
@@ -1044,8 +971,11 @@ owner-editable optional map pin,
 temporally independent multi-frame crop refinement for distant subjects, a protected Frigate final
 best-frame baseline with correctly reconstructed bottom-centre path coordinates, recording-frame
 classification fallback, media caching, and the video player with HTTP-Range seeking + expiring
-watermarked share links. Playable partial recordings are retained instead of refetched forever,
-corrupt media remains rejected, and HQ recovery has persistent bounded backoff across container
+watermarked share links. Favourites are durable: starring a visit archives its photograph and clip
+before Frigate rotates them, with per-species retention floors (#178, 2.20.0). Photographs,
+full-visit clips, previews and visit films are always kept within retention and the size budget,
+and the "Media Cache" and "Snapshots" switches are gone (#622, 2.22.0). Playable partial
+recordings are retained instead of refetched forever, corrupt media remains rejected, and HQ recovery has persistent bounded backoff across container
 restarts. Manual temporal
 reclassification follows the same best-available-media contract: complete cached recording →
 decodable partial recording → cached event clip → Frigate event clip → snapshot fallback, with an
@@ -1057,7 +987,8 @@ inference in a subprocess that can be terminated on cancellation or timeout.
 notifications (Discord/Telegram/Pushover/Email + Notification Center), BirdWeather, eBird (sightings,
 maps, CSV export), iNaturalist (taxonomy + owner-reviewed submissions + seasonality), LLM behavioural
 analysis (Gemini/OpenAI/Claude) with conversation history, and the **Home Assistant proxy/sidebar
-panel** (ingress-authenticated dashboard).
+panel** (ingress-authenticated dashboard), which survives an integration reload, so an options
+change takes effect without restarting Home Assistant (2.19.4).
 
 **UI & platform:** real-time SSE dashboard, dark mode, advanced search/filtering, statistics +
 leaderboard analytics, species detail modals, PWA baseline, complete i18n (9+ languages), the

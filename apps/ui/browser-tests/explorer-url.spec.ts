@@ -47,7 +47,7 @@ async function chooseFilters(page: Page): Promise<void> {
     await page.getByLabel('To', { exact: true }).fill('2026-10-28');
     const only = page.locator('[data-explorer-only-facet]');
     await only.locator('summary').click();
-    await page.getByRole('button', { name: 'Favorites 3', exact: true }).click();
+    await page.getByRole('button', { name: 'Favourites 3', exact: true }).click();
     await page.locator('[data-explorer-show="captures"]').click();
 }
 
@@ -141,7 +141,7 @@ test('a pasted link opens with its filters and ignores values it cannot trust', 
 
     // The next change states only what is applied.
     await page.locator('[data-explorer-only-facet] summary').click();
-    await page.getByRole('button', { name: 'Favorites 3', exact: true }).click();
+    await page.getByRole('button', { name: 'Favourites 3', exact: true }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get('favorites')).toBe('1');
     const address = new URL(page.url()).searchParams;
     expect(address.has('start')).toBe(false);

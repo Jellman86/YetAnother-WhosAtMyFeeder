@@ -193,7 +193,7 @@
     <div class="pointer-events-none relative z-10 min-w-0 py-2">
         <div class="flex min-w-0 items-center gap-1.5">
             {#if isFavorite}
-                <BadgeHint text={$_('detection.favorite', { default: 'Favorite' })} class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full"><svg class="h-3 w-3 text-accent-ink" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label={$_('detection.favorite', { default: 'Favorite' })}>
+                <BadgeHint text={$_('detection.favorite', { default: 'Favourite' })} class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full"><svg class="h-3 w-3 text-accent-ink" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label={$_('detection.favorite', { default: 'Favourite' })}>
                     <path d="M11.05 2.93c.3-.92 1.6-.92 1.9 0l2.02 6.22h6.54c.97 0 1.37 1.24.59 1.81l-5.29 3.84 2.02 6.22c.3.92-.76 1.69-1.54 1.12L12 18.3l-5.29 3.84c-.78.57-1.84-.2-1.54-1.12l2.02-6.22-5.29-3.84c-.78-.57-.38-1.81.59-1.81h6.54l2.02-6.22z" />
                 </svg></BadgeHint>
             {/if}

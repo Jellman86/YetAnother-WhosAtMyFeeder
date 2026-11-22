@@ -12727,8 +12727,15 @@
             "type": "integer"
           },
           "window_avg_confidence": {
-            "title": "Window Avg Confidence",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Avg Confidence"
           },
           "window_camera_count": {
             "title": "Window Camera Count",
@@ -12794,7 +12801,6 @@
           "window_prev_count",
           "window_delta",
           "window_percent",
-          "window_avg_confidence",
           "window_camera_count"
         ],
         "title": "LeaderboardSpeciesItemResponse",
