@@ -1,7 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 // The range check flags Red Junglefowl (the bird model's name for chickens) over the desk's 24 hours.
-// "Needs your call" must say so, link to the Species page's checks, and never claim nothing is waiting.
+// "Needs your call" must say so, link to the Leaderboard's checks, and never claim nothing is waiting.
 
 const NOTHING_WAITING = 'Nothing waiting on you';
 
@@ -55,7 +55,7 @@ async function serve(page: Page, served: Served): Promise<void> {
     });
 }
 
-test('a flagged species is named in Needs your call with a link to the Species page checks', async ({ page }) => {
+test('a flagged species is named in Needs your call with a link to the Leaderboard checks', async ({ page }) => {
     const served: Served = { requests: [], leaderboard: (route) => route.fulfill({ json: flagged }) };
     await serve(page, served);
     await page.goto('/browser-tests/dashboard-species-checks.html');
@@ -67,7 +67,7 @@ test('a flagged species is named in Needs your call with a link to the Species p
     await expect(card).not.toContainText(NOTHING_WAITING);
     expect(served.requests).toContain('GET /api/leaderboard/species?span=day');
 
-    await card.getByRole('button', { name: 'Open the checks on the Species page' }).click();
+    await card.getByRole('button', { name: 'Open the checks on the Leaderboard' }).click();
     await expect(page.locator('[data-navigated]')).toHaveText('/species?span=day#checks');
 });
 
