@@ -54,10 +54,14 @@ describe('fetchEventAudioContext', () => {
     });
 });
 
-it('sends an explicit local visibility change and handles the response', async () => {
+it('sends an explicit local visibility change as JSON and handles the response', async () => {
     const response = { ok: true };
     apiFetchMock.mockResolvedValue(response);
     handleResponseMock.mockResolvedValue({ id: 478, hidden: true });
     await expect(setAudioHidden(478, true)).resolves.toEqual({ id: 478, hidden: true });
-    expect(apiFetchMock).toHaveBeenCalledWith('/api/audio/history/478', { method: 'PATCH', body: '{"hidden":true}' });
+    expect(apiFetchMock).toHaveBeenCalledWith('/api/audio/history/478', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{"hidden":true}'
+    });
 });
