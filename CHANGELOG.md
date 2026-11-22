@@ -6,6 +6,102 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.24.1] - 2026-11-22
+
+- **Home Assistant HACS / Marketplace updates (#1067):** Added the required root
+  `hacs.json` manifest (with `render_readme: true`) so HACS and Home Assistant Marketplace
+  can install and update the `yawamf` custom integration from release tags, and added a
+  deployment-contract test to keep it present and aligned with
+  `custom_components/yawamf/manifest.json`.
+
+- **Add observation has moved from the sidebar to the controls at the top of each page.** It is
+  the picture-with-a-plus icon next to Refresh, highlighted while you are on the page. The
+  Explorer also has a labelled **Add observation** button on a desktop, because what you add
+  appears there. On a phone it stays in the menu, because a fifth icon in the header would break
+  long page titles. Only the owner sees it, as before, and links and bookmarks to
+  `/observations/new` still work.
+- **The header now highlights the page you are on.** The notifications bell on Notifications and
+  the Settings gear on Settings get the same highlighted background as Add observation.
+- **The menu can no longer go missing at one zoom level.** With the browser zoomed so that the
+  window was between 767 and 768 pixels wide, there was no menu button and the sidebar was off
+  screen. The narrow layout now switches at exactly the width where the sidebar docks.
+
+- **Audio History's calls grid can show one species.** Above "Calls heard by hour and weekday"
+  sits the same row of species chips as the Leaderboard's activity grid: All species, then the
+  five species heard most in the window. Choosing one shows when that species calls, under the
+  page's window, source and confidence filters. A species not heard in a new window goes back to
+  All species, and while the page is filtered to a species the row is not shown, because the grid
+  already follows that search.
+- `GET /api/audio/activity-heatmap` takes an optional `scientific_name` that limits the grid to
+  one species exactly, and each `top_species` row of `GET /api/audio/summary` now carries its
+  `scientific_name`. See [the API reference](docs/api.md).
+
+- **Settings has an Integrations section and a Notifications section.** Integrations holds every
+  other service in one place: BirdNET-Go, Home Assistant weather, eBird, iNaturalist, BirdWeather
+  and the AI provider. Each has its own switch and its own test, and says its state in words under
+  its name: off, on but not set up (with what is missing), not tested on this visit, or the result
+  of the last test with its time. Notifications replaces Alerts and holds when you are told about a
+  visit, every channel, and Garden animal alerts.
+- **What was left of Sharing & integrations is now Access & privacy:** sign-in, guest access and
+  telemetry, all on its first screen.
+- **Your feeder's location is in Cameras & connection,** after the cameras. It is the section
+  Settings opens on, and the weather, eBird, iNaturalist and the range filter all read it.
+- **Discord, Pushover and Telegram each have a Send the photo switch.** Sending text only used to
+  need `NOTIFICATIONS__<CHANNEL>__INCLUDE_SNAPSHOT=false` in the environment. `/api/settings`
+  carries `notifications_discord_include_snapshot`, `notifications_pushover_include_snapshot` and
+  `notifications_telegram_include_snapshot`.
+- **Custom notification rules can be set in Settings.** **Custom rules** is now a choice in the
+  Notifications sentence, with three switches under it: alert when a visit starts, alert later if
+  none has gone yet, and wait for the video check. Custom rules send at most one alert per visit,
+  and the copy says so. On any other choice the switches are shown disabled, because those modes
+  set their own triggers. An install whose mode was `custom` could see that but had nowhere to
+  change it.
+- **An integration's test result stays on its card** when you open another section and come back,
+  until you change a value it ran with or reload the page.
+- **Old Settings links still work.** `/settings/alerts` opens Notifications, `/settings/sharing`
+  opens Access & privacy, and `/settings/sharing#integrations` or `#ai` opens that place in
+  Integrations. Search finds every moved setting where it is now.
+- **Messages that send you to a setting name its real place.** Sentences that pointed at
+  "Sharing & integrations → Location", "Settings › Models › Hardware" or "this tab" now take the
+  section's name from the navigation itself, in every language, so they cannot go stale again.
+- **The status column and the sidebar say Notifications,** not Alerts, to match the section.
+
+- **The Leaderboard and the species list keep their counts after cleanup.** The ranked day, week
+  and month boards and the all-time species list now count a day that cleanup sealed from its
+  daily totals, as the charts already did, instead of from the few captures it kept, so a count no
+  longer drops when old captures are removed. A day is counted once: its kept favourites are inside
+  its total, not added to it. A rolling window that opens part way through a sealed day counts only
+  the captures still stored from that day. A species seen only on sealed days keeps its place with
+  no confidence or first and last sighting, because a daily total has neither. See
+  [Daily totals keep the counts](docs/features/favourites.md#daily-totals-keep-the-counts).
+- **Hours and weekdays follow your instance's time zone when a client sends none.** curl, Home
+  Assistant and other scripts that send no `X-Timezone` header now get the daily summary's hour
+  buckets, the timeline, both activity heatmaps, the species charts, custom backfill dates and the
+  local time given to an AI analysis in the container's `TZ`, so they agree with the day they
+  already got. Before, those hours were UTC. The web interface is unchanged: it sends the browser's
+  zone. See [Calendar days and `today`](docs/api.md#calendar-days-and-today).
+- **The history range limit is stated as the code applies it.** The end day may be up to 365 days
+  after the start day, so a range holds a whole calendar year, leap years included.
+- **The live classifier worker's hard deadline has one default, 35 seconds.** It is what has always
+  applied; the settings model no longer declares a different 60 seconds. The unused `LOG_LEVEL`
+  setting is gone.
+- **Wording.** The Dashboard's checks link says "Open the checks on the Leaderboard", the Garden
+  device note points to **Settings › Identifying birds › More options › Hardware**, and English
+  spells "Favourite" one way throughout. The Intel GPU and NPU chips' "verified" and "unverified"
+  are translated. The Unraid template says the media cache lives in `/config/media_cache`.
+- **A settings backup that names no model keeps the bundled one.** A fresh install runs the bundled
+  MobileNet V2, and its saved selection is that model's file name. Settings built from an imported
+  backup without `classification.model` used to name RoPE ViT-B14 instead, a model the install had
+  not downloaded. Both now share one default. The README and the model guides no longer call RoPE
+  ViT-B14 the default: it is the wildlife-wide model the Model manager suggests when Small Birds is
+  not offered.
+
+- **Unraid Community Applications template validation:** Removed the stray hardcoded
+  `apps/ui/public/sitemap.xml` (and its `robots.txt` / nginx references) that caused
+  Unraid Community Applications to report `Template could not be read` when scanning the
+  repository's `.xml` files, and added a deployment-contract check so only
+  `ca_profile.xml` and `unraid/yawamf.xml` exist as tracked `.xml` files.
+
 ## [2.24.0] - 2026-11-21
 
 Entries are grouped by area, newest first within each group. Where a later entry revises an
