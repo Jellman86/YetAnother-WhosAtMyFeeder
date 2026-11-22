@@ -33,10 +33,11 @@ Reports, recordings, support bundles and retests help reproduce problems and che
   the [GPU telemetry report and retests (#778)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/778),
   and testing the [quarantine work (#722)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/722).
   Thanks also for the [xe GPU counter-wrap diagnosis (#944)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/944),
-  with a diagnostics bundle and several days of retesting, and for the requests to
+  with a diagnostics bundle and several days of retesting, for the requests to
   [keep history past retention (#949)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/949)
   and to [ask the API for today (#950)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/950),
-  both confirmed on the development image.
+  both confirmed on the development image, and for reporting the missing
+  [`hacs.json` manifest (#1067)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1067).
 - [@giulianob](https://github.com/giulianob)
   Thanks for the [range filter request (#696)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/696),
   the [early identification request (#743)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/743)
