@@ -1100,7 +1100,8 @@ Notes:
   confidence, cameras and the confirmed counts describe stored captures only:
   `window_avg_confidence` is null for a species known only from daily totals. `history_start`
   reaches back to the first sealed day or the oldest lost capture when either is older than every
-  stored capture.
+  stored capture. A capture corrected or added after its day was sealed does not change that day's
+  counts, here or in `GET /api/species`.
 
 ### Taxonomy
 

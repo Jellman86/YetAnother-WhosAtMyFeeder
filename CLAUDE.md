@@ -294,9 +294,10 @@ CI is where the Definition of Done is enforced. Keep CI and the local commands i
 workflow in the same commit. CI is allowed to be stricter than a local run, never
 looser.
 
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — **backend**: repo-wide
-  `ruff check .` and `ruff format --check .` (every tracked Python path, §7),
-  Alembic migration smoke (`upgrade → downgrade → upgrade`), migration path matrix
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — **backend**: the immutable Action
+  reference check (`check_action_pins.py`), repo-wide `ruff check .` and `ruff format --check .`
+  (every tracked Python path, §7), Alembic migration smoke (`upgrade → downgrade → upgrade`) for
+  the detection history and, separately, for the species catalogue, migration path matrix
   ([`backend/scripts/ci_migration_path_check.py`](backend/scripts/ci_migration_path_check.py)),
   `pytest`, the single-Alembic-head check for both streams, and the OpenAPI artifact and frontend
   OpenAPI types `--check`s. **frontend**: `npm ci` → `npm run check` → `npm run lint:dead` (knip:

@@ -120,6 +120,9 @@ from which day their counts come from daily totals.
   wholly inside them. A window that opens part way through a sealed day counts only the captures
   still stored from that day. A species seen only on sealed days keeps its place, with no
   confidence or first and last sighting, because a total has no scores or times.
+- A capture corrected or added after its day was sealed does not change that day's counts: a kept
+  favourite re-tagged as another species still counts as the old one on the charts and the
+  Leaderboard, and a capture backfilled into a sealed day is not counted.
 - Downgrading YA-WAMF below the release that added daily totals deletes them, and they cannot be
   rebuilt: for days cleanup has already removed they are the only copy of the counts.
 
