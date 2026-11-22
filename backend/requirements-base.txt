@@ -28,7 +28,7 @@ tzdata==2026.6  # zone data for TZ and X-Timezone on every image, whatever its b
 # someone establishes whether it guards something else.
 Pillow>=13.0.0
 numpy<3.0.0
-opencv-python-headless<4.11
+opencv-python-headless<5.2
 
 # TensorFlow Lite compatibility. ARM64 uses Google's current standalone LiteRT
 # interpreter rather than the much larger, retired tensorflow-aarch64 wheel.
