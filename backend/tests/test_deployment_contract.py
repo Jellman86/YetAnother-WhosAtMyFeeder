@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -433,6 +434,16 @@ def test_unraid_guide_has_a_local_template_import_and_complete_connection_setup(
     assert "Settings → Cameras & connection" in guide
     assert "FRIGATE__FRIGATE_URL" in guide and "overrides" in guide
     assert "Docker Safe New" not in guide
+
+
+def test_hacs_manifest_exists_for_home_assistant_custom_component() -> None:
+    """HACS and Home Assistant Marketplace require a root hacs.json for tagged installs."""
+    hacs = json.loads((REPO_ROOT / "hacs.json").read_text(encoding="utf-8"))
+    manifest = json.loads((REPO_ROOT / "custom_components/yawamf/manifest.json").read_text(encoding="utf-8"))
+    assert isinstance(hacs, dict)
+    assert hacs.get("name") == manifest["name"]
+    assert hacs.get("render_readme") is True
+    assert manifest.get("domain") == "yawamf"
 
 
 @pytest.mark.parametrize(
