@@ -16,7 +16,7 @@ def test_date_range_guard_rejects_an_end_day_more_than_365_days_after_the_start(
         events._enforce_max_date_range(start_date=date(2024, 1, 1), end_date=date(2025, 1, 1))
 
     assert exc_info.value.status_code == 400
-    assert "365 days" in str(exc_info.value.detail)
+    assert exc_info.value.detail == "The end date must be at most 365 days after the start date"
 
 
 def test_date_range_guard_allows_a_whole_leap_year():

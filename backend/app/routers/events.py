@@ -131,7 +131,7 @@ def _enforce_max_date_range(start_date: Optional[date], end_date: Optional[date]
     if (end_date - start_date).days > MAX_FILTER_DATE_RANGE_DAYS:
         raise HTTPException(
             status_code=400,
-            detail=f"Date range must not exceed {MAX_FILTER_DATE_RANGE_DAYS} days",
+            detail=f"The end date must be at most {MAX_FILTER_DATE_RANGE_DAYS} days after the start date",
         )
 
 
