@@ -130,7 +130,7 @@
     const GAP = 8;
     const VIEWPORT_MARGIN = 8;
 
-    let anchor = $state<{ x: number; y: number; above: boolean; sheet: boolean } | null>(null);
+    let anchor = $state<{ x: number; y: number; above: boolean; sheet: boolean; maxHeight?: number } | null>(null);
 
     // On a phone there is no room beside a thumbnail and no hover to lose: the panel becomes
     // a sheet at the foot of the screen, with a backdrop and its own Close.
@@ -187,17 +187,18 @@
         const rect = trigger.getBoundingClientRect();
         // The strip sits at the foot of the photograph, so the panel normally opens above it
         // and only drops below when the top of the window is too close.
-        const above = rect.top - GAP - PANEL_ESTIMATED_HEIGHT >= VIEWPORT_MARGIN
-            || rect.bottom + GAP + PANEL_ESTIMATED_HEIGHT > window.innerHeight;
+        const spaceAbove = rect.top - GAP - VIEWPORT_MARGIN;
+        const spaceBelow = window.innerHeight - rect.bottom - GAP - VIEWPORT_MARGIN;
+        // The strip sits at the foot of the photograph, so the panel normally opens above it
+        // and only drops below when the top of the window is tighter than the bottom.
+        const above = spaceAbove >= PANEL_ESTIMATED_HEIGHT || spaceAbove >= spaceBelow;
         const half = PANEL_WIDTH / 2;
         const centre = Math.min(
             Math.max(rect.left + rect.width / 2, half + VIEWPORT_MARGIN),
             window.innerWidth - half - VIEWPORT_MARGIN
         );
-        const y = above
-            ? Math.max(rect.top - GAP, PANEL_ESTIMATED_HEIGHT + VIEWPORT_MARGIN)
-            : Math.min(rect.bottom + GAP, Math.max(VIEWPORT_MARGIN, window.innerHeight - PANEL_ESTIMATED_HEIGHT - VIEWPORT_MARGIN));
-        anchor = { x: centre, y, above, sheet: false };
+        const maxHeight = Math.max(200, Math.floor(above ? spaceAbove : spaceBelow));
+        anchor = { x: centre, y: above ? rect.top - GAP : rect.bottom + GAP, above, sheet: false, maxHeight };
     }
 
     function openPopout(index: number): void {
@@ -654,8 +655,8 @@
                             <div
                                 bind:this={panelEl}
                                 use:portal
-                                style={anchor.sheet ? '' : `left: ${anchor.x}px; top: ${anchor.y}px;`}
-                                class="fixed z-70 overflow-hidden border border-on-media/20 bg-media-raised text-on-media/95 shadow-2xl shadow-media/40 motion-safe:animate-in motion-safe:fade-in {anchor.sheet
+                                style={anchor.sheet ? '' : `left: ${anchor.x}px; top: ${anchor.y}px; max-height: ${anchor.maxHeight}px;`}
+                                class="fixed z-70 overflow-y-auto overflow-x-hidden border border-on-media/20 bg-media-raised text-on-media/95 shadow-2xl shadow-media/40 motion-safe:animate-in motion-safe:fade-in {anchor.sheet
                                     ? 'inset-x-0 bottom-0 rounded-t-2xl motion-safe:slide-in-from-bottom-4'
                                     : anchor.above
                                       ? 'w-72 max-w-[calc(100vw-16px)] -translate-x-1/2 -translate-y-full rounded-2xl motion-safe:zoom-in-95'
