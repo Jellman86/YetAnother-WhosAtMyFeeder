@@ -19,6 +19,11 @@
         sceneGeometryIsValid,
         type SourceSize
     } from '../utils/count-scene';
+    import {
+        DEFAULT_REVIEW_CONFIDENCE_THRESHOLD,
+        isBirdUncertain,
+        partitionCountedBirdsForReview
+    } from '../utils/review-focus';
 
     interface Props {
         eventId: string;
@@ -33,6 +38,13 @@
         regenerating?: boolean;
         /** Counting is switched on, so "not counted" is worth saying. */
         countingAvailable?: boolean;
+        /** Focus on uncertain birds first and collapse confident bystanders (Needs your call). */
+        reviewFocus?: boolean;
+        /** Classification threshold used to tell uncertain birds from confident bystanders. */
+        confidenceThreshold?: number;
+        /** Bird currently being inspected in the parent's main viewer. */
+        inspectedBirdId?: number | null;
+        oninspect?: (bird: BirdObservation) => void;
         onretry?: () => void;
         onchanged: (bird: BirdObservation) => void;
         /** An edit landed after the birds were reread; the caller reads them again. */
@@ -49,6 +61,10 @@
         error = false,
         regenerating = false,
         countingAvailable = false,
+        reviewFocus = false,
+        confidenceThreshold = DEFAULT_REVIEW_CONFIDENCE_THRESHOLD,
+        inspectedBirdId = null,
+        oninspect,
         onretry,
         onchanged,
         onstale
@@ -62,6 +78,7 @@
     let previewId = $state<number | null>(null);
     let editingId = $state<number | null>(null);
     let expanded = $state(false);
+    let showConfidentBystanders = $state(false);
     let saving = $state<{ birdId: number; token: number } | null>(null);
     let saveToken = 0;
     let destroyed = false;
@@ -89,12 +106,22 @@
     const hintOnly = $derived(birds.length > 0 && birds.every((bird) => bird.detector_confidence === null));
     const ordered = $derived(birdReadingOrder(birds));
     const rows = $derived([...ordered.filter((bird) => !bird.is_hidden), ...ordered.filter((bird) => bird.is_hidden)]);
+    const reviewPartition = $derived(
+        reviewFocus
+            ? partitionCountedBirdsForReview(ordered, confidenceThreshold)
+            : { focusBirds: ordered.filter((bird) => !bird.is_hidden), confidentBystanders: [], excludedBirds: ordered.filter((bird) => bird.is_hidden), hasMixedCertainty: false }
+    );
+    const displayedRows = $derived(
+        reviewFocus && reviewPartition.hasMixedCertainty && !showConfidentBystanders
+            ? [...reviewPartition.focusBirds, ...reviewPartition.excludedBirds]
+            : rows
+    );
     // Several birds and none of them Frigate's tracked one: the visit's name cannot be pinned to a bird here (#481).
     const nameUntied = $derived(rows.filter((bird) => !bird.is_hidden).length > 1 && !rows.some((bird) => bird.tracked));
-    const shownRows = $derived(expanded ? rows : rows.slice(0, COLLAPSED_ROWS));
-    const firstExcludedId = $derived(rows.find((bird) => bird.is_hidden)?.id ?? null);
+    const shownRows = $derived(expanded ? displayedRows : displayedRows.slice(0, COLLAPSED_ROWS));
+    const firstExcludedId = $derived(displayedRows.find((bird) => bird.is_hidden)?.id ?? null);
     const positions = $derived(repeatedSpeciesPositions(birds));
-    const highlightedId = $derived(previewId ?? selectedId);
+    const highlightedId = $derived(previewId ?? selectedId ?? inspectedBirdId);
     const busy = $derived(saving !== null || regenerating || loading);
     const samePhotoFrame = $derived(
         scene.status === 'ready' && photograph
@@ -168,6 +195,28 @@
         return `left:${box.left}%;top:${box.top}%;width:${box.width}%;height:${box.height}%`;
     }
 
+    function classifierLabelText(bird: BirdObservation): string {
+        if (!bird.classifier_label) return '';
+        return $birdNames(
+            {
+                display_name: bird.classifier_label,
+                common_name: bird.classifier_common_name ?? null,
+                scientific_name: bird.classifier_label
+            },
+            settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true,
+            settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false
+        ).primary;
+    }
+
+    function confidentBystanderSummary(): string {
+        return reviewPartition.confidentBystanders
+            .map((bird) => {
+                const score = identityScore(bird);
+                return score !== null ? `${speciesName(bird)} (${percent(score)})` : speciesName(bird);
+            })
+            .join(', ');
+    }
+
     function toggle(bird: BirdObservation): void {
         // Content scrolling under a resting pointer must not outrank what was just chosen.
         previewId = bird.id;
@@ -178,6 +227,9 @@
         }
         selectedId = bird.id;
         if (editingId !== bird.id) editingId = null;
+        if (reviewFocus && !bird.is_hidden) {
+            oninspect?.(bird);
+        }
     }
 
     function startEditing(bird: BirdObservation): void {
@@ -374,16 +426,21 @@
                 {#each shownRows as bird (bird.id)}
                     {@const open = selectedId === bird.id}
                     {@const unknown = isUnknownBird(bird)}
+                    {@const uncertain = reviewFocus && isBirdUncertain(bird, confidenceThreshold)}
                     {@const position = positionText(bird)}
                     {#if bird.id === firstExcludedId}
                         <li class="pb-1 pt-3 text-xs font-semibold text-muted" data-counted-birds-excluded-heading>
                             {$_('detection.counted_birds.excluded_heading', { default: 'Excluded, not counted' })}
                         </li>
                     {/if}
-                    <li data-counted-bird-row={bird.id} data-excluded={bird.is_hidden ? 'true' : 'false'}>
+                    <li
+                        data-counted-bird-row={bird.id}
+                        data-excluded={bird.is_hidden ? 'true' : 'false'}
+                        data-uncertain={uncertain ? 'true' : 'false'}
+                    >
                         <button
                             type="button"
-                            class="flex min-h-11 w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-surface-raised focus-ring {open ? 'bg-surface-raised' : ''}"
+                            class="flex min-h-11 w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left transition-colors hover:bg-surface-raised focus-ring {open ? 'bg-surface-raised' : uncertain ? 'bg-accent-soft/50' : ''}"
                             aria-expanded={open}
                             aria-controls="counted-bird-{bird.id}"
                             onclick={() => toggle(bird)}
@@ -439,9 +496,9 @@
                                     {#if bird.identity_source === 'visit'}
                                         {$_('detection.counted_birds.visit_evidence', { values: { score: percent(bird.classifier_score) }, default: 'Named from the accepted visit identification and its matching input box. This crop alone scored {score}.' })}
                                     {:else if unknown && bird.classifier_label && !bird.manual_species}
-                                        {$_('detection.counted_birds.best_guess', { values: { label: bird.classifier_label, score: percent(bird.classifier_score) }, default: 'Best guess {label} at {score}, too low to name.' })}
+                                        {$_('detection.counted_birds.best_guess', { values: { label: classifierLabelText(bird), score: percent(bird.classifier_score) }, default: 'Best guess {label} at {score}, too low to name.' })}
                                     {:else if bird.manual_species && bird.classifier_label && bird.classifier_label !== bird.species}
-                                        {$_('detection.counted_birds.model_suggested', { values: { label: bird.classifier_label, score: percent(bird.classifier_score) }, default: 'The model suggested {label} at {score}.' })}
+                                        {$_('detection.counted_birds.model_suggested', { values: { label: classifierLabelText(bird), score: percent(bird.classifier_score) }, default: 'The model suggested {label} at {score}.' })}
                                     {:else if !bird.manual_species}
                                         {$_('detection.counted_birds.own_score', { values: { score: percent(bird.classifier_score) }, default: 'This bird scored {score} on its own, separately from the photograph.' })}
                                     {/if}
@@ -450,6 +507,16 @@
                                         : $_('detection.counted_birds.located', { values: { score: percent(bird.detector_confidence) }, default: 'Located with {score} detector confidence.' })}
                                 </p>
                                 <div class="flex flex-wrap gap-2">
+                                    {#if !bird.is_hidden && oninspect}
+                                        <button
+                                            type="button"
+                                            class="btn btn-secondary min-h-11 min-w-11 px-3 text-xs focus-ring"
+                                            onclick={() => oninspect(bird)}
+                                            data-counted-bird-inspect
+                                        >
+                                            {$_('detection.counted_birds.inspect_closer', { default: 'Inspect closer' })}
+                                        </button>
+                                    {/if}
                                     {#if !bird.is_hidden}
                                         <button
                                             type="button"
@@ -487,7 +554,31 @@
                     </li>
                 {/each}
             </ul>
-            {#if rows.length > COLLAPSED_ROWS}
+            {#if reviewFocus && reviewPartition.hasMixedCertainty}
+                <div
+                    class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface-raised/60 px-3 py-1.5 text-xs text-muted"
+                    data-counted-birds-confident-summary
+                >
+                    <span class="min-w-0 flex-1 wrap-break-word">
+                        {$_('detection.counted_birds.also_confident_in_frame', {
+                            values: { species: confidentBystanderSummary() },
+                            default: 'Also in frame (confident): {species}'
+                        })}
+                    </span>
+                    <button
+                        type="button"
+                        class="btn btn-ghost min-h-11 shrink-0 px-2.5 text-xs focus-ring"
+                        aria-expanded={showConfidentBystanders}
+                        onclick={() => { showConfidentBystanders = !showConfidentBystanders; }}
+                        data-counted-birds-confident-toggle
+                    >
+                        {showConfidentBystanders
+                            ? $_('detection.counted_birds.hide_confident', { default: 'Hide' })
+                            : $_('detection.counted_birds.show_confident', { default: 'Show' })}
+                    </button>
+                </div>
+            {/if}
+            {#if displayedRows.length > COLLAPSED_ROWS}
                 <button
                     type="button"
                     class="btn btn-ghost min-h-11 w-full justify-center text-xs focus-ring"
@@ -497,7 +588,7 @@
                 >
                     {expanded
                         ? $_('detection.counted_birds.show_fewer', { default: 'Show fewer birds' })
-                        : $_('detection.counted_birds.show_all', { values: { count: rows.length }, default: '{count, plural, one {Show # bird} other {Show all # birds}}' })}
+                        : $_('detection.counted_birds.show_all', { values: { count: displayedRows.length }, default: '{count, plural, one {Show # bird} other {Show all # birds}}' })}
                 </button>
             {/if}
         {/if}

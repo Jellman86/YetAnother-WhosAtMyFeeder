@@ -21,7 +21,12 @@ export interface FrameMoment {
     /** The uncropped scene for the same moment, if the moment has one. */
     whole: SnapshotCandidate | null;
     /** What the model read in this moment, from the photograph shown. */
-    read: { label: string; score: number | null } | null;
+    read: {
+        label: string;
+        score: number | null;
+        commonName?: string | null;
+        scientificName?: string | null;
+    } | null;
     /** The camera's own saved snapshot, which has no candidate record. */
     asRecorded: boolean;
     /** A photograph kept when a later run replaced it. Which frame it shows, and when, is unknown. */
@@ -58,7 +63,13 @@ function pickCrop(candidates: SnapshotCandidate[]): SnapshotCandidate | null {
 
 function pickRead(candidate: SnapshotCandidate | null): FrameMoment['read'] {
     if (!candidate?.classifier_label?.trim()) return null;
-    return { label: candidate.classifier_label, score: candidate.classifier_score ?? null };
+    const read: NonNullable<FrameMoment['read']> = {
+        label: candidate.classifier_label,
+        score: candidate.classifier_score ?? null
+    };
+    if (candidate.classifier_common_name) read.commonName = candidate.classifier_common_name;
+    if (candidate.classifier_scientific_name) read.scientificName = candidate.classifier_scientific_name;
+    return read;
 }
 
 function cropsAreSpatiallyDistinct(left: SnapshotCandidate, right: SnapshotCandidate): boolean {

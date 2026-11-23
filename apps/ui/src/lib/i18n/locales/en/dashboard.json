@@ -153,7 +153,17 @@
     "new_species_note": "First {species} recorded here. Confirm it, correct it, or block the species.",
     "confirm_species": "Confirm {species}",
     "block_species": "Block this species",
-    "species_blocked": "{species} blocked. It will not be recorded from now on."
+    "species_blocked": "{species} blocked. It will not be recorded from now on.",
+    "inspecting_bird": "Closer look: {bird}",
+    "inspecting_frame_read": "Inspecting: {read}",
+    "inspecting_frame": "Inspecting another frame",
+    "show_full_photo": "Show full photo",
+    "back_to_saved_photo": "Back to saved photo",
+    "focus_uncertain_bird": "Closer look at uncertain bird",
+    "other_confident_hidden": "{count, plural, one {# confident crop} other {# confident crops}} of {species} tucked away.",
+    "other_confident_showing": "Showing {count, plural, one {# confident crop} other {# confident crops}} of {species}.",
+    "show_other_confident": "Show",
+    "hide_other_confident": "Hide"
   },
   "provider_checking": "Checking your accelerator after a runtime change",
   "provider_fallback": "Your selected inference provider is not running",

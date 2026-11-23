@@ -153,7 +153,17 @@
     "new_species_note": "Primeiro {species} registrado aqui. Confirme, corrija ou bloqueie a espécie.",
     "confirm_species": "Confirmar {species}",
     "block_species": "Bloquear esta espécie",
-    "species_blocked": "{species} bloqueado. Detecções futuras serão descartadas."
+    "species_blocked": "{species} bloqueado. Detecções futuras serão descartadas.",
+    "inspecting_bird": "Visão de perto: {bird}",
+    "inspecting_frame_read": "Inspecionando: {read}",
+    "inspecting_frame": "Inspecionando outro quadro",
+    "show_full_photo": "Mostrar foto completa",
+    "back_to_saved_photo": "Voltar à foto salva",
+    "focus_uncertain_bird": "Ver de perto a ave incerta",
+    "other_confident_hidden": "{count, plural, one {# recorte confiável} other {# recortes confiáveis}} de {species} ocultos.",
+    "other_confident_showing": "Mostrando {count, plural, one {# recorte confiável} other {# recortes confiáveis}} de {species}.",
+    "show_other_confident": "Mostrar",
+    "hide_other_confident": "Ocultar"
   },
   "provider_checking": "Verificando o acelerador após uma alteração do ambiente de execução",
   "provider_fallback": "O provedor de inferência selecionado não está em execução",

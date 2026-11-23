@@ -153,7 +153,17 @@
     "new_species_note": "这里首次记录到{species}。可以确认、更正或屏蔽该物种。",
     "confirm_species": "确认{species}",
     "block_species": "屏蔽该物种",
-    "species_blocked": "已屏蔽{species}。之后的检测将被丢弃。"
+    "species_blocked": "已屏蔽{species}。之后的检测将被丢弃。",
+    "inspecting_bird": "放大查看：{bird}",
+    "inspecting_frame_read": "正在查看：{read}",
+    "inspecting_frame": "正在查看其他画面",
+    "show_full_photo": "显示完整照片",
+    "back_to_saved_photo": "返回已保存的照片",
+    "focus_uncertain_bird": "放大查看不确定的鸟类",
+    "other_confident_hidden": "{count, plural, other {已折叠 # 个 {species} 的高置信度裁剪。}}",
+    "other_confident_showing": "{count, plural, other {正在显示 # 个 {species} 的高置信度裁剪。}}",
+    "show_other_confident": "显示",
+    "hide_other_confident": "隐藏"
   },
   "provider_checking": "运行环境变更后正在检查加速器",
   "provider_fallback": "所选推理提供程序未运行",

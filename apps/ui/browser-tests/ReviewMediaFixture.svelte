@@ -19,6 +19,7 @@
 
     const NAMES: Record<string, { common: string; scientific: string }> = {
         dunnock: { common: 'Dunnock', scientific: 'Prunella modularis' },
+        pigeon: { common: 'Rock Pigeon', scientific: 'Columba livia' },
         tit: { common: 'Eurasian Blue Tit', scientific: 'Cyanistes caeruleus' },
         robin: { common: 'European Robin', scientific: 'Erithacus rubecula' },
         wren: { common: 'Eurasian Wren', scientific: 'Troglodytes troglodytes' }

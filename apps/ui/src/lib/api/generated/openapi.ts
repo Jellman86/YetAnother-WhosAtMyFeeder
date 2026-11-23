@@ -389,6 +389,7 @@ export interface components {
     BirdObservationResponse: {
     bird_index: number;
     candidate_id: string;
+    classifier_common_name?: string | null;
     classifier_label?: string | null;
     classifier_score: number;
     clip_variant: string;
@@ -2951,7 +2952,9 @@ export interface components {
 };
     SnapshotCandidateResponse: {
     candidate_id: string;
+    classifier_common_name?: string | null;
     classifier_label?: string | null;
+    classifier_scientific_name?: string | null;
     classifier_score?: number | null;
     clip_variant: string;
     crop_box?: Array<number> | null;
