@@ -153,7 +153,17 @@
     "new_species_note": "Premier {species} enregistré ici. Confirmez-le, corrigez-le ou bloquez cette espèce.",
     "confirm_species": "Confirmer {species}",
     "block_species": "Bloquer cette espèce",
-    "species_blocked": "{species} bloqué. Les futures détections seront ignorées."
+    "species_blocked": "{species} bloqué. Les futures détections seront ignorées.",
+    "inspecting_bird": "Vue rapprochée : {bird}",
+    "inspecting_frame_read": "Examen : {read}",
+    "inspecting_frame": "Examen d’une autre image",
+    "show_full_photo": "Afficher la photo complète",
+    "back_to_saved_photo": "Revenir à la photo enregistrée",
+    "focus_uncertain_bird": "Voir de près l’oiseau incertain",
+    "other_confident_hidden": "{count, plural, one {# recadrage sûr} other {# recadrages sûrs}} de {species} masqués.",
+    "other_confident_showing": "Affichage de {count, plural, one {# recadrage sûr} other {# recadrages sûrs}} de {species}.",
+    "show_other_confident": "Afficher",
+    "hide_other_confident": "Masquer"
   },
   "provider_checking": "Vérification de l’accélérateur après un changement du moteur",
   "provider_fallback": "Le fournisseur d’inférence sélectionné ne fonctionne pas",

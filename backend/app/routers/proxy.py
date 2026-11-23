@@ -47,7 +47,10 @@ from app.ratelimit import guest_rate_limit, hls_rate_limit, share_create_rate_li
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.garden_repository import GardenRepository
-from app.repositories.bird_observation_repository import BirdObservationRepository
+from app.repositories.bird_observation_repository import (
+    BirdObservationRepository,
+    resolve_display_names_for_labels,
+)
 from app.services.bird_observation_selection import BirdCountRegion
 from app.repositories.species_repository import SpeciesRepository
 from app.repositories.video_share_repository import VideoShareRepository
@@ -398,8 +401,14 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
             for ref, thumbnail in (("image_ref", False), ("thumbnail_ref", True))
         )
     )
+    language = get_user_language(request)
     async with get_db() as db:
-        birds = await BirdObservationRepository(db).named_for_event(event_id, get_user_language(request))
+        birds = await BirdObservationRepository(db).named_for_event(event_id, language)
+        candidate_label_names = await resolve_display_names_for_labels(
+            db,
+            (candidate.get("classifier_label") for candidate in candidates),
+            language,
+        )
     current_source = status.source
     current_candidate_id = None
     if current_source and current_source.startswith(("hq_candidate_", "video_evidence_")):
@@ -447,6 +456,16 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
                 ),
                 classifier_label=(
                     str(candidate.get("classifier_label")) if candidate.get("classifier_label") is not None else None
+                ),
+                classifier_common_name=(
+                    candidate_label_names.get(str(candidate.get("classifier_label")).strip(), (None, None))[1]
+                    if candidate.get("classifier_label") is not None
+                    else None
+                ),
+                classifier_scientific_name=(
+                    candidate_label_names.get(str(candidate.get("classifier_label")).strip(), (None, None))[0]
+                    if candidate.get("classifier_label") is not None
+                    else None
                 ),
                 classifier_score=(
                     float(candidate["classifier_score"]) if candidate.get("classifier_score") is not None else None
@@ -661,6 +680,8 @@ class SnapshotCandidateResponse(BaseModel):
     crop_confidence: float | None = None
     crop_strategy: str | None = None
     classifier_label: str | None = None
+    classifier_common_name: str | None = None
+    classifier_scientific_name: str | None = None
     classifier_score: float | None = None
     ranking_score: float
     selected: bool
@@ -684,6 +705,7 @@ class BirdObservationResponse(BaseModel):
     identity_score: float | None = None
     tracked: bool = Field(False, description="The bird Frigate tracked, which the visit's name is about")
     classifier_label: str | None = None
+    classifier_common_name: str | None = None
     classifier_score: float
     manual_species: bool
     is_hidden: bool

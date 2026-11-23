@@ -4,7 +4,7 @@
     import DialogCloseButton from './DialogCloseButton.svelte';
     import ClassificationSource from './ClassificationSource.svelte';
     import { onDestroy, untrack } from 'svelte';
-    import { dismissSnapshotCandidate, applySnapshotCandidate, fetchFeederSpecies, fetchSnapshotCandidates, getSnapshotUrl, getThumbnailUrl, searchSpecies } from '../api';
+    import { fetchFeederSpecies, fetchSnapshotCandidates, getSnapshotUrl, getThumbnailUrl, searchSpecies, updateCountedBird } from '../api';
     import type { BirdObservation, Detection, SearchResult, SnapshotCandidate } from '../api';
     import FrameStrip from './FrameStrip.svelte';
     import CountedBirds from './CountedBirds.svelte';
@@ -16,15 +16,23 @@
     import {
         currentMoment,
         groupCandidatesIntoMoments,
+        momentImageUrl,
         outlineLabelClass,
         outlineLabelPlace,
-        preferredCandidate,
         type FrameMoment
     } from '../utils/frame-moments';
-    import { getErrorMessage } from '../utils/error-handling';
+    import { isUnknownBird, resolveCountScene, sceneGeometryIsValid, type SourceSize } from '../utils/count-scene';
+    import {
+        computeCropViewport,
+        DEFAULT_REVIEW_CONFIDENCE_THRESHOLD,
+        findMatchingCropCandidateForBird,
+        isBirdUncertain,
+        partitionReviewMoments,
+        shouldAutoFocusUncertainBird,
+        singleUncertainBirdToSync
+    } from '../utils/review-focus';
     import { speciesPickerNames, withoutCurrentSpecies } from '../utils/species-picker';
     import { getManualTagSearchOptions } from '../search/manual-tag-search';
-    import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { advance, createReviewSession, refreshCurrent, type ReviewSession } from '../utils/review-session';
     import { IdentificationChangedError } from '../api/classifier';
@@ -64,15 +72,12 @@
     // never swaps a working photograph for one of its own URLs.
     let fullFrame = $state<SnapshotCandidate | null>(null);
     let cropLoading = $state(false);
-    /** Advanced when the saved photograph changes on the server, so the old bytes are not reused. */
-    let photographVersion = $state(0);
     /** A finished reclassification can also save a new photograph and frames for this capture. */
     const settledMediaVersion = $derived(
         session.current ? detectionsStore.settledMediaVersion(session.current.frigate_event) : 0
     );
-    // Every frame kept from the visit, in one strip, the same as the detection record (#256):
-    // a reviewer deciding what a blurred shape is should see every moment, not only the crop
-    // and its whole scene. Choosing one changes the photograph and nothing else.
+    // Every frame kept from the visit is shown in an inspection-only strip so the reviewer can
+    // inspect uncertain birds up close without accidentally overwriting the record's photograph.
     let candidates = $state<SnapshotCandidate[]>([]);
     let countedBirds = $state<BirdObservation[]>([]);
     /** Advanced on every reread of the birds, so an edit answered after it is not applied. */
@@ -87,10 +92,18 @@
     const wholeSceneCrops = $derived(sameFrameCropCandidates(candidates, photograph));
     let currentCandidateId = $state<string | null>(null);
     let currentSource = $state<string | null>(null);
-    let applyingKey = $state<string | null>(null);
-    let pendingPhotoEvent = $state<string | null>(null);
-    let photoOperation = 0;
-    const applyPending = $derived(pendingPhotoEvent !== null && pendingPhotoEvent === session.current?.frigate_event);
+    type InspectionTarget =
+        | { kind: 'moment'; momentKey: string }
+        | { kind: 'bird'; birdId: number; auto?: boolean };
+    let inspected = $state<InspectionTarget | null>(null);
+    let inspectionTouched = $state(false);
+    let showOtherConfidentBirds = $state(false);
+    let failedInspectUrls = $state<ReadonlySet<string>>(new Set());
+    let countSceneSize = $state<{ src: string; size: SourceSize } | null>(null);
+
+    const confidenceThreshold = $derived(
+        settingsStore.settings?.classification_threshold ?? DEFAULT_REVIEW_CONFIDENCE_THRESHOLD
+    );
     const moments = $derived<FrameMoment[]>(
         // The current frame still has the saved photograph even when its candidate files expired.
         groupCandidatesIntoMoments(candidates.filter((item) =>
@@ -98,6 +111,58 @@
         ))
     );
     const activeMoment = $derived(currentMoment(moments, currentCandidateId, currentSource));
+    const momentPartition = $derived(
+        partitionReviewMoments(moments, session.current, activeMoment?.key ?? null, confidenceThreshold)
+    );
+    const displayedMoments = $derived(showOtherConfidentBirds ? moments : momentPartition.focusMoments);
+    const countScene = $derived(resolveCountScene(countedBirds, candidates));
+    const uncertainCountedBirds = $derived(
+        countedBirds.filter((bird) => isBirdUncertain(bird, confidenceThreshold))
+    );
+    const inspectedMoment = $derived.by(() => {
+        const target = inspected;
+        if (target?.kind !== 'moment') return null;
+        return moments.find((moment) => moment.key === target.momentKey) ?? null;
+    });
+    const inspectedBird = $derived.by(() => {
+        const target = inspected;
+        if (target?.kind !== 'bird') return null;
+        return countedBirds.find((bird) => bird.id === target.birdId && !bird.is_hidden) ?? null;
+    });
+    const inspectedBirdCropCandidate = $derived(
+        inspectedBird ? findMatchingCropCandidateForBird(inspectedBird, candidates) : null
+    );
+    const inspectedDirectUrl = $derived.by((): string | null => {
+        if (inspectedMoment) {
+            const url = momentImageUrl(inspectedMoment);
+            return url && !failedInspectUrls.has(url) ? url : null;
+        }
+        if (inspectedBird && inspectedBirdCropCandidate?.image_url) {
+            const url = inspectedBirdCropCandidate.image_url;
+            return !failedInspectUrls.has(url) ? url : null;
+        }
+        return null;
+    });
+    const inspectedSceneUrl = $derived(
+        inspectedBird && !inspectedDirectUrl && countScene.status === 'ready' && !failedInspectUrls.has(countScene.imageUrl)
+            ? countScene.imageUrl
+            : null
+    );
+    const inspectedSceneViewport = $derived.by(() => {
+        if (!inspectedBird || !inspectedSceneUrl) return null;
+        if (!countSceneSize || countSceneSize.src !== inspectedSceneUrl) return null;
+        if (!sceneGeometryIsValid([inspectedBird], countSceneSize.size)) return null;
+        return computeCropViewport(inspectedBird.crop_box, countSceneSize.size);
+    });
+    const showingInspection = $derived(Boolean(inspectedDirectUrl || inspectedSceneViewport));
+    const inspectedStripKey = $derived(
+        inspectedMoment
+            ? inspectedMoment.key
+            : inspectedBird && inspectedBirdCropCandidate
+              ? (moments.find((moment) => moment.crop?.candidate_id === inspectedBirdCropCandidate.candidate_id)?.key ?? null)
+              : null
+    );
+
     // The photograph is the crop; the whole scene is a look, not a mode (#256). Same
     // controller as the detection record, so the two surfaces behave alike.
     // A whole scene that failed to load is not offered again; the photograph stays where it was.
@@ -108,7 +173,7 @@
             (url): url is string => !!url && !failedSceneUrls.has(url)
         )
     );
-    const canPeek = $derived(Boolean(photograph?.crop_box) && wholeSceneSources.length > 0);
+    const canPeek = $derived(!showingInspection && Boolean(photograph?.crop_box) && wholeSceneSources.length > 0);
     const wholeScene = new WholeScenePeek(() => canPeek);
     let search = $state('');
     let busy = $state(false);
@@ -204,6 +269,16 @@
             }
             currentCandidateId = response.current_candidate_id ?? null;
             currentSource = response.current_source ?? null;
+            if (!inspectionTouched) {
+                const autoBird = shouldAutoFocusUncertainBird(photograph, response.birds ?? [], confidenceThreshold);
+                if (autoBird) {
+                    const hasCrop = Boolean(findMatchingCropCandidateForBird(autoBird, all));
+                    const scene = resolveCountScene(response.birds ?? [], all);
+                    if (hasCrop || scene.status === 'ready') {
+                        inspected = { kind: 'bird', birdId: autoBird.id, auto: true };
+                    }
+                }
+            }
         } catch {
             // No scan has been run for this event, so there is no crop to show.
             if (isCurrent()) {
@@ -240,6 +315,11 @@
             untrack(() => { countedBirdsGeneration += 1; });
             currentCandidateId = null;
             currentSource = null;
+            inspected = null;
+            inspectionTouched = false;
+            showOtherConfidentBirds = false;
+            failedInspectUrls = new Set();
+            countSceneSize = null;
             failedSceneUrls = new Set();
             wholeScene.reset();
         }
@@ -288,38 +368,77 @@
         return () => { cancelled = true; };
     });
 
-    async function removePhotoChoice(candidateId: string, dismissed: boolean): Promise<void> {
-        const eventId = session.current?.frigate_event;
-        if (!eventId || applyPending) return;
-        const operation = ++photoOperation;
-        pendingPhotoEvent = eventId;
-        try {
-            const response = await dismissSnapshotCandidate(eventId, candidateId, dismissed);
-            if (operation === photoOperation && session.current?.frigate_event === eventId) candidates = response.candidates;
-        } finally {
-            if (operation === photoOperation) pendingPhotoEvent = null;
+    function inspectMoment(moment: FrameMoment): void {
+        inspectionTouched = true;
+        wholeScene.reset();
+        if (activeMoment?.key === moment.key) {
+            inspected = null;
+            return;
         }
+        inspected = { kind: 'moment', momentKey: moment.key };
     }
 
-    async function useMoment(moment: FrameMoment): Promise<void> {
-        const eventId = session.current?.frigate_event;
-        const candidate = preferredCandidate(moment);
-        if (!eventId || !candidate || applyPending) return;
-        const operation = ++photoOperation;
-        pendingPhotoEvent = eventId;
-        applyingKey = moment.key;
-        try {
-            await applySnapshotCandidate(eventId, { mode: 'candidate', candidate_id: candidate.candidate_id });
-            if (operation !== photoOperation || session.current?.frigate_event !== eventId) return;
-            wholeScene.reset();
-            photographVersion += 1;
-            await loadCandidates(eventId, () => operation !== photoOperation || session.current?.frigate_event !== eventId);
-            toastStore.success($_('detection.snapshot_apply_success', { default: 'Snapshot updated' }));
-        } catch (e) {
-            toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
-        } finally {
-            if (operation === photoOperation) { pendingPhotoEvent = null; applyingKey = null; }
-        }
+    function inspectBird(bird: BirdObservation): void {
+        inspectionTouched = true;
+        wholeScene.reset();
+        inspected = { kind: 'bird', birdId: bird.id };
+    }
+
+    function clearInspection(): void {
+        inspectionTouched = true;
+        inspected = null;
+    }
+
+    function inspectFailed(url: string): void {
+        failedInspectUrls = new Set([...failedInspectUrls, url]);
+    }
+
+    function measureInspectScene(event: Event): void {
+        const image = event.currentTarget as HTMLImageElement;
+        const src = image.getAttribute('src');
+        if (!src || !image.naturalWidth || !image.naturalHeight) return;
+        countSceneSize = { src, size: { width: image.naturalWidth, height: image.naturalHeight } };
+    }
+
+    function formatMomentRead(moment: FrameMoment): string | null {
+        if (!moment.read) return null;
+        const label = $birdNames(
+            {
+                display_name: moment.read.label,
+                common_name: moment.read.commonName ?? null,
+                scientific_name: moment.read.scientificName ?? null
+            },
+            settingsStore.displayCommonNames,
+            settingsStore.scientificNamePrimary
+        ).primary;
+        return moment.read.score === null ? label : `${label} ${Math.round(moment.read.score * 100)}%`;
+    }
+
+    function formatBirdInspectionLabel(bird: BirdObservation): string {
+        const score = bird.manual_species
+            ? null
+            : Math.round(((bird.identity_source === 'visit' ? bird.identity_score : bird.classifier_score) ?? 0) * 100);
+        const name = isUnknownBird(bird)
+            ? $_('detection.counted_birds.unknown_bird', { default: 'Unknown bird' })
+            : $birdNames(bird, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary;
+        return score === null ? name : `${name} · ${score}%`;
+    }
+
+    function otherConfidentSummary(): string {
+        return momentPartition.otherSpecies
+            .map((entry) => {
+                const name = $birdNames(
+                    {
+                        display_name: entry.label,
+                        common_name: entry.commonName,
+                        scientific_name: entry.scientificName
+                    },
+                    settingsStore.displayCommonNames,
+                    settingsStore.scientificNamePrimary
+                ).primary;
+                return `${name} (${Math.round(entry.maxScore * 100)}%)`;
+            })
+            .join(', ');
     }
 
     // The saved photograph first, then the camera's thumbnail of the same capture: a working
@@ -327,15 +446,15 @@
     const photographSources = $derived(
         session.current
             ? [
-                  withVersion(getSnapshotUrl(session.current.frigate_event), photographVersion, settledMediaVersion),
+                  withVersion(getSnapshotUrl(session.current.frigate_event), settledMediaVersion),
                   getThumbnailUrl(session.current.frigate_event, settledMediaVersion)
               ]
             : []
     );
 
-    function withVersion(url: string, version: number, settledVersion: number): string {
-        if (version === 0 && settledVersion === 0) return url;
-        return `${url}${url.includes('?') ? '&' : '?'}v=${version}.${settledVersion}`;
+    function withVersion(url: string, settledVersion: number): string {
+        if (settledVersion === 0) return url;
+        return `${url}${url.includes('?') ? '&' : '?'}v=${settledVersion}`;
     }
 
     let sceneEl = $state<HTMLImageElement | null>(null);
@@ -391,9 +510,18 @@
     async function identify(species: string): Promise<void> {
         const current = session.current;
         if (!current || busy) return;
+        const syncTarget = singleUncertainBirdToSync(countedBirds, confidenceThreshold);
         busy = true;
         try {
             await onidentify(current, species);
+            if (syncTarget) {
+                try {
+                    await updateCountedBird(current.frigate_event, syncTarget.id, { species });
+                    onbirdschanged?.();
+                } catch {
+                    // Best-effort: the visit itself is identified; the bird can still be edited in the full record.
+                }
+            }
             session = advance(session, 'resolved');
         } catch (error) {
             // Someone else decided first: stay on the visit and show what it says now.
@@ -455,9 +583,13 @@
     function handleKeydown(event: KeyboardEvent): void {
         if (event.key === 'Escape') {
             event.preventDefault();
-            // A pinned whole scene closes first; the queue stays open.
+            // A pinned whole scene closes first; then manual frame inspection; the queue stays open.
             if (wholeScene.pinned) {
                 wholeScene.reset();
+                return;
+            }
+            if (inspected && !(inspected.kind === 'bird' && inspected.auto)) {
+                clearInspection();
                 return;
             }
             onclose();
@@ -579,6 +711,97 @@
                             placeholderClass="text-slate-700"
                             iconClass="h-10 w-10"
                         />
+                        {#if inspectedDirectUrl}
+                            <div class="absolute inset-0 z-20 bg-media" data-review-inspection-view>
+                                <MediaImage
+                                    sources={[inspectedDirectUrl]}
+                                    alt={inspectedBird
+                                        ? formatBirdInspectionLabel(inspectedBird)
+                                        : $_('detection.photo_option_image_alt', { default: 'Candidate photograph from this visit' })}
+                                    class="absolute inset-0 h-full w-full object-contain"
+                                    placeholderClass="hidden"
+                                    onfail={inspectFailed}
+                                    data-review-inspected-image
+                                />
+                            </div>
+                        {:else if inspectedSceneUrl}
+                            {#if inspectedSceneViewport && countSceneSize}
+                                <div class="absolute inset-0 z-20 flex items-center justify-center bg-media p-2" data-review-inspection-view>
+                                    <div
+                                        class="relative max-h-full max-w-full overflow-hidden rounded-lg bg-media"
+                                        style="aspect-ratio: {inspectedSceneViewport.width} / {inspectedSceneViewport.height}; width: 100%;"
+                                    >
+                                        <img
+                                            src={inspectedSceneUrl}
+                                            alt={inspectedBird ? formatBirdInspectionLabel(inspectedBird) : ''}
+                                            class="pointer-events-none absolute max-w-none"
+                                            style="width: {(countSceneSize.size.width / inspectedSceneViewport.width) * 100}%; height: {(countSceneSize.size.height / inspectedSceneViewport.height) * 100}%; left: {(-inspectedSceneViewport.x / inspectedSceneViewport.width) * 100}%; top: {(-inspectedSceneViewport.y / inspectedSceneViewport.height) * 100}%;"
+                                            onerror={() => inspectFailed(inspectedSceneUrl)}
+                                            data-review-inspected-crop-image
+                                        />
+                                    </div>
+                                </div>
+                            {:else}
+                                <img
+                                    src={inspectedSceneUrl}
+                                    alt=""
+                                    class="pointer-events-none absolute h-px w-px opacity-0"
+                                    onload={measureInspectScene}
+                                    onerror={() => inspectFailed(inspectedSceneUrl)}
+                                    aria-hidden="true"
+                                />
+                            {/if}
+                        {/if}
+                        {#if showingInspection}
+                            <div class="pointer-events-none absolute inset-x-3 top-3 z-30 flex flex-wrap items-center justify-between gap-2">
+                                <span
+                                    class="inline-flex items-center gap-1.5 rounded-full border border-on-media/15 bg-media/85 px-2.5 py-1 text-2xs font-semibold text-on-media backdrop-blur-xs"
+                                    data-review-inspect-badge
+                                >
+                                    {#if inspectedBird && isBirdUncertain(inspectedBird, confidenceThreshold)}
+                                        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-status-attention" aria-hidden="true"></span>
+                                    {/if}
+                                    {#if inspectedBird}
+                                        {$_('dashboard.review_session.inspecting_bird', {
+                                            values: { bird: formatBirdInspectionLabel(inspectedBird) },
+                                            default: 'Closer look: {bird}'
+                                        })}
+                                    {:else if inspectedMoment}
+                                        {@const readText = formatMomentRead(inspectedMoment)}
+                                        {readText
+                                            ? $_('dashboard.review_session.inspecting_frame_read', {
+                                                  values: { read: readText },
+                                                  default: 'Inspecting: {read}'
+                                              })
+                                            : $_('dashboard.review_session.inspecting_frame', {
+                                                  default: 'Inspecting another frame'
+                                              })}
+                                    {/if}
+                                </span>
+                                <button
+                                    type="button"
+                                    class="pointer-events-auto inline-flex min-h-9 items-center gap-1 rounded-full border border-on-media/25 bg-media/85 px-3 py-1 text-2xs font-semibold text-on-media backdrop-blur-xs transition-colors hover:bg-media-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-on-dark"
+                                    onclick={clearInspection}
+                                    data-review-inspect-reset
+                                >
+                                    {inspected?.kind === 'bird' && !photograph?.crop_box
+                                        ? $_('dashboard.review_session.show_full_photo', { default: 'Show full photo' })
+                                        : $_('dashboard.review_session.back_to_saved_photo', { default: 'Back to saved photo' })}
+                                </button>
+                            </div>
+                        {:else if uncertainCountedBirds.length > 0 && !wholeScene.showing && (countScene.status === 'ready' || Boolean(findMatchingCropCandidateForBird(uncertainCountedBirds[0], candidates)))}
+                            <div class="pointer-events-none absolute bottom-3 right-3 z-30">
+                                <button
+                                    type="button"
+                                    class="pointer-events-auto inline-flex min-h-9 items-center gap-1.5 rounded-full border border-on-media/25 bg-media/85 px-3 py-1 text-2xs font-semibold text-on-media backdrop-blur-xs transition-colors hover:bg-media-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-on-dark"
+                                    onclick={() => inspectBird(uncertainCountedBirds[0])}
+                                    data-review-focus-uncertain
+                                >
+                                    <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-status-attention" aria-hidden="true"></span>
+                                    {$_('dashboard.review_session.focus_uncertain_bird', { default: 'Closer look at uncertain bird' })}
+                                </button>
+                            </div>
+                        {/if}
                         {#if canPeek}
                             <!-- The whole scene is drawn over the photograph only once it has loaded, so a
                                  scene that is slow or missing never takes the photograph away. -->
@@ -678,12 +901,13 @@
                         <!-- Held from the first paint, so the frames arriving do not push anything down. -->
                         <div class="pt-3" data-review-frame-strip>
                             <FrameStrip
-                                {moments}
+                                moments={displayedMoments}
                                 current={activeMoment}
                                 primaryName={naming.primary}
                                 loading={cropLoading}
-                                {applyingKey}
-                                busy={applyPending || busy}
+                                busy={busy}
+                                mode="inspect"
+                                inspectedKey={inspectedStripKey}
                                 photographUrl={photographSources[0] ?? null}
                                 emptyText={candidates.some((candidate) => candidate.crop_box)
                                     ? null
@@ -691,9 +915,43 @@
                                           default: 'No crop stored for this capture. Open the full record to scan for one.'
                                       })}
                                 eventId={current.frigate_event}
-                                onremove={removePhotoChoice}
-                                onuse={(moment) => { void useMoment(moment); }}
+                                oninspect={inspectMoment}
                             />
+                            {#if momentPartition.otherConfidentMoments.length > 0}
+                                <div
+                                    class="mx-3 mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-on-media/15 bg-media-raised/70 px-3 py-1.5 text-2xs text-on-media/80"
+                                    data-review-other-birds-bar
+                                >
+                                    <span class="min-w-0 flex-1 wrap-break-word">
+                                        {showOtherConfidentBirds
+                                            ? $_('dashboard.review_session.other_confident_showing', {
+                                                  values: {
+                                                      count: momentPartition.otherConfidentMoments.length,
+                                                      species: otherConfidentSummary()
+                                                  },
+                                                  default: 'Showing {count, plural, one {# confident crop} other {# confident crops}} of {species}.'
+                                              })
+                                            : $_('dashboard.review_session.other_confident_hidden', {
+                                                  values: {
+                                                      count: momentPartition.otherConfidentMoments.length,
+                                                      species: otherConfidentSummary()
+                                                  },
+                                                  default: '{count, plural, one {# confident crop} other {# confident crops}} of {species} tucked away.'
+                                              })}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        class="inline-flex min-h-9 shrink-0 items-center rounded-lg px-2.5 text-2xs font-semibold text-on-media transition-colors hover:bg-on-media/10 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-on-dark"
+                                        aria-expanded={showOtherConfidentBirds}
+                                        onclick={() => { showOtherConfidentBirds = !showOtherConfidentBirds; }}
+                                        data-review-other-birds-toggle
+                                    >
+                                        {showOtherConfidentBirds
+                                            ? $_('dashboard.review_session.hide_other_confident', { default: 'Hide' })
+                                            : $_('dashboard.review_session.show_other_confident', { default: 'Show' })}
+                                    </button>
+                                </div>
+                            {/if}
                         </div>
                     {/if}
                 </div>
@@ -836,6 +1094,10 @@
                                 generation={countedBirdsGeneration}
                                 loading={countedBirdsLoading}
                                 error={countedBirdsError}
+                                reviewFocus={true}
+                                {confidenceThreshold}
+                                inspectedBirdId={inspectedBird?.id ?? null}
+                                oninspect={inspectBird}
                                 onretry={() => { const eventId = current.frigate_event; void loadCandidates(eventId, () => session.current?.frigate_event !== eventId); }}
                                 onchanged={(updated) => { countedBirds = countedBirds.map((bird) => bird.id === updated.id ? updated : bird); onbirdschanged?.(); }}
                                 onstale={() => { const eventId = current.frigate_event; void loadCandidates(eventId, () => session.current?.frigate_event !== eventId); onbirdschanged?.(); }}

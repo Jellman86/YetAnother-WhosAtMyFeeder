@@ -72,16 +72,21 @@ describe('review queue walk-through', () => {
         expect(modalSource).toMatch(/if \(wholeScene\.pinned\) \{\s*wholeScene\.reset\(\);\s*return;/);
     });
 
-    it('shows every frame kept from the visit in the same strip as the record, and choosing one changes only the photograph', () => {
+    it('shows visit frames in an inspection-only strip focused on uncertain birds, without photo-choice mutations', () => {
         expect(modalSource).toContain("import FrameStrip from './FrameStrip.svelte'");
         expect(modalSource).toContain('groupCandidatesIntoMoments(candidates.filter(');
         expect(modalSource).toContain('item.thumbnail_url || item.image_url || item.candidate_id === currentCandidateId');
         expect(modalSource).toContain('data-review-frame-strip');
         expect(modalSource).toContain('current={activeMoment}');
-        expect(modalSource).toContain("applySnapshotCandidate(eventId, { mode: 'candidate', candidate_id: candidate.candidate_id })");
-        // The photograph is whatever is chosen, crop or whole scene; the strip reflects it after a change.
-        expect(modalSource).toContain('candidate.candidate_id === response.current_candidate_id');
-        expect(modalSource).toContain('await loadCandidates(eventId, () => operation !== photoOperation || session.current?.frigate_event !== eventId);');
+        expect(modalSource).toContain('mode="inspect"');
+        expect(modalSource).toContain('oninspect={inspectMoment}');
+        expect(modalSource).toContain('partitionReviewMoments(');
+        expect(modalSource).toContain('data-review-other-birds-toggle');
+        expect(modalSource).toContain('reviewFocus={true}');
+        expect(modalSource).toContain('singleUncertainBirdToSync(');
+        // Photo curation belongs on the full record, not inside Needs your call.
+        expect(modalSource).not.toContain('applySnapshotCandidate');
+        expect(modalSource).not.toContain('dismissSnapshotCandidate');
         // Regeneration stays on the full record, where the scan's status is shown.
         expect(modalSource).not.toContain('onregenerate=');
     });

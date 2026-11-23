@@ -1,17 +1,102 @@
 """Durable per-bird observations attached to one Frigate capture."""
 
+from collections.abc import Iterable
 from datetime import datetime
+import asyncio
 import json
 
 import aiosqlite
 
 from app.services.bird_observation_selection import BirdObservation, BirdObservationSelection
 from app.utils.canonical_species import should_hide_species_label
+from app.utils.species_aliases import looks_like_scientific_name
 from app.config import settings
 from app.services.counted_bird_identity import resolve_bird_identities, species_aliases_from_taxonomy
+from app.services.species_catalog_resolver import species_catalog_resolver
+from app.services.species_names import species_name_lookup
+from app.services.species_reference import species_reference
 from app.repositories.species_repository import SpeciesRepository
 
 SUMMARY_EVENT_PAGE_SIZE = 400
+
+
+def _resolve_catalogue_and_reference_names(
+    labels: list[str],
+    language: str,
+) -> dict[str, tuple[str | None, str | None]]:
+    """Offline fallback for scientific labels missing from taxonomy_cache (e.g. synonyms like Corvus monedula)."""
+    resolved: dict[str, tuple[str | None, str | None]] = {}
+    species_id_by_label: dict[str, int] = {}
+    for label in labels:
+        if not looks_like_scientific_name(label):
+            continue
+        species_id, status = species_catalog_resolver.resolve_scientific_name(label)
+        if status == "resolved" and species_id is not None:
+            species_id_by_label[label] = species_id
+
+    if species_id_by_label:
+        catalogue_names = species_name_lookup.resolve(species_id_by_label.values(), language=language)
+        for label, species_id in species_id_by_label.items():
+            entry = catalogue_names.get(species_id)
+            if entry and (entry.display or entry.scientific):
+                common = (
+                    entry.display
+                    if entry.display and entry.display.casefold() != (entry.scientific or "").casefold()
+                    else None
+                )
+                resolved[label] = (entry.scientific, common)
+
+    for label in labels:
+        existing = resolved.get(label)
+        if existing and existing[1]:
+            continue
+        if not looks_like_scientific_name(label):
+            continue
+        ref = species_reference.lookup(label, language)
+        if ref:
+            sci = ref.get("scientific_name") or (existing[0] if existing else None)
+            common = ref.get("common_name") or (existing[1] if existing else None)
+            if sci or common:
+                resolved[label] = (sci, common)
+    return resolved
+
+
+async def resolve_display_names_for_labels(
+    db: aiosqlite.Connection | object,
+    labels: Iterable[str | None],
+    language: str = "en",
+) -> dict[str, tuple[str | None, str | None]]:
+    """Resolve raw classifier/species labels to (scientific_name, common_name) without network I/O."""
+    unique_labels = list(
+        dict.fromkeys(
+            text
+            for raw in labels
+            if isinstance(raw, str) and (text := raw.strip()) and not should_hide_species_label(text)
+        )
+    )
+    if not unique_labels:
+        return {}
+
+    resolved: dict[str, tuple[str | None, str | None]] = {}
+    if isinstance(db, aiosqlite.Connection):
+        taxonomy = SpeciesRepository(db)
+        for label in unique_labels:
+            if not looks_like_scientific_name(label):
+                continue
+            hit = await taxonomy.lookup_taxonomy(label, language)
+            if hit:
+                scientific, common, _ = hit
+                if scientific or common:
+                    resolved[label] = (scientific, common)
+
+    unresolved = [label for label in unique_labels if not (resolved.get(label) and resolved[label][1])]
+    if unresolved:
+        fallback = await asyncio.to_thread(_resolve_catalogue_and_reference_names, unresolved, language)
+        for label, (sci, common) in fallback.items():
+            prev_sci, prev_common = resolved.get(label, (None, None))
+            resolved[label] = (prev_sci or sci, prev_common or common)
+
+    return resolved
 
 
 class BirdObservationRepository:
@@ -408,17 +493,36 @@ class BirdObservationRepository:
 
     async def named_for_event(self, event: str, language: str = "en") -> list[dict]:
         birds = (await self.resolved_for_events([event])).get(event, [])
-        names: dict[str, tuple | None] = {}
-        taxonomy = SpeciesRepository(self.db)
+        labels: list[str] = []
         for bird in birds:
-            label = bird.get("scientific_name")
-            if not label or should_hide_species_label(label):
-                continue
-            if label not in names:
-                names[label] = await taxonomy.lookup_taxonomy(label, language)
-            if names[label]:
-                scientific, common, _ = names[label]
-                bird["scientific_name"], bird["common_name"] = scientific, common
+            label = bird.get("scientific_name") or (
+                bird.get("species") if looks_like_scientific_name(bird.get("species")) else None
+            )
+            if label and not should_hide_species_label(label):
+                labels.append(str(label).strip())
+            classifier_label = bird.get("classifier_label")
+            if (
+                isinstance(classifier_label, str)
+                and classifier_label.strip()
+                and not should_hide_species_label(classifier_label)
+            ):
+                labels.append(classifier_label.strip())
+        names = await resolve_display_names_for_labels(self.db, labels, language)
+        for bird in birds:
+            raw_label = bird.get("scientific_name") or (
+                bird.get("species") if looks_like_scientific_name(bird.get("species")) else None
+            )
+            label = str(raw_label).strip() if isinstance(raw_label, str) else ""
+            if label and label in names:
+                scientific, common = names[label]
+                if scientific:
+                    bird["scientific_name"] = scientific
+                if common:
+                    bird["common_name"] = common
+            raw_classifier = bird.get("classifier_label")
+            classifier_key = str(raw_classifier).strip() if isinstance(raw_classifier, str) else ""
+            if classifier_key and classifier_key in names and names[classifier_key][1]:
+                bird["classifier_common_name"] = names[classifier_key][1]
         return birds
 
     async def summaries_for_events(self, frigate_events: list[str]) -> dict[str, dict]:

@@ -153,7 +153,17 @@
     "new_species_note": "この場所で初めての{species}です。確認、修正、または種のブロックができます。",
     "confirm_species": "{species}を確認",
     "block_species": "この種をブロック",
-    "species_blocked": "{species}をブロックしました。今後の検出は破棄されます。"
+    "species_blocked": "{species}をブロックしました。今後の検出は破棄されます。",
+    "inspecting_bird": "拡大表示: {bird}",
+    "inspecting_frame_read": "確認中: {read}",
+    "inspecting_frame": "別のフレームを確認中",
+    "show_full_photo": "写真全体を表示",
+    "back_to_saved_photo": "保存済みの写真に戻る",
+    "focus_uncertain_bird": "不確かな鳥を拡大表示",
+    "other_confident_hidden": "{count, plural, other {{species} の高信頼クロップ # 件を折りたたんでいます。}}",
+    "other_confident_showing": "{count, plural, other {{species} の高信頼クロップ # 件を表示しています。}}",
+    "show_other_confident": "表示",
+    "hide_other_confident": "隠す"
   },
   "provider_checking": "実行環境の変更後にアクセラレーターを確認しています",
   "provider_fallback": "選択した推論プロバイダーが動作していません",

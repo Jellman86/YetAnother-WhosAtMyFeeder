@@ -50,7 +50,11 @@
     "visit_evidence": "Benannt anhand der bestätigten Besuchsbestimmung und des passenden Bildausschnitts. Dieser Ausschnitt allein erreichte {score}.",
     "being_named": "Der benannte Vogel",
     "being_named_tag": "Wird benannt",
-    "name_not_tied": "Der Name des Besuchs lässt sich keinem dieser Vögel zuordnen."
+    "name_not_tied": "Der Name des Besuchs lässt sich keinem dieser Vögel zuordnen.",
+    "inspect_closer": "Näher ansehen",
+    "also_confident_in_frame": "Ebenfalls im Bild (sicher): {species}",
+    "show_confident": "Anzeigen",
+    "hide_confident": "Ausblenden"
   },
   "uploaded": "Hochgeladen",
   "observation_notes": "Beobachtungsnotizen",
@@ -539,5 +543,8 @@
   "archive_retry_due": "YA-WAMF versucht es in Kürze selbst erneut. Der Besuch bleibt in jedem Fall in Ihrem Verlauf.",
   "archive_checking": "Es wird geprüft, was die eigene Kopie dieses Favoriten enthält…",
   "archive_unchecked": "Die eigene Kopie dieses Favoriten hat ein Problem gemeldet, aber was sie enthält, konnte nicht geprüft werden.",
-  "archive_check_again": "Erneut prüfen"
+  "archive_check_again": "Erneut prüfen",
+  "frame_strip_inspect_hint": "Wählen Sie ein Bild zur näheren Ansicht. Ihr gespeichertes Foto bleibt unverändert.",
+  "frame_inspecting_now": "Wird im Hauptbild angezeigt",
+  "frame_inspect_action": "Größer anzeigen"
 }

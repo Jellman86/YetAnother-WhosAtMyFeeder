@@ -153,7 +153,17 @@
     "new_species_note": "Erste {species} an dieser Futterstelle. Bestätigen, korrigieren oder die Art blockieren.",
     "confirm_species": "{species} bestätigen",
     "block_species": "Diese Art blockieren",
-    "species_blocked": "{species} blockiert. Die Art wird ab jetzt nicht mehr erfasst."
+    "species_blocked": "{species} blockiert. Die Art wird ab jetzt nicht mehr erfasst.",
+    "inspecting_bird": "Detailansicht: {bird}",
+    "inspecting_frame_read": "Ansicht: {read}",
+    "inspecting_frame": "Anderes Bild in der Ansicht",
+    "show_full_photo": "Gesamtfoto zeigen",
+    "back_to_saved_photo": "Zurück zum gespeicherten Foto",
+    "focus_uncertain_bird": "Unsicheren Vogel näher ansehen",
+    "other_confident_hidden": "{count, plural, one {# sicherer Ausschnitt} other {# sichere Ausschnitte}} von {species} ausgeblendet.",
+    "other_confident_showing": "{count, plural, one {# sicherer Ausschnitt} other {# sichere Ausschnitte}} von {species} eingeblendet.",
+    "show_other_confident": "Anzeigen",
+    "hide_other_confident": "Ausblenden"
   },
   "provider_checking": "Beschleuniger wird nach einer Laufzeitänderung geprüft",
   "provider_fallback": "Der ausgewählte Inferenzanbieter läuft nicht",

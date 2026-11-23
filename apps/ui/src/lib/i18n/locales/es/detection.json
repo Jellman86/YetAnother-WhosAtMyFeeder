@@ -50,7 +50,11 @@
     "visit_evidence": "Nombrado según la identificación aceptada de la visita y su recuadro de entrada coincidente. Este recorte por sí solo obtuvo {score}.",
     "being_named": "El ave a la que se refiere el nombre",
     "being_named_tag": "Nombrada",
-    "name_not_tied": "El nombre de la visita no se puede asociar a una de estas aves."
+    "name_not_tied": "El nombre de la visita no se puede asociar a una de estas aves.",
+    "inspect_closer": "Ver de cerca",
+    "also_confident_in_frame": "También en el encuadre (seguro): {species}",
+    "show_confident": "Mostrar",
+    "hide_confident": "Ocultar"
   },
   "uploaded": "Subida",
   "observation_notes": "Notas de la observación",
@@ -539,5 +543,8 @@
   "archive_retry_due": "YA-WAMF lo volverá a intentar solo en breve. La visita se queda en tu historial en cualquier caso.",
   "archive_checking": "Comprobando qué guardó la copia propia de este favorito…",
   "archive_unchecked": "La copia propia de este favorito informó de un problema, pero no se pudo comprobar qué guardó.",
-  "archive_check_again": "Comprobar de nuevo"
+  "archive_check_again": "Comprobar de nuevo",
+  "frame_strip_inspect_hint": "Selecciona un fotograma para inspeccionarlo de cerca. La fotografía guardada no cambia.",
+  "frame_inspecting_now": "Mostrando en el visor principal",
+  "frame_inspect_action": "Ver más grande"
 }

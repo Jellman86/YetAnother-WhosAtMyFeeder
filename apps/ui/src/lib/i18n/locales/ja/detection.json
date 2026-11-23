@@ -50,7 +50,11 @@
     "visit_evidence": "確定した訪問の識別と、一致する入力範囲から命名。この切り抜き単体のスコアは {score}。",
     "being_named": "名前の対象の鳥",
     "being_named_tag": "名前の対象",
-    "name_not_tied": "この訪問の名前は、これらの鳥のどれにも結び付けられません。"
+    "name_not_tied": "この訪問の名前は、これらの鳥のどれにも結び付けられません。",
+    "inspect_closer": "詳しく見る",
+    "also_confident_in_frame": "同じ画面に写っている鳥（高信頼）: {species}",
+    "show_confident": "表示",
+    "hide_confident": "隠す"
   },
   "uploaded": "アップロード済み",
   "observation_notes": "観察メモ",
@@ -539,5 +543,8 @@
   "archive_retry_due": "YA-WAMF はまもなく自動で再試行します。いずれにしても訪問は履歴に残ります。",
   "archive_checking": "このお気に入りの保存用コピーに何が残っているか確認中…",
   "archive_unchecked": "このお気に入りの保存用コピーで問題が報告されましたが、何が残っているかは確認できませんでした。",
-  "archive_check_again": "もう一度確認"
+  "archive_check_again": "もう一度確認",
+  "frame_strip_inspect_hint": "フレームを選択すると拡大確認できます。保存済みの写真は変更されません。",
+  "frame_inspecting_now": "メイン画面で表示中",
+  "frame_inspect_action": "拡大表示"
 }

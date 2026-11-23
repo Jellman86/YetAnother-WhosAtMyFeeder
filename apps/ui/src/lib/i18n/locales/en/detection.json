@@ -50,7 +50,11 @@
     "visit_evidence": "Named from the accepted visit identification and its matching input box. This crop alone scored {score}.",
     "being_named": "The bird being named",
     "being_named_tag": "Being named",
-    "name_not_tied": "The visit’s name cannot be tied to one of these birds."
+    "name_not_tied": "The visit’s name cannot be tied to one of these birds.",
+    "inspect_closer": "Inspect closer",
+    "also_confident_in_frame": "Also in frame (confident): {species}",
+    "show_confident": "Show",
+    "hide_confident": "Hide"
   },
   "uploaded": "Uploaded",
   "observation_notes": "Observation notes",
@@ -539,5 +543,8 @@
   "archive_retry_due": "YA-WAMF tries again by itself shortly. The visit stays in your history either way.",
   "archive_checking": "Checking what this favourite's own copy kept…",
   "archive_unchecked": "This favourite's own copy reported a problem, but what it kept could not be checked.",
-  "archive_check_again": "Check again"
+  "archive_check_again": "Check again",
+  "frame_strip_inspect_hint": "Select a frame to inspect it closer. Your saved photograph stays unchanged.",
+  "frame_inspecting_now": "Viewing in main frame",
+  "frame_inspect_action": "View larger"
 }

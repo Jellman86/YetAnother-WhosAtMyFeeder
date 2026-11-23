@@ -2513,6 +2513,17 @@
             "title": "Candidate Id",
             "type": "string"
           },
+          "classifier_common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classifier Common Name"
+          },
           "classifier_label": {
             "anyOf": [
               {
@@ -22463,6 +22474,17 @@
             "title": "Candidate Id",
             "type": "string"
           },
+          "classifier_common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classifier Common Name"
+          },
           "classifier_label": {
             "anyOf": [
               {
@@ -22473,6 +22495,17 @@
               }
             ],
             "title": "Classifier Label"
+          },
+          "classifier_scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classifier Scientific Name"
           },
           "classifier_score": {
             "anyOf": [

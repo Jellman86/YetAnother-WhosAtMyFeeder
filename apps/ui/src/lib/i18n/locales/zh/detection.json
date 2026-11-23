@@ -50,7 +50,11 @@
     "visit_evidence": "名称来自已接受的来访识别及其匹配的输入区域。此裁剪图单独得分为 {score}。",
     "being_named": "被命名的鸟",
     "being_named_tag": "命名对象",
-    "name_not_tied": "此次到访的名称无法对应到这些鸟中的任何一只。"
+    "name_not_tied": "此次到访的名称无法对应到这些鸟中的任何一只。",
+    "inspect_closer": "放大查看",
+    "also_confident_in_frame": "同画面中已确认的鸟类：{species}",
+    "show_confident": "显示",
+    "hide_confident": "隐藏"
   },
   "uploaded": "已上传",
   "observation_notes": "观察备注",
@@ -539,5 +543,8 @@
   "archive_retry_due": "YA-WAMF 很快会自动重试。无论如何，这次到访都会保留在历史记录中。",
   "archive_checking": "正在检查此收藏的副本保存了哪些内容…",
   "archive_unchecked": "此收藏的副本报告了问题，但无法检查它保存了哪些内容。",
-  "archive_check_again": "重新检查"
+  "archive_check_again": "重新检查",
+  "frame_strip_inspect_hint": "选择一个画面以放大查看。已保存的照片不会更改。",
+  "frame_inspecting_now": "正在主画面中查看",
+  "frame_inspect_action": "放大查看"
 }
