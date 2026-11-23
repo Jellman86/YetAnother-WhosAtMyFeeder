@@ -6,6 +6,35 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.24.2] - 2026-11-23
+
+- **Needs your call focuses multi-bird reviews on uncertain birds (#1085):** Clicking frames in the
+  review strip now previews them cleanly in the main viewer without overwriting the saved
+  photograph (photo curation stays on the full record). Wide full-frame captures with one
+  uncertain bird auto-focus on that bird with a one-click toggle back to the full photo, confident
+  bystander crops and counted birds are tucked behind expandable controls, localized common names
+  replace raw scientific labels on frame reads and counted birds (including catalogue synonyms),
+  and identifying an untied capture with one unknown bird updates that counted bird automatically.
+- **Audio History management controls (#1084):** Replaced the per-row "Hide from YA-WAMF" text
+  button with a compact eye-with-slash icon button (and open-eye restore icon when viewing hidden
+  calls), added an owner-only **Hidden** view toggle with hidden-call count
+  (`GET /api/audio/history/hidden-count`), Explorer-style **Multi-select** bulk hide and restore
+  with undo (`PATCH /api/audio/history/visibility`), and a live **Search** input across species
+  common name, scientific name, and audio source.
+- **Fixed hiding BirdNET-Go audio detections (#1075, #1082):** Clicking the hide action on an
+  audio detection now sends `Content-Type: application/json` on `PATCH /api/audio/history/{id}`,
+  fixing the validation error (`Input should be a valid dictionary or object to extract fields
+  from`). A unit test now guards every `apiFetch` JSON body across the API client against missing
+  `Content-Type` headers.
+- **Health mobile layout and diagnostic error clarity (#1083):** The System status verdict chip now
+  shares a header row with its heading so open incidents span the full card width on phones, each
+  open incident shows occurrence count, last timestamp, and camera name, routine Frigate
+  missing-media policy updates no longer mark System status as Degraded, and plain-language
+  explanations now cover 42 additional backend diagnostic codes across all 9 locales instead of
+  falling back to an unrecognised-step message.
+- **Dependency and workflow updates (#1076, #1077, #1078, #1079):** Updated backend Python
+  dependencies, UI npm packages, telemetry-worker npm packages, and `step-security/harden-runner`.
+
 ## [2.24.1] - 2026-11-22
 
 - **Home Assistant HACS / Marketplace updates (#1067):** Added the required root

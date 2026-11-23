@@ -59,5 +59,8 @@ Reports, recordings, support bundles and retests help reproduce problems and che
   while it is reviewed.
 - [@darkslen1](https://github.com/darkslen1)
   Thanks for the [visit gap request (#1044)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1044),
-  explained with a busy feeder's numbers and a working stopgap, and for the
-  [species picker duplicates fix (#1043)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/pull/1043).
+  explained with a busy feeder's numbers and a working stopgap, for the
+  [species picker duplicates fix (#1043)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/pull/1043),
+  for reporting the [BirdNET-Go audio hide error (#1075)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1075),
+  and for reporting the [guest vs. owner Unresolved count difference (#1086)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1086),
+  which stays open while it is investigated.
