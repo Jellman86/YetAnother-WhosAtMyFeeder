@@ -72,12 +72,14 @@ async def apply_missing_policy(
                     },
                 }
             )
+        # Applying the configured missing-media policy when Frigate ages out old media
+        # is routine maintenance, not a system fault that should degrade Health.
         error_diagnostics_history.record(
             source=source,
             component="frigate_missing_policy",
             reason_code="frigate_missing_deleted",
             message="Deleted local detection because Frigate no longer has the event or retained media.",
-            severity="warning",
+            severity="info",
             stage=media_kind,
             event_id=frigate_event,
             context=context,
@@ -96,7 +98,7 @@ async def apply_missing_policy(
             component="frigate_missing_policy",
             reason_code="frigate_missing_marked",
             message="Marked detection as missing upstream while preserving local data.",
-            severity="warning",
+            severity="info",
             stage=media_kind,
             event_id=frigate_event,
             context=context,
@@ -109,7 +111,7 @@ async def apply_missing_policy(
         component="frigate_missing_policy",
         reason_code="frigate_missing_kept",
         message="Detected missing Frigate event/media but left local data unchanged.",
-        severity="warning",
+        severity="info",
         stage=media_kind,
         event_id=frigate_event,
         context=context,

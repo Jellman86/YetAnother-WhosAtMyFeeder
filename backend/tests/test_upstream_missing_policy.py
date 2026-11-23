@@ -113,10 +113,13 @@ async def test_purge_missing_media_marks_detection_when_behavior_is_mark_missing
     assert detection.frigate_status == "missing"
     assert detection.frigate_last_error == "event_not_found"
     history = error_diagnostics_history.snapshot(limit=10)
-    assert any(
-        event.get("reason_code") == "frigate_missing_marked" and event.get("event_id") == "evt-purge-mark"
+    marked_events = [
+        event
         for event in history["events"]
-    )
+        if event.get("reason_code") == "frigate_missing_marked" and event.get("event_id") == "evt-purge-mark"
+    ]
+    assert marked_events
+    assert marked_events[0].get("severity") == "info"
 
 
 @pytest.mark.asyncio
@@ -148,10 +151,13 @@ async def test_purge_missing_media_deletes_detection_when_behavior_is_delete():
 
     assert detection is None
     history = error_diagnostics_history.snapshot(limit=10)
-    assert any(
-        event.get("reason_code") == "frigate_missing_deleted" and event.get("event_id") == "evt-purge-delete"
+    deleted_events = [
+        event
         for event in history["events"]
-    )
+        if event.get("reason_code") == "frigate_missing_deleted" and event.get("event_id") == "evt-purge-delete"
+    ]
+    assert deleted_events
+    assert deleted_events[0].get("severity") == "info"
 
 
 @pytest.mark.parametrize(

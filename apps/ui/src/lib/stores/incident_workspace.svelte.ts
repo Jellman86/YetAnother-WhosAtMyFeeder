@@ -23,6 +23,8 @@ interface IncidentRecord {
     affected_area: string;
     startedAt: number;
     lastSeenAt: number;
+    count: number;
+    cameras: string[];
     evidenceRefs: string[];
     primaryReasonCode: string;
     /**
@@ -109,6 +111,7 @@ function backendEventsEqual(a: BackendDiagnosticEvent[], b: BackendDiagnosticEve
             || left.message !== right.message
             || normalizeString(left.job_id) !== normalizeString(right.job_id)
             || normalizeString(left.correlation_key) !== normalizeString(right.correlation_key)
+            || (left.count ?? 1) !== (right.count ?? 1)
             || left.dismissed !== right.dismissed
         ) {
             return false;
@@ -473,7 +476,10 @@ class IncidentWorkspaceStore {
             const key = buildIncidentKey(event);
             const jobId = normalizeString(event.job_id);
             const job = jobId ? this.jobs.get(jobId) : undefined;
-            const timestamp = toTimestamp(event.timestamp);
+            const timestamp = toTimestamp(event.last_seen ?? event.timestamp);
+            const firstSeen = toTimestamp(event.first_seen ?? event.timestamp);
+            const eventCount = Math.max(1, event.count ?? 1);
+            const camera = normalizeString(asRecord(event.context).camera);
             const severity = normalizeSeverity(event.severity);
             const title = normalizeString(event.message, normalizeString(event.reason_code, 'Incident'));
             const summary = normalizeString(job?.message, normalizeString(event.message, 'Incident detected'));
@@ -492,8 +498,10 @@ class IncidentWorkspaceStore {
                     title,
                     summary,
                     affected_area: inferAffectedArea(event, job),
-                    startedAt: timestamp,
+                    startedAt: firstSeen,
                     lastSeenAt: timestamp,
+                    count: eventCount,
+                    cameras: camera ? [camera] : [],
                     evidenceRefs,
                     primaryReasonCode: normalizeString(event.reason_code, 'unknown_reason')
                 });
@@ -508,7 +516,11 @@ class IncidentWorkspaceStore {
             existing.summary = summary;
             existing.title = title;
             existing.lastSeenAt = Math.max(existing.lastSeenAt, timestamp);
-            existing.startedAt = Math.min(existing.startedAt, timestamp);
+            existing.startedAt = Math.min(existing.startedAt, firstSeen);
+            existing.count += eventCount;
+            if (camera && !existing.cameras.includes(camera)) {
+                existing.cameras.push(camera);
+            }
             existing.affected_area = inferAffectedArea(event, job);
             existing.primaryReasonCode = normalizeString(event.reason_code, existing.primaryReasonCode);
             for (const ref of evidenceRefs) {

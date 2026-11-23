@@ -119,3 +119,46 @@ test('a backend error is said in words; its raw text, paths and addresses stay u
     await rows.nth(0).locator('summary').click();
     await expect(rows.nth(0)).toContainText("'/data/models/bird.onnx'");
 });
+
+test('on a phone, System status puts its pill in the header row so open incidents use the full card width and show count and camera', async ({ page }) => {
+    const payload = workspace({
+        mqtt: { state: 'connected', server: 'mqtt', port: 1883, connected_since: '2026-11-13T17:00:00Z' },
+        frigate: { state: 'reachable', url: 'http://frigate:5000', checked_at: '2026-11-13T18:19:00Z', availability: 'online' },
+        generated_at: '2026-11-13T18:20:00Z'
+    });
+    payload.backend_diagnostics.events = [
+        {
+            id: 'diag:test:snapshot-unavailable',
+            timestamp: '2026-11-13T18:19:00Z',
+            source: 'event_pipeline',
+            component: 'event_processor',
+            stage: 'classify_snapshot',
+            reason_code: 'drop_classify_snapshot_unavailable',
+            message: 'Dropped event due to classify_snapshot_unavailable',
+            severity: 'error',
+            event_id: 'evt-snap-1',
+            context: { camera: 'birdcam' },
+            correlation_key: null,
+            count: 3,
+            first_seen: '2026-11-13T18:05:00Z',
+            last_seen: '2026-11-13T18:19:00Z'
+        }
+    ] as never[];
+
+    await replayFeeder(page, 'dark', { '/api/diagnostics/workspace': payload });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/system-health');
+    await expect(page.getByRole('heading', { level: 1, name: 'Health' })).toBeVisible({ timeout: 15_000 });
+
+    const statusCard = page.locator('[data-health-status] > div').first();
+    const incident = page.locator('[data-health-open-incident]').first();
+    await expect(incident).toBeVisible();
+    await expect(incident.locator('[data-health-incident-meta]')).toContainText('Happened 3 times');
+    await expect(incident.locator('[data-health-incident-meta]')).toContainText('birdcam');
+
+    const cardBox = await statusCard.boundingBox();
+    const incidentBox = await incident.boundingBox();
+    expect(cardBox && incidentBox).toBeTruthy();
+    // Open incidents span the full inner width of the card rather than sitting beside the verdict pill.
+    expect(incidentBox!.width).toBeGreaterThan(cardBox!.width - 48);
+});
