@@ -990,3 +990,101 @@ async def test_guest_cannot_hide_audio(client):
     settings.public_access.enabled = True
     response = await client.patch("/api/audio/history/1", json={"hidden": True})
     assert response.status_code in (401, 403)
+    bulk_response = await client.patch("/api/audio/history/visibility", json={"ids": [1], "hidden": True})
+    assert bulk_response.status_code in (401, 403)
+    hidden_count_response = await client.get("/api/audio/history/hidden-count")
+    assert hidden_count_response.status_code in (401, 403)
+    hidden_history_response = await client.get("/api/audio/history", params={"only_hidden": "true"})
+    assert hidden_history_response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_owner_bulk_visibility_view_hidden_and_search(client):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    now = datetime.now(timezone.utc)
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        repo = AudioHistoryRepository(db)
+        robin_id = await repo.insert_audio_detection(
+            now - timedelta(minutes=3),
+            "European Robin",
+            0.92,
+            "garden-mic",
+            {"nm": "Garden Mic"},
+            scientific_name="Erithacus rubecula",
+            source_event_id="bulk-robin",
+        )
+        wren_id = await repo.insert_audio_detection(
+            now - timedelta(minutes=2),
+            "Eurasian Wren",
+            0.88,
+            "patio-mic",
+            {"nm": "Patio Mic"},
+            scientific_name="Troglodytes troglodytes",
+            source_event_id="bulk-wren",
+        )
+        tit_id = await repo.insert_audio_detection(
+            now - timedelta(minutes=1),
+            "Blue Tit",
+            0.91,
+            "shed-mic",
+            {"nm": "Shed Mic"},
+            scientific_name="Cyanistes caeruleus",
+            source_event_id="bulk-tit",
+        )
+
+    # Search matches common name, scientific name, and source name
+    assert (await client.get("/api/audio/history", params={"search": "rubecula"})).json()["total"] == 1
+    assert (await client.get("/api/audio/history", params={"search": "Patio Mic"})).json()["total"] == 1
+    assert (await client.get("/api/audio/summary", params={"search": "Blue Tit"})).json()["total"] == 1
+
+    # Bulk hide two calls
+    bulk_hide = await client.patch(
+        "/api/audio/history/visibility",
+        json={"ids": [robin_id, wren_id, 999999999], "hidden": True},
+    )
+    assert bulk_hide.status_code == 200, bulk_hide.text
+    assert bulk_hide.json() == {"updated_count": 2, "ids": [robin_id, wren_id], "hidden": True}
+
+    assert (await client.get("/api/audio/history/hidden-count")).json() == {"hidden_count": 2}
+    assert (await client.get("/api/audio/history")).json()["total"] == 1
+    hidden_history = (await client.get("/api/audio/history", params={"only_hidden": "true"})).json()
+    assert hidden_history["total"] == 2
+    assert {item["id"] for item in hidden_history["items"]} == {robin_id, wren_id}
+    assert (await client.get("/api/audio/summary", params={"only_hidden": "true"})).json()["total"] == 2
+
+    # Bulk restore
+    bulk_restore = await client.patch(
+        "/api/audio/history/visibility",
+        json={"ids": [robin_id, wren_id], "hidden": False},
+    )
+    assert bulk_restore.status_code == 200
+    assert bulk_restore.json() == {"updated_count": 2, "ids": [robin_id, wren_id], "hidden": False}
+    assert (await client.get("/api/audio/history/hidden-count")).json() == {"hidden_count": 0}
+    assert (await client.get("/api/audio/history")).json()["total"] == 3
+    assert tit_id > 0
+
+
+@pytest.mark.asyncio
+async def test_guest_search_does_not_leak_hidden_sensor_names(client):
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+    settings.public_access.show_audio = True
+    settings.public_access.show_camera_names = False
+    now = datetime.now(timezone.utc)
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        repo = AudioHistoryRepository(db)
+        await repo.insert_audio_detection(
+            now - timedelta(minutes=1),
+            "European Robin",
+            0.95,
+            "secret-backyard-mic",
+            {"nm": "Secret Backyard"},
+            scientific_name="Erithacus rubecula",
+            source_event_id="guest-search-robin",
+        )
+
+    assert (await client.get("/api/audio/history", params={"search": "rubecula"})).json()["total"] == 1
+    assert (await client.get("/api/audio/history", params={"search": "Secret Backyard"})).json()["total"] == 0

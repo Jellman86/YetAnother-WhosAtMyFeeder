@@ -231,6 +231,33 @@ class AudioHistoryRepository:
         await self.db.commit()
         return found
 
+    async def set_audio_hidden_bulk(self, detection_ids: list[int], hidden: bool) -> list[int]:
+        """Set visibility on many audio detections in one transaction, returning existing row ids."""
+        unique_ids = list(dict.fromkeys(int(item) for item in detection_ids if int(item) >= 1))
+        if not unique_ids:
+            return []
+        placeholders = ",".join("?" for _ in unique_ids)
+        async with self.db.execute(
+            f"SELECT id FROM audio_detections WHERE id IN ({placeholders})",
+            unique_ids,
+        ) as cursor:
+            existing = [int(row[0]) for row in await cursor.fetchall()]
+        if not existing:
+            return []
+        update_placeholders = ",".join("?" for _ in existing)
+        cursor = await self.db.execute(
+            f"UPDATE audio_detections SET is_hidden = ? WHERE id IN ({update_placeholders})",
+            [int(hidden), *existing],
+        )
+        await cursor.close()
+        await self.db.commit()
+        return existing
+
+    async def count_hidden_audio_detections(self) -> int:
+        async with self.db.execute("SELECT COUNT(*) FROM audio_detections WHERE is_hidden = 1") as cursor:
+            row = await cursor.fetchone()
+        return int(row[0] or 0) if row else 0
+
     async def get_audio_detection_for_correlation(self, detection_id: int) -> dict | None:
         async with self.db.execute(
             """SELECT timestamp, species, confidence, sensor_id, raw_data, scientific_name, source_event_id
@@ -458,8 +485,11 @@ class AudioHistoryRepository:
         min_confidence: Optional[float],
         maximum_end: datetime | None = None,
         scientific_name: Optional[str] = None,
+        only_hidden: bool = False,
+        search: Optional[str] = None,
+        search_include_source: bool = True,
     ) -> tuple[str, list]:
-        clauses: list[str] = ["is_hidden = 0"]
+        clauses: list[str] = ["is_hidden = 1" if only_hidden else "is_hidden = 0"]
         params: list = []
 
         if start_date is not None:
@@ -486,6 +516,17 @@ class AudioHistoryRepository:
             source_like = f"%{source.strip().casefold()}%"
             clauses.append("(LOWER(COALESCE(sensor_id, '')) LIKE ? OR LOWER(COALESCE(raw_data, '')) LIKE ?)")
             params.extend([source_like, source_like])
+        if search and search.strip():
+            search_like = f"%{search.strip().casefold()}%"
+            if search_include_source:
+                clauses.append(
+                    "(LOWER(species) LIKE ? OR LOWER(COALESCE(scientific_name, '')) LIKE ? "
+                    "OR LOWER(COALESCE(sensor_id, '')) LIKE ? OR LOWER(COALESCE(raw_data, '')) LIKE ?)"
+                )
+                params.extend([search_like, search_like, search_like, search_like])
+            else:
+                clauses.append("(LOWER(species) LIKE ? OR LOWER(COALESCE(scientific_name, '')) LIKE ?)")
+                params.extend([search_like, search_like])
         if min_confidence is not None:
             clauses.append("confidence >= ?")
             params.append(float(min_confidence))
@@ -502,6 +543,9 @@ class AudioHistoryRepository:
         limit: int = 100,
         offset: int = 0,
         maximum_end: datetime | None = None,
+        only_hidden: bool = False,
+        search: Optional[str] = None,
+        search_include_source: bool = True,
     ) -> dict:
         """Return persisted BirdNET detections for history browsing."""
         where_sql, params = self._build_audio_history_filter(
@@ -511,6 +555,9 @@ class AudioHistoryRepository:
             source=source,
             min_confidence=min_confidence,
             maximum_end=maximum_end,
+            only_hidden=only_hidden,
+            search=search,
+            search_include_source=search_include_source,
         )
 
         async with self.db.execute(f"SELECT COUNT(*) FROM audio_detections{where_sql}", params) as cursor:
@@ -566,6 +613,9 @@ class AudioHistoryRepository:
         source: Optional[str] = None,
         min_confidence: Optional[float] = None,
         maximum_end: datetime | None = None,
+        only_hidden: bool = False,
+        search: Optional[str] = None,
+        search_include_source: bool = True,
     ) -> dict:
         """Return rollups over persisted BirdNET detections."""
         where_sql, params = self._build_audio_history_filter(
@@ -575,6 +625,9 @@ class AudioHistoryRepository:
             source=source,
             min_confidence=min_confidence,
             maximum_end=maximum_end,
+            only_hidden=only_hidden,
+            search=search,
+            search_include_source=search_include_source,
         )
 
         async with self.db.execute(
@@ -674,6 +727,9 @@ class AudioHistoryRepository:
         min_confidence: Optional[float] = None,
         maximum_end: datetime | None = None,
         scientific_name: Optional[str] = None,
+        only_hidden: bool = False,
+        search: Optional[str] = None,
+        search_include_source: bool = True,
     ) -> list[tuple[datetime, int]]:
         """Visible calls per UTC hour, under the summary's filters, optionally for one species exactly."""
         where_sql, params = self._build_audio_history_filter(
@@ -684,6 +740,9 @@ class AudioHistoryRepository:
             min_confidence=min_confidence,
             maximum_end=maximum_end,
             scientific_name=scientific_name,
+            only_hidden=only_hidden,
+            search=search,
+            search_include_source=search_include_source,
         )
         async with self.db.execute(
             f"""SELECT strftime('%Y-%m-%d %H:00:00', timestamp) AS bucket_start, COUNT(*)

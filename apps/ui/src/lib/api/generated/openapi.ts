@@ -129,6 +129,15 @@ export interface components {
     window_end: string;
     window_start: string;
 };
+    AudioBulkVisibilityRequest: {
+    hidden: boolean;
+    ids: Array<number>;
+};
+    AudioBulkVisibilityResponse: {
+    hidden: boolean;
+    ids: Array<number>;
+    updated_count: number;
+};
     AudioContextDetectionResponse: {
     birdnet_id?: number | null;
     confidence: number;
@@ -151,6 +160,9 @@ export interface components {
     source_name?: string | null;
     species: string;
     timestamp: string;
+};
+    AudioHiddenCountResponse: {
+    hidden_count: number;
 };
     AudioHistoryDetectionResponse: {
     birdnet_id?: number | null;
@@ -377,6 +389,7 @@ export interface components {
     BirdObservationResponse: {
     bird_index: number;
     candidate_id: string;
+    classifier_common_name?: string | null;
     classifier_label?: string | null;
     classifier_score: number;
     clip_variant: string;
@@ -2939,7 +2952,9 @@ export interface components {
 };
     SnapshotCandidateResponse: {
     candidate_id: string;
+    classifier_common_name?: string | null;
     classifier_label?: string | null;
+    classifier_scientific_name?: string | null;
     classifier_score?: number | null;
     clip_variant: string;
     crop_box?: Array<number> | null;
@@ -3476,7 +3491,9 @@ export interface paths {
     days?: number;
     end_date?: string | null;
     min_confidence?: number | null;
+    only_hidden?: boolean;
     scientific_name?: string | null;
+    search?: string | null;
     source?: string | null;
     species?: string | null;
     start_date?: string | null;
@@ -3543,12 +3560,32 @@ export interface paths {
     limit?: number;
     min_confidence?: number | null;
     offset?: number;
+    only_hidden?: boolean;
+    search?: string | null;
     source?: string | null;
     species?: string | null;
     start_date?: string | null;
 };
       requestBody: unknown;
       response: components['schemas']['AudioHistoryResponse'];
+    };
+  };
+  "/api/audio/history/hidden-count": {
+    get: {
+      operationId: "get_hidden_audio_count_api_audio_history_hidden_count_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['AudioHiddenCountResponse'];
+    };
+  };
+  "/api/audio/history/visibility": {
+    patch: {
+      operationId: "set_audio_visibility_bulk_api_audio_history_visibility_patch";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['AudioBulkVisibilityRequest'];
+      response: components['schemas']['AudioBulkVisibilityResponse'];
     };
   };
   "/api/audio/history/{detection_id}": {
@@ -3616,6 +3653,8 @@ export interface paths {
     days?: number;
     end_date?: string | null;
     min_confidence?: number | null;
+    only_hidden?: boolean;
+    search?: string | null;
     source?: string | null;
     species?: string | null;
     start_date?: string | null;

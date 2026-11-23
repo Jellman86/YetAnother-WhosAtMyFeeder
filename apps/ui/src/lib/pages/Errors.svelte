@@ -544,10 +544,24 @@
     }
 
     /** The raw words of an open or earlier incident, for its Technical details only. */
-    function incidentDetails(incident: { title: string; summary: string; primaryReasonCode: string }): string[] {
+    function incidentDetails(incident: { title: string; summary: string; primaryReasonCode: string; cameras?: string[] }): string[] {
         const title = incident.title.trim();
         const summary = incident.summary.trim();
-        return [incident.primaryReasonCode, title, ...(summary && summary !== title ? [summary] : [])].filter(Boolean);
+        const cameraLine = incident.cameras && incident.cameras.length > 0 ? `camera ${incident.cameras.join(', ')}` : '';
+        return [incident.primaryReasonCode, cameraLine, title, ...(summary && summary !== title ? [summary] : [])].filter(Boolean);
+    }
+
+    function incidentMetaLine(incident: { count: number; lastSeenAt: number; cameras: string[] }): string {
+        const base = $_('jobs.errors_incident_meta', {
+            values: { count: incident.count, at: formatDateTime(incident.lastSeenAt) },
+            default: '{count, plural, one {Happened once · {at}} other {Happened # times · last {at}}}'
+        });
+        return incident.cameras.length > 0 ? `${base} · ${incident.cameras.join(', ')}` : base;
+    }
+
+    function diagnosticCamera(event: { context?: Record<string, unknown> | null }): string {
+        const raw = event.context && typeof event.context === 'object' ? event.context.camera : null;
+        return typeof raw === 'string' ? raw.trim() : '';
     }
 
     /** An open incident is never shown beside a healthy verdict. */
@@ -1009,15 +1023,18 @@
     <SystemHealthPanel statusRead={readState !== 'reading'}>
         {#snippet status()}
             <div class="space-y-4" data-health-status data-health-read-state={readState}>
-                <!-- Held at its usual height while the first reading is on its way, so its arrival moves nothing. -->
-                <div class="flex min-h-28 flex-wrap items-start gap-x-4 gap-y-2 rounded-2xl border px-4 py-4 sm:px-5 {heroToneClass(verdict())}">
-                    {#if readState !== 'reading' && readState !== 'failed'}
-                        <span class="inline-flex shrink-0" data-health-status-pill>
-                            <StatusChip tone={STATUS_TONE[statusTone(verdict())]} label={statusLabel(verdict())} title={verdict()} size="md" />
-                        </span>
-                    {/if}
-                    <div class="min-w-0 flex-1 wrap-break-word">
+                <!-- Held at its usual height while the first reading is on its way, so its arrival moves nothing.
+                     The verdict chip and title share one header row so open incidents keep the full card width on phones. -->
+                <div class="min-h-28 rounded-2xl border px-4 py-4 sm:px-5 {heroToneClass(verdict())}">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                        {#if readState !== 'reading' && readState !== 'failed'}
+                            <span class="inline-flex shrink-0" data-health-status-pill>
+                                <StatusChip tone={STATUS_TONE[statusTone(verdict())]} label={statusLabel(verdict())} title={verdict()} size="md" />
+                            </span>
+                        {/if}
                         <h3 class="font-display text-lg font-bold text-strong">{$_('jobs.errors_system_status', { default: 'System status' })}</h3>
+                    </div>
+                    <div class="mt-2 min-w-0 wrap-break-word">
                         {#if readState === 'reading'}
                             <p class="text-sm text-ink" data-health-reading>{$_('jobs.errors_reading', { default: 'Reading the latest health…' })}</p>
                         {:else if readState === 'failed'}
@@ -1027,26 +1044,25 @@
                             {@render technicalDetails([refreshError])}
                         {:else}
                             {#if openItems.length > 0}
-                                <ul class="mt-1 space-y-2" data-health-problems>
+                                <ul class="mt-1 divide-y divide-line-soft" data-health-problems>
                                     {#each openItems as item, index (item.key)}
                                         {#if item.problem}
                                             {@const text = problemItem(item.problem)}
-                                            <li class="wrap-break-word text-sm" data-health-problem={item.problem}>
+                                            <li class="py-3 first:pt-0 last:pb-0 wrap-break-word text-sm" data-health-problem={item.problem}>
                                                 <p class="font-semibold text-strong">{text.title}</p>
-                                                <p class="text-ink">{text.next}</p>
+                                                <p class="mt-0.5 text-ink">{text.next}</p>
                                             </li>
                                         {:else if item.incident}
                                             {@const text = diagnosticWords(item.incident.primaryReasonCode)}
                                             {@const titleId = `health-open-${index}`}
-                                            <li class="wrap-break-word text-sm" data-health-open-incident>
-                                                <div class="flex flex-wrap items-start justify-between gap-x-3">
-                                                    <div class="min-w-0 flex-1 basis-48">
-                                                        <p id={titleId} class="font-semibold text-strong">{text.title}</p>
-                                                        {#if text.next}<p class="text-ink">{text.next}</p>{/if}
-                                                    </div>
+                                            <li class="py-3 first:pt-0 last:pb-0 wrap-break-word text-sm" data-health-open-incident>
+                                                <p id={titleId} class="font-semibold text-strong">{text.title}</p>
+                                                {#if text.next}<p class="mt-0.5 text-ink">{text.next}</p>{/if}
+                                                <div class="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                                                    <p class="text-xs tabular-nums text-ink" data-health-incident-meta>{incidentMetaLine(item.incident)}</p>
                                                     {#if item.incident.live}
                                                         <!-- A live check shows this open now, so dismissing it could hide a real failure. -->
-                                                        <p class="py-3 text-xs text-ink" data-health-live-incident>{$_('jobs.health_dismiss.live_note', { default: 'Clears by itself when the check passes.' })}</p>
+                                                        <p class="py-2 text-xs text-ink" data-health-live-incident>{$_('jobs.health_dismiss.live_note', { default: 'Clears by itself when the check passes.' })}</p>
                                                     {:else}
                                                         {@render dismissButton(`incident:${item.incident.id}`, titleId, incidentWorkspaceStore.dismissalEntries(item.incident), 'backend')}
                                                     {/if}
@@ -1066,7 +1082,7 @@
                                 {@render technicalDetails([refreshError])}
                             {/if}
                             <!-- Two lines on a phone, where the dated reading wraps; held so its arrival moves nothing. -->
-                            <p class="mt-1 min-h-8 text-xs text-ink sm:min-h-4">{latestHealthLine()}</p>
+                            <p class="mt-2 min-h-8 text-xs text-ink sm:min-h-4">{latestHealthLine()}</p>
                         {/if}
                     </div>
                 </div>
@@ -1379,13 +1395,14 @@
                         <ul class="mt-4 divide-y divide-line-soft">
                             {#each backendEvents.slice(0, 8) as event, index (event.id)}
                                 {@const worded = diagnosticWords(event.reason_code)}
+                                {@const camera = diagnosticCamera(event)}
                                 {@const titleId = `health-diagnostic-${index}`}
                                 <li class="py-3" data-health-diagnostic>
                                     <!-- The state, the time and Dismiss share the top row, so the title below keeps the card's full measure. -->
                                     <div class="flex flex-wrap items-center justify-between gap-2">
                                         <StatusChip tone={STATUS_TONE[statusTone(event.severity ?? 'warning')]} label={statusLabel(event.severity ?? 'warning')} title={event.severity} />
                                         <div class="flex items-center gap-3">
-                                            <span class="text-xs tabular-nums text-ink">{formatDateTime(Date.parse(event.timestamp))}</span>
+                                            <span class="text-xs tabular-nums text-ink">{camera ? `${camera} · ` : ''}{formatDateTime(Date.parse(event.timestamp))}</span>
                                             {@render dismissButton(`entry:${event.id}`, titleId, [{ id: event.id, count: Math.max(1, event.count ?? 1) }], 'backend')}
                                         </div>
                                     </div>
@@ -1408,6 +1425,7 @@
                                     {/if}
                                     {@render technicalDetails([
                                         `${event.component} · ${event.reason_code}`,
+                                        ...(camera ? [`camera ${camera}`] : []),
                                         event.message,
                                         ...(event.event_id ? [`event ${event.event_id}`] : []),
                                         ...(event.correlation_key ? [event.correlation_key] : [])

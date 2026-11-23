@@ -50,7 +50,11 @@
     "visit_evidence": "Nome basato sull’identificazione accettata della visita e sul riquadro di ingresso corrispondente. Questo ritaglio da solo ha ottenuto {score}.",
     "being_named": "L’uccello a cui si riferisce il nome",
     "being_named_tag": "Nominato",
-    "name_not_tied": "Il nome della visita non si può attribuire a uno di questi uccelli."
+    "name_not_tied": "Il nome della visita non si può attribuire a uno di questi uccelli.",
+    "inspect_closer": "Esamina da vicino",
+    "also_confident_in_frame": "Anche nell'inquadratura (sicuro): {species}",
+    "show_confident": "Mostra",
+    "hide_confident": "Nascondi"
   },
   "uploaded": "Caricata",
   "observation_notes": "Note sull’osservazione",
@@ -539,5 +543,8 @@
   "archive_retry_due": "YA-WAMF riproverà da solo a breve. La visita resta comunque nella cronologia.",
   "archive_checking": "Verifica di ciò che la copia propria di questo preferito ha conservato…",
   "archive_unchecked": "La copia propria di questo preferito ha segnalato un problema, ma non è stato possibile verificare cosa ha conservato.",
-  "archive_check_again": "Verifica di nuovo"
+  "archive_check_again": "Verifica di nuovo",
+  "frame_strip_inspect_hint": "Seleziona un fotogramma per esaminarlo da vicino. La fotografia salvata rimane invariata.",
+  "frame_inspecting_now": "Visibile nel riquadro principale",
+  "frame_inspect_action": "Vedi più grande"
 }

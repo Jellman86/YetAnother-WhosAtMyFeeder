@@ -11,7 +11,7 @@ vi.mock('./core', () => ({
     handleResponse: handleResponseMock,
 }));
 
-import { fetchEventAudioContext, setAudioHidden } from './audio';
+import { fetchAudioHiddenCount, fetchEventAudioContext, setAudioHidden, setAudioHiddenBulk } from './audio';
 
 describe('fetchEventAudioContext', () => {
     const response = {
@@ -54,10 +54,33 @@ describe('fetchEventAudioContext', () => {
     });
 });
 
-it('sends an explicit local visibility change and handles the response', async () => {
+it('sends an explicit local visibility change as JSON and handles the response', async () => {
     const response = { ok: true };
     apiFetchMock.mockResolvedValue(response);
     handleResponseMock.mockResolvedValue({ id: 478, hidden: true });
     await expect(setAudioHidden(478, true)).resolves.toEqual({ id: 478, hidden: true });
-    expect(apiFetchMock).toHaveBeenCalledWith('/api/audio/history/478', { method: 'PATCH', body: '{"hidden":true}' });
+    expect(apiFetchMock).toHaveBeenCalledWith('/api/audio/history/478', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{"hidden":true}'
+    });
+});
+
+it('sends bulk local visibility changes as JSON and reads hidden counts', async () => {
+    const response = { ok: true };
+    apiFetchMock.mockResolvedValue(response);
+    handleResponseMock.mockResolvedValueOnce({ updated_count: 2, ids: [10, 11], hidden: true });
+    await expect(setAudioHiddenBulk([10, 11], true)).resolves.toEqual({ updated_count: 2, ids: [10, 11], hidden: true });
+    expect(apiFetchMock).toHaveBeenCalledWith('/api/audio/history/visibility', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{"ids":[10,11],"hidden":true}'
+    });
+
+    handleResponseMock.mockResolvedValueOnce({ hidden_count: 4 });
+    await expect(fetchAudioHiddenCount()).resolves.toEqual({ hidden_count: 4 });
+    expect(apiFetchMock).toHaveBeenCalledWith('/api/audio/history/hidden-count', {
+        signal: undefined,
+        timeoutMs: 10_000
+    });
 });

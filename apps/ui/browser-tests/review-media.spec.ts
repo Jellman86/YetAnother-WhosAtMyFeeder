@@ -5,7 +5,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // This proves rendering and state handling against missing, late and stale media; it is not
 // backend, cache or inference E2E. Mutations only ever reach these fixture routes.
 
-type Capture = 'tit' | 'robin' | 'wren';
+type Capture = 'tit' | 'robin' | 'wren' | 'pigeon';
 
 const FULL = { width: 2560, height: 1440 };
 const CROP = { width: 259, height: 172 };
@@ -24,6 +24,8 @@ interface CandidateSpec {
     clip: string;
     box: number[] | null;
     label: string;
+    commonName?: string | null;
+    scientificName?: string | null;
     score: number;
     offset?: number | null;
 }
@@ -45,10 +47,18 @@ const CANDIDATES: Record<Capture, CandidateSpec[]> = {
         { id: 'f10-full', mode: 'full_frame', frame: 10, clip: 'event', box: null, label: 'Troglodytes troglodytes', score: 0.2, offset: 0.4 },
         { id: 'f40-model', mode: 'model_crop', frame: 40, clip: 'event', box: [1500, 800, 1800, 1060], label: 'Troglodytes troglodytes', score: 0.72, offset: 1.6 },
         { id: 'f40-full', mode: 'full_frame', frame: 40, clip: 'event', box: null, label: 'Troglodytes troglodytes', score: 0.2, offset: 1.6 }
+    ],
+    // Multi-bird garden capture: wide full-frame saved photo, one uncertain gull and confident Jackdaw bystanders.
+    pigeon: [
+        { id: 'f192-full', mode: 'full_frame', frame: 192, clip: 'recording', box: null, label: 'Columba livia', commonName: 'Rock Pigeon', scientificName: 'Columba livia', score: 0.65, offset: 2.0 },
+        { id: 'f192-gull', mode: 'model_crop', frame: 192, clip: 'recording', box: [900, 500, 990, 590], label: 'Chroicocephalus ridibundus', commonName: 'Black-headed Gull', scientificName: 'Chroicocephalus ridibundus', score: 0.31, offset: 2.0 },
+        { id: 'f192-jackdaw', mode: 'model_crop', frame: 192, clip: 'recording', box: [1500, 900, 1720, 1140], label: 'Corvus monedula', commonName: 'Western Jackdaw', scientificName: 'Coloeus monedula', score: 0.90, offset: 2.0 },
+        { id: 'f210-jackdaw', mode: 'model_crop', frame: 210, clip: 'recording', box: [1520, 910, 1740, 1150], label: 'Corvus monedula', commonName: 'Western Jackdaw', scientificName: 'Coloeus monedula', score: 0.86, offset: 2.8 },
+        { id: 'f210-gull', mode: 'model_crop', frame: 210, clip: 'recording', box: [910, 505, 1000, 595], label: 'Chroicocephalus ridibundus', commonName: 'Black-headed Gull', scientificName: 'Chroicocephalus ridibundus', score: 0.35, offset: 2.8 }
     ]
 };
 
-const INITIAL_SELECTION: Record<Capture, string> = { tit: 'hint', robin: 'model', wren: 'f40-model' };
+const INITIAL_SELECTION: Record<Capture, string> = { tit: 'hint', robin: 'model', wren: 'f40-model', pigeon: 'f192-full' };
 
 function candidateUrl(capture: string, id: string, kind: 'image' | 'thumbnail'): string {
     return `/api/frigate/${capture}/snapshot/candidates/${capture}__${id}/${kind}.jpg?v=1`;
@@ -57,6 +67,7 @@ function candidateUrl(capture: string, id: string, kind: 'image' | 'thumbnail'):
 interface Plan {
     dismissed: Set<string>;
     photoMutations: Array<{ capture: string; candidateId: string; dismissed: boolean }>;
+    birdMutations: Array<{ capture: string; birdId: number; body: Record<string, unknown> }>;
     dismissFailure?: boolean;
     heldDismissals: Map<string, Promise<void>>;
     candidateMediaAbsent?: boolean;
@@ -75,7 +86,7 @@ interface Plan {
 }
 
 function newPlan(): Plan {
-    return { dismissed: new Set(), photoMutations: [], heldDismissals: new Map(), missing: [], held: new Map(), heldLists: new Map(), selection: { ...INITIAL_SELECTION }, requests: [], errors: [] };
+    return { dismissed: new Set(), photoMutations: [], birdMutations: [], heldDismissals: new Map(), missing: [], held: new Map(), heldLists: new Map(), selection: { ...INITIAL_SELECTION }, requests: [], errors: [] };
 }
 
 function gate(): { promise: Promise<void>; release: () => void } {
@@ -95,6 +106,8 @@ function candidateList(capture: Capture, plan: Plan) {
         crop_box: spec.box,
         crop_confidence: spec.mode === 'model_crop' ? 0.7 : null,
         classifier_label: spec.label,
+        classifier_common_name: spec.commonName ?? null,
+        classifier_scientific_name: spec.scientificName ?? null,
         classifier_score: spec.score,
         ranking_score: spec.score,
         selected: spec.id === chosen,
@@ -130,7 +143,25 @@ function candidateList(capture: Capture, plan: Plan) {
             crop_box: [1756, 1041, 1904, 1128], detector_confidence: 0.71, species: 'Cyanistes caeruleus',
             classifier_label: 'Cyanistes caeruleus', classifier_score: 0.83, manual_species: false, is_hidden: false, is_unknown: false
         }]
-        : [];
+        : capture === 'pigeon'
+          ? [
+              {
+                  id: 1, bird_index: 0, candidate_id: 'pigeon__f192-full__observed__0', clip_variant: 'recording', frame_index: 192,
+                  crop_box: [900, 500, 990, 590], detector_confidence: 0.88, species: 'Unknown Bird',
+                  classifier_label: 'Chroicocephalus ridibundus', classifier_common_name: 'Black-headed Gull',
+                  classifier_score: 0.31, identity_source: 'crop', identity_score: 0.31, tracked: false,
+                  manual_species: false, is_hidden: false, is_unknown: true
+              },
+              {
+                  id: 2, bird_index: 1, candidate_id: 'pigeon__f192-full__observed__1', clip_variant: 'recording', frame_index: 192,
+                  crop_box: [1500, 900, 1720, 1140], detector_confidence: 0.94, species: 'Corvus monedula',
+                  common_name: 'Western Jackdaw', scientific_name: 'Coloeus monedula',
+                  classifier_label: 'Corvus monedula', classifier_common_name: 'Western Jackdaw',
+                  classifier_score: 0.81, identity_source: 'crop', identity_score: 0.81, tracked: false,
+                  manual_species: false, is_hidden: false, is_unknown: false
+              }
+          ]
+          : [];
     return {
         event_id: capture,
         current_source: `hq_candidate_${chosenSpec?.mode ?? 'model_crop'}`,
@@ -168,7 +199,7 @@ async function serve(page: Page, plan: Plan): Promise<void> {
         const path = url.pathname;
         plan.requests.push(`${request.method()} ${path}${url.search}`);
 
-        const list = /^\/api\/frigate\/(tit|robin|wren)\/snapshot\/candidates$/.exec(path);
+        const list = /^\/api\/frigate\/(tit|robin|wren|pigeon)\/snapshot\/candidates$/.exec(path);
         if (list) {
             const held = plan.heldLists.get(list[1]);
             // Each read answers with the selection as it stands when it is released, the way a
@@ -176,13 +207,21 @@ async function serve(page: Page, plan: Plan): Promise<void> {
             if (held) await held;
             return route.fulfill({ json: candidateList(list[1] as Capture, plan) }).catch(() => undefined);
         }
-        const apply = /^\/api\/frigate\/(tit|robin|wren)\/snapshot\/apply$/.exec(path);
+        const birdPatch = /^\/api\/frigate\/(tit|robin|wren|pigeon)\/birds\/(\d+)$/.exec(path);
+        if (birdPatch && request.method() === 'PATCH') {
+            const body = request.postDataJSON() as Record<string, unknown>;
+            const birdId = Number(birdPatch[2]);
+            plan.birdMutations.push({ capture: birdPatch[1], birdId, body });
+            const existing = candidateList(birdPatch[1] as Capture, plan).birds.find((b) => b.id === birdId);
+            return route.fulfill({ json: { ...(existing ?? { id: birdId }), ...body, manual_species: 'species' in body } });
+        }
+        const apply = /^\/api\/frigate\/(tit|robin|wren|pigeon)\/snapshot\/apply$/.exec(path);
         if (apply && request.method() === 'POST') {
             const body = request.postDataJSON() as { candidate_id?: string };
             plan.selection[apply[1]] = (body.candidate_id ?? '').replace(`${apply[1]}__`, '');
             return route.fulfill({ json: { status: 'ok' } });
         }
-        const dismiss = /^\/api\/frigate\/(tit|robin|wren)\/snapshot\/candidates\/([^/]+)$/.exec(path);
+        const dismiss = /^\/api\/frigate\/(tit|robin|wren|pigeon)\/snapshot\/candidates\/([^/]+)$/.exec(path);
         if (dismiss && request.method() === 'PATCH') {
             const capture = dismiss[1] as Capture;
             const candidateId = decodeURIComponent(dismiss[2]);
@@ -215,7 +254,8 @@ async function serve(page: Page, plan: Plan): Promise<void> {
         if (path === '/api/species/search') {
             return route.fulfill({ json: [
                 { id: 'Eurasian Blue Tit', display_name: 'Eurasian Blue Tit', common_name: 'Eurasian Blue Tit', scientific_name: 'Cyanistes caeruleus' },
-                { id: 'European Robin', display_name: 'European Robin', common_name: 'European Robin', scientific_name: 'Erithacus rubecula' }
+                { id: 'European Robin', display_name: 'European Robin', common_name: 'European Robin', scientific_name: 'Erithacus rubecula' },
+                { id: 'Chroicocephalus ridibundus', display_name: 'Black-headed Gull', common_name: 'Black-headed Gull', scientific_name: 'Chroicocephalus ridibundus' }
             ] });
         }
         if (path.startsWith('/api/audio/context/') || path.includes('/conversation') || path.endsWith('/species')) {
@@ -244,7 +284,7 @@ async function headingTop(page: Page): Promise<number> {
     return Math.round(box.y);
 }
 
-for (const surface of ['record', 'queue'] as const) {
+for (const surface of ['record'] as const) {
     test(`${surface}: removing an unchosen photo is reversible and the chosen photo cannot be removed`, async ({ page }) => {
         const plan = newPlan();
         plan.retainedPhotos = ['a1b2c3d4e5f6', '0f9e8d7c6b5a'];
@@ -316,34 +356,23 @@ for (const surface of ['record', 'queue'] as const) {
     });
 }
 
-test('queue: a late photo removal cannot lock the next capture or offer its Undo', async ({ page }) => {
+test('queue: strip thumbnails inspect frames in the main viewer without offering photo removal or replacement', async ({ page }) => {
     const plan = newPlan();
     plan.retainedPhotos = ['a1b2c3d4e5f6'];
-    const waiting = gate();
-    plan.heldDismissals.set('wren', waiting.promise);
     await openQueue(page, plan, '&queue=wren,robin');
     const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
     await expect(triggers).toHaveCount(3);
-    try {
-        await triggers.nth(0).click();
-        await page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' }).click();
-        await expect.poll(() => plan.photoMutations.length).toBe(1);
-        if (await page.locator('[data-frame-strip-panel]').count()) await page.keyboard.press('Escape');
-        await page.getByRole('button', { name: 'Skip for now' }).click();
-        await expect(page.locator('[data-review-species-heading]')).toContainText('European Robin');
-        await expect(triggers).toHaveCount(2);
-    } finally {
-        waiting.release();
-    }
-    await expect.poll(() => plan.dismissed.has('wren__retained_snapshot__a1b2c3d4e5f6')).toBe(true);
-    await expect(page.getByRole('button', { name: 'Undo', exact: true })).toHaveCount(0);
     await triggers.nth(0).click();
-    const remove = page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' });
-    await expect(remove).toBeEnabled();
-    await remove.click();
-    await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
-    await expect.poll(() => plan.photoMutations[1]).toEqual({ capture: 'robin', candidateId: 'robin__retained_snapshot__a1b2c3d4e5f6', dismissed: true });
-    expect(plan.selection.robin).toBe('model');
+    await expect(page.locator('[data-review-inspection-view]')).toBeVisible();
+    await expect(page.locator('[data-review-inspect-reset]')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Use this photo' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Remove photo choice' })).toHaveCount(0);
+    expect(plan.requests.some((request) => request.includes('/snapshot/apply'))).toBe(false);
+    expect(plan.photoMutations).toEqual([]);
+    // Escape exits manual inspection before closing the queue modal.
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-review-inspection-view]')).toHaveCount(0);
+    await expect(page.locator('[data-review-queue-modal]')).toBeVisible();
     expect(plan.errors).toEqual([]);
 });
 
@@ -587,10 +616,10 @@ test.describe('the frame strip marks the photograph honestly', () => {
         await expect(page.locator('[data-review-queue-modal] [data-frame-strip-chosen]')).toHaveCount(0);
     });
 
-    test('the chosen moment keeps a picture when its own thumbnail is missing, and choosing another moves the mark', async ({ page }, testInfo) => {
+    test('the chosen moment keeps a picture when its own thumbnail is missing, and choosing another moves the mark in the record', async ({ page }, testInfo) => {
         const plan = newPlan();
         plan.missing.push('/api/frigate/wren/snapshot/candidates/wren__f40-model/');
-        await openQueue(page, plan, '&queue=wren,robin');
+        await openRecord(page, plan, '&queue=wren,robin');
         const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
         await expect(triggers).toHaveCount(2);
         await expect(triggers.nth(1)).toHaveAttribute('aria-pressed', 'true');
@@ -615,13 +644,13 @@ test.describe('the frame strip marks the photograph honestly', () => {
         // The saved photograph changed on the server, so it is read again rather than served stale.
         await expect.poll(() => plan.requests.filter((request) => request.startsWith('GET /api/frigate/wren/snapshot.jpg')).length)
             .toBeGreaterThan(firstSnapshotReads);
-        await expect.poll(async () => (await queuePhoto(page)).images.some((image) => image.loaded)).toBe(true);
+        await expect.poll(async () => (await images(page, '[data-detection-photograph]')).some((image) => image.loaded)).toBe(true);
     });
 
-    test('each earlier photograph is its own option, named as one, with no frame time, and can be restored', async ({ page }, testInfo) => {
+    test('each earlier photograph is its own option, named as one, with no frame time, and can be restored in the record', async ({ page }, testInfo) => {
         const plan = newPlan();
         plan.retainedPhotos = ['a1b2c3d4e5f6', '0f9e8d7c6b5a'];
-        await openQueue(page, plan, '&queue=wren,robin');
+        await openRecord(page, plan, '&queue=wren,robin');
         const strip = page.locator('[data-frame-strip]');
         const triggers = strip.locator('button[aria-pressed]');
         await expect(triggers).toHaveCount(4);
@@ -992,41 +1021,49 @@ test.describe('a strip with more choices than fit', () => {
             await page.screenshot({ path: testInfo.outputPath('many-end.png') });
             expect([...reached].sort((a, b) => a - b), 'a choice was never reachable').toEqual([...Array(22).keys()]);
 
-            // A choice reached at the far end compares and applies like any other, and the strip
-            // stays where the person left it.
+            // A choice reached at the far end inspects (in Needs your call) or compares and applies
+            // (in the detection record), and the strip stays where the person left it.
             await triggers.nth(21).click();
             const panel = page.locator('[data-frame-strip-panel]');
-            await expect(panel).toContainText('Photo option 22 of 22');
-            if ((page.viewportSize()?.width ?? 1280) < 640) {
-                // The sheet's backdrop lies over the whole modal, so a tap above the sheet closes it
-                // rather than reaching the record or the queue's decisions beneath.
-                const topmost = await page.evaluate(() => {
-                    const hit = document.elementFromPoint(window.innerWidth / 2, 24);
-                    return hit?.hasAttribute('data-frame-strip-backdrop') ?? false;
-                });
-                expect(topmost, 'the sheet backdrop is beneath the modal').toBe(true);
+            if (surface.name === 'Needs your call') {
+                await expect(page.locator('[data-review-inspection-view]')).toBeVisible();
+                await expect(triggers.nth(21)).toHaveAttribute('aria-pressed', 'true');
+                expect(plan.requests.some((request) => request.includes('/snapshot/apply'))).toBe(false);
+                await page.locator('[data-review-inspect-reset]').click();
+                await expect(page.locator('[data-review-inspection-view]')).toHaveCount(0);
+            } else {
+                await expect(panel).toContainText('Photo option 22 of 22');
+                if ((page.viewportSize()?.width ?? 1280) < 640) {
+                    // The sheet's backdrop lies over the whole modal, so a tap above the sheet closes it
+                    // rather than reaching the record or the queue's decisions beneath.
+                    const topmost = await page.evaluate(() => {
+                        const hit = document.elementFromPoint(window.innerWidth / 2, 24);
+                        return hit?.hasAttribute('data-frame-strip-backdrop') ?? false;
+                    });
+                    expect(topmost, 'the sheet backdrop is beneath the modal').toBe(true);
+                }
+                await panel.getByRole('button', { name: 'Use this photo' }).click();
+                await expect.poll(() => plan.selection.wren).toBe('f40-model');
+                await expect(triggers.nth(21)).toHaveAttribute('aria-pressed', 'true');
+                // Its Use button gives way to a label, and focus must not fall to the page with it.
+                // On a phone the comparison is a sheet over the strip that stays to show the result,
+                // with focus on its Close, so Escape closes it and leaves the record open. A desktop
+                // pop-out closes as the button goes, and focus returns to its thumbnail.
+                if ((page.viewportSize()?.width ?? 1280) < 640) {
+                    await expect(panel).toContainText('The photograph now');
+                    await expect(panel.getByRole('button', { name: 'Close' })).toBeFocused();
+                    await page.keyboard.press('Escape');
+                } else if (await panel.count()) {
+                    await page.keyboard.press('Escape');
+                }
+                await expect(panel).toHaveCount(0);
+                await expect(page.locator('[data-frame-strip-backdrop]')).toHaveCount(0);
+                await expect(page.getByRole('dialog').first()).toBeVisible();
+                await expect(triggers.nth(21)).toBeFocused();
+                view = await settledStrip(page);
+                expect(view.chosenReachable).toBe(true);
+                expect(view.scrollLeft).toBeGreaterThanOrEqual(view.maxScroll - 1);
             }
-            await panel.getByRole('button', { name: 'Use this photo' }).click();
-            await expect.poll(() => plan.selection.wren).toBe('f40-model');
-            await expect(triggers.nth(21)).toHaveAttribute('aria-pressed', 'true');
-            // Its Use button gives way to a label, and focus must not fall to the page with it.
-            // On a phone the comparison is a sheet over the strip that stays to show the result,
-            // with focus on its Close, so Escape closes it and leaves the record open. A desktop
-            // pop-out closes as the button goes, and focus returns to its thumbnail.
-            if ((page.viewportSize()?.width ?? 1280) < 640) {
-                await expect(panel).toContainText('The photograph now');
-                await expect(panel.getByRole('button', { name: 'Close' })).toBeFocused();
-                await page.keyboard.press('Escape');
-            } else if (await panel.count()) {
-                await page.keyboard.press('Escape');
-            }
-            await expect(panel).toHaveCount(0);
-            await expect(page.locator('[data-frame-strip-backdrop]')).toHaveCount(0);
-            await expect(page.getByRole('dialog').first()).toBeVisible();
-            await expect(triggers.nth(21)).toBeFocused();
-            view = await settledStrip(page);
-            expect(view.chosenReachable).toBe(true);
-            expect(view.scrollLeft).toBeGreaterThanOrEqual(view.maxScroll - 1);
 
             for (let step = 0; step < 30 && view.scrollLeft > 0; step += 1) {
                 view = await scrollStripWithEdge(page, 'back');
@@ -1299,4 +1336,65 @@ test.describe('the strip at enlarged text (F8)', () => {
             expect(clipped).toEqual([]);
         });
     }
+});
+
+test.describe('Needs your call focuses multi-bird captures on uncertain birds', () => {
+    test('auto-focuses the uncertain bird, tucks confident bystanders away, uses common names and syncs the single uncertain bird on identify', async ({ page }, testInfo) => {
+        const plan = newPlan();
+        await openQueue(page, plan, '&queue=pigeon,robin');
+
+        // Auto-focuses the single uncertain bird over the wide full-frame saved photo.
+        const badge = page.locator('[data-review-inspect-badge]');
+        await expect(badge).toContainText('Closer look: Unknown bird · 31%');
+        await expect(page.locator('[data-review-inspect-reset]')).toHaveText('Show full photo');
+
+        // Confident Western Jackdaw crops are tucked away, showing common name (never raw Latin).
+        const otherBar = page.locator('[data-review-other-birds-bar]');
+        await expect(otherBar).toContainText('Western Jackdaw (90%)');
+        await expect(otherBar).not.toContainText('Corvus monedula');
+        const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+        await expect(triggers).toHaveCount(3);
+
+        // CountedBirds leads with the uncertain bird and collapses the confident bystander.
+        const counted = page.locator('[data-counted-birds]');
+        await expect(counted.locator('[data-counted-bird-row]')).toHaveCount(1);
+        await expect(counted.locator('[data-counted-bird-row="1"]')).toContainText('Unknown bird');
+        const confidentSummary = counted.locator('[data-counted-birds-confident-summary]');
+        await expect(confidentSummary).toContainText('Western Jackdaw (81%)');
+        await expect(confidentSummary).not.toContainText('Corvus monedula');
+
+        await settle(page);
+        await page.screenshot({ path: testInfo.outputPath('pigeon-multi-bird-focused.png') });
+
+        // Expanding confident bystanders reveals them read-only in the strip and in CountedBirds.
+        await page.locator('[data-review-other-birds-toggle]').click();
+        await expect(triggers).toHaveCount(5);
+        // Inspecting a Jackdaw crop shows common name in the viewer without mutating the saved photo.
+        await triggers.nth(2).click();
+        await expect(badge).toContainText('Inspecting: Western Jackdaw 90%');
+        await expect(page.getByRole('button', { name: 'Use this photo' })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Remove photo choice' })).toHaveCount(0);
+        expect(plan.requests.some((request) => request.includes('/snapshot/apply'))).toBe(false);
+
+        await counted.locator('[data-counted-birds-confident-toggle]').click();
+        await expect(counted.locator('[data-counted-bird-row]')).toHaveCount(2);
+        await expect(counted.locator('[data-counted-bird-row="2"]')).toContainText('Western Jackdaw');
+
+        // Returning to the full photo offers a one-click jump back to the uncertain bird.
+        await page.locator('[data-review-inspect-reset]').click();
+        await expect(page.locator('[data-review-focus-uncertain]')).toBeVisible();
+
+        // Identifying the capture also updates the single uncertain counted bird.
+        const search = page.getByRole('searchbox', { name: 'Search species', exact: true });
+        await search.fill('Black-headed');
+        await page.getByRole('button', { name: /Black-headed Gull.*Identify/ }).click();
+        await expect.poll(() => plan.birdMutations.length).toBe(1);
+        expect(plan.birdMutations[0]).toEqual({
+            capture: 'pigeon',
+            birdId: 1,
+            body: { species: 'Chroicocephalus ridibundus' }
+        });
+        await expect(page.locator('[data-review-species-heading] h3')).toHaveText('European Robin');
+        expect(plan.errors).toEqual([]);
+    });
 });

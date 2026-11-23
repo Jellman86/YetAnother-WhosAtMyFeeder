@@ -50,7 +50,11 @@
     "visit_evidence": "Nommé à partir de l’identification acceptée de la visite et du cadre d’entrée correspondant. Ce recadrage seul a obtenu {score}.",
     "being_named": "L’oiseau nommé",
     "being_named_tag": "Nommé",
-    "name_not_tied": "Le nom de la visite ne peut être rattaché à aucun de ces oiseaux."
+    "name_not_tied": "Le nom de la visite ne peut être rattaché à aucun de ces oiseaux.",
+    "inspect_closer": "Examiner de plus près",
+    "also_confident_in_frame": "Aussi dans le cadre (sûr) : {species}",
+    "show_confident": "Afficher",
+    "hide_confident": "Masquer"
   },
   "uploaded": "Importée",
   "observation_notes": "Remarques sur l’observation",
@@ -539,5 +543,8 @@
   "archive_retry_due": "YA-WAMF réessaiera de lui-même sous peu. La visite reste dans votre historique dans tous les cas.",
   "archive_checking": "Vérification de ce que la copie propre de ce favori a conservé…",
   "archive_unchecked": "La copie propre de ce favori a signalé un problème, mais ce qu’elle a conservé n’a pas pu être vérifié.",
-  "archive_check_again": "Vérifier à nouveau"
+  "archive_check_again": "Vérifier à nouveau",
+  "frame_strip_inspect_hint": "Sélectionnez une image pour l’examiner de plus près. La photo enregistrée reste inchangée.",
+  "frame_inspecting_now": "Affichée dans le cadre principal",
+  "frame_inspect_action": "Voir en grand"
 }

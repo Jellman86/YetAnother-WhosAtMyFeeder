@@ -269,7 +269,7 @@
     },
     "classify_snapshot_unavailable": {
       "title": "A Frigate event was dropped because Frigate had no snapshot for it.",
-      "next": "Check that snapshots are turned on for this camera in Frigate."
+      "next": "Birds that fly past briefly often leave no snapshot in Frigate. If this happens often, check that snapshots are enabled for the camera in Frigate."
     },
     "classifier_empty_results": {
       "title": "A Frigate event was dropped because the model gave no answer.",
@@ -294,6 +294,138 @@
     "stage_timeout": {
       "title": "A processing step took too long and was stopped.",
       "next": "The model or Frigate may be overloaded. Check Resource use above."
+    },
+    "classify_snapshot_lease_expired": {
+      "title": "Naming a snapshot took too long and timed out before finishing.",
+      "next": "The model may be overloaded. Check Resource use above, or choose a lighter model in Settings → Identifying birds."
+    },
+    "live_event_stale": {
+      "title": "A Frigate event arrived too late to name live.",
+      "next": "Check that the system clock is accurate and that MQTT is not backed up."
+    },
+    "live_event_coalesced": {
+      "title": "Duplicate live updates from Frigate for the same visit were merged.",
+      "next": "No action needed unless visits are missing; YA-WAMF skips duplicate in-flight work."
+    },
+    "recovery_lookup_failed": {
+      "title": "YA-WAMF could not check the database while catching up on a Frigate update.",
+      "next": "If this repeats, check Database above and confirm the data folder is writable."
+    },
+    "update_recovery_cooldown": {
+      "title": "Retrying a Frigate update was paused briefly to avoid repeating work.",
+      "next": "YA-WAMF will try again when the visit ends. No action needed unless visits are missing."
+    },
+    "false_positive_ignored": {
+      "title": "A follow-up Frigate update was skipped because Frigate marked it as a false positive.",
+      "next": "No action needed; YA-WAMF ignores further updates for dismissed Frigate events."
+    },
+    "nest_mode_dedupe": {
+      "title": "A repeat visit on a nest camera was skipped by nest mode.",
+      "next": "Adjust nest mode deduplication in Settings → Cameras & connection if you want every visit recorded."
+    },
+    "frigate_missing_marked": {
+      "title": "Older visits were marked as missing in Frigate while keeping your local records.",
+      "next": "This is your missing-media policy running normally as Frigate ages out old clips."
+    },
+    "frigate_missing_deleted": {
+      "title": "Older visits whose Frigate media expired were removed according to your policy.",
+      "next": "Change the missing-media policy in Settings → Storage & upkeep if you prefer to keep local records."
+    },
+    "frigate_missing_kept": {
+      "title": "Older visits no longer have media in Frigate and were kept unchanged.",
+      "next": "This is your missing-media policy running normally as Frigate ages out old clips."
+    },
+    "frigate_went_offline": {
+      "title": "Frigate reported itself offline over MQTT.",
+      "next": "Check that Frigate is running and connected to your MQTT broker."
+    },
+    "video_circuit_open": {
+      "title": "Automatic video analysis paused briefly after repeated failures.",
+      "next": "It resumes on its own after the cooldown. Check Frigate recordings and Resource use above if it keeps pausing."
+    },
+    "video_queue_full": {
+      "title": "A visit skipped automatic video analysis because the video queue was full.",
+      "next": "Check Resource use above. If visits arrive faster than video can finish, choose a lighter model or lower video concurrency."
+    },
+    "video_timeout": {
+      "title": "Analysing a visit's video clip took too long and was stopped.",
+      "next": "Check Resource use above and confirm Frigate serves clips promptly."
+    },
+    "video_cancelled": {
+      "title": "Video analysis for a visit was cancelled before it finished.",
+      "next": "This usually happens during a restart or model reload. You can re-run video analysis from the visit."
+    },
+    "video_exception": {
+      "title": "Analysing a visit's video clip stopped with a processing error.",
+      "next": "Check Technical details below. If it repeats, capture a diagnostics bundle and report it."
+    },
+    "video_photo_update": {
+      "title": "Video analysis finished, but saving the updated snapshot photo failed.",
+      "next": "Check that the data folder has free space and can be written to."
+    },
+    "video_retry_after_worker_failure": {
+      "title": "Video analysis retried a clip after its worker restarted.",
+      "next": "Check Resource use above. If workers keep restarting, choose a lighter model or switch hardware acceleration."
+    },
+    "clip_unavailable": {
+      "title": "Frigate no longer had the recording or clip needed for video analysis.",
+      "next": "Increase clip or recording retention in Frigate if you want video analysis to reach older visits."
+    },
+    "maintenance_held_back": {
+      "title": "Background analysis paused so live visits could be named first.",
+      "next": "It resumes on its own when live feeder traffic eases."
+    },
+    "job_failed": {
+      "title": "A background job stopped with an error before finishing.",
+      "next": "Check Technical details below, then start the job again from Settings or Notifications."
+    },
+    "job_timeout": {
+      "title": "A background job or notification timed out before finishing.",
+      "next": "Check that external services are reachable and retry the job if needed."
+    },
+    "fetch_snapshot_failed": {
+      "title": "Backfill could not fetch a snapshot from Frigate.",
+      "next": "Confirm Frigate is reachable and still holds snapshots for the selected date range."
+    },
+    "snapshot_cache_failed": {
+      "title": "Backfill could not save a copy of a snapshot to disk.",
+      "next": "Check that the media cache folder has free space and write permission."
+    },
+    "rfdetr_cpu_fallback": {
+      "title": "The bird finder fell back to the CPU because the hardware accelerator could not run it.",
+      "next": "Identification still works, though more slowly. Check Hardware settings or choose a lighter bird finder."
+    },
+    "bird_finder_worker_crash": {
+      "title": "The bird finder worker crashed or had to be restarted while cropping a photo.",
+      "next": "YA-WAMF restarted the worker automatically. If this repeats, switch the bird finder device in Settings → Identifying birds."
+    },
+    "native_cpu_recovery": {
+      "title": "The model worker switched to the CPU to recover from a hardware runtime failure.",
+      "next": "Visits are still being named on the CPU. Check Hardware settings and GPU or NPU drivers if you expect hardware acceleration."
+    },
+    "worker_circuit_open": {
+      "title": "A model worker paused briefly after repeated failures.",
+      "next": "It retries automatically after a short cooldown. Check Resource use and Hardware settings if it keeps happening."
+    },
+    "worker_recovering": {
+      "title": "The live model worker is recovering after a slowdown or failure.",
+      "next": "Check Resource use above. It clears once live naming is steady again."
+    },
+    "hardware_decode_fallback": {
+      "title": "Motion recordings fell back from GPU decoding to the CPU.",
+      "next": "Motion capture continues on the CPU. Check GPU device access in Docker if you want hardware decoding."
+    },
+    "retention_paused_daily_totals": {
+      "title": "Automatic history cleanup paused because daily counts could not be saved first.",
+      "next": "No visits were deleted. Check database health and free disk space; cleanup will retry on its next run."
+    },
+    "notification_queue_full": {
+      "title": "A notification was dropped because the send queue was full.",
+      "next": "Check that your notification channels respond promptly in Settings → Notifications."
+    },
+    "notification_loop_reset": {
+      "title": "Queued notifications were dropped when the notification worker restarted.",
+      "next": "Check Settings → Notifications if recent alerts did not arrive."
     }
   },
   "activity_waiting_live_priority": "Waiting while new visits are named",
@@ -332,5 +464,6 @@
     "already_cleared": "This had already left the error history, for example after Clear error history or a restart, so there was nothing to dismiss.",
     "earlier_empty_with_dismissed": "{count, plural, one {Nothing else has cleared; # dismissed incident is listed below.} other {Nothing else has cleared; # dismissed incidents are listed below.}}",
     "backend_empty_with_dismissed": "{count, plural, one {The backend has recorded nothing else; # dismissed item is listed below.} other {The backend has recorded nothing else; # dismissed items are listed below.}} Connection problems are listed at the top of this page, not here."
-  }
+  },
+  "errors_incident_meta": "{count, plural, one {Happened once · {at}} other {Happened # times · last {at}}}"
 }

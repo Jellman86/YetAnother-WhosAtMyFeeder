@@ -28,6 +28,8 @@ test.beforeEach(async ({ page }) => {
         const path = new URL(route.request().url()).pathname;
         if (path === '/api/audio/history') {
             await route.fulfill({ json: { items: [], total: 0, limit: 25, offset: 0 } });
+        } else if (path === '/api/audio/history/hidden-count') {
+            await route.fulfill({ json: { hidden_count: 0 } });
         } else if (path === '/api/audio/summary') {
             await route.fulfill({ json: summary });
         } else if (path === '/api/audio/activity-heatmap') {

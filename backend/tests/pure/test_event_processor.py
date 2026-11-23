@@ -2157,5 +2157,6 @@ async def test_a_snapshot_frigate_discarded_with_no_fallback_left_is_still_repor
     assert result is None
     assert processor.get_status()["snapshot_not_found_events"] == 1
     with patch("app.services.event_processor.error_diagnostics_history") as mock_history:
-        processor._record_drop("evt-lost", "classify_snapshot_unavailable")
+        processor._record_drop("evt-lost", "classify_snapshot_unavailable", camera="birdcam")
     assert mock_history.record.call_args.kwargs["severity"] == "error"
+    assert mock_history.record.call_args.kwargs["context"]["camera"] == "birdcam"

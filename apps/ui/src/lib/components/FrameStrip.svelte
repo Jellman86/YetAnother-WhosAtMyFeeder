@@ -2,6 +2,9 @@
     import { prefersReducedMotion } from '../stores/accessibility_applied.svelte';
     import { tick, untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
+    import { birdNames } from '../naming';
+    import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
     import { portal } from '../utils/portal';
     import MediaImage from './MediaImage.svelte';
     import {
@@ -41,7 +44,12 @@
         emptyText?: string | null;
         canRegenerate?: boolean;
         regeneratePending?: boolean;
-        onuse: (moment: FrameMoment) => void;
+        /** 'choose' edits the record's saved photograph; 'inspect' previews frames read-only in the main viewer. */
+        mode?: 'choose' | 'inspect';
+        /** The moment currently being inspected in the viewer (when mode === 'inspect'). */
+        inspectedKey?: string | null;
+        onuse?: (moment: FrameMoment) => void;
+        oninspect?: (moment: FrameMoment) => void;
         onregenerate?: () => void;
         eventId?: string;
         onremove?: (candidateId: string, dismissed: boolean) => Promise<void>;
@@ -59,7 +67,10 @@
         emptyText = null,
         canRegenerate = false,
         regeneratePending = false,
+        mode = 'choose',
+        inspectedKey = null,
         onuse,
+        oninspect,
         onregenerate,
         eventId,
         onremove
@@ -115,11 +126,11 @@
     // first mouseleave would make the panel impossible to reach (WCAG 2.2 SC 1.4.13).
     const CLOSE_GRACE_MS = 120;
     const PANEL_WIDTH = 288;
-    const PANEL_ESTIMATED_HEIGHT = 320;
+    const PANEL_ESTIMATED_HEIGHT = 380;
     const GAP = 8;
     const VIEWPORT_MARGIN = 8;
 
-    let anchor = $state<{ x: number; y: number; above: boolean; sheet: boolean } | null>(null);
+    let anchor = $state<{ x: number; y: number; above: boolean; sheet: boolean; maxHeight?: number } | null>(null);
 
     // On a phone there is no room beside a thumbnail and no hover to lose: the panel becomes
     // a sheet at the foot of the screen, with a backdrop and its own Close.
@@ -140,12 +151,12 @@
     function hoverOpen(index: number, event: PointerEvent): void {
         if (hoverPaused) return;
         if (event.pointerType === 'touch' || isSheet()) return;
-        show(index);
+        openPopout(index);
     }
 
     function focusOpen(index: number, event: FocusEvent): void {
         if (!isKeyboardFocus(event.target)) return;
-        show(index);
+        openPopout(index);
     }
 
     function isKeyboardFocus(target: EventTarget | null): boolean {
@@ -176,23 +187,37 @@
         const rect = trigger.getBoundingClientRect();
         // The strip sits at the foot of the photograph, so the panel normally opens above it
         // and only drops below when the top of the window is too close.
-        const above = rect.top - GAP - PANEL_ESTIMATED_HEIGHT >= VIEWPORT_MARGIN
-            || rect.bottom + GAP + PANEL_ESTIMATED_HEIGHT > window.innerHeight;
+        const spaceAbove = rect.top - GAP - VIEWPORT_MARGIN;
+        const spaceBelow = window.innerHeight - rect.bottom - GAP - VIEWPORT_MARGIN;
+        // The strip sits at the foot of the photograph, so the panel normally opens above it
+        // and only drops below when the top of the window is tighter than the bottom.
+        const above = spaceAbove >= PANEL_ESTIMATED_HEIGHT || spaceAbove >= spaceBelow;
         const half = PANEL_WIDTH / 2;
         const centre = Math.min(
             Math.max(rect.left + rect.width / 2, half + VIEWPORT_MARGIN),
             window.innerWidth - half - VIEWPORT_MARGIN
         );
-        anchor = { x: centre, y: above ? rect.top - GAP : rect.bottom + GAP, above, sheet: false };
+        const maxHeight = Math.max(200, Math.floor(above ? spaceAbove : spaceBelow));
+        anchor = { x: centre, y: above ? rect.top - GAP : rect.bottom + GAP, above, sheet: false, maxHeight };
     }
 
-    function show(index: number): void {
+    function openPopout(index: number): void {
         if (closeTimer) {
             clearTimeout(closeTimer);
             closeTimer = null;
         }
         place(index);
         openIndex = index;
+    }
+
+    function show(index: number): void {
+        if (mode === 'inspect') {
+            const target = moments[index];
+            if (target) oninspect?.(target);
+            hide(true);
+            return;
+        }
+        openPopout(index);
     }
 
     function cancelScheduledClose(): void {
@@ -250,7 +275,7 @@
         }
         if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
         event.preventDefault();
-        if (openIndex !== index) show(index);
+        if (openIndex !== index) openPopout(index);
         queueMicrotask(() => panelEl?.querySelector<HTMLElement>('button, [tabindex]')?.focus());
     }
 
@@ -286,6 +311,7 @@
     let usedKey = $state<string | null>(null);
 
     function use(moment: FrameMoment): void {
+        if (!onuse) return;
         usedKey = moment.key;
         onuse(moment);
     }
@@ -478,10 +504,26 @@
         return current?.key === moment.key;
     }
 
+    function isActive(moment: FrameMoment): boolean {
+        if (mode === 'inspect' && inspectedKey) {
+            return moment.key === inspectedKey;
+        }
+        return isCurrent(moment);
+    }
+
     function readLine(moment: FrameMoment): string | null {
         if (!moment.read) return null;
+        const displayLabel = $birdNames(
+            {
+                display_name: moment.read.label,
+                common_name: moment.read.commonName ?? null,
+                scientific_name: moment.read.scientificName ?? null
+            },
+            settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true,
+            settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false
+        ).primary;
         const score = moment.read.score === null ? null : Math.round(moment.read.score * 100);
-        return score === null ? moment.read.label : `${moment.read.label} ${score}%`;
+        return score === null ? displayLabel : `${displayLabel} ${score}%`;
     }
 
     function positionLabel(moment: FrameMoment): string {
@@ -526,9 +568,13 @@
         <!-- Only when there is a photograph to choose; phones leave it out to keep the strip short. -->
         {#if offersPhotoOptions && !loading && moments.length > 0}
             <span class="hidden min-w-0 font-medium wrap-break-word sm:inline" data-frame-strip-hint>
-                {$_('detection.frame_strip_hint', {
-                    default: 'Choosing one changes the photograph, not the identification.'
-                })}
+                {mode === 'inspect'
+                    ? $_('detection.frame_strip_inspect_hint', {
+                          default: 'Select a frame to inspect it closer. Your saved photograph stays unchanged.'
+                      })
+                    : $_('detection.frame_strip_hint', {
+                          default: 'Choosing one changes the photograph, not the identification.'
+                      })}
             </span>
         {/if}
     </div>
@@ -548,7 +594,8 @@
                     </span>
                 {/if}
                 {#each moments as moment, index (moment.key)}
-                    {@const chosen = isCurrent(moment)}
+                    {@const chosen = isActive(moment)}
+                    {@const isSavedPhoto = isCurrent(moment)}
                     <div
                         class="relative shrink-0"
                         onpointerenter={(event) => hoverOpen(index, event)}
@@ -581,7 +628,7 @@
                                 placeholderClass="text-on-media/80"
                                 iconClass="h-4 w-4"
                             />
-                            {#if chosen && marksChoice}
+                            {#if isSavedPhoto && marksChoice}
                                 <!-- A mark, not a word: no translation of "Chosen" fits a 48px thumbnail whole.
                                      The check sits on the corner, clear of the bird, and the button's pressed
                                      state and the pop-out say it in words. -->
@@ -608,8 +655,8 @@
                             <div
                                 bind:this={panelEl}
                                 use:portal
-                                style={anchor.sheet ? '' : `left: ${anchor.x}px; top: ${anchor.y}px;`}
-                                class="fixed z-70 overflow-hidden border border-on-media/20 bg-media-raised text-on-media/95 shadow-2xl shadow-media/40 motion-safe:animate-in motion-safe:fade-in {anchor.sheet
+                                style={anchor.sheet ? '' : `left: ${anchor.x}px; top: ${anchor.y}px; max-height: ${anchor.maxHeight}px;`}
+                                class="fixed z-70 overflow-y-auto overflow-x-hidden border border-on-media/20 bg-media-raised text-on-media/95 shadow-2xl shadow-media/40 motion-safe:animate-in motion-safe:fade-in {anchor.sheet
                                     ? 'inset-x-0 bottom-0 rounded-t-2xl motion-safe:slide-in-from-bottom-4'
                                     : anchor.above
                                       ? 'w-72 max-w-[calc(100vw-16px)] -translate-x-1/2 -translate-y-full rounded-2xl motion-safe:zoom-in-95'
@@ -676,7 +723,26 @@
                                             {$_('detection.frame_no_read', { default: 'The model has not read this frame on its own.' })}
                                         </p>
                                     {/if}
-                                    {#if chosen}
+                                    {#if mode === 'inspect'}
+                                        {#if chosen && isSavedPhoto}
+                                            <span class="mt-1 inline-flex min-h-10 items-center justify-center rounded-xl border border-on-media/20 px-3 text-xs font-semibold text-on-media/80">
+                                                {$_('detection.frame_is_photograph', { default: 'The photograph now' })}
+                                            </span>
+                                        {:else if chosen}
+                                            <span class="mt-1 inline-flex min-h-10 items-center justify-center rounded-xl border border-on-media/20 px-3 text-xs font-semibold text-on-media/80">
+                                                {$_('detection.frame_inspecting_now', { default: 'Viewing in main frame' })}
+                                            </span>
+                                        {:else}
+                                            <button
+                                                type="button"
+                                                class="btn btn-secondary mt-1 min-h-10 px-3 text-xs"
+                                                data-frame-strip-inspect-action
+                                                onclick={(event) => { event.stopPropagation(); oninspect?.(moment); hide(true); }}
+                                            >
+                                                {$_('detection.frame_inspect_action', { default: 'View larger' })}
+                                            </button>
+                                        {/if}
+                                    {:else if chosen}
                                         <span class="mt-1 inline-flex min-h-10 items-center justify-center rounded-xl border border-on-media/20 px-3 text-xs font-semibold text-on-media/80">
                                             {$_('detection.frame_is_photograph', { default: 'The photograph now' })}
                                         </span>
@@ -693,7 +759,7 @@
                                             {$_(offersPhotoOptions ? 'detection.photo_option_use' : 'detection.frame_use', { default: offersPhotoOptions ? 'Use this photo' : 'Use this frame' })}
                                         </button>
                                     {/if}
-                                    {#if onremove && preferredCandidate(moment)}
+                                    {#if mode === 'choose' && onremove && preferredCandidate(moment)}
                                         {@const candidate = preferredCandidate(moment)}
                                         <button type="button" class="btn btn-ghost mt-1 min-h-11 px-3 text-xs"
                                             disabled={busy || Boolean(candidate?.selected)}

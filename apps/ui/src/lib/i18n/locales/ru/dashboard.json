@@ -153,7 +153,17 @@
     "new_species_note": "Первая запись {species} здесь. Подтвердите, исправьте или заблокируйте вид.",
     "confirm_species": "Подтвердить {species}",
     "block_species": "Заблокировать этот вид",
-    "species_blocked": "{species} заблокирован. Будущие обнаружения будут отброшены."
+    "species_blocked": "{species} заблокирован. Будущие обнаружения будут отброшены.",
+    "inspecting_bird": "Крупный план: {bird}",
+    "inspecting_frame_read": "Просмотр: {read}",
+    "inspecting_frame": "Просмотр другого кадра",
+    "show_full_photo": "Показать фото целиком",
+    "back_to_saved_photo": "К сохранённому фото",
+    "focus_uncertain_bird": "Приблизить неопределённую птицу",
+    "other_confident_hidden": "{count, plural, one {# уверенный фрагмент} few {# уверенных фрагмента} many {# уверенных фрагментов} other {# уверенных фрагментов}} ({species}) скрыто.",
+    "other_confident_showing": "Показано {count, plural, one {# уверенный фрагмент} few {# уверенных фрагмента} many {# уверенных фрагментов} other {# уверенных фрагментов}} ({species}).",
+    "show_other_confident": "Показать",
+    "hide_other_confident": "Скрыть"
   },
   "provider_checking": "Проверка ускорителя после изменения среды",
   "provider_fallback": "Выбранный провайдер распознавания не работает",
