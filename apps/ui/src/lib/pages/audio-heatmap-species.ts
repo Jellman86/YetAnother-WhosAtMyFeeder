@@ -59,6 +59,8 @@ export function audioHeatmapReading(
     if (pageParams.end_date != null) filters.end_date = pageParams.end_date;
     if (pageParams.species) filters.species = pageParams.species;
     if (pageParams.source) filters.source = pageParams.source;
+    if (pageParams.search) filters.search = pageParams.search;
+    if (pageParams.only_hidden) filters.only_hidden = pageParams.only_hidden;
     if (pageParams.min_confidence != null) filters.min_confidence = pageParams.min_confidence;
     return { filters, key: JSON.stringify(filters) };
 }

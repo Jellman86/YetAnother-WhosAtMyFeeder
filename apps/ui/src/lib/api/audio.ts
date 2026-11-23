@@ -121,6 +121,28 @@ export async function setAudioHidden(id: number, hidden: boolean): Promise<paths
     return handleResponse<paths['/api/audio/history/{detection_id}']['patch']['response']>(response);
 }
 
+export async function setAudioHiddenBulk(
+    ids: number[],
+    hidden: boolean
+): Promise<paths['/api/audio/history/visibility']['patch']['response']> {
+    const response = await apiFetch(`${API_BASE}/audio/history/visibility`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, hidden })
+    });
+    return handleResponse<paths['/api/audio/history/visibility']['patch']['response']>(response);
+}
+
+export async function fetchAudioHiddenCount(
+    signal?: AbortSignal
+): Promise<paths['/api/audio/history/hidden-count']['get']['response']> {
+    const response = await apiFetch(`${API_BASE}/audio/history/hidden-count`, {
+        signal,
+        timeoutMs: 10_000
+    });
+    return handleResponse<paths['/api/audio/history/hidden-count']['get']['response']>(response);
+}
+
 export type HeardGroup = components['schemas']['HeardGroupResponse'];
 
 export type HeardGroupsResponse = components['schemas']['HeardGroupsResponse'];

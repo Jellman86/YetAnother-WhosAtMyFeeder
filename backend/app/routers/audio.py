@@ -4,7 +4,7 @@ import httpx
 from datetime import datetime, timedelta, timezone
 import json
 import structlog
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Literal
 from app.utils.diagnostic_redaction import safe_connection_error
 from app.services.audio.audio_service import audio_service
@@ -66,6 +66,41 @@ class AudioVisibilityRequest(BaseModel):
 class AudioVisibilityResponse(BaseModel):
     id: int
     hidden: bool
+
+
+class AudioBulkVisibilityRequest(BaseModel):
+    ids: list[int] = Field(..., min_length=1, max_length=500)
+    hidden: bool
+
+
+class AudioBulkVisibilityResponse(BaseModel):
+    updated_count: int
+    ids: list[int]
+    hidden: bool
+
+
+class AudioHiddenCountResponse(BaseModel):
+    hidden_count: int
+
+
+@router.get("/history/hidden-count", response_model=AudioHiddenCountResponse)
+async def get_hidden_audio_count(auth: AuthContext = Depends(require_owner)) -> AudioHiddenCountResponse:
+    """Count hidden BirdNET-Go audio detections (owner only)."""
+    async with privacy_checked_db(get_db) as db:
+        hidden_count = await AudioHistoryRepository(db).count_hidden_audio_detections()
+    return AudioHiddenCountResponse(hidden_count=hidden_count)
+
+
+@router.patch("/history/visibility", response_model=AudioBulkVisibilityResponse)
+async def set_audio_visibility_bulk(
+    body: AudioBulkVisibilityRequest,
+    auth: AuthContext = Depends(require_owner),
+) -> AudioBulkVisibilityResponse:
+    """Hide or restore multiple BirdNET-Go audio detections in one call (owner only)."""
+    updated_ids = await audio_service.set_hidden_bulk(body.ids, body.hidden)
+    if updated_ids:
+        await broadcaster.broadcast({"type": "audio_history_changed"})
+    return AudioBulkVisibilityResponse(updated_count=len(updated_ids), ids=updated_ids, hidden=body.hidden)
 
 
 @router.patch("/history/{detection_id}", response_model=AudioVisibilityResponse)
@@ -291,12 +326,16 @@ async def get_audio_history(
     end_date: datetime | None = Query(default=None),
     species: str | None = Query(default=None, max_length=120),
     source: str | None = Query(default=None, max_length=120),
+    search: str | None = Query(default=None, max_length=120),
     min_confidence: float | None = Query(default=None, ge=0.0, le=1.0),
+    only_hidden: bool = Query(default=False),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     auth: AuthContext = Depends(require_public_audio),
 ):
     """Browse persisted BirdNET-Go detections separately from visual detections."""
+    if only_hidden and not auth.is_owner:
+        raise HTTPException(status_code=403, detail="Owner privileges required to view hidden audio detections")
     window = _history_window(days, start_date, end_date, auth)
     lang = get_user_language(request) or "en"
     hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
@@ -312,6 +351,9 @@ async def get_audio_history(
             source=source,
             min_confidence=min_confidence,
             maximum_end=window.public_end,
+            only_hidden=only_hidden,
+            search=search,
+            search_include_source=not hide_sensor,
             limit=limit,
             offset=offset,
         )
@@ -364,10 +406,14 @@ async def get_audio_summary(
     end_date: datetime | None = Query(default=None),
     species: str | None = Query(default=None, max_length=120),
     source: str | None = Query(default=None, max_length=120),
+    search: str | None = Query(default=None, max_length=120),
     min_confidence: float | None = Query(default=None, ge=0.0, le=1.0),
+    only_hidden: bool = Query(default=False),
     auth: AuthContext = Depends(require_public_audio),
 ):
     """Summarise persisted BirdNET-Go detection history."""
+    if only_hidden and not auth.is_owner:
+        raise HTTPException(status_code=403, detail="Owner privileges required to view hidden audio detections")
     window = _history_window(days, start_date, end_date, auth)
     lang = get_user_language(request) or "en"
     hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
@@ -383,6 +429,9 @@ async def get_audio_summary(
             source=source,
             min_confidence=min_confidence,
             maximum_end=window.public_end,
+            only_hidden=only_hidden,
+            search=search,
+            search_include_source=not hide_sensor,
         )
     # The scientific name stays: `species` is translated, so it is the only name the activity grid
     # can be asked for exactly.
@@ -419,7 +468,9 @@ async def get_audio_activity_heatmap(
     end_date: datetime | None = Query(default=None),
     species: str | None = Query(default=None, max_length=120),
     source: str | None = Query(default=None, max_length=120),
+    search: str | None = Query(default=None, max_length=120),
     min_confidence: float | None = Query(default=None, ge=0.0, le=1.0),
+    only_hidden: bool = Query(default=False),
     scientific_name: str | None = Query(
         default=None,
         max_length=200,
@@ -428,6 +479,8 @@ async def get_audio_activity_heatmap(
     auth: AuthContext = Depends(require_public_audio),
 ) -> AudioActivityHeatmapResponse:
     """Calls heard by weekday and hour in the viewer's time zone, over the summary's window and filters."""
+    if only_hidden and not auth.is_owner:
+        raise HTTPException(status_code=403, detail="Owner privileges required to view hidden audio detections")
     window = _history_window(days, start_date, end_date, auth)
     hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     if hide_sensor:
@@ -441,6 +494,9 @@ async def get_audio_activity_heatmap(
             min_confidence=min_confidence,
             maximum_end=window.public_end,
             scientific_name=scientific_name,
+            only_hidden=only_hidden,
+            search=search,
+            search_include_source=not hide_sensor,
         )
     grid = weekday_hour_grid(utc_hourly_counts, calendar_timezone(request))
     window_end = min(window.end_date, window.public_end) if window.public_end else window.end_date

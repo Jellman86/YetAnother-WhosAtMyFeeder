@@ -182,3 +182,127 @@ test('the Leaderboard names one window: the wall says the same span and dates as
     expect(eyebrow).toContain(rankings);
     await expect(page.locator('main')).not.toContainText(/Last (?:7|30) days/);
 });
+
+test('Audio history offers icon hide/restore, hidden view, multi-select bulk actions, and search', async ({ page }) => {
+    const calls = [
+        { id: 101, timestamp: '2026-11-23T08:05:00Z', species: 'European Robin', confidence: 0.94, sensor_id: 'garden-mic', source_name: 'Garden Mic', birdnet_id: 1, matched_visual_event_id: null, hidden: false },
+        { id: 102, timestamp: '2026-11-23T08:03:00Z', species: 'Eurasian Wren', confidence: 0.87, sensor_id: 'patio-mic', source_name: 'Patio Mic', birdnet_id: 2, matched_visual_event_id: null, hidden: false },
+        { id: 103, timestamp: '2026-11-23T08:01:00Z', species: 'Blue Tit', confidence: 0.91, sensor_id: 'shed-mic', source_name: 'Shed Mic', birdnet_id: 3, matched_visual_event_id: null, hidden: true }
+    ];
+    const bulkPayloads: Array<{ ids: number[]; hidden: boolean }> = [];
+
+    await replayFeeder(page, 'light');
+    await page.route((url) => url.pathname.startsWith('/api/audio/'), async (route) => {
+        const url = new URL(route.request().url());
+        const method = route.request().method();
+        if (url.pathname === '/api/audio/history/hidden-count') {
+            return route.fulfill({ json: { hidden_count: calls.filter((item) => item.hidden).length } });
+        }
+        if (url.pathname === '/api/audio/history/visibility' && method === 'PATCH') {
+            const body = route.request().postDataJSON() as { ids: number[]; hidden: boolean };
+            bulkPayloads.push(body);
+            for (const item of calls) {
+                if (body.ids.includes(item.id)) item.hidden = body.hidden;
+            }
+            return route.fulfill({ json: { updated_count: body.ids.length, ids: body.ids, hidden: body.hidden } });
+        }
+        if (url.pathname.startsWith('/api/audio/history/') && method === 'PATCH') {
+            const id = Number(url.pathname.split('/').pop());
+            const body = route.request().postDataJSON() as { hidden: boolean };
+            const found = calls.find((item) => item.id === id);
+            if (found) found.hidden = body.hidden;
+            return route.fulfill({ json: { id, hidden: body.hidden } });
+        }
+        if (url.pathname === '/api/audio/history') {
+            const onlyHidden = url.searchParams.get('only_hidden') === 'true';
+            const q = (url.searchParams.get('search') ?? '').trim().toLowerCase();
+            const matching = calls.filter((item) => {
+                if (item.hidden !== onlyHidden) return false;
+                if (!q) return true;
+                return item.species.toLowerCase().includes(q) || (item.source_name ?? '').toLowerCase().includes(q);
+            });
+            return route.fulfill({ json: { items: matching, total: matching.length, limit: 25, offset: 0 } });
+        }
+        if (url.pathname === '/api/audio/summary') {
+            const onlyHidden = url.searchParams.get('only_hidden') === 'true';
+            const matching = calls.filter((item) => item.hidden === onlyHidden);
+            return route.fulfill({
+                json: {
+                    total: matching.length,
+                    species_count: matching.length,
+                    source_count: matching.length,
+                    top_species: matching.map((item) => ({
+                        species: item.species,
+                        scientific_name: item.species,
+                        count: 1,
+                        avg_confidence: item.confidence,
+                        max_confidence: item.confidence,
+                        first_heard: item.timestamp,
+                        last_heard: item.timestamp
+                    })),
+                    daily_counts: [{ date: '2026-11-23', count: matching.length }],
+                    hourly_counts: [{ hour: 8, count: matching.length }],
+                    sources: matching.map((item) => ({ source_name: item.source_name, count: 1, last_heard: item.timestamp }))
+                }
+            });
+        }
+        if (url.pathname === '/api/audio/activity-heatmap') {
+            return route.fulfill({
+                json: {
+                    window_start: '2026-11-01T00:00:00Z',
+                    window_end: '2026-11-23T15:00:00Z',
+                    total_count: 1,
+                    max_cell_count: 1,
+                    cells: [{ day_of_week: 1, hour: 8, count: 1 }]
+                }
+            });
+        }
+        return route.fallback();
+    });
+
+    await page.setViewportSize(WIDTHS[3]);
+    await page.goto('/audio');
+    await expect(page.locator('[data-audio-history-table] tbody tr')).toHaveCount(2, READY);
+
+    // Compact eye-slash icon button replaces verbose text label.
+    const hideBtn = page.locator('[data-audio-visibility-toggle]').first();
+    await expect(hideBtn).toHaveAccessibleName('Hide from YA-WAMF');
+    expect((await hideBtn.textContent())?.trim()).toBe('');
+
+    // Hidden toggle shows the current hidden count badge.
+    await expect(page.locator('[data-audio-hidden-count]')).toHaveText('1');
+
+    // Quick search filters calls by source or species.
+    const search = page.locator('[data-audio-search-input]');
+    await search.fill('Patio');
+    await search.press('Enter');
+    await expect(page.locator('[data-audio-history-table] tbody tr')).toHaveCount(1);
+    await expect(page.locator('[data-audio-history-table]')).toContainText('Eurasian Wren');
+    await page.locator('[data-audio-search-clear]').click();
+    await expect(page.locator('[data-audio-history-table] tbody tr')).toHaveCount(2);
+
+    // Multi-select bulk hides selected calls and offers Undo.
+    await page.locator('[data-audio-multiselect-toggle]').click();
+    await expect(page.locator('[data-audio-selection-bar]')).toBeVisible();
+    await page.locator('[data-audio-select-all]').click();
+    await expect(page.locator('[data-audio-selection-count]')).toHaveText('2 calls selected');
+    await page.locator('[data-audio-bulk-visibility]').click();
+    await expect.poll(() => bulkPayloads.length).toBe(1);
+    expect(bulkPayloads[0]).toEqual({ ids: [101, 102], hidden: true });
+    await expect(page.locator('[data-audio-hidden-count]')).toHaveText('3');
+    await expect(page.locator('[data-audio-visibility-status]')).toContainText('2 calls hidden.');
+
+    // Switching to Hidden view lists hidden calls and restores via open-eye icon.
+    await page.locator('[data-audio-hidden-toggle]').click();
+    await expect(page.locator('[data-audio-viewing-hidden]')).toBeVisible();
+    await expect(page.locator('[data-audio-history-table] tbody tr')).toHaveCount(3);
+    const restoreBtn = page.locator('[data-audio-visibility-toggle]').first();
+    await expect(restoreBtn).toHaveAccessibleName('Restore to YA-WAMF');
+    await restoreBtn.click();
+    await expect(page.locator('[data-audio-history-table] tbody tr')).toHaveCount(2);
+    await expect(page.locator('[data-audio-hidden-count]')).toHaveText('2');
+
+    // Mobile width with multi-select active does not scroll sideways.
+    await page.setViewportSize(WIDTHS[0]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
+});
