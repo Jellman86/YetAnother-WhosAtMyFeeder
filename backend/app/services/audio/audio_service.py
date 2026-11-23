@@ -334,6 +334,41 @@ class AudioService:
                     self._buffer = deque(sorted(self._buffer, key=lambda item: item.timestamp))
             return found
 
+    async def set_hidden_bulk(self, detection_ids: list[int], hidden: bool) -> list[int]:
+        """Hide or restore many audio detections in one transaction and update the correlation buffer."""
+        async with self._lock:
+            restored_rows: list[dict] = []
+            async with get_db() as db:
+                repo = AudioHistoryRepository(db)
+                updated_ids = await repo.set_audio_hidden_bulk(detection_ids, hidden)
+                if updated_ids and not hidden:
+                    for det_id in updated_ids:
+                        restored = await repo.get_audio_detection_for_correlation(det_id)
+                        if restored is not None:
+                            restored_rows.append(restored)
+            if updated_ids and hidden:
+                hidden_set = set(updated_ids)
+                self._buffer = deque(item for item in self._buffer if item.database_id not in hidden_set)
+                self._buffered_source_ids = {item.source_event_id for item in self._buffer if item.source_event_id}
+            elif restored_rows:
+                existing_db_ids = {item.database_id for item in self._buffer if item.database_id is not None}
+                now = datetime.now(timezone.utc)
+                added = False
+                for restored in restored_rows:
+                    det_id = restored.get("database_id")
+                    if det_id in existing_db_ids:
+                        continue
+                    detection = AudioDetection(**restored)
+                    if detection.timestamp.tzinfo is None:
+                        detection.timestamp = detection.timestamp.replace(tzinfo=timezone.utc)
+                    if now - detection.timestamp <= self._buffer_duration:
+                        self._append_to_buffer_once(detection)
+                        existing_db_ids.add(det_id)
+                        added = True
+                if added:
+                    self._buffer = deque(sorted(self._buffer, key=lambda item: item.timestamp))
+            return updated_ids
+
     def _append_to_buffer_once(self, detection: AudioDetection) -> bool:
         """Add one correlation observation without duplicating a broker redelivery."""
         self._cleanup_buffer()

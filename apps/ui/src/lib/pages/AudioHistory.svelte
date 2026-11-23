@@ -4,7 +4,9 @@
     import { _, locale } from 'svelte-i18n';
     import {
         fetchAudioHistory,
+        fetchAudioHiddenCount,
         setAudioHidden,
+        setAudioHiddenBulk,
         fetchAudioSummary,
         fetchAudioActivityHeatmap,
         fetchSpeciesInfo,
@@ -57,8 +59,15 @@
     const PAGE_SIZE = 25;
 
     let changingVisibility = $state(false);
-    let lastHiddenId = $state<number | null>(null);
+    let lastVisibilityChange = $state<{ ids: number[]; hidden: boolean } | null>(null);
     let visibilityError = $state<string | null>(null);
+    let showHidden = $state(false);
+    let hiddenCount = $state(0);
+    let selectionMode = $state(false);
+    let selectedIds = $state<number[]>([]);
+    let searchInput = $state('');
+    let appliedSearch = $state('');
+    let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
     let speciesFilter = $state(DEFAULT_AUDIO_HISTORY_FILTERS.species);
     let sourceFilter = $state(DEFAULT_AUDIO_HISTORY_FILTERS.source);
@@ -158,8 +167,11 @@
     });
 
     let detections = $derived<AudioHistoryDetection[]>(history?.items ?? []);
+    let pageIds = $derived(detections.map((item) => item.id));
+    let allPageSelected = $derived(pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id)));
     let canPrevious = $derived(offset > 0);
     let canNext = $derived(Boolean(history && offset + history.limit < history.total));
+    const canSearchSources = $derived(authStore.canModify || !authStore.isGuest || settingsStore.settings?.public_access_show_camera_names !== false);
 
     let isDark = $derived(themeStore.isDark);
     // slate-500 on a light page and slate-400 on a dark one: slate-400 on white is 2.56:1, too faint for axis labels.
@@ -235,6 +247,8 @@
             days: applied.days,
             species: applied.species || undefined,
             source: applied.source || undefined,
+            search: appliedSearch || undefined,
+            only_hidden: authStore.canModify && showHidden ? true : undefined,
             min_confidence: applied.minConfidence,
             limit: includePaging ? PAGE_SIZE : undefined,
             offset: includePaging ? offset : undefined
@@ -290,9 +304,34 @@
         finish: () => { loading = false; }
     });
 
-    async function loadAudioHistory() {
-        await audioHistoryLoader.load();
+    async function refreshHiddenCount(): Promise<void> {
+        if (!authStore.canModify) {
+            hiddenCount = 0;
+            return;
+        }
+        try {
+            const res = await fetchAudioHiddenCount();
+            hiddenCount = Math.max(0, res.hidden_count ?? 0);
+        } catch {
+            // Leave the last known count untouched if the auxiliary count read fails.
+        }
     }
+
+    async function loadAudioHistory() {
+        await Promise.all([audioHistoryLoader.load(), refreshHiddenCount()]);
+    }
+
+    $effect(() => {
+        if (authStore.canModify) return;
+        if (selectionMode) selectionMode = false;
+        if (selectedIds.length > 0) selectedIds = [];
+        if (showHidden) {
+            showHidden = false;
+            offset = 0;
+            untrack(() => { void audioHistoryLoader.load(true); });
+        }
+        hiddenCount = 0;
+    });
 
     let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
     $effect(() => {
@@ -302,20 +341,122 @@
         untrack(() => { void audioHistoryLoader.load(true); });
     });
 
-    async function changeVisibility(id: number, hidden: boolean): Promise<void> {
+    async function changeVisibility(id: number, hidden: boolean, recordUndo = true): Promise<void> {
         if (!authStore.canModify || changingVisibility) return;
         changingVisibility = true;
         visibilityError = null;
         try {
             await setAudioHidden(id, hidden);
-            lastHiddenId = hidden ? id : null;
-            if (hidden && detections.length === 1 && offset > 0) offset = Math.max(0, offset - PAGE_SIZE);
+            lastVisibilityChange = recordUndo ? { ids: [id], hidden } : null;
+            selectedIds = selectedIds.filter((item) => item !== id);
+            if (detections.length === 1 && offset > 0) offset = Math.max(0, offset - PAGE_SIZE);
             await loadAudioHistory();
         } catch (e) {
             visibilityError = getErrorMessage(e);
         } finally {
             changingVisibility = false;
         }
+    }
+
+    async function changeVisibilityBulk(ids: number[], hidden: boolean, recordUndo = true): Promise<void> {
+        if (!authStore.canModify || changingVisibility || ids.length === 0) return;
+        changingVisibility = true;
+        visibilityError = null;
+        try {
+            const res = await setAudioHiddenBulk(ids, hidden);
+            const updatedIds = res.ids.length > 0 ? res.ids : ids;
+            lastVisibilityChange = recordUndo ? { ids: updatedIds, hidden } : null;
+            selectedIds = selectedIds.filter((item) => !updatedIds.includes(item));
+            if (detections.length > 0 && detections.every((item) => updatedIds.includes(item.id)) && offset > 0) {
+                offset = Math.max(0, offset - PAGE_SIZE);
+            }
+            await loadAudioHistory();
+        } catch (e) {
+            visibilityError = getErrorMessage(e);
+        } finally {
+            changingVisibility = false;
+        }
+    }
+
+    async function undoLastVisibilityChange(): Promise<void> {
+        if (!lastVisibilityChange) return;
+        const { ids, hidden } = lastVisibilityChange;
+        if (ids.length === 1) {
+            await changeVisibility(ids[0], !hidden, false);
+        } else {
+            await changeVisibilityBulk(ids, !hidden, false);
+        }
+    }
+
+    function toggleShowHidden(): void {
+        if (!authStore.canModify) return;
+        showHidden = !showHidden;
+        selectedIds = [];
+        lastVisibilityChange = null;
+        visibilityError = null;
+        offset = 0;
+        void loadAudioHistory();
+    }
+
+    function toggleSelectionMode(): void {
+        if (!authStore.canModify) return;
+        selectionMode = !selectionMode;
+        if (!selectionMode) selectedIds = [];
+    }
+
+    function toggleRowSelected(id: number): void {
+        if (selectedIds.includes(id)) {
+            selectedIds = selectedIds.filter((item) => item !== id);
+        } else {
+            selectedIds = [...selectedIds, id];
+        }
+    }
+
+    function toggleSelectAllPage(): void {
+        if (allPageSelected) {
+            const pageSet = new Set(pageIds);
+            selectedIds = selectedIds.filter((id) => !pageSet.has(id));
+        } else {
+            selectedIds = [...new Set([...selectedIds, ...pageIds])];
+        }
+    }
+
+    function handleRowClick(event: MouseEvent, id: number): void {
+        if (!selectionMode || !authStore.canModify) return;
+        const target = event.target as HTMLElement | null;
+        if (target?.closest('a, button, input, label')) return;
+        toggleRowSelected(id);
+    }
+
+    function applySearchNow(): void {
+        if (searchTimer) {
+            clearTimeout(searchTimer);
+            searchTimer = null;
+        }
+        const next = searchInput.trim();
+        if (next === appliedSearch) return;
+        appliedSearch = next;
+        selectedIds = [];
+        offset = 0;
+        void audioHistoryLoader.load();
+    }
+
+    function handleSearchInput(): void {
+        if (searchTimer) clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => {
+            searchTimer = null;
+            applySearchNow();
+        }, 250);
+    }
+
+    function submitSearch(event: SubmitEvent): void {
+        event.preventDefault();
+        applySearchNow();
+    }
+
+    function clearSearch(): void {
+        searchInput = '';
+        applySearchNow();
     }
 
     async function loadBirdnetUrl() {
@@ -388,7 +529,14 @@
         speciesFilter = DEFAULT_AUDIO_HISTORY_FILTERS.species;
         sourceFilter = DEFAULT_AUDIO_HISTORY_FILTERS.source;
         minConfidence = DEFAULT_AUDIO_HISTORY_FILTERS.minConfidence;
+        searchInput = '';
+        appliedSearch = '';
+        if (searchTimer) {
+            clearTimeout(searchTimer);
+            searchTimer = null;
+        }
         applied = { ...DEFAULT_AUDIO_HISTORY_FILTERS, days: applied.days };
+        selectedIds = [];
         offset = 0;
         void loadAudioHistory();
     }
@@ -396,12 +544,14 @@
     function previousPage() {
         if (!canPrevious) return;
         offset = Math.max(0, offset - PAGE_SIZE);
+        selectedIds = [];
         void loadAudioHistory();
     }
 
     function nextPage() {
         if (!canNext) return;
         offset += PAGE_SIZE;
+        selectedIds = [];
         void loadAudioHistory();
     }
 
@@ -515,6 +665,7 @@
         void loadAudioHistory();
         void loadBirdnetUrl();
         return () => {
+            if (searchTimer) clearTimeout(searchTimer);
             audioHistoryLoader.dispose();
             motionPreference.removeEventListener('change', syncMotionPreference);
             classObserver.disconnect();
@@ -676,22 +827,162 @@
     <div class="min-w-0 space-y-6 xl:col-span-8 xl:col-start-1 xl:row-span-2 xl:row-start-1 2xl:col-span-9">
 
     <section class="space-y-5" data-audio-history-log aria-labelledby="audio-history-title">
-        <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 max-w-prose">
                 <h2 id="audio-history-title" class="text-xl font-bold text-strong">{$_('audio.history.title', { default: 'Call history' })}</h2>
                 <p class="mt-1 text-sm text-muted">{$_('audio.history.sub', { default: 'Every call BirdNET-Go reported, kept apart from camera visits.' })}</p>
             </div>
-            <button type="button" class="btn btn-secondary min-h-11 flex-none px-4 text-sm" onclick={() => void loadAudioHistory()} disabled={loading}>
-                <svg aria-hidden="true" class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12a8 8 0 10-2.34 5.66M20 12v-5m0 5h-5" /></svg>
-                {$_('common.refresh', { default: 'Refresh' })}
-            </button>
+            <div class="flex flex-wrap items-center gap-2">
+                {#if authStore.canModify}
+                    <button
+                        type="button"
+                        class="btn {showHidden ? 'btn-primary' : 'btn-secondary'} min-h-11 flex-none gap-2 px-3.5 text-sm focus-visible:ring-2 focus-visible:ring-focus"
+                        aria-pressed={showHidden}
+                        onclick={toggleShowHidden}
+                        disabled={loading || changingVisibility}
+                        data-audio-hidden-toggle
+                    >
+                        <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.58 10.58a2 2 0 1 0 2.83 2.83M9.88 5.09A10.94 10.94 0 0 1 12 4.9c5.05 0 9.27 3.11 10.5 7.1a10.7 10.7 0 0 1-4.18 5.26M6.61 6.61A10.73 10.73 0 0 0 1.5 12c1.23 3.99 5.45 7.1 10.5 7.1 1.61 0 3.14-.33 4.5-.92" />
+                        </svg>
+                        <span>{$_('audio.history.hidden_toggle', { default: 'Hidden' })}</span>
+                        {#if hiddenCount > 0}
+                            <span class="rounded-full bg-surface-raised px-2 py-0.5 text-xs font-bold tabular-nums text-strong" data-audio-hidden-count>{hiddenCount.toLocaleString()}</span>
+                        {/if}
+                    </button>
+                    <button
+                        type="button"
+                        class="btn {selectionMode ? 'btn-primary' : 'btn-secondary'} min-h-11 flex-none gap-2 px-3.5 text-sm focus-visible:ring-2 focus-visible:ring-focus"
+                        aria-pressed={selectionMode}
+                        onclick={toggleSelectionMode}
+                        disabled={changingVisibility}
+                        data-audio-multiselect-toggle
+                    >
+                        <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="3" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m8.5 12 2.5 2.5 4.5-5" />
+                        </svg>
+                        <span>{$_('common.multi_select', { default: 'Multi-select' })}</span>
+                    </button>
+                {/if}
+                <button type="button" class="btn btn-secondary min-h-11 flex-none px-4 text-sm focus-visible:ring-2 focus-visible:ring-focus" onclick={() => void loadAudioHistory()} disabled={loading}>
+                    <svg aria-hidden="true" class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12a8 8 0 10-2.34 5.66M20 12v-5m0 5h-5" /></svg>
+                    {$_('common.refresh', { default: 'Refresh' })}
+                </button>
+            </div>
         </div>
+
+        <form class="relative flex items-center" role="search" onsubmit={submitSearch} data-audio-search-form>
+            <label class="relative block w-full">
+                <span class="sr-only">{$_('audio.history.search_label', { default: 'Search call history' })}</span>
+                <svg aria-hidden="true" class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="7" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m20 20-3.5-3.5" />
+                </svg>
+                <input
+                    type="search"
+                    bind:value={searchInput}
+                    oninput={handleSearchInput}
+                    class="input-base min-h-11 w-full pl-10 pr-12 text-sm focus-visible:ring-2 focus-visible:ring-focus"
+                    placeholder={canSearchSources
+                        ? $_('audio.history.search_placeholder', { default: 'Search species or source…' })
+                        : $_('audio.history.search_species_placeholder', { default: 'Search species…' })}
+                    data-audio-search-input
+                />
+            </label>
+            {#if searchInput.length > 0}
+                <button
+                    type="button"
+                    class="btn btn-ghost absolute right-0.5 top-1/2 min-h-11 min-w-11 -translate-y-1/2 p-0 text-muted hover:text-strong focus-visible:ring-2 focus-visible:ring-focus"
+                    onclick={clearSearch}
+                    aria-label={$_('audio.history.clear_search', { default: 'Clear search' })}
+                    data-audio-search-clear
+                >
+                    <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                </button>
+            {/if}
+        </form>
+
         {#if authStore.canModify}
             <p class="max-w-prose text-sm text-muted">{$_('audio.history.local_only')}</p>
-            {#if lastHiddenId !== null}
-                <div class="flex items-center justify-between gap-3 rounded-lg border border-line p-3" role="status">
-                    <span>{$_('audio.history.hidden_message')}</span>
-                    <button type="button" class="btn btn-secondary min-h-11" disabled={changingVisibility} onclick={() => { if (lastHiddenId !== null) void changeVisibility(lastHiddenId, false); }}>{$_('audio.history.undo')}</button>
+            {#if showHidden}
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface-raised px-4 py-3 text-sm" role="status" data-audio-viewing-hidden>
+                    <p class="text-ink">{$_('audio.history.viewing_hidden', { default: 'Showing hidden calls. Restore any call to include it in YA-WAMF history and audio matching again.' })}</p>
+                    <button type="button" class="btn btn-secondary min-h-11 shrink-0 px-3.5 text-xs focus-visible:ring-2 focus-visible:ring-focus" onclick={toggleShowHidden}>
+                        {$_('audio.history.back_to_visible', { default: 'Show visible calls' })}
+                    </button>
+                </div>
+            {/if}
+            {#if selectionMode}
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-accent-line bg-accent-soft p-4" data-audio-selection-bar>
+                    <div>
+                        <p class="text-sm font-semibold text-accent-ink">{$_('common.multi_select', { default: 'Multi-select' })}</p>
+                        <p class="text-xs text-accent-ink" role="status" data-audio-selection-count>
+                            {$_('audio.history.selection_count', {
+                                values: { count: selectedIds.length },
+                                default: '{count, plural, =0 {No calls selected} one {# call selected} other {# calls selected}}'
+                            })}
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            class="btn btn-secondary min-h-11 px-3 py-2 text-xs focus-visible:ring-2 focus-visible:ring-focus"
+                            onclick={toggleSelectAllPage}
+                            disabled={pageIds.length === 0 || changingVisibility}
+                            data-audio-select-all
+                        >
+                            {allPageSelected ? $_('audio.history.deselect_page', { default: 'Deselect page' }) : $_('audio.history.select_page', { default: 'Select page' })}
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-ghost min-h-11 px-3 py-2 text-xs focus-visible:ring-2 focus-visible:ring-focus"
+                            onclick={() => (selectedIds = [])}
+                            disabled={selectedIds.length === 0 || changingVisibility}
+                        >
+                            {$_('common.clear', { default: 'Clear' })}
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-primary min-h-11 px-3 py-2 text-xs focus-visible:ring-2 focus-visible:ring-focus"
+                            onclick={() => void changeVisibilityBulk(selectedIds, !showHidden)}
+                            disabled={selectedIds.length === 0 || changingVisibility || loading}
+                            data-audio-bulk-visibility
+                        >
+                            {#if changingVisibility}
+                                {$_('common.working', { default: 'Working…' })}
+                            {:else if showHidden}
+                                {$_('audio.history.restore_selected', { default: 'Restore selected' })}
+                            {:else}
+                                {$_('audio.history.hide_selected', { default: 'Hide selected' })}
+                            {/if}
+                        </button>
+                        <button
+                            type="button"
+                            class="btn btn-ghost min-h-11 px-3 py-2 text-xs focus-visible:ring-2 focus-visible:ring-focus"
+                            onclick={toggleSelectionMode}
+                            disabled={changingVisibility}
+                            data-audio-selection-done
+                        >
+                            {$_('events.selection_done', { default: 'Done' })}
+                        </button>
+                    </div>
+                </div>
+            {/if}
+            {#if lastVisibilityChange !== null}
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3 text-sm" role="status" data-audio-visibility-status>
+                    <span>
+                        {lastVisibilityChange.hidden
+                            ? $_('audio.history.hidden_count_message', {
+                                values: { count: lastVisibilityChange.ids.length },
+                                default: '{count, plural, one {Call hidden.} other {# calls hidden.}}'
+                            })
+                            : $_('audio.history.restored_count_message', {
+                                values: { count: lastVisibilityChange.ids.length },
+                                default: '{count, plural, one {Call restored.} other {# calls restored.}}'
+                            })}
+                    </span>
+                    <button type="button" class="btn btn-secondary min-h-11 px-3.5 text-sm focus-visible:ring-2 focus-visible:ring-focus" disabled={changingVisibility} onclick={() => void undoLastVisibilityChange()} data-audio-visibility-undo>{$_('audio.history.undo')}</button>
                 </div>
             {/if}
             {#if visibilityError}<p class="text-sm text-status-fail" role="alert">{visibilityError}</p>{/if}
@@ -724,7 +1015,9 @@
             {/if}
         {#if detections.length === 0}
             <div class="border-y border-dashed border-line px-4 py-12 text-center text-sm font-semibold text-muted">
-                {$_('audio.history.empty', { default: 'No calls match these filters.' })}
+                {showHidden
+                    ? $_('audio.history.empty_hidden', { default: 'No hidden calls match these filters.' })
+                    : $_('audio.history.empty', { default: 'No calls match these filters.' })}
             </div>
         {:else}
             <!-- A table only where its own box has room at the reader's text size (rem, so larger text
@@ -733,21 +1026,53 @@
             <table class="block w-full text-sm @2xl:table" data-audio-history-table>
                 <thead class="hidden border-y border-line-soft @2xl:table-header-group">
                     <tr class="text-left text-xs font-semibold text-muted">
+                        {#if authStore.canModify && selectionMode}
+                            <th scope="col" class="w-11 py-3 pr-2">
+                                <label class="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
+                                    <input
+                                        type="checkbox"
+                                        class="h-4 w-4 rounded border-line accent-accent focus-visible:ring-2 focus-visible:ring-focus"
+                                        checked={allPageSelected}
+                                        onchange={toggleSelectAllPage}
+                                        aria-label={allPageSelected ? $_('audio.history.deselect_page', { default: 'Deselect page' }) : $_('audio.history.select_page', { default: 'Select page' })}
+                                    />
+                                </label>
+                            </th>
+                        {/if}
                         <th scope="col" class="py-3 pr-4">{$_('audio.table.sound', { default: 'Sound' })}</th>
                         <th scope="col" class="py-3 pr-4">{$_('audio.table.species', { default: 'Species' })}</th>
                         <th scope="col" class="py-3 pr-4">{$_('audio.table.time', { default: 'Time' })}</th>
                         <th scope="col" class="py-3 pr-4">{$_('audio.table.source', { default: 'Source' })}</th>
                         <th scope="col" class="py-3 text-right">{$_('audio.table.confidence', { default: 'Confidence' })}</th>
-                        {#if authStore.canModify}<th scope="col" class="py-3 pl-3 text-right"><span class="sr-only">{$_('audio.history.hide')}</span></th>{/if}
+                        {#if authStore.canModify}<th scope="col" class="py-3 pl-2 text-right"><span class="sr-only">{showHidden ? $_('audio.history.unhide', { default: 'Restore to YA-WAMF' }) : $_('audio.history.hide')}</span></th>{/if}
                     </tr>
                 </thead>
                 <tbody class="block divide-y divide-line-soft border-y border-line-soft @2xl:table-row-group @2xl:border-0">
-                    {#each detections as detection}
+                    {#each detections as detection (detection.id)}
                         {@const spec = detection.birdnet_id && failedSpectrograms[detection.birdnet_id] ? null : spectrogramUrl(detection.birdnet_id)}
                         {@const specAlt = $_('audio.table.spectrogram_alt', { values: { species: detection.species }, default: 'Spectrogram of the {species} call' })}
                         {@const link = birdnetDetectionUrl(detection.birdnet_id)}
-                        <tr class="grid grid-cols-[5rem_minmax(0,1fr)_auto] gap-x-3 py-3 text-ink @2xl:table-row @2xl:py-0">
-                            <td class="row-span-3 flex items-center @2xl:table-cell @2xl:w-28 @2xl:py-3 @2xl:pr-4">
+                        {@const isSelected = selectedIds.includes(detection.id)}
+                        {@const rowActionLabel = showHidden ? $_('audio.history.unhide', { default: 'Restore to YA-WAMF' }) : $_('audio.history.hide')}
+                        <tr
+                            class="grid grid-cols-[5rem_minmax(0,1fr)_auto] {authStore.canModify && selectionMode ? 'audio-row-selecting cursor-pointer' : ''} gap-x-3 py-3 text-ink @2xl:table-row @2xl:py-0 {isSelected ? 'bg-accent-soft/50' : ''}"
+                            onclick={(event) => handleRowClick(event, detection.id)}
+                        >
+                            {#if authStore.canModify && selectionMode}
+                                <td class="col-start-1 row-span-3 flex items-center justify-center @2xl:table-cell @2xl:w-11 @2xl:py-3 @2xl:pr-2">
+                                    <label class="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
+                                        <input
+                                            type="checkbox"
+                                            class="h-4 w-4 rounded border-line accent-accent focus-visible:ring-2 focus-visible:ring-focus"
+                                            checked={isSelected}
+                                            onchange={() => toggleRowSelected(detection.id)}
+                                            aria-label={$_('audio.history.select_call', { values: { species: detection.species, time: formatDateTime(detection.timestamp) }, default: 'Select {species} call at {time}' })}
+                                            data-audio-select-row={detection.id}
+                                        />
+                                    </label>
+                                </td>
+                            {/if}
+                            <td class="{authStore.canModify && selectionMode ? 'col-start-2' : 'col-start-1'} row-span-3 flex items-center @2xl:table-cell @2xl:w-28 @2xl:py-3 @2xl:pr-4">
                                 {#if spec}
                                     {#if link}
                                         <a href={link} target="_blank" rel="noopener noreferrer" class="block min-h-11 rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus" title={$_('audio.table.open_birdnet', { default: 'Open in BirdNET-Go' })}>
@@ -762,7 +1087,7 @@
                                     </div>
                                 {/if}
                             </td>
-                            <td class="col-start-2 row-start-1 min-w-0 self-end font-bold text-strong @2xl:table-cell @2xl:py-3 @2xl:pr-4">
+                            <td class="{authStore.canModify && selectionMode ? 'col-start-3' : 'col-start-2'} row-start-1 min-w-0 self-end font-bold text-strong @2xl:table-cell @2xl:py-3 @2xl:pr-4">
                                 <span class="flex min-w-0 items-center gap-1">
                                     <span class="min-w-0 wrap-anywhere">{detection.species}</span>
                                     {#if detection.matched_visual_event_id}
@@ -781,20 +1106,39 @@
                                     {/if}
                                 </span>
                             </td>
-                            <td class="col-start-2 row-start-2 min-w-0 self-start text-xs text-muted @2xl:table-cell @2xl:whitespace-nowrap @2xl:py-3 @2xl:pr-4">
+                            <td class="{authStore.canModify && selectionMode ? 'col-start-3' : 'col-start-2'} row-start-2 min-w-0 self-start text-xs text-muted @2xl:table-cell @2xl:whitespace-nowrap @2xl:py-3 @2xl:pr-4">
                                 <span class="@2xl:font-bold">{formatDate(detection.timestamp)}</span>
                                 <span class="before:mx-1 before:content-['·'] @2xl:block @2xl:before:content-none">{formatTime(detection.timestamp, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                             </td>
                             <!-- On a phone the source sits under the time in the same column, so a long microphone name wraps there instead of squeezing the time out. -->
-                            <td class="col-start-2 row-start-3 min-w-0 self-start wrap-break-word text-xs text-muted @2xl:table-cell @2xl:max-w-48 @2xl:py-3 @2xl:pr-4">
+                            <td class="{authStore.canModify && selectionMode ? 'col-start-3' : 'col-start-2'} row-start-3 min-w-0 self-start wrap-break-word text-xs text-muted @2xl:table-cell @2xl:max-w-48 @2xl:py-3 @2xl:pr-4">
                                 {detection.source_name || detection.sensor_id || $_('audio.table.unknown_source', { default: 'Unknown source' })}
                             </td>
-                            <td class="col-start-3 row-start-1 self-end whitespace-nowrap text-right @2xl:table-cell @2xl:py-3">
+                            <td class="{authStore.canModify && selectionMode ? 'col-start-4' : 'col-start-3'} row-start-1 self-end whitespace-nowrap text-right @2xl:table-cell @2xl:py-3">
                                 <span class="font-bold tabular-nums {SCORE_TEXT[scoreBand(detection.confidence)]}">{confidencePercent(detection.confidence)}</span>
                             </td>
                             {#if authStore.canModify}
-                                <td class="col-span-3 text-right @2xl:table-cell @2xl:py-3 @2xl:pl-3">
-                                    <button type="button" class="btn btn-ghost min-h-11 text-sm" disabled={changingVisibility || loading} onclick={() => void changeVisibility(detection.id, true)}>{$_('audio.history.hide')}</button>
+                                <td class="{selectionMode ? 'col-start-4' : 'col-start-3'} row-start-2 row-span-2 self-center justify-self-end @2xl:table-cell @2xl:w-12 @2xl:py-3 @2xl:pl-2 @2xl:text-right">
+                                    <button
+                                        type="button"
+                                        class="btn btn-ghost min-h-11 min-w-11 p-0 text-muted hover:text-strong focus-visible:ring-2 focus-visible:ring-focus"
+                                        disabled={changingVisibility || loading}
+                                        onclick={() => void changeVisibility(detection.id, !showHidden)}
+                                        aria-label={rowActionLabel}
+                                        title={rowActionLabel}
+                                        data-audio-visibility-toggle
+                                    >
+                                        {#if showHidden}
+                                            <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-7 9.75-7 9.75 7 9.75 7-3.75 7-9.75 7-9.75-7-9.75-7Z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                        {:else}
+                                            <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.58 10.58a2 2 0 1 0 2.83 2.83M9.88 5.09A10.94 10.94 0 0 1 12 4.9c5.05 0 9.27 3.11 10.5 7.1a10.7 10.7 0 0 1-4.18 5.26M6.61 6.61A10.73 10.73 0 0 0 1.5 12c1.23 3.99 5.45 7.1 10.5 7.1 1.61 0 3.14-.33 4.5-.92" />
+                                            </svg>
+                                        {/if}
+                                    </button>
                                 </td>
                             {/if}
                         </tr>
@@ -1009,6 +1353,10 @@
 {/if}
 
 <style>
+    .audio-row-selecting {
+        grid-template-columns: 2.75rem 5rem minmax(0, 1fr) auto;
+    }
+
     /* From 1280px the log spans the right-hand column's two rows: the window's figures, then the
        most heard species and sources. The first row is only as tall as the figures, so the log's
        height never opens a gap under them (the Dashboard's desk does the same). */

@@ -922,6 +922,55 @@
         "title": "AudioActivityHeatmapResponse",
         "type": "object"
       },
+      "AudioBulkVisibilityRequest": {
+        "properties": {
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          },
+          "ids": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids",
+          "hidden"
+        ],
+        "title": "AudioBulkVisibilityRequest",
+        "type": "object"
+      },
+      "AudioBulkVisibilityResponse": {
+        "properties": {
+          "hidden": {
+            "title": "Hidden",
+            "type": "boolean"
+          },
+          "ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Ids",
+            "type": "array"
+          },
+          "updated_count": {
+            "title": "Updated Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "updated_count",
+          "ids",
+          "hidden"
+        ],
+        "title": "AudioBulkVisibilityResponse",
+        "type": "object"
+      },
       "AudioContextDetectionResponse": {
         "properties": {
           "birdnet_id": {
@@ -1071,6 +1120,19 @@
           "confidence"
         ],
         "title": "AudioDetectionResponse",
+        "type": "object"
+      },
+      "AudioHiddenCountResponse": {
+        "properties": {
+          "hidden_count": {
+            "title": "Hidden Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hidden_count"
+        ],
+        "title": "AudioHiddenCountResponse",
         "type": "object"
       },
       "AudioHistoryDetectionResponse": {
@@ -25952,6 +26014,23 @@
           },
           {
             "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
             "name": "min_confidence",
             "required": false,
             "schema": {
@@ -25966,6 +26045,16 @@
                 }
               ],
               "title": "Min Confidence"
+            }
+          },
+          {
+            "in": "query",
+            "name": "only_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Only Hidden",
+              "type": "boolean"
             }
           },
           {
@@ -26412,6 +26501,23 @@
           },
           {
             "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
             "name": "min_confidence",
             "required": false,
             "schema": {
@@ -26426,6 +26532,16 @@
                 }
               ],
               "title": "Min Confidence"
+            }
+          },
+          {
+            "in": "query",
+            "name": "only_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Only Hidden",
+              "type": "boolean"
             }
           },
           {
@@ -26486,6 +26602,94 @@
           }
         ],
         "summary": "Get Audio History",
+        "tags": [
+          "audio",
+          "audio"
+        ]
+      }
+    },
+    "/api/audio/history/hidden-count": {
+      "get": {
+        "description": "Count hidden BirdNET-Go audio detections (owner only).",
+        "operationId": "get_hidden_audio_count_api_audio_history_hidden_count_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioHiddenCountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Hidden Audio Count",
+        "tags": [
+          "audio",
+          "audio"
+        ]
+      }
+    },
+    "/api/audio/history/visibility": {
+      "patch": {
+        "description": "Hide or restore multiple BirdNET-Go audio detections in one call (owner only).",
+        "operationId": "set_audio_visibility_bulk_api_audio_history_visibility_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioBulkVisibilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioBulkVisibilityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Set Audio Visibility Bulk",
         "tags": [
           "audio",
           "audio"
@@ -26890,6 +27094,23 @@
           },
           {
             "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
             "name": "min_confidence",
             "required": false,
             "schema": {
@@ -26904,6 +27125,16 @@
                 }
               ],
               "title": "Min Confidence"
+            }
+          },
+          {
+            "in": "query",
+            "name": "only_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Only Hidden",
+              "type": "boolean"
             }
           }
         ],
