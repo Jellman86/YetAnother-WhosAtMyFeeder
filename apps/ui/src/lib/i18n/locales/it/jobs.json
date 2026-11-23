@@ -268,8 +268,8 @@
       "next": "Controlla l’uso delle risorse sopra. Se succede spesso, scegli un modello più leggero in Impostazioni → Identificare gli uccelli."
     },
     "classify_snapshot_unavailable": {
-      "title": "Un rilevamento è stato scartato perché Frigate non aveva un’istantanea.",
-      "next": "Verifica che le istantanee siano attive per questa telecamera in Frigate."
+      "title": "Un evento di Frigate è stato scartato perché Frigate non aveva un'istantanea per esso.",
+      "next": "Gli uccelli di passaggio molto rapido spesso non lasciano un'istantanea in Frigate. Se accade spesso, controlla che le istantanee siano attive per la fotocamera in Frigate."
     },
     "classifier_empty_results": {
       "title": "Un rilevamento è stato scartato perché il classificatore non ha dato risposta.",
@@ -294,6 +294,138 @@
     "stage_timeout": {
       "title": "Un passaggio di un rilevamento ha richiesto troppo tempo ed è stato interrotto.",
       "next": "Il classificatore o Frigate potrebbero essere sovraccarichi. Controlla l’uso delle risorse sopra."
+    },
+    "classify_snapshot_lease_expired": {
+      "title": "L'identificazione di un'istantanea ha impiegato troppo tempo ed è scaduta prima di terminare.",
+      "next": "Il modello potrebbe essere sovraccarico. Controlla l'uso delle risorse sopra o scegli un modello più leggero in Impostazioni → Identificare gli uccelli."
+    },
+    "live_event_stale": {
+      "title": "Un evento di Frigate è arrivato troppo tardi per essere identificato in diretta.",
+      "next": "Controlla che l'orologio di sistema sia corretto e che MQTT non sia in ritardo."
+    },
+    "live_event_coalesced": {
+      "title": "Gli aggiornamenti in diretta duplicati da Frigate per la stessa visita sono stati uniti.",
+      "next": "Nessuna azione necessaria se non mancano visite; YA-WAMF salta il lavoro duplicato già in corso."
+    },
+    "recovery_lookup_failed": {
+      "title": "YA-WAMF non è riuscito a consultare il database durante il recupero di un aggiornamento di Frigate.",
+      "next": "Se si ripete, controlla Database sopra e verifica che la cartella dati sia scrivibile."
+    },
+    "update_recovery_cooldown": {
+      "title": "Il nuovo tentativo per un aggiornamento di Frigate è stato brevemente sospeso per evitare lavoro ripetuto.",
+      "next": "YA-WAMF riproverà al termine della visita. Nessuna azione necessaria se non mancano visite."
+    },
+    "false_positive_ignored": {
+      "title": "Un aggiornamento successivo di Frigate è stato saltato perché Frigate lo ha segnato come falso positivo.",
+      "next": "Nessuna azione necessaria; YA-WAMF ignora gli aggiornamenti degli eventi scartati da Frigate."
+    },
+    "nest_mode_dedupe": {
+      "title": "Una visita ripetuta su una fotocamera da nido è stata saltata dalla modalità nido.",
+      "next": "Regola la deduplicazione della modalità nido in Impostazioni → Telecamere e connessione se vuoi registrare ogni visita."
+    },
+    "frigate_missing_marked": {
+      "title": "Le visite più vecchie sono state contrassegnate come mancanti in Frigate mantenendo i tuoi dati locali.",
+      "next": "È la tua politica sui media mancanti che funziona normalmente quando Frigate rimuove i clip vecchi."
+    },
+    "frigate_missing_deleted": {
+      "title": "Le visite più vecchie i cui media sono scaduti in Frigate sono state rimosse secondo la tua politica.",
+      "next": "Cambia la politica in Impostazioni → Archiviazione e manutenzione se preferisci conservare i dati locali."
+    },
+    "frigate_missing_kept": {
+      "title": "Le visite più vecchie non hanno più media in Frigate e sono state mantenute invariate.",
+      "next": "È la tua politica sui media mancanti che funziona normalmente quando Frigate rimuove i clip vecchi."
+    },
+    "frigate_went_offline": {
+      "title": "Frigate si è segnalato offline tramite MQTT.",
+      "next": "Controlla che Frigate sia in esecuzione e connesso al tuo broker MQTT."
+    },
+    "video_circuit_open": {
+      "title": "L'analisi video automatica è stata brevemente sospesa dopo errori ripetuti.",
+      "next": "Riprenderà da sola dopo la pausa. Controlla le registrazioni di Frigate e l'uso delle risorse sopra se continua."
+    },
+    "video_queue_full": {
+      "title": "Una visita ha saltato l'analisi video automatica perché la coda video era piena.",
+      "next": "Controlla l'uso delle risorse sopra. Scegli un modello più leggero o riduci la concorrenza video se le visite arrivano troppo in fretta."
+    },
+    "video_timeout": {
+      "title": "L'analisi del clip video di una visita ha impiegato troppo tempo ed è stata interrotta.",
+      "next": "Controlla l'uso delle risorse sopra e verifica che Frigate fornisca i clip rapidamente."
+    },
+    "video_cancelled": {
+      "title": "L'analisi video per una visita è stata annullata prima di terminare.",
+      "next": "Accade di solito durante un riavvio o ricaricamento del modello. Puoi rieseguirla dalla visita."
+    },
+    "video_exception": {
+      "title": "L'analisi del clip video di una visita si è fermata per un errore di elaborazione.",
+      "next": "Controlla Dettagli tecnici qui sotto. Se si ripete, acquisisci un pacchetto di diagnostica e segnalalo."
+    },
+    "video_photo_update": {
+      "title": "L'analisi video è terminata, ma il salvataggio della foto aggiornata non è riuscito.",
+      "next": "Controlla che la cartella dati abbia spazio libero e permessi di scrittura."
+    },
+    "video_retry_after_worker_failure": {
+      "title": "L'analisi video ha riprovato un clip dopo il riavvio del worker.",
+      "next": "Controlla l'uso delle risorse sopra. Se si riavvia spesso, scegli un modello più leggero o modifica l'accelerazione hardware."
+    },
+    "clip_unavailable": {
+      "title": "Frigate non aveva più la registrazione o il clip necessario per l'analisi video.",
+      "next": "Aumenta la conservazione di clip o registrazioni in Frigate per analizzare anche visite più vecchie."
+    },
+    "maintenance_held_back": {
+      "title": "L'analisi in background è stata messa in pausa per dare priorità alle visite in diretta.",
+      "next": "Riprenderà da sola quando il traffico in diretta diminuirà."
+    },
+    "job_failed": {
+      "title": "Un'attività in background si è fermata con un errore prima di completarsi.",
+      "next": "Controlla Dettagli tecnici qui sotto e riavvia l'attività da Impostazioni o Notifiche."
+    },
+    "job_timeout": {
+      "title": "Un'attività in background o una notifica ha superato il tempo limite.",
+      "next": "Controlla che i servizi esterni siano raggiungibili e riprova se necessario."
+    },
+    "fetch_snapshot_failed": {
+      "title": "Il recupero storico non è riuscito a scaricare un'istantanea da Frigate.",
+      "next": "Verifica che Frigate sia raggiungibile e conservi ancora istantanee per l'intervallo scelto."
+    },
+    "snapshot_cache_failed": {
+      "title": "Il recupero storico non è riuscito a salvare una copia dell'istantanea su disco.",
+      "next": "Controlla che la cartella cache abbia spazio libero e permessi di scrittura."
+    },
+    "rfdetr_cpu_fallback": {
+      "title": "Il rilevatore di uccelli è passato alla CPU perché l'acceleratore hardware non ha potuto eseguirlo.",
+      "next": "L'identificazione funziona ancora, ma più lentamente. Controlla le impostazioni hardware o scegli un rilevatore più leggero."
+    },
+    "bird_finder_worker_crash": {
+      "title": "Il worker del rilevatore di uccelli si è bloccato o riavviato durante il ritaglio di una foto.",
+      "next": "YA-WAMF lo ha riavviato automaticamente. Se si ripete, cambia dispositivo in Impostazioni → Identificare gli uccelli."
+    },
+    "native_cpu_recovery": {
+      "title": "Il worker del modello è passato alla CPU per ripristinarsi dopo un errore hardware.",
+      "next": "Le visite continuano a essere identificate su CPU. Controlla impostazioni hardware e driver GPU o NPU."
+    },
+    "worker_circuit_open": {
+      "title": "Un worker del modello si è sospeso brevemente dopo errori ripetuti.",
+      "next": "Riproverà automaticamente dopo una breve pausa. Controlla uso delle risorse e hardware se persiste."
+    },
+    "worker_recovering": {
+      "title": "Il worker del modello in diretta si sta riprendendo dopo un rallentamento o un errore.",
+      "next": "Controlla l'uso delle risorse sopra. Scomparirà quando l'identificazione in diretta tornerà stabile."
+    },
+    "hardware_decode_fallback": {
+      "title": "La decodifica delle registrazioni di movimento è passata dalla GPU alla CPU.",
+      "next": "L'acquisizione prosegue su CPU. Controlla l'accesso alla GPU in Docker per usare la decodifica hardware."
+    },
+    "retention_paused_daily_totals": {
+      "title": "La pulizia automatica della cronologia è stata sospesa perché non è stato possibile salvare prima i totali giornalieri.",
+      "next": "Nessuna visita è stata eliminata. Controlla database e spazio libero; riproverà alla prossima esecuzione."
+    },
+    "notification_queue_full": {
+      "title": "Una notifica è stata scartata perché la coda di invio era piena.",
+      "next": "Controlla che i canali di notifica rispondano prontamente in Impostazioni → Notifiche."
+    },
+    "notification_loop_reset": {
+      "title": "Le notifiche in coda sono andate perse al riavvio del worker delle notifiche.",
+      "next": "Controlla Impostazioni → Notifiche se alcuni avvisi recenti non sono arrivati."
     }
   },
   "activity_waiting_live_priority": "In attesa mentre vengono nominate le nuove visite",
@@ -332,5 +464,6 @@
     "already_cleared": "Non era più nella cronologia degli errori, ad esempio dopo Cancella cronologia errori o un riavvio, quindi non c’era nulla da ignorare.",
     "earlier_empty_with_dismissed": "{count, plural, one {Nient’altro si è risolto; # incidente ignorato è elencato sotto.} other {Nient’altro si è risolto; # incidenti ignorati sono elencati sotto.}}",
     "backend_empty_with_dismissed": "{count, plural, one {Il backend non ha registrato altro; # elemento ignorato è elencato sotto.} other {Il backend non ha registrato altro; # elementi ignorati sono elencati sotto.}} I problemi di connessione sono in cima a questa pagina, non qui."
-  }
+  },
+  "errors_incident_meta": "{count, plural, one {Accaduto una volta · {at}} other {Accaduto # volte · ultima {at}}}"
 }

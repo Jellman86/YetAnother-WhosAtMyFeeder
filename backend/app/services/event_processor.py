@@ -606,7 +606,7 @@ class EventProcessor:
 
         if self._is_false_positive_tombstone_active(event.frigate_event):
             log.info("Skipping event previously marked as false positive", event_id=event.frigate_event)
-            self._record_drop(event.frigate_event, "false_positive_tombstone_active")
+            self._record_drop(event.frigate_event, "false_positive_tombstone_active", camera=event.camera)
             return
 
         event_type = (event.type or "new").lower()
@@ -634,7 +634,7 @@ class EventProcessor:
                     event_id=event.frigate_event,
                     error=str(exc),
                 )
-                self._record_drop(event.frigate_event, "end_recovery_lookup_failed")
+                self._record_drop(event.frigate_event, "end_recovery_lookup_failed", camera=event.camera)
                 return
             if existing_detection is not None:
                 self._update_recovery_attempts.pop(event.frigate_event, None)
@@ -686,7 +686,7 @@ class EventProcessor:
                     event_id=event.frigate_event,
                     error=str(exc),
                 )
-                self._record_drop(event.frigate_event, "update_recovery_lookup_failed")
+                self._record_drop(event.frigate_event, "update_recovery_lookup_failed", camera=event.camera)
                 return
             if existing_detection is not None:
                 self._update_recovery_attempts.pop(event.frigate_event, None)
@@ -695,7 +695,7 @@ class EventProcessor:
                 self._record_recent_outcome(event.frigate_event, "update_already_ingested")
                 return
             if not self._admit_update_recovery(event.frigate_event):
-                self._record_drop(event.frigate_event, "update_recovery_cooldown")
+                self._record_drop(event.frigate_event, "update_recovery_cooldown", camera=event.camera)
                 return
             log.info(
                 "Retrying failed initial ingest from Frigate update",
@@ -727,6 +727,7 @@ class EventProcessor:
             self._record_drop(
                 event.frigate_event,
                 "live_event_stale",
+                camera=event.camera,
                 age_seconds=age_seconds,
                 stale_after_seconds=LIVE_EVENT_STALE_SECONDS,
             )
@@ -742,6 +743,7 @@ class EventProcessor:
             self._record_drop(
                 event.frigate_event,
                 "live_event_coalesced",
+                camera=event.camera,
                 event_key=event_key,
             )
             return
@@ -758,10 +760,14 @@ class EventProcessor:
             self._release_live_event_key(event)
 
         if classification_result is _CLASSIFY_SNAPSHOT_OVERLOADED:
-            self._record_drop(event.frigate_event, "classify_snapshot_overloaded", stage="classify_snapshot")
+            self._record_drop(
+                event.frigate_event, "classify_snapshot_overloaded", stage="classify_snapshot", camera=event.camera
+            )
             return
         if classification_result is _CLASSIFY_SNAPSHOT_TIMED_OUT:
-            self._record_drop(event.frigate_event, "classify_snapshot_timeout", stage="classify_snapshot")
+            self._record_drop(
+                event.frigate_event, "classify_snapshot_timeout", stage="classify_snapshot", camera=event.camera
+            )
             return
         if not classification_result:
             log.info(
@@ -769,7 +775,7 @@ class EventProcessor:
                 event_id=event.frigate_event,
                 stage="classify_snapshot",
             )
-            self._record_drop(event.frigate_event, "classify_snapshot_unavailable")
+            self._record_drop(event.frigate_event, "classify_snapshot_unavailable", camera=event.camera)
             return
 
         results, snapshot_data, snapshot_source = classification_result
@@ -779,7 +785,7 @@ class EventProcessor:
                 "Dropping MQTT event because classifier returned no results",
                 event_id=event.frigate_event,
             )
-            self._record_drop(event.frigate_event, "classifier_empty_results")
+            self._record_drop(event.frigate_event, "classifier_empty_results", camera=event.camera)
             return
 
         top, reason = self._select_usable_classification(
@@ -858,7 +864,7 @@ class EventProcessor:
             fallback=None,
         )
         if not save_ok:
-            self._record_drop(event.frigate_event, "save_and_notify_failed")
+            self._record_drop(event.frigate_event, "save_and_notify_failed", camera=event.camera)
             return
 
         if isinstance(save_result, tuple):

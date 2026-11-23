@@ -269,7 +269,7 @@
     },
     "classify_snapshot_unavailable": {
       "title": "Ein Frigate-Ereignis wurde verworfen, weil Frigate keinen Snapshot dafür hatte.",
-      "next": "Prüfen Sie, ob in Frigate Schnappschüsse für diese Kamera eingeschaltet sind."
+      "next": "Kurz vorbeifliegende Vögel hinterlassen in Frigate oft keinen Snapshot. Tritt dies häufig auf, prüfen Sie in Frigate, ob Snapshots für diese Kamera aktiviert sind."
     },
     "classifier_empty_results": {
       "title": "Ein Frigate-Ereignis wurde verworfen, weil das Modell keine Antwort gab.",
@@ -294,6 +294,138 @@
     "stage_timeout": {
       "title": "Ein Verarbeitungsschritt dauerte zu lange und wurde beendet.",
       "next": "Das Modell oder Frigate ist möglicherweise überlastet. Prüfen Sie oben die Ressourcennutzung."
+    },
+    "classify_snapshot_lease_expired": {
+      "title": "Die Benennung eines Snapshots dauerte zu lange und brach vor dem Abschluss ab.",
+      "next": "Das Modell ist möglicherweise überlastet. Prüfen Sie oben die Ressourcennutzung oder wählen Sie unter Einstellungen → Vögel bestimmen ein leichteres Modell."
+    },
+    "live_event_stale": {
+      "title": "Ein Frigate-Ereignis traf zu spät für die Live-Benennung ein.",
+      "next": "Prüfen Sie, ob die Systemuhr korrekt läuft und MQTT keinen Rückstau hat."
+    },
+    "live_event_coalesced": {
+      "title": "Doppelte Live-Aktualisierungen von Frigate für denselben Besuch wurden zusammengefasst.",
+      "next": "Kein Handlungsbedarf, solange keine Besuche fehlen; YA-WAMF überspringt doppelte laufende Arbeit."
+    },
+    "recovery_lookup_failed": {
+      "title": "YA-WAMF konnte die Datenbank beim Nachholen einer Frigate-Aktualisierung nicht abfragen.",
+      "next": "Wiederholt sich dies, prüfen Sie oben die Datenbank und ob der Datenordner beschreibbar ist."
+    },
+    "update_recovery_cooldown": {
+      "title": "Die Wiederholung einer Frigate-Aktualisierung wurde kurz pausiert, um Doppelarbeit zu vermeiden.",
+      "next": "YA-WAMF versucht es am Ende des Besuchs erneut. Kein Handlungsbedarf, solange nichts fehlt."
+    },
+    "false_positive_ignored": {
+      "title": "Eine Folgeaktualisierung von Frigate wurde übersprungen, da Frigate sie als Fehlalarm markiert hat.",
+      "next": "Kein Handlungsbedarf; YA-WAMF ignoriert weitere Aktualisierungen verworfener Frigate-Ereignisse."
+    },
+    "nest_mode_dedupe": {
+      "title": "Ein wiederholter Besuch an einer Nestkamera wurde durch den Nest-Modus übersprungen.",
+      "next": "Passen Sie die Nest-Modus-Deduplizierung unter Einstellungen → Kameras & Verbindung an, falls jeder Besuch gespeichert werden soll."
+    },
+    "frigate_missing_marked": {
+      "title": "Ältere Besuche wurden in Frigate als fehlend markiert, während Ihre lokalen Einträge erhalten blieben.",
+      "next": "Dies ist Ihre Richtlinie für fehlende Medien, die regulär greift, wenn Frigate alte Clips entfernt."
+    },
+    "frigate_missing_deleted": {
+      "title": "Ältere Besuche mit abgelaufenen Frigate-Medien wurden gemäß Ihrer Richtlinie entfernt.",
+      "next": "Ändern Sie die Richtlinie unter Einstellungen → Speicher & Wartung, wenn lokale Einträge behalten werden sollen."
+    },
+    "frigate_missing_kept": {
+      "title": "Für ältere Besuche sind in Frigate keine Medien mehr vorhanden; sie wurden unverändert behalten.",
+      "next": "Dies ist Ihre Richtlinie für fehlende Medien, die regulär greift, wenn Frigate alte Clips entfernt."
+    },
+    "frigate_went_offline": {
+      "title": "Frigate hat sich über MQTT als offline gemeldet.",
+      "next": "Prüfen Sie, ob Frigate läuft und mit Ihrem MQTT-Broker verbunden ist."
+    },
+    "video_circuit_open": {
+      "title": "Die automatische Videoanalyse wurde nach wiederholten Fehlern kurz pausiert.",
+      "next": "Sie läuft nach der Abkühlzeit automatisch weiter. Prüfen Sie Frigate-Aufnahmen und die Ressourcennutzung oben, falls sie erneut pausiert."
+    },
+    "video_queue_full": {
+      "title": "Ein Besuch übersprang die automatische Videoanalyse, weil die Videowarteschlange voll war.",
+      "next": "Prüfen Sie oben die Ressourcennutzung. Wählen Sie bei hohem Aufkommen ein leichteres Modell oder geringere Video-Parallelität."
+    },
+    "video_timeout": {
+      "title": "Die Analyse eines Videoclips dauerte zu lange und wurde gestoppt.",
+      "next": "Prüfen Sie oben die Ressourcennutzung und ob Frigate Clips zügig ausliefert."
+    },
+    "video_cancelled": {
+      "title": "Die Videoanalyse für einen Besuch wurde vor dem Abschluss abgebrochen.",
+      "next": "Dies passiert meist bei einem Neustart oder Modellwechsel. Sie können die Videoanalyse am Besuch erneut starten."
+    },
+    "video_exception": {
+      "title": "Die Analyse eines Videoclips endete mit einem Verarbeitungsfehler.",
+      "next": "Prüfen Sie unten die technischen Details. Tritt der Fehler erneut auf, erfassen Sie ein Diagnose-Bundle und melden Sie ihn."
+    },
+    "video_photo_update": {
+      "title": "Die Videoanalyse wurde abgeschlossen, das Speichern des aktualisierten Fotos schlug jedoch fehl.",
+      "next": "Prüfen Sie, ob der Datenordner freien Speicher hat und beschreibbar ist."
+    },
+    "video_retry_after_worker_failure": {
+      "title": "Die Videoanalyse hat einen Clip nach dem Neustart eines Workers erneut verarbeitet.",
+      "next": "Prüfen Sie oben die Ressourcennutzung. Bei wiederholten Neustarts wählen Sie ein leichteres Modell oder passen Sie die Hardwarebeschleunigung an."
+    },
+    "clip_unavailable": {
+      "title": "Frigate hatte die Aufnahme oder den Clip für die Videoanalyse nicht mehr.",
+      "next": "Erhöhen Sie die Clip- oder Aufnahme-Aufbewahrung in Frigate, damit die Videoanalyse auch ältere Besuche erreicht."
+    },
+    "maintenance_held_back": {
+      "title": "Die Hintergrundanalyse wurde zurückgestellt, damit Live-Besuche zuerst benannt werden.",
+      "next": "Sie läuft automatisch weiter, sobald der Live-Betrieb nachlässt."
+    },
+    "job_failed": {
+      "title": "Ein Hintergrundjob endete vor dem Abschluss mit einem Fehler.",
+      "next": "Prüfen Sie unten die technischen Details und starten Sie den Job unter Einstellungen oder Benachrichtigungen neu."
+    },
+    "job_timeout": {
+      "title": "Ein Hintergrundjob oder eine Benachrichtigung hat das Zeitlimit überschritten.",
+      "next": "Prüfen Sie, ob externe Dienste erreichbar sind, und starten Sie den Job bei Bedarf neu."
+    },
+    "fetch_snapshot_failed": {
+      "title": "Der Nachlauf konnte einen Snapshot nicht von Frigate abrufen.",
+      "next": "Prüfen Sie, ob Frigate erreichbar ist und für den gewählten Zeitraum noch Snapshots vorliegen."
+    },
+    "snapshot_cache_failed": {
+      "title": "Der Nachlauf konnte eine Kopie eines Snapshots nicht auf der Festplatte speichern.",
+      "next": "Prüfen Sie, ob der Medien-Cache-Ordner freien Speicher und Schreibrechte hat."
+    },
+    "rfdetr_cpu_fallback": {
+      "title": "Der Vogelfinder ist auf die CPU ausgewichen, da der Hardwarebeschleuniger ihn nicht ausführen konnte.",
+      "next": "Die Bestimmung funktioniert weiter, jedoch langsamer. Prüfen Sie die Hardware-Einstellungen oder wählen Sie einen leichteren Vogelfinder."
+    },
+    "bird_finder_worker_crash": {
+      "title": "Der Worker des Vogelfinders ist beim Zuschneiden eines Fotos abgestürzt oder wurde neu gestartet.",
+      "next": "YA-WAMF hat den Worker automatisch neu gestartet. Wiederholt sich dies, wechseln Sie das Gerät unter Einstellungen → Vögel bestimmen."
+    },
+    "native_cpu_recovery": {
+      "title": "Der Modell-Worker ist nach einem Hardware-Laufzeitfehler zur Wiederherstellung auf die CPU gewechselt.",
+      "next": "Besuche werden weiter auf der CPU benannt. Prüfen Sie Hardware-Einstellungen sowie GPU- oder NPU-Treiber."
+    },
+    "worker_circuit_open": {
+      "title": "Ein Modell-Worker wurde nach wiederholten Fehlern kurz pausiert.",
+      "next": "Er startet nach kurzer Abkühlzeit automatisch neu. Prüfen Sie Ressourcennutzung und Hardware-Einstellungen, falls dies anhält."
+    },
+    "worker_recovering": {
+      "title": "Der Live-Modell-Worker erholt sich nach einer Verlangsamung oder einem Fehler.",
+      "next": "Prüfen Sie oben die Ressourcennutzung. Die Meldung verschwindet, sobald die Live-Benennung wieder stabil läuft."
+    },
+    "hardware_decode_fallback": {
+      "title": "Bewegungsaufnahmen sind von der GPU-Dekodierung auf die CPU ausgewichen.",
+      "next": "Die Bewegungserfassung läuft auf der CPU weiter. Prüfen Sie den GPU-Gerätezugriff in Docker für Hardware-Dekodierung."
+    },
+    "retention_paused_daily_totals": {
+      "title": "Die automatische Verlaufsbereinigung wurde pausiert, weil die Tageszählungen zuvor nicht gespeichert werden konnten.",
+      "next": "Es wurden keine Besuche gelöscht. Prüfen Sie Datenbank und freien Speicher; beim nächsten Lauf erfolgt ein neuer Versuch."
+    },
+    "notification_queue_full": {
+      "title": "Eine Benachrichtigung wurde verworfen, weil die Warteschlange voll war.",
+      "next": "Prüfen Sie unter Einstellungen → Benachrichtigungen, ob Ihre Kanäle zügig antworten."
+    },
+    "notification_loop_reset": {
+      "title": "Wartende Benachrichtigungen wurden beim Neustart des Benachrichtigungs-Workers verworfen.",
+      "next": "Prüfen Sie Einstellungen → Benachrichtigungen, falls aktuelle Meldungen nicht angekommen sind."
     }
   },
   "activity_waiting_live_priority": "Wartet, während neue Besuche benannt werden",
@@ -332,5 +464,6 @@
     "already_cleared": "Dies war bereits nicht mehr im Fehlerverlauf, etwa nach „Fehlerverlauf löschen“ oder einem Neustart, daher gab es nichts auszublenden.",
     "earlier_empty_with_dismissed": "{count, plural, one {Sonst ist nichts behoben; # ausgeblendeter Vorfall steht unten.} other {Sonst ist nichts behoben; # ausgeblendete Vorfälle stehen unten.}}",
     "backend_empty_with_dismissed": "{count, plural, one {Das Backend hat sonst nichts aufgezeichnet; # ausgeblendete Meldung steht unten.} other {Das Backend hat sonst nichts aufgezeichnet; # ausgeblendete Meldungen stehen unten.}} Verbindungsprobleme stehen oben auf dieser Seite, nicht hier."
-  }
+  },
+  "errors_incident_meta": "{count, plural, one {Einmal aufgetreten · {at}} other {#-mal aufgetreten · zuletzt {at}}}"
 }

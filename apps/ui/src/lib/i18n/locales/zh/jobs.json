@@ -268,8 +268,8 @@
       "next": "请查看上方的资源使用情况。如果经常发生，请在 设置 → 识别鸟类 中选择更轻量的模型。"
     },
     "classify_snapshot_unavailable": {
-      "title": "由于 Frigate 没有对应快照，一次检测被丢弃。",
-      "next": "请检查 Frigate 中此摄像头是否已开启快照。"
+      "title": "由于 Frigate 没有该事件的快照，已丢弃此事件。",
+      "next": "鸟类短暂停留时，Frigate 往往不会保存快照。如果频繁出现，请检查 Frigate 中该摄像头的快照设置是否已开启。"
     },
     "classifier_empty_results": {
       "title": "由于分类器没有给出结果，一次检测被丢弃。",
@@ -294,6 +294,138 @@
     "stage_timeout": {
       "title": "某个检测步骤耗时过长，已被停止。",
       "next": "分类器或 Frigate 可能过载。请查看上方的资源使用情况。"
+    },
+    "classify_snapshot_lease_expired": {
+      "title": "识别快照耗时过长，在完成前已超时。",
+      "next": "模型可能负载过高。请查看上方资源使用情况，或在 设置 → 识别鸟类 中选择更轻量的模型。"
+    },
+    "live_event_stale": {
+      "title": "Frigate 事件到达过晚，无法进行实时识别。",
+      "next": "请检查系统时钟是否准确，以及 MQTT 是否存在消息积压。"
+    },
+    "live_event_coalesced": {
+      "title": "已合并来自 Frigate 的同一访问重复实时更新。",
+      "next": "如未遗漏访问则无需操作；YA-WAMF 会跳过正在进行的重复处理。"
+    },
+    "recovery_lookup_failed": {
+      "title": "补处理 Frigate 更新时，YA-WAMF 无法查询数据库。",
+      "next": "如果反复出现，请检查上方数据库状态并确认数据目录可写。"
+    },
+    "update_recovery_cooldown": {
+      "title": "为避免重复工作，已短暂暂停重试某条 Frigate 更新。",
+      "next": "访问结束时 YA-WAMF 会再次尝试。如未遗漏访问则无需操作。"
+    },
+    "false_positive_ignored": {
+      "title": "由于 Frigate 已将该事件标记为误报，已跳过后续更新。",
+      "next": "无需操作；YA-WAMF 会忽略已被 Frigate 排除事件的后续更新。"
+    },
+    "nest_mode_dedupe": {
+      "title": "鸟巢模式已跳过鸟巢摄像头上的重复访问。",
+      "next": "如需记录每次访问，请在 设置 → 摄像头与连接 中调整鸟巢模式去重设置。"
+    },
+    "frigate_missing_marked": {
+      "title": "已将较早的访问标记为在 Frigate 中缺失，同时保留本地记录。",
+      "next": "这是 Frigate 清理旧片段时，您的缺失媒体策略正在正常运行。"
+    },
+    "frigate_missing_deleted": {
+      "title": "已按您的策略移除 Frigate 媒体已过期的较早访问。",
+      "next": "如需保留本地记录，请在 设置 → 存储与维护 中更改缺失媒体策略。"
+    },
+    "frigate_missing_kept": {
+      "title": "较早的访问在 Frigate 中已无媒体，已保持原样保留。",
+      "next": "这是 Frigate 清理旧片段时，您的缺失媒体策略正在正常运行。"
+    },
+    "frigate_went_offline": {
+      "title": "Frigate 通过 MQTT 报告自己已离线。",
+      "next": "请检查 Frigate 是否正在运行并已连接到 MQTT 代理。"
+    },
+    "video_circuit_open": {
+      "title": "由于连续失败，自动视频分析已短暂暂停。",
+      "next": "冷却后会自动恢复。若持续暂停，请检查 Frigate 录像和上方资源使用情况。"
+    },
+    "video_queue_full": {
+      "title": "由于视频队列已满，某次访问跳过了自动视频分析。",
+      "next": "请查看上方资源使用情况；若访问过于频繁，请选择更轻量的模型或降低视频并发数。"
+    },
+    "video_timeout": {
+      "title": "分析访问视频片段耗时过长，已被中止。",
+      "next": "请查看上方资源使用情况，并确认 Frigate 能及时返回片段。"
+    },
+    "video_cancelled": {
+      "title": "某次访问的视频分析在完成前被取消。",
+      "next": "通常发生在重启或重新加载模型期间。您可以在该访问记录中重新运行视频分析。"
+    },
+    "video_exception": {
+      "title": "分析访问视频片段时因处理错误而停止。",
+      "next": "请查看下方技术详情。如果反复出现，请导出诊断包并提交反馈。"
+    },
+    "video_photo_update": {
+      "title": "视频分析已完成，但保存更新后的照片失败。",
+      "next": "请检查数据目录是否有足够可用空间及写入权限。"
+    },
+    "video_retry_after_worker_failure": {
+      "title": "工作进程重启后，视频分析重新处理了一个片段。",
+      "next": "请查看上方资源使用情况。若频繁重启，请选择更轻量的模型或调整硬件加速设置。"
+    },
+    "clip_unavailable": {
+      "title": "Frigate 中已没有视频分析所需的录像或片段。",
+      "next": "如需对较早的访问进行视频分析，请在 Frigate 中延长片段或录像保留时间。"
+    },
+    "maintenance_held_back": {
+      "title": "后台分析已暂停，以优先识别实时访问。",
+      "next": "实时流量缓和后会自动恢复。"
+    },
+    "job_failed": {
+      "title": "某个后台任务在完成前因错误停止。",
+      "next": "请查看下方技术详情，然后从设置或通知页面重新启动该任务。"
+    },
+    "job_timeout": {
+      "title": "某个后台任务或通知在完成前已超时。",
+      "next": "请检查外部服务是否可访问，并在需要时重试该任务。"
+    },
+    "fetch_snapshot_failed": {
+      "title": "历史回填无法从 Frigate 获取快照。",
+      "next": "请确认 Frigate 可正常访问，且所选日期范围内仍保留快照。"
+    },
+    "snapshot_cache_failed": {
+      "title": "历史回填无法将快照副本保存到磁盘。",
+      "next": "请检查媒体缓存目录是否有足够空间和写入权限。"
+    },
+    "rfdetr_cpu_fallback": {
+      "title": "由于硬件加速器无法运行，寻鸟器已回退到 CPU。",
+      "next": "识别仍可工作，但速度会变慢。请检查硬件设置或选择更轻量的寻鸟器。"
+    },
+    "bird_finder_worker_crash": {
+      "title": "裁剪照片时，寻鸟器工作进程崩溃或已重启。",
+      "next": "YA-WAMF 已自动重启该进程。如果反复出现，请在 设置 → 识别鸟类 中切换运行设备。"
+    },
+    "native_cpu_recovery": {
+      "title": "硬件运行出错后，模型工作进程已切换至 CPU 进行恢复。",
+      "next": "当前仍在 CPU 上继续识别访问。如需使用硬件加速，请检查硬件设置与 GPU 或 NPU 驱动。"
+    },
+    "worker_circuit_open": {
+      "title": "连续失败后，某个模型工作进程已短暂暂停。",
+      "next": "短暂冷却后会自动重试。若持续发生，请检查资源使用情况和硬件设置。"
+    },
+    "worker_recovering": {
+      "title": "实时模型工作进程在变慢或出错后正在恢复。",
+      "next": "请查看上方资源使用情况。实时识别恢复稳定后该提示会自动清除。"
+    },
+    "hardware_decode_fallback": {
+      "title": "动态录像解码已从 GPU 回退到 CPU。",
+      "next": "动态采集将继续在 CPU 上运行。如需硬件解码，请检查 Docker 中的 GPU 设备访问权限。"
+    },
+    "retention_paused_daily_totals": {
+      "title": "由于无法先保存每日统计，自动历史清理已暂停。",
+      "next": "未删除任何访问记录。请检查数据库状态和磁盘空间；下次运行时将自动重试。"
+    },
+    "notification_queue_full": {
+      "title": "由于发送队列已满，已丢弃一条通知。",
+      "next": "请在 设置 → 通知 中检查通知渠道是否响应及时。"
+    },
+    "notification_loop_reset": {
+      "title": "通知工作进程重启时，排队中的通知已被丢弃。",
+      "next": "如果近期提醒未送达，请检查 设置 → 通知。"
     }
   },
   "activity_waiting_live_priority": "正在为新访问命名，暂时等待",
@@ -332,5 +464,6 @@
     "already_cleared": "它已经不在错误记录中（例如清除错误记录或重启之后），所以没有可忽略的内容。",
     "earlier_empty_with_dismissed": "{count, plural, other {没有其他已解决的事件；下方列出了 # 个已忽略的事件。}}",
     "backend_empty_with_dismissed": "{count, plural, other {后端没有记录其他内容；下方列出了 # 个已忽略的项目。}}连接问题显示在此页面顶部，而不是这里。"
-  }
+  },
+  "errors_incident_meta": "{count, plural, one {发生 1 次 · {at}} other {发生 # 次 · 最近 {at}}}"
 }
