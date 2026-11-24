@@ -19,6 +19,28 @@ from app.services.accelerator_telemetry import (
 log = structlog.get_logger()
 
 
+def _primary_accelerator(readings: Iterable[AcceleratorReading]) -> AcceleratorReading | None:
+    """Pick the one accelerator the sidebar's single-line meter can show.
+
+    A device-wide counter comes before an app-scoped one, measured readings come
+    before unmeasured ones, and readable devices come before unreadable ones so a
+    host with both an unreadable NVIDIA GPU and a readable Intel GPU shows the
+    Intel GPU even before its first numeric reading arrives.
+    """
+    items = tuple(readings)
+    if not items:
+        return None
+    for scope in ("device", "app"):
+        for reading in items:
+            if reading.scope == scope and reading.utilization_percent is not None:
+                return reading
+    for scope in ("device", "app"):
+        for reading in items:
+            if reading.scope == scope and not reading.unreadable:
+                return reading
+    return items[0]
+
+
 @dataclass(frozen=True)
 class SystemTelemetrySample:
     cpu_percent: float | None
@@ -27,17 +49,7 @@ class SystemTelemetrySample:
 
     @property
     def primary_accelerator(self) -> AcceleratorReading | None:
-        """The one accelerator the sidebar's single-line graph can show.
-
-        A device wide counter comes before an app scoped one, so that small graph
-        never implies this app is the only user of a device it cannot see all of.
-        """
-        measured = [reading for reading in self.accelerators if reading.utilization_percent is not None]
-        for scope in ("device", "app"):
-            for reading in measured:
-                if reading.scope == scope:
-                    return reading
-        return self.accelerators[0] if self.accelerators else None
+        return _primary_accelerator(self.accelerators)
 
 
 class SystemTelemetrySampler:
@@ -363,7 +375,8 @@ class SystemTelemetryHistory:
                 if aid not in current_ids
             ]
             self._accelerators = [*sample.accelerators, *retained]
-            self._accelerator = (primary.kind, primary.label) if primary else (None, None)
+            resolved_primary = primary or _primary_accelerator(self._accelerators)
+            self._accelerator = (resolved_primary.kind, resolved_primary.label) if resolved_primary else (None, None)
 
     def snapshot(self) -> SystemHistorySnapshot:
         with self._lock:

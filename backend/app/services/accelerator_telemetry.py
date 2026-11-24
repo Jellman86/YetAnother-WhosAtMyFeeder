@@ -32,8 +32,10 @@ log = structlog.get_logger()
 
 ACCEL_ROOT = Path("/sys/class/accel")
 DRM_ROOT = Path("/sys/class/drm")
+DEV_DRI_ROOT = Path("/dev/dri")
 NVIDIA_GPU_ROOT = Path("/proc/driver/nvidia/gpus")
 PROC_ROOT = Path("/proc")
+_DRM_NODE_RE = re.compile(r"^(?:card|renderD)\d+$")
 
 AcceleratorKind = Literal["npu", "gpu"]
 # "device" is every user of the accelerator; "app" is only the work this app submitted.
@@ -219,9 +221,23 @@ class DrmEngineTimeProbe:
     hundred percent of a GPU that is half idle.
     """
 
-    def __init__(self, *, proc_root: Path | str = PROC_ROOT, drm_root: Path | str = DRM_ROOT) -> None:
+    def __init__(
+        self,
+        *,
+        proc_root: Path | str = PROC_ROOT,
+        drm_root: Path | str | None = None,
+        dev_dri_root: Path | str | None = None,
+    ) -> None:
         self._proc_root = Path(proc_root)
-        self._drm_root = Path(drm_root)
+        if drm_root is None:
+            # Keep synthetic proc_root tests isolated from host GPU hardware unless drm_root is supplied.
+            self._drm_root: Path | None = DRM_ROOT if self._proc_root == PROC_ROOT else None
+        else:
+            self._drm_root = Path(drm_root)
+        if dev_dri_root is None:
+            self._dev_dri_root: Path | None = DEV_DRI_ROOT if self._drm_root == DRM_ROOT else None
+        else:
+            self._dev_dri_root = Path(dev_dri_root)
         # Baselines are per (card, client, unit, engine) high-water marks,
         # never summed across clients first: a joining client's lifetime
         # total is not this interval's work, and a departing client's total
@@ -234,6 +250,56 @@ class DrmEngineTimeProbe:
         self.diagnostics = DrmProbeDiagnostics()
         self._read_counts: dict[str, int] = {}
         self._drivers: set[str] = set()
+
+    def _present_cards(self) -> dict[str, str]:
+        """DRM GPUs accessible inside this container, keyed by PCI slot or driver.
+
+        Docker mounts host ``/sys`` read-only even when ``/dev/dri`` is not passed
+        through, so requiring the matching ``/dev/dri/<node>`` ensures CPU-only
+        containers never report an inaccessible host GPU. Display connectors
+        (``card1-HDMI-A-1``) and drivers outside ``_DRIVER_LABELS`` (including the
+        proprietary ``nvidia`` driver, which ``NvidiaPresenceProbe`` handles) are
+        ignored.
+        """
+        if self._drm_root is None:
+            return {}
+        try:
+            entries = sorted(self._drm_root.iterdir(), key=lambda entry: entry.name)
+        except OSError:
+            return {}
+        cards: dict[str, str] = {}
+        for entry in entries:
+            if not _DRM_NODE_RE.match(entry.name):
+                continue
+            if self._dev_dri_root is not None:
+                try:
+                    if not (self._dev_dri_root / entry.name).exists():
+                        continue
+                except OSError:
+                    continue
+            device_dir = entry / "device"
+            driver = ""
+            driver_link = device_dir / "driver"
+            try:
+                if driver_link.is_symlink():
+                    driver = driver_link.resolve().name
+            except OSError:
+                driver = ""
+            pci_slot = ""
+            try:
+                uevent = (device_dir / "uevent").read_text(encoding="utf-8")
+            except OSError:
+                uevent = ""
+            for line in uevent.splitlines():
+                if line.startswith("PCI_SLOT_NAME="):
+                    pci_slot = line.split("=", 1)[1].strip()
+                elif not driver and line.startswith("DRIVER="):
+                    driver = line.split("=", 1)[1].strip()
+            if driver not in _DRIVER_LABELS:
+                continue
+            pdev = pci_slot or driver
+            cards.setdefault(pdev, driver)
+        return cards
 
     @staticmethod
     def _parse_fdinfo(raw: str) -> _DrmClient | None:
@@ -490,30 +556,40 @@ class DrmEngineTimeProbe:
         by_card: dict[str, list[_DrmClient]] = {}
         for client in clients:
             by_card.setdefault(client.pdev, []).append(client)
+        present_cards = self._present_cards()
+        all_pdevs = sorted(set(by_card) | set(present_cards))
 
         readings: list[AcceleratorReading] = []
-        for pdev, card_clients in sorted(by_card.items()):
-            percents = self._engine_percents(card_clients, now)
-            # A card whose clients all have baselines but no measurable delta
-            # (for example a restarted nanosecond counter) reports the work
-            # that was measured: none. A card with no baseline at all, or only
-            # cycle totals that never advanced, stays unknown.
-            had_ns_baseline = any(
-                (client.pdev, client.client_id, "ns", engine) in self._high_water
-                for client in card_clients
-                for engine in client.engine_ns
-            )
-            if percents:
-                utilization: float | None = _percent(max(percents.values()))
-            elif had_ns_baseline:
-                utilization = 0.0
+        for pdev in all_pdevs:
+            card_clients = by_card.get(pdev)
+            if card_clients:
+                percents = self._engine_percents(card_clients, now)
+                # A card whose clients all have baselines but no measurable delta
+                # (for example a restarted nanosecond counter) reports the work
+                # that was measured: none. A card with no baseline at all, or only
+                # cycle totals that never advanced, stays unknown.
+                had_ns_baseline = any(
+                    (client.pdev, client.client_id, "ns", engine) in self._high_water
+                    for client in card_clients
+                    for engine in client.engine_ns
+                )
+                if percents:
+                    utilization: float | None = _percent(max(percents.values()))
+                elif had_ns_baseline:
+                    utilization = 0.0
+                else:
+                    utilization = None
+                driver = card_clients[0].driver
             else:
+                # Present in /dev/dri with a supported DRM driver, but no worker
+                # process currently holds an open DRM client to read fdinfo from.
                 utilization = None
+                driver = present_cards[pdev]
             readings.append(
                 AcceleratorReading(
                     id=f"gpu-{pdev}",
                     kind="gpu",
-                    label=self._label_for(card_clients[0].driver, pdev, len(by_card)),
+                    label=self._label_for(driver, pdev, len(all_pdevs)),
                     scope="app",
                     utilization_percent=utilization,
                 )
