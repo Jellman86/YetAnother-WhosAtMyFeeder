@@ -34,9 +34,9 @@
       "empty_clip": "Frigate gab einen leeren Video-Clip zurück",
       "media_fetch_failed": "Medien konnten nicht von Frigate abgerufen werden",
       "invalid_event_id": "Ungültiges Ereignis-ID-Format",
-      "preview_not_found": "Clip timeline previews are not available",
-      "preview_generation_failed": "Failed to generate clip timeline previews",
-      "preview_disabled": "Clip timeline previews are disabled because media cache is disabled",
+      "preview_not_found": "Vorschaubilder der Clip-Zeitleiste sind nicht verfügbar",
+      "preview_generation_failed": "Vorschaubilder der Clip-Zeitleiste konnten nicht erzeugt werden",
+      "preview_disabled": "Vorschaubilder der Clip-Zeitleiste sind deaktiviert, da der Medien-Cache deaktiviert ist",
       "download_forbidden": "Das Herunterladen von Clips ist fuer oeffentliche Nutzer nicht erlaubt",
       "access_check_unavailable": "Der Medienzugriff kann nicht geprüft werden. Bitte versuchen Sie es erneut."
     },

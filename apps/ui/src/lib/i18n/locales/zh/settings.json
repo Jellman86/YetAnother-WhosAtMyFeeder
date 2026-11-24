@@ -1385,7 +1385,8 @@
     "frigate_video_title": "Frigate 与视频",
     "frigate_video_desc": "是否使用 Frigate 已有的标签、把 YA-WAMF 的物种写回 Frigate，以及在快照之后检查录制片段。",
     "model_manager_in_use": "使用中",
-    "threshold_help": "达到或超过此分数，到访会以物种名称保存。"
+    "threshold_help": "达到或超过此分数，到访会以物种名称保存。",
+    "active_model_label": "当前模型"
   },
   "llm": {
     "toggle_label": "切换 AI 洞察",

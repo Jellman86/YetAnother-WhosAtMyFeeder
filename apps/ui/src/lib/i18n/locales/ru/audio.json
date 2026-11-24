@@ -70,8 +70,8 @@
     "hide_selected": "Скрыть выбранные",
     "restore_selected": "Восстановить выбранные",
     "select_call": "Выбрать голос {species} в {time}",
-    "hidden_count_message": "{count, plural, one {Голос скрыт.} few {# голоса скрыты.} many {# голосов скрыто.} other {# голосов скрыто.}}",
-    "restored_count_message": "{count, plural, one {Голос восстановлен.} few {# голоса восстановлены.} many {# голосов восстановлено.} other {# голосов восстановлено.}}"
+    "hidden_count_message": "{count, plural, =1 {Голос скрыт.} one {# голос скрыт.} few {# голоса скрыты.} many {# голосов скрыто.} other {# голосов скрыто.}}",
+    "restored_count_message": "{count, plural, =1 {Голос восстановлен.} one {# голос восстановлен.} few {# голоса восстановлены.} many {# голосов восстановлено.} other {# голосов восстановлено.}}"
   },
   "table": {
     "sound": "Звук",

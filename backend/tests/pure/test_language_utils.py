@@ -184,3 +184,25 @@ def test_supported_languages_list():
         request.headers.get.return_value = f"{lang}-XX"
         result = get_user_language(request)
         assert result == lang, f"Language {lang} should be supported"
+
+
+def test_get_user_language_uppercase_non_english_header():
+    """Uppercase non-English language tags such as DE-de must resolve to their lowercase locale."""
+    for header, expected in [("DE-de", "de"), ("FR", "fr"), ("RU-RU", "ru"), ("PT-BR", "pt")]:
+        request = MagicMock()
+        request.headers.get.return_value = header
+        assert get_user_language(request) == expected, header
+
+
+def test_get_user_language_selects_highest_priority_supported_preference():
+    """When the first requested language is unsupported, fall through to the highest-q supported language."""
+    cases = [
+        ("ko-KR, de-DE;q=0.8, en;q=0.5", "de"),
+        ("pl;q=0.9, fr-FR;q=0.7, es;q=0.8", "es"),
+        ("de;q=0, it;q=0.6", "it"),
+        ("sv-SE, nl;q=0.9", "en"),
+    ]
+    for header, expected in cases:
+        request = MagicMock()
+        request.headers.get.return_value = header
+        assert get_user_language(request) == expected, header

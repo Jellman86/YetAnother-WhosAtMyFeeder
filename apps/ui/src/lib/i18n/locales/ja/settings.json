@@ -1385,7 +1385,8 @@
     "frigate_video_title": "Frigateと動画",
     "frigate_video_desc": "Frigateの既存ラベルを使うか、YA-WAMFの種名をFrigateに書き戻すか、スナップショット後に録画クリップを確認するかを設定します。",
     "model_manager_in_use": "使用中",
-    "threshold_help": "このスコア以上なら、訪問は種名で保存されます。"
+    "threshold_help": "このスコア以上なら、訪問は種名で保存されます。",
+    "active_model_label": "有効なモデル"
   },
   "llm": {
     "toggle_label": "AI インサイトを切り替える",

@@ -34,9 +34,9 @@
       "empty_clip": "Frigate 返回了空的视频片段",
       "media_fetch_failed": "从 Frigate 获取媒体失败",
       "invalid_event_id": "事件 ID 格式无效",
-      "preview_not_found": "Clip timeline previews are not available",
-      "preview_generation_failed": "Failed to generate clip timeline previews",
-      "preview_disabled": "Clip timeline previews are disabled because media cache is disabled",
+      "preview_not_found": "视频片段时间轴预览不可用",
+      "preview_generation_failed": "无法生成视频片段时间轴预览",
+      "preview_disabled": "由于媒体缓存已禁用，视频片段时间轴预览已禁用",
       "download_forbidden": "公共用户不允许下载视频片段",
       "access_check_unavailable": "无法检查媒体访问权限。请重试。"
     },

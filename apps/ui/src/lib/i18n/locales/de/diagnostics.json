@@ -1,3 +1,4 @@
 {
-  "step_skipped": "Nicht ausgeführt, weil ein früherer Schritt fehlgeschlagen ist."
+  "step_skipped": "Nicht ausgeführt, weil ein früherer Schritt fehlgeschlagen ist.",
+  "step_failed": "Die Prüfung wurde nicht bestanden."
 }

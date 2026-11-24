@@ -8,6 +8,7 @@
     import FrameScanRibbon from './FrameScanRibbon.svelte';
 
     import { detectionsStore } from '../stores/detections.svelte';
+    import { formatSnapshotFallbackReason } from '../utils/snapshot-fallback-reason';
 
     let { progress, small = false }: {
         progress: ReclassificationProgress;
@@ -113,11 +114,7 @@
         });
     }
     function formatFallbackReason(code: string | null | undefined): string {
-        if (!code) return $_('detection.reclassification.snapshot_fallback_reason_generic', { default: 'Video clip was unavailable' });
-        return $_(
-            `detection.reclassification.snapshot_fallback_reason.${code}`,
-            { default: code.replace(/_/g, ' ') }
-        );
+        return formatSnapshotFallbackReason(code, $_);
     }
     let autoDismissSecondsRemaining = $state<number | null>(null);
     const AUTO_DISMISS_MS = 30_000;
