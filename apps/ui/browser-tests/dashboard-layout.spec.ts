@@ -37,7 +37,7 @@ function readings() {
         visits: { total: 21, gap_seconds: 60, visits },
         summary: {
             audio_confirmations: 13, counted_birds: 74, counted_captures: 46, hourly_distribution: hourly,
-            hourly_visits: hourly, latest_detection: reps[0], total_count: 57, visit_count: 21,
+            hourly_visits: hourly, latest_detection: reps[0], total_count: 57, visit_count: 21, unresolved_count: 1,
             camera_visits: [{ camera: 'birdcam', visits: 21, last_seen: reps[0].detection_time }],
             top_species: SPECIES.map(([common, scientific], index) => ({
                 species: common, common_name: common, scientific_name: scientific, count: 9 - index,
@@ -60,10 +60,14 @@ interface Opening {
     status: Record<string, unknown>;
     /** How long the day's readings take, so the page is seen before and after they land. */
     readingDelayMs?: number;
+    summaryOverrides?: Record<string, unknown>;
+    summaryFail?: boolean;
+    queueTotal?: number;
 }
 
-async function openDashboard(page: Page, { status, readingDelayMs = 0 }: Opening): Promise<void> {
+async function openDashboard(page: Page, { status, readingDelayMs = 0, summaryOverrides, summaryFail = false, queueTotal = 0 }: Opening): Promise<void> {
     const data = readings();
+    if (summaryOverrides) Object.assign(data.summary, summaryOverrides);
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
     await page.route('https://fonts.gstatic.com/**', route => route.abort());
     await page.route('**/health', route => route.fulfill({ json: { status: 'healthy' } }));
@@ -72,6 +76,9 @@ async function openDashboard(page: Page, { status, readingDelayMs = 0 }: Opening
         if (path === '/api/sse') return route.abort();
         if (path.endsWith('.jpg') || path.endsWith('/snapshot') || path.endsWith('/thumbnail')) {
             return route.fulfill({ contentType: 'image/svg+xml', body: image });
+        }
+        if (path === '/api/stats/daily-summary' && summaryFail) {
+            return route.fulfill({ status: 503, json: { detail: 'Summary unavailable' } });
         }
         const late: Record<string, unknown> = {
             '/api/stats/daily-summary': data.summary,
@@ -88,7 +95,7 @@ async function openDashboard(page: Page, { status, readingDelayMs = 0 }: Opening
             '/api/settings/public': { classification_threshold: 0.6, ebird_default_days_back: 7, clips_enabled: true, recording_clip_enabled: false, bird_counting_enabled: true },
             '/api/events': data.events,
             '/api/events/count': { count: data.events.length },
-            '/api/events/review-queue': { items: [], total: 0 },
+            '/api/events/review-queue': { items: [], total: queueTotal },
             '/api/audio/recent': [],
             '/api/update-status': { update_available: false }
         };
@@ -271,4 +278,26 @@ test('under the log on a tablet the rail\'s two groups stand side by side, and b
     nowBox = await now.boundingBox();
     referenceBox = await reference.boundingBox();
     expect(nowBox && referenceBox && Math.abs(referenceBox.x - nowBox.x)).toBeLessThan(2);
+});
+
+for (const [visitor, status] of [['owner', owner], ['guest', guest]] as const) {
+    test(`DayBar shows the server unresolved_count for ${visitor} rather than counting the recent-events buffer (#1086)`, async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await openDashboard(page, { status, summaryOverrides: { unresolved_count: 128 }, queueTotal: 128 });
+        await settled(page);
+        const figure = page.locator('[data-day-bar-figure="unresolved"]');
+        await expect(figure.locator('.figure')).toHaveText('128');
+    });
+}
+
+test('DayBar shows not available when daily-summary fails and measured 0 when clear (#1086)', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openDashboard(page, { status: guest, summaryFail: true });
+    const figure = page.locator('[data-day-bar-figure="unresolved"]');
+    await expect(figure.locator('.figure')).toContainText('–');
+
+    await openDashboard(page, { status: guest, summaryOverrides: { unresolved_count: 0 } });
+    await settled(page);
+    await expect(figure.locator('.figure')).toHaveText('0');
+    await expect(figure).toContainText('nothing needs your call');
 });

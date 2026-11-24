@@ -1162,7 +1162,10 @@ stores it (parentheses included when the source writes them), or null when unrec
   same canonical species was on the same camera within the visit gap, `visit_gap_seconds`, of the running latest verified event end, or capture time when the end is unavailable): `visit_count`, `hourly_visits`
   (24 hour buckets by when each visit began), `camera_visits` (visits and last sighting per
   camera; `null` for a guest who may not see camera names) and `visit_count` on each `top_species`
-  entry, which is now ordered by visits. `total_count` and `hourly_distribution` still count frames.
+  entry, which is now ordered by visits. `unresolved_count` counts visible undecided captures inside
+  the same effective window (unknown species or scored below the naming threshold, excluding manually
+  tagged captures) for both owners and guests, respecting a guest's shared history cutoff.
+  `total_count` and `hourly_distribution` still count frames.
   The hour buckets of `hourly_visits` and `hourly_distribution` are hours in the same zone as
   `window=today` (see [Calendar days and `today`](#calendar-days-and-today)).
 - `GET /api/stats/detections/daily`
