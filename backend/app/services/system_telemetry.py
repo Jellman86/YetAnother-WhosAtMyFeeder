@@ -317,6 +317,7 @@ class SystemTelemetryHistory:
         self._processes: list[ProcessLoad] = []
         self._accelerator: tuple[str | None, str | None] = (None, None)
         self._accelerators: list[AcceleratorReading] = []
+        self._accelerator_descriptors: dict[str, AcceleratorReading] = {}
         self._lock = Lock()
 
     def record(self, sample: SystemTelemetrySample, processes: Iterable[ProcessLoad], *, at: float) -> None:
@@ -341,7 +342,27 @@ class SystemTelemetryHistory:
             if sample.drm_diagnostics is not None:
                 self._drm_diagnostics.append(DrmProbeSnapshot(at=at, diagnostic=sample.drm_diagnostics))
             self._processes = process_list
-            self._accelerators = list(sample.accelerators)
+            for reading in sample.accelerators:
+                self._accelerator_descriptors[reading.id] = reading
+            active_ids = {aid for pt in self._points for aid in pt.accelerators}
+            active_ids.update(reading.id for reading in sample.accelerators)
+            for stale_id in list(self._accelerator_descriptors):
+                if stale_id not in active_ids:
+                    del self._accelerator_descriptors[stale_id]
+            current_ids = {reading.id for reading in sample.accelerators}
+            retained = [
+                AcceleratorReading(
+                    id=desc.id,
+                    kind=desc.kind,
+                    label=desc.label,
+                    scope=desc.scope,
+                    utilization_percent=None,
+                    unreadable=desc.unreadable,
+                )
+                for aid, desc in self._accelerator_descriptors.items()
+                if aid not in current_ids
+            ]
+            self._accelerators = [*sample.accelerators, *retained]
             self._accelerator = (primary.kind, primary.label) if primary else (None, None)
 
     def snapshot(self) -> SystemHistorySnapshot:

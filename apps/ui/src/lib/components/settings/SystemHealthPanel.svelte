@@ -15,6 +15,7 @@
         cpuLoad,
         formatBytes,
         formatPercent,
+        isolatedMarkers,
         markerFor,
         pointAt,
         seriesSegments,
@@ -188,6 +189,10 @@
 
     const appShare = $derived(latest?.app_cpu_percent ?? null);
     const cpuUnmeasured = $derived(points.length > 0 && cpuSegments.length === 0);
+    const anySeriesMeasured = $derived(
+        points.length > 0 && series.some((line) => seriesSegments(points, line.load, windowSeconds).length > 0)
+    );
+    const notMeasuredLabel = $derived($_('settings.system_health.not_measured', { default: 'Not measured' }));
     const shareMeasured = $derived(rows.some((row) => row.cpuPercent !== null && row.cpuPercent > 0));
     const acceleratorSeries = $derived(series.filter((line) => line.id !== 'cpu'));
     const memberNote = (row: ShareRow): string | null =>
@@ -249,10 +254,6 @@
                         <p class="text-sm text-muted" data-system-health-empty>
                             {$_('settings.system_health.empty', { default: 'The first samples arrive a few seconds after start.' })}
                         </p>
-                    {:else if cpuUnmeasured}
-                        <p class="text-sm text-muted" data-system-health-cpu-unmeasured>
-                            {$_('settings.system_health.cpu_unmeasured', { default: 'CPU load cannot be measured on this host; the counters it needs are not readable from inside the container.' })}
-                        </p>
                     {:else}
                         {#snippet seriesLegend()}
                         <ul
@@ -275,6 +276,7 @@
                             legend={seriesLegend}
                             table={chartTable}
                         >
+                        {#if anySeriesMeasured}
                         <!-- A right gutter inside the column holds the scale, clear of the newest samples. -->
                         <div class="relative mr-9">
                             <svg
@@ -312,6 +314,17 @@
                                     <line x1={inspectedX} y1="0" x2={inspectedX} y2={CHART_HEIGHT} class="stroke-subtle" vector-effect="non-scaling-stroke" />
                                 {/if}
                             </svg>
+                            <!-- Isolated single-sample readings (including the first 0% reading) have zero polyline length, so paint round dots outside the stretched SVG. -->
+                            {#each series as line (line.id)}
+                                {#each isolatedMarkers(points, line.load, windowSeconds) as point (`${point.x}:${point.y}`)}
+                                    <span
+                                        class="pointer-events-none absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full {line.fill}"
+                                        style="left: {(point.x / CHART_WIDTH) * 100}%; top: {(point.y / CHART_HEIGHT) * 100}%"
+                                        aria-hidden="true"
+                                        data-system-health-point={line.id}
+                                    ></span>
+                                {/each}
+                            {/each}
                             {#if inspectedX !== null && inspectedIndex !== null}
                                 <!-- A dot on each line says which sample the crosshair and the figures belong to.
                                      Drawn outside the stretched chart so it stays round. -->
@@ -337,10 +350,10 @@
                                     <p class="font-semibold tabular-nums text-ink">{timeOf(inspected.at)}</p>
                                     <dl class="mt-0.5 space-y-0.5 tabular-nums text-muted">
                                         {#each series as line (line.id)}
-                                            <div class="flex justify-between gap-4"><dt class="flex items-center gap-1.5 whitespace-nowrap">{@render seriesKey(line)}{line.label}</dt><dd class="font-semibold">{formatPercent(line.load(inspected)) ?? '—'}</dd></div>
+                                            <div class="flex justify-between gap-4"><dt class="flex items-center gap-1.5 whitespace-nowrap">{@render seriesKey(line)}{line.label}</dt><dd class="font-semibold">{formatPercent(line.load(inspected)) ?? notMeasuredLabel}</dd></div>
                                         {/each}
-                                        <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{$_('settings.system_health.app_share', { default: 'This app' })}</dt><dd class="font-semibold">{formatPercent(inspected.app_cpu_percent) ?? '—'}</dd></div>
-                                        <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{$_('settings.system_health.role_other_host', { default: 'Other on this host' })}</dt><dd class="font-semibold">{formatPercent(inspected.other_cpu_percent) ?? '—'}</dd></div>
+                                        <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{$_('settings.system_health.app_share', { default: 'This app' })}</dt><dd class="font-semibold">{formatPercent(inspected.app_cpu_percent) ?? notMeasuredLabel}</dd></div>
+                                        <div class="flex justify-between gap-4"><dt class="whitespace-nowrap">{$_('settings.system_health.role_other_host', { default: 'Other on this host' })}</dt><dd class="font-semibold">{formatPercent(inspected.other_cpu_percent) ?? notMeasuredLabel}</dd></div>
                                     </dl>
                                 </div>
                             {/if}
@@ -367,7 +380,17 @@
                                 <span>{timeOf(tick.at)}</span>
                             {/each}
                         </div>
+                        {:else}
+                            <p class="text-sm text-muted" data-system-health-cpu-unmeasured>
+                                {$_('settings.system_health.cpu_unmeasured', { default: 'CPU load cannot be measured on this host; the counters it needs are not readable from inside the container.' })}
+                            </p>
+                        {/if}
                         </ChartFigure>
+                        {#if cpuUnmeasured && anySeriesMeasured}
+                            <p class="mt-2 text-xs text-muted" data-system-health-cpu-unmeasured>
+                                {$_('settings.system_health.cpu_unmeasured', { default: 'CPU load cannot be measured on this host; the counters it needs are not readable from inside the container.' })}
+                            </p>
+                        {/if}
                         {#if acceleratorSeries.some((line) => line.scope === 'app')}
                             <p class="mt-2 text-xs text-muted" data-system-health-app-scope>
                                 {$_('settings.system_health.app_scope_note', {
