@@ -22414,6 +22414,11 @@
       },
       "SnapshotCandidateListResponse": {
         "properties": {
+          "as_recorded_dismissed": {
+            "default": false,
+            "title": "As Recorded Dismissed",
+            "type": "boolean"
+          },
           "birds": {
             "items": {
               "$ref": "#/components/schemas/BirdObservationResponse"

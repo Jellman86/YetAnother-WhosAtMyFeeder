@@ -73,6 +73,10 @@ interface Plan {
     candidateMediaAbsent?: boolean;
     /** Photographs a later run replaced, kept as the backend keeps them: no frame, no time, no read. */
     retainedPhotos?: string[];
+    /** Whether Frigate still has the original "As Frigate recorded it" snapshot. */
+    originalFrigateSnapshotAvailable?: boolean;
+    /** Override current snapshot source (e.g. 'frigate_snapshot' when As Frigate recorded it is active). */
+    currentSource?: string;
     fullSize?: { width: number; height: number };
     /** Path fragments that answer 404. */
     missing: string[];
@@ -162,11 +166,13 @@ function candidateList(capture: Capture, plan: Plan) {
               }
           ]
           : [];
+    const asRecordedSelected = plan.currentSource === 'frigate_snapshot' || plan.currentSource === 'frigate_snapshot_unverified' || plan.currentSource === 'manual_upload';
     return {
         event_id: capture,
-        current_source: `hq_candidate_${chosenSpec?.mode ?? 'model_crop'}`,
-        current_candidate_id: `${capture}__${chosen}`,
-        candidates,
+        current_source: plan.currentSource ?? `hq_candidate_${chosenSpec?.mode ?? 'model_crop'}`,
+        current_candidate_id: asRecordedSelected ? null : `${capture}__${chosen}`,
+        as_recorded_dismissed: !asRecordedSelected && plan.dismissed.has('as-recorded'),
+        candidates: asRecordedSelected ? candidates.map((item) => ({ ...item, selected: false })) : candidates,
         birds
     };
 }
@@ -233,8 +239,12 @@ async function serve(page: Page, plan: Plan): Promise<void> {
                 plan.dismissFailure = false;
                 return route.fulfill({ status: 503, json: { detail: 'Photo choices unavailable' } });
             }
-            if (body.dismissed && candidateId === `${capture}__${plan.selection[capture]}`) {
-                return route.fulfill({ status: 409, json: { detail: 'Choose another photograph first' } });
+            const asRecordedSelected = plan.currentSource === 'frigate_snapshot' || plan.currentSource === 'frigate_snapshot_unverified' || plan.currentSource === 'manual_upload';
+            if (body.dismissed && (
+                (candidateId === 'as-recorded' && asRecordedSelected)
+                || (candidateId === `${capture}__${plan.selection[capture]}` && !asRecordedSelected)
+            )) {
+                return route.fulfill({ status: 409, json: { detail: 'Choose another photograph before removing this one' } });
             }
             if (body.dismissed) plan.dismissed.add(candidateId);
             else plan.dismissed.delete(candidateId);
@@ -249,7 +259,14 @@ async function serve(page: Page, plan: Plan): Promise<void> {
             return route.fulfill({ contentType: 'image/svg+xml', body: imageFor(path, plan) }).catch(() => undefined);
         }
         if (path.endsWith('/snapshot/status')) {
-            return route.fulfill({ json: { available: true, high_quality_bird_crop_enabled: true, source: 'hq_candidate_model_crop' } });
+            return route.fulfill({
+                json: {
+                    available: true,
+                    high_quality_bird_crop_enabled: true,
+                    source: plan.currentSource ?? 'hq_candidate_model_crop',
+                    original_frigate_snapshot_available: plan.originalFrigateSnapshotAvailable ?? false
+                }
+            });
         }
         if (path === '/api/species/search') {
             return route.fulfill({ json: [
@@ -310,6 +327,37 @@ for (const surface of ['record'] as const) {
         await expect(panel).toContainText('Choose another photograph before removing this one.');
         expect(plan.photoMutations).toHaveLength(2);
         expect(plan.errors).toEqual([]);
+    });
+
+    test(`${surface}: As Frigate recorded it can be removed and undone when unselected, and stays protected when selected (#1093)`, async ({ page }) => {
+        const plan = newPlan();
+        plan.originalFrigateSnapshotAvailable = true;
+        await openRecord(page, plan, '&queue=wren,robin');
+        const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+        await expect(triggers).toHaveCount(3);
+        await triggers.nth(0).click();
+        const panel = page.locator('[data-frame-strip-panel]');
+        await expect(panel).toContainText('As Frigate recorded it');
+        await panel.getByRole('button', { name: 'Remove photo choice' }).click();
+        await expect(triggers).toHaveCount(2);
+        await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
+        expect(plan.photoMutations).toEqual([{ capture: 'wren', candidateId: 'as-recorded', dismissed: true }]);
+        await page.getByRole('button', { name: 'Undo', exact: true }).click();
+        await expect(triggers).toHaveCount(3);
+        expect(plan.photoMutations[1]).toEqual({ capture: 'wren', candidateId: 'as-recorded', dismissed: false });
+        expect(plan.errors).toEqual([]);
+
+        const selectedPlan = newPlan();
+        selectedPlan.originalFrigateSnapshotAvailable = true;
+        selectedPlan.currentSource = 'frigate_snapshot';
+        await openRecord(page, selectedPlan, '&queue=wren,robin');
+        await page.locator('[data-frame-strip] button[aria-pressed="true"]').click();
+        const selectedPanel = page.locator('[data-frame-strip-panel]');
+        await expect(selectedPanel).toContainText('As Frigate recorded it');
+        await expect(selectedPanel.getByRole('button', { name: 'Remove photo choice' })).toBeDisabled();
+        await expect(selectedPanel).toContainText('Choose another photograph before removing this one.');
+        expect(selectedPlan.photoMutations).toEqual([]);
+        expect(selectedPlan.errors).toEqual([]);
     });
 
     test(`${surface}: a failed photo removal keeps the choice and offers no false Undo`, async ({ page }) => {

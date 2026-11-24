@@ -45,7 +45,7 @@ from app.auth import (
 )
 from app.ratelimit import guest_rate_limit, hls_rate_limit, share_create_rate_limit
 from app.database import get_db
-from app.repositories.detection_repository import DetectionRepository
+from app.repositories.detection_repository import AS_RECORDED_CANDIDATE_ID, DetectionRepository
 from app.repositories.garden_repository import GardenRepository
 from app.repositories.bird_observation_repository import (
     BirdObservationRepository,
@@ -361,6 +361,17 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
     )
 
 
+_AS_RECORDED_SOURCES = frozenset({"frigate_snapshot", "frigate_snapshot_unverified", "manual_upload"})
+
+
+def _is_as_recorded_current(current_source: str | None, candidates: list[dict]) -> bool:
+    if current_source in _AS_RECORDED_SOURCES:
+        return True
+    if current_source is None:
+        return not any(bool(candidate.get("selected")) for candidate in candidates)
+    return False
+
+
 async def _list_snapshot_candidates(event_id: str) -> list[dict]:
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -409,7 +420,9 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
             (candidate.get("classifier_label") for candidate in candidates),
             language,
         )
+        as_recorded_dismissed = await DetectionRepository(db).is_as_recorded_dismissed(event_id)
     current_source = status.source
+    as_recorded_dismissed = as_recorded_dismissed and not _is_as_recorded_current(current_source, candidates)
     current_candidate_id = None
     if current_source and current_source.startswith(("hq_candidate_", "video_evidence_")):
         selected_candidate = next((item for item in candidates if bool(item.get("selected"))), None)
@@ -434,6 +447,7 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
         event_id=event_id,
         current_source=current_source,
         current_candidate_id=current_candidate_id,
+        as_recorded_dismissed=as_recorded_dismissed,
         model_crop_miss_reason=model_crop_miss_reason,
         birds=[BirdObservationResponse.model_validate(bird) for bird in birds],
         candidates=[
@@ -755,6 +769,7 @@ class SnapshotCandidateListResponse(BaseModel):
     event_id: str
     current_source: str | None = None
     current_candidate_id: str | None = None
+    as_recorded_dismissed: bool = False
     candidates: list[SnapshotCandidateResponse]
     birds: list[BirdObservationResponse] = Field(default_factory=list)
     model_crop_miss_reason: str | None = None
@@ -1910,11 +1925,25 @@ async def dismiss_snapshot_candidate(
 async def _dismiss_snapshot_candidate(
     request: Request, body: SnapshotDismissRequest, event_id: str, candidate_id: str
 ) -> SnapshotCandidateListResponse:
-    async with get_db() as db:
-        try:
-            changed = await DetectionRepository(db).dismiss_snapshot_candidate(event_id, candidate_id, body.dismissed)
-        except ValueError as error:
-            raise HTTPException(409, str(error)) from error
+    if candidate_id == AS_RECORDED_CANDIDATE_ID:
+        status = await _build_snapshot_status(event_id, check_original_frigate_snapshot=False)
+        candidates = await _list_snapshot_candidates(event_id)
+        is_current = _is_as_recorded_current(status.source, candidates)
+        async with get_db() as db:
+            try:
+                changed = await DetectionRepository(db).dismiss_as_recorded_snapshot(
+                    event_id, body.dismissed, is_current=is_current
+                )
+            except ValueError as error:
+                raise HTTPException(409, str(error)) from error
+    else:
+        async with get_db() as db:
+            try:
+                changed = await DetectionRepository(db).dismiss_snapshot_candidate(
+                    event_id, candidate_id, body.dismissed
+                )
+            except ValueError as error:
+                raise HTTPException(409, str(error)) from error
     if not changed:
         raise HTTPException(404, "Photo choice unavailable")
     return await _build_snapshot_candidates_response(request, event_id)
@@ -1936,6 +1965,11 @@ async def apply_snapshot_candidate(
 async def _apply_snapshot_candidate(request_body: SnapshotApplyRequest, event_id: str) -> SnapshotApplyResponse:
 
     from app.services.media_cache import media_cache
+
+    if request_body.mode == "revert_original":
+        async with get_db() as db:
+            if await DetectionRepository(db).is_as_recorded_dismissed(event_id):
+                raise HTTPException(409, "Restore this photo choice before using it")
 
     if request_body.mode == "revert_original" and event_id.startswith("manual_"):
         # Frigate never had an upload; its original photo is its own species photo. It is held as

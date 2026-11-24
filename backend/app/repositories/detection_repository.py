@@ -33,6 +33,9 @@ log = structlog.get_logger()
 # Recorded with the first classification when the stored species is a trusted
 # Frigate sub-label rather than YA-WAMF's own identification.
 INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL = "frigate_sublabel"
+# Reserved dismissal key for the original "As Frigate recorded it" photo option,
+# which has no row in snapshot_candidates.
+AS_RECORDED_CANDIDATE_ID = "as-recorded"
 
 
 ReviewReason = Literal["unknown_species", "low_score", "new_species"]
@@ -755,6 +758,41 @@ class DetectionRepository:
             await self.db.execute(
                 "DELETE FROM snapshot_candidate_dismissals WHERE frigate_event = ? AND candidate_id = ?",
                 (event_id, candidate_id),
+            )
+        await self.db.commit()
+        return True
+
+    async def is_as_recorded_dismissed(self, frigate_event: str) -> bool:
+        if not await self._table_exists("snapshot_candidate_dismissals"):
+            return False
+        async with self.db.execute(
+            """SELECT 1 FROM snapshot_candidate_dismissals
+            WHERE frigate_event = ? AND candidate_id = ? LIMIT 1""",
+            (frigate_event, AS_RECORDED_CANDIDATE_ID),
+        ) as cursor:
+            return await cursor.fetchone() is not None
+
+    async def dismiss_as_recorded_snapshot(self, event_id: str, dismissed: bool, *, is_current: bool) -> bool:
+        async with self.db.execute(
+            "SELECT 1 FROM detections WHERE frigate_event = ? LIMIT 1",
+            (event_id,),
+        ) as cursor:
+            if await cursor.fetchone() is None:
+                return False
+        if dismissed and is_current:
+            raise ValueError("Choose another photograph before removing this one")
+        if dismissed:
+            await self.db.execute(
+                """INSERT INTO snapshot_candidate_dismissals (frigate_event, candidate_id, content_identity)
+                VALUES (?, ?, ?)
+                ON CONFLICT(frigate_event, candidate_id)
+                DO UPDATE SET content_identity = excluded.content_identity""",
+                (event_id, AS_RECORDED_CANDIDATE_ID, AS_RECORDED_CANDIDATE_ID),
+            )
+        else:
+            await self.db.execute(
+                "DELETE FROM snapshot_candidate_dismissals WHERE frigate_event = ? AND candidate_id = ?",
+                (event_id, AS_RECORDED_CANDIDATE_ID),
             )
         await self.db.commit()
         return True

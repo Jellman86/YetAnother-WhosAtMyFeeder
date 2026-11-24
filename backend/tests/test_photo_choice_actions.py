@@ -276,3 +276,169 @@ async def test_regeneration_and_removal_share_the_photo_action_boundary(photos, 
     result = (await asyncio.gather(removing, return_exceptions=True))[0]
     assert isinstance(result, HTTPException) and result.status_code == 409
     assert await photos.cache.get_snapshot(photos.event) == photos.second["image_bytes"]
+
+
+@pytest.mark.asyncio
+async def test_dismissing_as_recorded_photo_option_is_reversible_and_blocks_revert_until_restored(photos, monkeypatch):
+    monkeypatch.setattr(proxy, "_build_snapshot_candidates_response", proxy._build_snapshot_candidates_response)
+    original_bytes = jpeg("blue")
+    monkeypatch.setattr(proxy.frigate_client, "get_snapshot", AsyncMock(return_value=original_bytes))
+    request = MagicMock()
+    request.url_for.side_effect = lambda name, **kwargs: SimpleNamespace(path=f"/api/{name}/{kwargs['candidate_id']}")
+    request.headers = {}
+    status = proxy.SnapshotStatusResponse(
+        event_id=photos.event,
+        cached=True,
+        source=photos.first["snapshot_source"],
+        high_quality_event_snapshots_enabled=True,
+        high_quality_bird_crop_enabled=True,
+        already_hq_bird_crop=True,
+        can_generate_hq_bird_crop=True,
+        original_frigate_snapshot_available=True,
+    )
+    monkeypatch.setattr(proxy, "_build_snapshot_status", AsyncMock(return_value=status))
+    # Restore real response builder (fixture monkeypatched it to return {}).
+    monkeypatch.undo()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
+    monkeypatch.setattr(cache_module, "media_cache", photos.cache)
+    monkeypatch.setattr(hq_module, "media_cache", photos.cache)
+    monkeypatch.setattr(proxy, "_build_snapshot_status", AsyncMock(return_value=status))
+    monkeypatch.setattr(archive_service, "refresh_photograph", AsyncMock())
+    monkeypatch.setattr(proxy.frigate_client, "get_snapshot", AsyncMock(return_value=original_bytes))
+
+    dismissed = await proxy.dismiss_snapshot_candidate(
+        request,
+        proxy.SnapshotDismissRequest(dismissed=True),
+        event_id=photos.event,
+        candidate_id="as-recorded",
+        auth=AuthContext("owner"),
+    )
+    assert dismissed.as_recorded_dismissed is True
+
+    # Survives regenerating/replacing candidate rows.
+    async with get_db() as db:
+        await DetectionRepository(db).replace_snapshot_candidates(photos.event, photos.choices)
+    listed = await proxy.get_snapshot_candidates(request, event_id=photos.event, auth=AuthContext("owner"))
+    assert listed.as_recorded_dismissed is True
+
+    # Applying revert_original is rejected while as-recorded is dismissed.
+    with pytest.raises(HTTPException) as blocked:
+        await proxy.apply_snapshot_candidate(
+            proxy.SnapshotApplyRequest(mode="revert_original"),
+            event_id=photos.event,
+            auth=AuthContext("owner"),
+        )
+    assert blocked.value.status_code == 409
+
+    # Restoring (Undo) makes it available again and allows revert_original.
+    restored = await proxy.dismiss_snapshot_candidate(
+        request,
+        proxy.SnapshotDismissRequest(dismissed=False),
+        event_id=photos.event,
+        candidate_id="as-recorded",
+        auth=AuthContext("owner"),
+    )
+    assert restored.as_recorded_dismissed is False
+
+    applied = await proxy.apply_snapshot_candidate(
+        proxy.SnapshotApplyRequest(mode="revert_original"),
+        event_id=photos.event,
+        auth=AuthContext("owner"),
+    )
+    assert applied.status == "applied"
+    assert await photos.cache.get_snapshot(photos.event) == original_bytes
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("current_source", ["frigate_snapshot", "frigate_snapshot_unverified", "manual_upload", None])
+async def test_dismissing_as_recorded_photo_option_is_rejected_while_it_is_the_current_photo(
+    photos, monkeypatch, current_source
+):
+    if current_source is None:
+        async with get_db() as db:
+            await DetectionRepository(db).mark_selected_snapshot_candidate(photos.event, None)
+    status = proxy.SnapshotStatusResponse(
+        event_id=photos.event,
+        cached=current_source is not None,
+        source=current_source,
+        high_quality_event_snapshots_enabled=True,
+        high_quality_bird_crop_enabled=True,
+        already_hq_bird_crop=False,
+        can_generate_hq_bird_crop=True,
+        original_frigate_snapshot_available=True,
+    )
+    monkeypatch.setattr(proxy, "_build_snapshot_status", AsyncMock(return_value=status))
+
+    with pytest.raises(HTTPException) as rejected:
+        await proxy.dismiss_snapshot_candidate(
+            MagicMock(),
+            proxy.SnapshotDismissRequest(dismissed=True),
+            event_id=photos.event,
+            candidate_id="as-recorded",
+            auth=AuthContext("owner"),
+        )
+    assert rejected.value.status_code == 409
+
+    with pytest.raises(HTTPException) as missing:
+        await proxy.dismiss_snapshot_candidate(
+            MagicMock(),
+            proxy.SnapshotDismissRequest(dismissed=True),
+            event_id="nonexistent-event-id",
+            candidate_id="as-recorded",
+            auth=AuthContext("owner"),
+        )
+    assert missing.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_revert_original_and_as_recorded_dismissal_share_the_photo_action_boundary(photos, monkeypatch):
+    original_bytes = jpeg("blue")
+    monkeypatch.setattr(proxy.frigate_client, "get_snapshot", AsyncMock(return_value=original_bytes))
+    current_source = {"value": photos.first["snapshot_source"]}
+
+    async def dynamic_status(event_id, *, check_original_frigate_snapshot=True):
+        return proxy.SnapshotStatusResponse(
+            event_id=event_id,
+            cached=True,
+            source=current_source["value"],
+            high_quality_event_snapshots_enabled=True,
+            high_quality_bird_crop_enabled=True,
+            already_hq_bird_crop=current_source["value"] != "frigate_snapshot",
+            can_generate_hq_bird_crop=True,
+            original_frigate_snapshot_available=True,
+        )
+
+    monkeypatch.setattr(proxy, "_build_snapshot_status", dynamic_status)
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def archive(event):
+        current_source["value"] = "frigate_snapshot"
+        entered.set()
+        await release.wait()
+
+    monkeypatch.setattr(archive_service, "refresh_photograph", archive)
+    reverting = asyncio.create_task(
+        proxy.apply_snapshot_candidate(
+            proxy.SnapshotApplyRequest(mode="revert_original"),
+            event_id=photos.event,
+            auth=AuthContext("owner"),
+        )
+    )
+    await asyncio.wait_for(entered.wait(), 2)
+    removing = asyncio.create_task(
+        proxy.dismiss_snapshot_candidate(
+            MagicMock(),
+            proxy.SnapshotDismissRequest(dismissed=True),
+            event_id=photos.event,
+            candidate_id="as-recorded",
+            auth=AuthContext("owner"),
+        )
+    )
+    try:
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(asyncio.shield(removing), 0.1)
+    finally:
+        release.set()
+        await reverting
+    result = (await asyncio.gather(removing, return_exceptions=True))[0]
+    assert isinstance(result, HTTPException) and result.status_code == 409

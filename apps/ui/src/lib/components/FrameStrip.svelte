@@ -8,6 +8,7 @@
     import { portal } from '../utils/portal';
     import MediaImage from './MediaImage.svelte';
     import {
+        AS_RECORDED_KEY,
         formatOffset,
         preferredCandidate,
         momentImageUrl,
@@ -87,17 +88,27 @@
     let removalError = $state(false);
     let hoverPaused = false;
     let undoButton = $state<HTMLButtonElement | null>(null);
+    function removableId(moment: FrameMoment): string | null {
+        if (moment.asRecorded) return AS_RECORDED_KEY;
+        return preferredCandidate(moment)?.candidate_id ?? null;
+    }
+
+    function isSelectedChoice(moment: FrameMoment): boolean {
+        if (moment.asRecorded) return isCurrent(moment);
+        return Boolean(preferredCandidate(moment)?.selected) || isCurrent(moment);
+    }
+
     async function removeChoice(moment: FrameMoment): Promise<void> {
-        const candidate = preferredCandidate(moment);
+        const candidateId = removableId(moment);
         const subject = eventId;
-        if (!candidate || !subject || !onremove || busy) return;
+        if (!candidateId || !subject || !onremove || busy) return;
         removalError = false;
         try {
-            await onremove(candidate.candidate_id, true);
+            await onremove(candidateId, true);
             if (eventId === subject) {
                 hoverPaused = true;
                 hide(true);
-                removedPhoto = { eventId: subject, candidateId: candidate.candidate_id };
+                removedPhoto = { eventId: subject, candidateId };
                 await tick();
                 if (eventId === subject) undoButton?.focus();
             }
@@ -759,14 +770,14 @@
                                             {$_(offersPhotoOptions ? 'detection.photo_option_use' : 'detection.frame_use', { default: offersPhotoOptions ? 'Use this photo' : 'Use this frame' })}
                                         </button>
                                     {/if}
-                                    {#if mode === 'choose' && onremove && preferredCandidate(moment)}
-                                        {@const candidate = preferredCandidate(moment)}
+                                    {#if mode === 'choose' && onremove && removableId(moment)}
+                                        {@const selectedChoice = isSelectedChoice(moment)}
                                         <button type="button" class="btn btn-ghost mt-1 min-h-11 px-3 text-xs"
-                                            disabled={busy || Boolean(candidate?.selected)}
+                                            disabled={busy || selectedChoice}
                                             onclick={(event) => { event.stopPropagation(); void removeChoice(moment); }}>
                                             {$_('visits.remove_photo', { default: 'Remove photo choice' })}
                                         </button>
-                                        {#if candidate?.selected}<p class="text-xs text-on-media/80">{$_('visits.choose_first', { default: 'Choose another photograph before removing this one.' })}</p>{/if}
+                                        {#if selectedChoice}<p class="text-xs text-on-media/80">{$_('visits.choose_first', { default: 'Choose another photograph before removing this one.' })}</p>{/if}
                                     {/if}
                                 </div>
                               </div>
