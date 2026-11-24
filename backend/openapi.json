@@ -5840,6 +5840,11 @@
             "title": "Total Count",
             "type": "integer"
           },
+          "unresolved_count": {
+            "default": 0,
+            "title": "Unresolved Count",
+            "type": "integer"
+          },
           "visit_count": {
             "default": 0,
             "title": "Visit Count",

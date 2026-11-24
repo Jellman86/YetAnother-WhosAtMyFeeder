@@ -50,7 +50,7 @@
     import { selectReclassificationStrategy } from '../utils/reclassification';
 
     import { fromServerVisit, withinDeskWindow } from '../utils/visit-grouping';
-    import { buildReviewQueue, EMPTY_REVIEW_QUEUE_READING, readingFromResponse, visibleUnresolvedCount, withoutEvent, type ReviewQueueReading } from '../utils/review-queue';
+    import { buildReviewQueue, EMPTY_REVIEW_QUEUE_READING, readingFromResponse, withoutEvent, type ReviewQueueReading } from '../utils/review-queue';
     import { dayBarSlots } from '../utils/day-bar';
     import { liveFeedState } from '../utils/live-feed-state';
     import { serviceConnectionsStore } from '../stores/service_connections.svelte';
@@ -146,6 +146,7 @@
             detectionsStore.recordOwnerSpeciesChoice(applyManualTagResult(detection, result));
             toastStore.show($_('detection.species_updated', { default: 'Species updated' }), 'success');
             loadReviewQueue();
+            void loadSummary();
         } catch (e) {
             if (e instanceof IdentificationChangedError) {
                 // Changed elsewhere: say what it reads now, and show that rather than the old copy.
@@ -165,6 +166,7 @@
             detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
             reviewReading = withoutEvent(reviewReading, detection.frigate_event);
             loadReviewQueue();
+            void loadSummary();
         } catch (e) {
             toastStore.show(getErrorMessage(e), 'error');
             throw e;
@@ -488,15 +490,10 @@
     // Until the day has been read, its figures are unknown rather than zero.
     let summaryPending = $derived(summary === null && summaryLoading);
     let summaryUnavailable = $derived(summary === null && !summaryLoading);
-    let historyReadingStatus = $derived<ReadingStatus>(
-        detectionsStore.historyStatus === 'ready'
-            ? 'ready'
-            : detectionsStore.historyStatus === 'failed' && !detectionsStore.isLoading
-              ? 'unavailable'
-              : 'loading'
+    let queueStatus = $derived<ReadingStatus>(reviewReadingStatus);
+    let unresolvedCount = $derived<number | null>(
+        typeof summary?.unresolved_count === 'number' ? summary.unresolved_count : null
     );
-    let queueStatus = $derived<ReadingStatus>(canReview ? reviewReadingStatus : historyReadingStatus);
-    let unresolvedTotal = $derived(canReview ? reviewQueue.total : visibleUnresolvedCount(deskDetections, reviewThreshold));
 
     let needsCall = $derived(needsYourCall({
         canReview,
@@ -745,12 +742,12 @@
         countedBirds={summary ? (summary.counted_birds ?? 0) : null}
         countedCaptures={summary ? (summary.counted_captures ?? 0) : null}
         speciesCount={summary ? last24hSpecies : null}
-        unresolvedCount={queueStatus === 'ready' || unresolvedTotal > 0 ? unresolvedTotal : null}
-        othersAwaitReview={canReview && needsCall.checks !== 'clear' && needsCall.checks !== 'off'}
+        unresolvedCount={unresolvedCount}
+        othersAwaitReview={canReview && ((needsCall.checks !== 'clear' && needsCall.checks !== 'off') || needsCall.visits !== 'clear')}
         audioCalls={audioSummary?.total ?? null}
         audioConfirmations={summary ? audioConfirmations : null}
         slots={daySlots}
-        loading={summaryPending || queueStatus === 'loading'}
+        loading={summaryPending}
         audioLoading={audioSummaryLoading}
         feed={liveFeedState(detectionsStore.connected, serviceConnectionsStore.connections)}
     />

@@ -339,6 +339,8 @@ class DailySummaryResponse(APIModel):
     visit_count: int = 0
     hourly_visits: List[int] = Field(default_factory=lambda: [0] * 24)
     camera_visits: Optional[List[DailyCameraVisits]] = None
+    # Visible undecided captures in this window (unknown species or below the naming threshold).
+    unresolved_count: int = 0
 
 
 class DailyCount(APIModel):
@@ -645,6 +647,12 @@ async def get_daily_summary(
                 if camera
             ]
 
+        unresolved_count = await repo.count_unresolved_in_window(
+            window_start=start_dt,
+            window_end=end_dt,
+            threshold=settings.classification.threshold,
+        )
+
         return DailySummaryResponse(
             window=window,
             window_start=serialize_api_datetime(start_dt),
@@ -659,6 +667,7 @@ async def get_daily_summary(
             visit_count=len(openings),
             hourly_visits=hourly_visits,
             camera_visits=camera_visits,
+            unresolved_count=unresolved_count,
         )
 
 

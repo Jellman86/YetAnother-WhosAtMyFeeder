@@ -437,3 +437,15 @@ describe('a visitor history change queued behind a read', () => {
         expect(fetchEvents).toHaveBeenCalledTimes(2);
     });
 });
+
+it('marks a mutation when a removed event was outside the recent history buffer', async () => {
+    const { DetectionsStore } = await import('./detections.svelte');
+    const store = new DetectionsStore();
+    store.detections = [{ frigate_event: 'newest-1', detection_time: new Date().toISOString() } as never];
+    const before = store.mutationVersion;
+
+    store.removeDetection('older-outside-page');
+
+    expect(store.mutationVersion).toBe(before + 1);
+    expect(store.detections.map((item) => item.frigate_event)).toEqual(['newest-1']);
+});

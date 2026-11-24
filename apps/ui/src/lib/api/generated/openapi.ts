@@ -866,6 +866,7 @@ export interface components {
     latest_detection: components['schemas']['DetectionResponse'] | null;
     top_species: Array<components['schemas']['DailySpeciesSummary']>;
     total_count: number;
+    unresolved_count?: number;
     visit_count?: number;
     window?: "rolling" | "today";
     window_end: string;

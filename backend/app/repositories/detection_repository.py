@@ -1891,26 +1891,14 @@ class DetectionRepository:
         # appended after DETECTION_SELECT_COLUMNS.
         return [(_row_to_detection(row), int(row[-1])) for row in rows]
 
-    async def get_review_queue(
+    async def _scan_waiting_in_window(
         self,
         *,
         window_start: datetime,
         window_end: datetime,
         threshold: float,
-        new_species: list[tuple[Detection, int]],
-        limit: int,
-    ) -> tuple[list[ReviewQueueEntry], int]:
-        """What is waiting on a person, oldest first, with the full count however long the list is.
-
-        A detection waits when it is visible, no person has decided it, it falls inside the
-        window, and it has no species or scores below the threshold. Each new species' latest
-        sighting waits too, wherever it falls, and counts once if it qualifies both ways.
-
-        The window's rows are judged here rather than in SQL, by the same functions that present
-        them: SQLite's text handling differs from Python's on whitespace and non-ASCII labels, and
-        comparing stored times as text misplaces any row not written in today's format. The count
-        and the list also come from one read, so they cannot disagree.
-        """
+    ) -> dict[str, tuple[datetime, int, ReviewReason, Optional[int]]]:
+        """Visible undecided detections inside [window_start, window_end] judged by presentation rules."""
         # Text bounds a day wider than the window keep the index in use for every stored format.
         wide_start = (window_start - timedelta(days=1)).date().isoformat()
         wide_end = (window_end + timedelta(days=2)).date().isoformat()
@@ -1935,6 +1923,48 @@ class DetectionRepository:
             reason = _waiting_reason(display_name, category_name, score, threshold)
             if reason:
                 waiting[frigate_event] = (at, int(row_id), reason, None)
+        return waiting
+
+    async def count_unresolved_in_window(
+        self,
+        *,
+        window_start: datetime,
+        window_end: datetime,
+        threshold: float,
+    ) -> int:
+        """Count visible undecided detections inside [window_start, window_end]."""
+        waiting = await self._scan_waiting_in_window(
+            window_start=window_start,
+            window_end=window_end,
+            threshold=threshold,
+        )
+        return len(waiting)
+
+    async def get_review_queue(
+        self,
+        *,
+        window_start: datetime,
+        window_end: datetime,
+        threshold: float,
+        new_species: list[tuple[Detection, int]],
+        limit: int,
+    ) -> tuple[list[ReviewQueueEntry], int]:
+        """What is waiting on a person, oldest first, with the full count however long the list is.
+
+        A detection waits when it is visible, no person has decided it, it falls inside the
+        window, and it has no species or scores below the threshold. Each new species' latest
+        sighting waits too, wherever it falls, and counts once if it qualifies both ways.
+
+        The window's rows are judged here rather than in SQL, by the same functions that present
+        them: SQLite's text handling differs from Python's on whitespace and non-ASCII labels, and
+        comparing stored times as text misplaces any row not written in today's format. The count
+        and the list also come from one read, so they cannot disagree.
+        """
+        waiting = await self._scan_waiting_in_window(
+            window_start=window_start,
+            window_end=window_end,
+            threshold=threshold,
+        )
         newcomers = {detection.frigate_event: detection for detection, _sightings in new_species}
         # "First of its kind here" is the sharper question than "shaky score".
         for detection, sightings in new_species:
