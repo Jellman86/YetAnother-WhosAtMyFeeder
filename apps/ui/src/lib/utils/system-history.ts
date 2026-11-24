@@ -61,6 +61,35 @@ export function seriesSegments(
     return segments;
 }
 
+/**
+ * Single measured readings bounded by missing samples on both sides. An SVG polyline with one
+ * coordinate pair has zero length, so the chart paints these as round dots outside the SVG.
+ */
+export function isolatedMarkers(
+    points: readonly HistoryPoint[],
+    load: LoadSeries,
+    windowSeconds: number,
+    width: number = CHART_WIDTH,
+    height: number = CHART_HEIGHT
+): { x: number; y: number }[] {
+    if (points.length === 0) return [];
+    const latest = points[points.length - 1].at;
+    const markers: { x: number; y: number }[] = [];
+    for (let index = 0; index < points.length; index += 1) {
+        const value = load(points[index]);
+        if (value === null || value === undefined) continue;
+        const prev = index > 0 ? load(points[index - 1]) : null;
+        const next = index + 1 < points.length ? load(points[index + 1]) : null;
+        if ((prev === null || prev === undefined) && (next === null || next === undefined)) {
+            markers.push({
+                x: xFor(points[index].at, latest, windowSeconds, width),
+                y: yFor(value, height)
+            });
+        }
+    }
+    return markers;
+}
+
 /** Evenly spaced time ticks across the window, as epoch seconds with their x position. */
 export function timeTicks(
     points: readonly HistoryPoint[],

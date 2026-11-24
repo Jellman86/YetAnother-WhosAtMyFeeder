@@ -279,3 +279,58 @@ for (const theme of ['light', 'dark'] as const) {
         expect(results.violations.map(violation => `${violation.id}: ${violation.nodes.map(node => node.target.join(' ')).join(', ')}`)).toEqual([]);
     });
 }
+
+test('owner sidebar shows a detected GPU as Not measured before its first numeric reading (#1088)', async ({ page }) => {
+    const base = workspace([]);
+    await openShell(page, 'light', {
+        ...base,
+        '/api/status': {
+            revision: 1,
+            generated_at: new Date().toISOString(),
+            startup_instance_id: 'fixture',
+            version: 'unknown',
+            overall: { state: 'ok', cause: 'ready', subsystem: null },
+            subsystems: [
+                { key: 'feed', state: 'ok', cause: 'connected' },
+                { key: 'frigate', state: 'ok', cause: 'connected' }
+            ],
+            jobs_summary: { running: 0, queued: 0, progress: null },
+            jobs: { captured_at: new Date().toISOString(), items: [], lanes: [] },
+            analysis: { pending: 0, active: 0, circuit_open: false },
+            model: { state: 'ok', cause: 'ready', revision: 'fixture' },
+            connections: HEALTHY_CONNECTIONS,
+            cameras: null,
+            telemetry: {
+                sampled_at: Date.now() / 1000,
+                cpu_percent: 19.0,
+                accelerator_kind: 'gpu',
+                accelerator_label: 'Intel GPU',
+                accelerator_percent: null
+            },
+            diagnostics_revision: 0,
+            incident_revision: 'fixture',
+            health_revision: 'fixture'
+        }
+    });
+    const readout = card(page).locator('[data-telemetry-readout]');
+    await expect(readout.locator('[data-telemetry-meter="cpu"]')).toContainText('19%');
+    const gpu = readout.locator('[data-telemetry-meter="accelerator"]');
+    await expect(gpu.locator('dt')).toHaveText('Intel GPU');
+    await expect(gpu.locator('[data-telemetry-figure]')).toHaveText('Not measured');
+});
+
+test('guest sidebar shows a detected GPU as Not measured from live telemetry (#1088)', async ({ page }) => {
+    await openShell(page, 'light', {
+        '/api/auth/status': { auth_required: true, public_access_enabled: true, is_authenticated: false, needs_initial_setup: false },
+        '/api/system-telemetry': {
+            sampled_at: new Date().toISOString(),
+            cpu_percent: 19.0,
+            accelerator: { kind: 'gpu', label: 'Intel GPU', utilization_percent: null }
+        }
+    });
+    const readout = card(page).locator('[data-telemetry-readout]');
+    await expect(readout.locator('[data-telemetry-meter="cpu"]')).toContainText('19%');
+    const gpu = readout.locator('[data-telemetry-meter="accelerator"]');
+    await expect(gpu.locator('dt')).toHaveText('Intel GPU');
+    await expect(gpu.locator('[data-telemetry-figure]')).toHaveText('Not measured');
+});

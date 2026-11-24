@@ -5,6 +5,7 @@ import {
     cpuLoad,
     formatBytes,
     formatPercent,
+    isolatedMarkers,
     markerFor,
     pointAt,
     seriesSegments,
@@ -52,6 +53,22 @@ describe('system history chart geometry', () => {
         expect(segments).toHaveLength(2);
         expect(segments[0]).toBe('0.0,90.0');
         expect(segments[1]).toBe('100.0,70.0 150.0,60.0');
+    });
+
+    it('returns point markers only for isolated measured readings so a first 0% or lone point is visible', () => {
+        expect(isolatedMarkers([point(0, null, null)], acceleratorLoad('accel0'), 15, 150, 100)).toEqual([]);
+        expect(isolatedMarkers([point(15, 20, 0)], acceleratorLoad('accel0'), 15, 150, 100)).toEqual([
+            { x: 150, y: 100 }
+        ]);
+        // Two consecutive measured points are connected by a polyline and need no isolated dot.
+        expect(isolatedMarkers([point(10, 20, 0), point(15, 25, 10)], acceleratorLoad('accel0'), 15, 150, 100)).toEqual([]);
+        // A lone reading bounded by nulls gets its own dot.
+        expect(
+            isolatedMarkers([point(0, 10, null), point(5, 20, 0), point(10, 30, null), point(15, 40, 20)], acceleratorLoad('accel0'), 15, 150, 100)
+        ).toEqual([
+            { x: 50, y: 100 },
+            { x: 150, y: 80 }
+        ]);
     });
 
     it('spaces time ticks across the window and finds the nearest sample to a position', () => {

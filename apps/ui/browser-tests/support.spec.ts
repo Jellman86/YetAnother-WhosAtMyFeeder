@@ -142,3 +142,57 @@ test('Health says an empty list in one plain sentence and lists every sample it 
     await expect(rows.first().locator('td').nth(0)).toHaveText('25.0%');
     await expect(rows.first().locator('td').nth(1)).toHaveText('Not measured');
 });
+
+test('Health renders GPU readings and an isolated 0% dot even when CPU counters are unmeasured (#1088)', async ({ page }) => {
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/system-telemetry/history')) return route.fulfill({ json: {
+            points: [{ at: 1_790_000_000, cpu_percent: null, app_cpu_percent: null, other_cpu_percent: null, accelerators: { gpu: 0 } }],
+            accelerators: [{ id: 'gpu', kind: 'gpu', label: 'Intel GPU', scope: 'app', unreadable: null }],
+            processes: [], host: { memory_total_bytes: 4096, cpu_count: 4 }, window_seconds: 1800
+        } });
+        if (path.endsWith('/diagnostics/workspace')) return route.fulfill({ json: {
+            health: { status: 'ok' }, backend_diagnostics: { events: [] }, classifier: {}, startup_warnings: []
+        } });
+        return route.fulfill({ json: { items: [] } });
+    });
+    await page.goto('/browser-tests/support.html');
+    await page.getByRole('link', { name: 'Open Health', exact: true }).click();
+
+    await expect(page.locator('[data-system-health-chart]')).toBeVisible();
+    await expect(page.locator('[data-system-health-point="gpu"]')).toHaveCount(1);
+    await expect(page.locator('[data-system-health-legend]')).toContainText('Intel GPU');
+    await expect(page.locator('[data-system-health-cpu-unmeasured]')).toBeVisible();
+
+    await page.getByText('Show the data as a table').click();
+    const row = page.locator('[data-system-health] figure table tbody tr').first();
+    await expect(row.locator('td').nth(0)).toHaveText('Not measured');
+    await expect(row.locator('td').nth(1)).toHaveText('0.0%');
+});
+
+test('Health keeps legend, table, and unreadable accelerator notes visible when all samples are null (#1088)', async ({ page }) => {
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith('/system-telemetry/history')) return route.fulfill({ json: {
+            points: [{ at: 1_790_000_000, cpu_percent: null, app_cpu_percent: null, other_cpu_percent: null, accelerators: { gpu: null } }],
+            accelerators: [
+                { id: 'gpu', kind: 'gpu', label: 'Intel GPU', scope: 'app', unreadable: null },
+                { id: 'nvidia-0', kind: 'gpu', label: 'NVIDIA GPU', scope: 'device', unreadable: 'nvidia_no_counter' }
+            ],
+            processes: [], host: { memory_total_bytes: 4096, cpu_count: 4 }, window_seconds: 1800
+        } });
+        if (path.endsWith('/diagnostics/workspace')) return route.fulfill({ json: {
+            health: { status: 'ok' }, backend_diagnostics: { events: [] }, classifier: {}, startup_warnings: []
+        } });
+        return route.fulfill({ json: { items: [] } });
+    });
+    await page.goto('/browser-tests/support.html');
+    await page.getByRole('link', { name: 'Open Health', exact: true }).click();
+
+    await expect(page.locator('[data-system-health-legend]')).toContainText('Intel GPU');
+    await expect(page.locator('[data-system-health-unreadable="nvidia-0"]')).toContainText('NVIDIA GPU');
+    await page.getByText('Show the data as a table').click();
+    const row = page.locator('[data-system-health] figure table tbody tr').first();
+    await expect(row.locator('td').nth(0)).toHaveText('Not measured');
+    await expect(row.locator('td').nth(1)).toHaveText('Not measured');
+});
