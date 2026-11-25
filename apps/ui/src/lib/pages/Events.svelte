@@ -17,7 +17,7 @@
     import { findRefreshedGardenVisit, gardenVisitIdentity, gardenBelongs, gardenBlocker, gardenWindow, placeGardenCaptures, type GardenVisit, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
     import { reviewGardenBatch } from '../api/garden';
     import type { DetectionVisit } from '../api/visits';
-    import { ownerConfirmationScope } from '../utils/visit-grouping';
+    import { lostSpecies, ownerConfirmationScope } from '../utils/visit-grouping';
     import { onDestroy, onMount, untrack } from 'svelte';
     import { MediaQuery } from 'svelte/reactivity';
     import {
@@ -73,7 +73,7 @@
     import { speciesPickerNames } from '../utils/species-picker';
     import { explanation } from '../utils/explanation';
     import { explorerPane } from '../utils/explorer-results';
-    import { explorerWindow, parseExplorerQuery, writeExplorerQuery, type ExplorerQuery, type ExplorerWindow } from '../utils/explorer-query';
+    import { explorerWindow, parseExplorerQuery, rereadsAfterRecordChange, writeExplorerQuery, type ExplorerQuery, type ExplorerWindow } from '../utils/explorer-query';
     import { ShownExplorerWindow } from '../utils/explorer-shown-window.svelte';
     import { explorerCameraOptions, seenGardenCameras } from '../utils/explorer-cameras';
     import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
@@ -125,6 +125,9 @@
     let favoritesOnly = $state(false);
     let audioConfirmedOnly = $state(false);
     let multipleSpeciesOnly = $state(false);
+    let ownerConfirmedChosen = $state(false);
+    /** Owner-only: a visitor's view is never narrowed by it, whatever the address or a sign-out left behind. */
+    const ownerConfirmedOnly = $derived(authStore.hasOwnerAccess && ownerConfirmedChosen);
     let sortOrder = $state<'newest' | 'oldest' | 'confidence'>('newest');
 
     let selectedEvent = $state<Detection | null>(null);
@@ -140,6 +143,8 @@
     let selectionMode = $state(false);
     let groupVisits = $state(true);
     let pageVisits = $state<DetectionVisit[]>([]);
+    /** Cards this page saw lose their species since the visits were read; their visit's confirmation waits for the next read. */
+    let unnamedSinceVisitRead = $state.raw<ReadonlySet<string>>(new Set());
     /** The visit just before this page, which bounds the calls this page owns. */
     let previousVisit = $state<DetectionVisit | null>(null);
     let heardGroups = $state.raw<HeardGroup[] | null>(null);
@@ -350,7 +355,7 @@
                     limit: pageSize + padded, offset: offset - padded,
                     ...range.request,
                     species: speciesFilter || undefined, camera: cameraFilter || undefined, taxon: taxonFilter ?? undefined,
-                    sort: sortOrder, onlyHidden: showHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly,
+                    sort: sortOrder, onlyHidden: showHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, ownerConfirmedOnly,
                     requestKey: EVENTS_PAGE_REQUEST_KEYS.visits
                 });
                 nextPrevious = padded ? (result.visits[0] ?? null) : null;
@@ -371,6 +376,7 @@
                     favoritesOnly,
                     audioConfirmedOnly,
                     multipleSpeciesOnly,
+                    ownerConfirmedOnly,
                     fields: 'list',
                     requestKey: EVENTS_PAGE_REQUEST_KEYS.list
                 }),
@@ -383,6 +389,7 @@
                     favoritesOnly,
                     audioConfirmedOnly,
                     multipleSpeciesOnly,
+                    ownerConfirmedOnly,
                     requestKey: EVENTS_PAGE_REQUEST_KEYS.count
                 })
                 ]);
@@ -415,6 +422,7 @@
             shownWindow.publish(range);
             events = newEvents;
             pageVisits = nextVisits;
+            unnamedSinceVisitRead = new Set();
             previousVisit = nextPrevious;
             totalCount = nextTotal;
             measured = true;
@@ -584,6 +592,7 @@
             favoritesOnly,
             audioConfirmedOnly,
             multipleSpeciesOnly,
+            ownerConfirmedOnly,
             showHidden,
             groupVisits,
             page: currentPage
@@ -603,6 +612,7 @@
         favoritesOnly = query.favoritesOnly;
         audioConfirmedOnly = query.audioConfirmedOnly;
         multipleSpeciesOnly = query.multipleSpeciesOnly;
+        ownerConfirmedChosen = query.ownerConfirmedOnly;
         showHidden = query.showHidden;
         groupVisits = query.groupVisits;
         currentPage = query.page;
@@ -667,6 +677,8 @@
 
         const openedViaShare = !!(deepLinkedEvent && deepLinkWantsVideo && deepLinkedShare);
         if (openedViaShare) {
+            // No read follows, so the address is stated here: a visitor's link loses owner-only filters.
+            writeAddress();
             loading = false;
             return;
         }
@@ -769,6 +781,7 @@
     function applyStoreUpdatesToEventList() {
         if (!events.length) return;
         let changed = false;
+        const unnamed = new Set(unnamedSinceVisitRead);
         const nextEvents = events.map((event) => {
             const updated = detectionsStore.getDetectionPatch(event.frigate_event);
             if (!updated) return event;
@@ -778,12 +791,14 @@
             const merged = { ...event, ...definedPatch } as Detection;
             if (detectionSyncSignature(merged) !== detectionSyncSignature(event)) {
                 changed = true;
+                if (lostSpecies(event, merged)) unnamed.add(event.frigate_event);
                 return merged;
             }
             return event;
         });
         if (changed) {
             events = nextEvents;
+            if (unnamed.size !== unnamedSinceVisitRead.size) unnamedSinceVisitRead = unnamed;
         }
     }
 
@@ -861,7 +876,8 @@
         if (version === handledVisitMutationVersion) return;
         handledVisitMutationVersion = version;
         untrack(() => {
-            if (groupVisits && !selectionMode) scheduleReclassifyCompletionRefresh();
+            const view = { groupVisits, selectionMode, speciesFilter, taxonFilter, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, ownerConfirmedOnly, showHidden };
+            if (rereadsAfterRecordChange(view)) scheduleReclassifyCompletionRefresh();
         });
     });
 
@@ -1125,6 +1141,7 @@
                 favoritesOnly ||
                 audioConfirmedOnly ||
                 multipleSpeciesOnly ||
+                ownerConfirmedOnly ||
                 showHidden ||
                 datePreset !== 'all' ||
                 selectedTimelineBucket !== 'all'
@@ -1179,6 +1196,7 @@
 
     $effect(() => {
         if (authStore.hasOwnerAccess) return;
+        if (ownerConfirmedChosen) ownerConfirmedChosen = false;
         if (selectionMode) selectionMode = false;
         if (showBulkTagModal) showBulkTagModal = false;
         if (selectedEventIds.length) selectedEventIds = [];
@@ -1514,8 +1532,8 @@
     const heardBlocker = $derived.by((): string | null => {
         if (!heardWanted) return null;
         if (cameraFilter) return $_('events.heard.blocked_camera', { default: 'Heard calls are hidden while a camera is chosen, because a call is not tied to a camera.' });
-        if (favoritesOnly || showHidden || multipleSpeciesOnly || audioConfirmedOnly) {
-            return $_('events.heard.blocked_visit_filter', { default: 'Heard calls are hidden while Favourites, Hidden, Multiple species or Matching call is on. Those only describe camera visits.' });
+        if (favoritesOnly || showHidden || multipleSpeciesOnly || ownerConfirmedOnly || audioConfirmedOnly) {
+            return $_('events.heard.blocked_visit_filter', { default: 'Heard calls are hidden while Favourites, Hidden, Multiple species, Owner confirmed or Matching call is on. Those only describe camera visits.' });
         }
         if (speciesFilter.startsWith('taxa:') || taxonFilter !== null) return $_('events.heard.blocked_group', { default: 'Heard calls are hidden while a group of species is chosen. Choose one species to see its calls.' });
         if (sortOrder === 'confidence') return $_('events.heard.blocked_sort', { default: 'Heard calls show between visits only when visits are in time order.' });
@@ -1602,7 +1620,7 @@
         chosen: cameraFilter
     }));
     const gardenNotice = $derived<GardenBlocker | null>(
-        gardenBlocker(subjects, { speciesFilter, favoritesOnly, showHidden, multipleSpeciesOnly, audioConfirmedOnly, sortOrder, groupVisits, selectionMode })
+        gardenBlocker(subjects, { speciesFilter, favoritesOnly, showHidden, multipleSpeciesOnly, ownerConfirmedOnly, audioConfirmedOnly, sortOrder, groupVisits, selectionMode })
     );
     const gardenInTimeline = $derived(subjects === 'all' && gardenNotice === null);
     const GARDEN_WINDOW_LIMIT = 200;
@@ -1948,7 +1966,7 @@
     const gardenNoticeText = $derived.by((): string | null => {
         switch (gardenNotice) {
             case 'bird_filter':
-                return $_('garden.explorer.blocked_bird_filter', { default: 'Garden captures are hidden while a species, Favourites, Hidden, Multiple species or Matching call is chosen. Those only describe bird visits.' });
+                return $_('garden.explorer.blocked_bird_filter', { default: 'Garden captures are hidden while a species, Favourites, Hidden, Multiple species, Owner confirmed or Matching call is chosen. Those only describe bird visits.' });
             case 'confidence_sort':
                 return $_('garden.explorer.blocked_sort', { default: 'Garden captures show between visits only when visits are in time order.' });
             case 'ungrouped':
@@ -1956,7 +1974,7 @@
             case 'selection':
                 return $_('garden.explorer.blocked_selection', { default: 'Garden captures are hidden while you select bird visits.' });
             case 'bird_filter_ignored':
-                return $_('garden.explorer.bird_filters_ignored', { default: 'Species, Favourites, Hidden, Multiple species, Matching call and confidence order describe bird visits, so they are not applied to Garden captures.' });
+                return $_('garden.explorer.bird_filters_ignored', { default: 'Species, Favourites, Hidden, Multiple species, Owner confirmed, Matching call and confidence order describe bird visits, so they are not applied to Garden captures.' });
             default:
                 return null;
         }
@@ -2291,6 +2309,7 @@
             {favoritesOnly}
             {audioConfirmedOnly}
             {multipleSpeciesOnly}
+            {ownerConfirmedOnly}
             {groupVisits}
             groupingLocked={selectionMode}
             {showHidden}
@@ -2325,6 +2344,7 @@
                 if (next.favoritesOnly !== undefined) favoritesOnly = next.favoritesOnly;
                 if (next.audioConfirmedOnly !== undefined) audioConfirmedOnly = next.audioConfirmedOnly;
                 if (next.multipleSpeciesOnly !== undefined) multipleSpeciesOnly = next.multipleSpeciesOnly;
+                if (next.ownerConfirmedOnly !== undefined) ownerConfirmedChosen = next.ownerConfirmedOnly;
                 if (next.groupVisits !== undefined) groupVisits = next.groupVisits;
                 if (next.showHidden !== undefined) showHidden = next.showHidden;
                 if (next.customStartDate !== undefined) customStartDate = next.customStartDate;
@@ -2343,6 +2363,7 @@
                 favoritesOnly = false;
                 audioConfirmedOnly = false;
                 multipleSpeciesOnly = false;
+                ownerConfirmedChosen = false;
                 showHidden = false;
                 customStartDate = '';
                 customEndDate = '';
@@ -2564,6 +2585,7 @@
                             favoritesOnly = false;
                             audioConfirmedOnly = false;
                             multipleSpeciesOnly = false;
+                            ownerConfirmedChosen = false;
                             showHidden = false;
                             customStartDate = '';
                             customEndDate = '';
@@ -2602,7 +2624,7 @@
                             onPlay={() => playClip(event)}
                             selectionMode={selectionMode}
                             selected={selectedEventIds.includes(event.frigate_event)}
-                            ownerConfirmation={ownerConfirmationScope(event, visit)}
+                            ownerConfirmation={ownerConfirmationScope(event, visit, unnamedSinceVisitRead.has(event.frigate_event))}
                             speciesMix={visitSpeciesMix(visit)}
                             stackFrame={visit?.peak_capture ?? null}
                             matchedCalls={entry.matchedCalls}
@@ -2650,7 +2672,7 @@
                         selectionMode={selectionMode}
                         selected={selectedEventIds.includes(event.frigate_event)}
                         footer={visit && hasCaptureFooter(visit) ? captures : undefined}
-                        ownerConfirmation={ownerConfirmationScope(event, visit)}
+                        ownerConfirmation={ownerConfirmationScope(event, visit, unnamedSinceVisitRead.has(event.frigate_event))}
                         speciesMix={visitSpeciesMix(visit)}
                         matchedCalls={entry.matchedCalls}
                     />

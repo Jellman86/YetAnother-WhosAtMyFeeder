@@ -93,7 +93,7 @@
     "spectrogram_alt": "Spectrogramme du chant le plus fort de {species}, {time}",
     "no_spectrogram": "BirdNET-Go n’a plus de spectrogramme pour ces chants.",
     "blocked_camera": "Les chants entendus sont masqués tant qu’une caméra est choisie, car un chant n’est lié à aucune caméra.",
-    "blocked_visit_filter": "Les chants entendus sont masqués tant que Favoris, Masqués, Plusieurs espèces ou Chant correspondant est actif. Ces filtres ne décrivent que les visites de la caméra.",
+    "blocked_visit_filter": "Les chants entendus sont masqués tant que Favoris, Masqués, Plusieurs espèces, Confirmé par le propriétaire ou Chant correspondant est actif. Ces filtres ne décrivent que les visites de la caméra.",
     "blocked_group": "Les chants entendus sont masqués tant qu’un groupe d’espèces est choisi. Choisissez une espèce pour voir ses chants.",
     "blocked_sort": "Les chants entendus n’apparaissent entre les visites que lorsque celles-ci sont triées par heure.",
     "load_failed": "Impossible de charger les chants entendus. Les visites ne sont pas affectées.",

@@ -4312,6 +4312,7 @@ export interface paths {
     multiple_species_only?: boolean;
     offset?: number;
     only_hidden?: boolean;
+    owner_confirmed_only?: boolean;
     sort?: "newest" | "oldest" | "confidence";
     species?: string | null;
     start_date?: string | "today" | null;
@@ -4353,6 +4354,7 @@ export interface paths {
     include_hidden?: boolean;
     multiple_species_only?: boolean;
     only_hidden?: boolean;
+    owner_confirmed_only?: boolean;
     species?: string | null;
     start_date?: string | "today" | null;
     start_time?: string | null;
@@ -6125,6 +6127,7 @@ export interface paths {
     multiple_species_only?: boolean;
     offset?: number;
     only_hidden?: boolean;
+    owner_confirmed_only?: boolean;
     sort?: string;
     species?: string | null;
     start_date?: string | "today" | null;

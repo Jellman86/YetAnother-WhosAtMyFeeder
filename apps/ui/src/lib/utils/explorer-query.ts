@@ -25,6 +25,8 @@ export interface ExplorerQuery {
     favoritesOnly: boolean;
     audioConfirmedOnly: boolean;
     multipleSpeciesOnly: boolean;
+    /** Owner-only: records an owner named a species for. */
+    ownerConfirmedOnly: boolean;
     showHidden: boolean;
     /** Visits (one bird's stay) or every capture on its own. */
     groupVisits: boolean;
@@ -37,7 +39,7 @@ export interface ExplorerQueryAccess {
     gardenAvailable: boolean;
 }
 
-const OWNED_KEYS = ['visitors', 'review', 'date', 'start', 'end', 'species', 'taxon', 'camera', 'favorites', 'audio', 'multiple', 'hidden', 'show', 'page'] as const;
+const OWNED_KEYS = ['visitors', 'review', 'date', 'start', 'end', 'species', 'taxon', 'camera', 'favorites', 'audio', 'multiple', 'confirmed', 'hidden', 'show', 'page'] as const;
 const GARDEN_KEYS = new Set<string>(['visitors', 'review']);
 const SUBJECTS: readonly ExplorerSubjects[] = ['birds', 'garden', 'all'];
 const REVIEWS: readonly GardenReview[] = ['pending', 'confirmed', 'dismissed'];
@@ -62,6 +64,7 @@ export function defaultExplorerQuery(): ExplorerQuery {
         favoritesOnly: false,
         audioConfirmedOnly: false,
         multipleSpeciesOnly: false,
+        ownerConfirmedOnly: false,
         showHidden: false,
         groupVisits: true,
         page: 1
@@ -131,6 +134,7 @@ export function parseExplorerQuery(search: string | URLSearchParams, access: Pic
     query.audioConfirmedOnly = flag(params.get('audio'));
     if (access.owner) {
         query.multipleSpeciesOnly = flag(params.get('multiple'));
+        query.ownerConfirmedOnly = flag(params.get('confirmed'));
         query.showHidden = flag(params.get('hidden'));
     }
     query.groupVisits = params.get('show') !== 'captures';
@@ -163,10 +167,27 @@ export function writeExplorerQuery(current: string | URLSearchParams, query: Exp
     if (query.favoritesOnly) params.set('favorites', '1');
     if (query.audioConfirmedOnly) params.set('audio', '1');
     if (access.owner && query.multipleSpeciesOnly) params.set('multiple', '1');
+    if (access.owner && query.ownerConfirmedOnly) params.set('confirmed', '1');
     if (access.owner && query.showHidden) params.set('hidden', '1');
     if (!query.groupVisits) params.set('show', 'captures');
     if (query.page > 1) params.set('page', String(query.page));
     return params.toString();
+}
+
+/**
+ * Whether a change to one record (a new species, a favourite, hiding it) must re-read the page.
+ * Grouped visits can join or split; a filtered capture list can gain or lose the record, and its
+ * count with it. An unfiltered capture list is patched in place, and a selection is left alone.
+ */
+export function rereadsAfterRecordChange(
+    view: Pick<ExplorerQuery, 'groupVisits' | 'speciesFilter' | 'taxonFilter' | 'favoritesOnly' | 'audioConfirmedOnly' | 'multipleSpeciesOnly' | 'ownerConfirmedOnly' | 'showHidden'> & { selectionMode: boolean }
+): boolean {
+    if (view.selectionMode) return false;
+    if (view.groupVisits) return true;
+    return Boolean(
+        view.speciesFilter || view.taxonFilter !== null || view.favoritesOnly || view.audioConfirmedOnly
+            || view.multipleSpeciesOnly || view.ownerConfirmedOnly || view.showHidden
+    );
 }
 
 const ROLLING_DAY_MS = 24 * 60 * 60 * 1000;

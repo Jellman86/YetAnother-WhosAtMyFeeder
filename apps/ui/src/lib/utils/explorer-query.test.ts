@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultExplorerQuery, explorerWindow, parseExplorerQuery, writeExplorerQuery, type ExplorerQuery } from './explorer-query';
+import { defaultExplorerQuery, explorerWindow, parseExplorerQuery, rereadsAfterRecordChange, writeExplorerQuery, type ExplorerQuery } from './explorer-query';
 
 const owner = { owner: true, gardenAvailable: true };
 const guest = { owner: false, gardenAvailable: true };
@@ -25,6 +25,7 @@ describe('writeExplorerQuery', () => {
             favoritesOnly: true,
             audioConfirmedOnly: true,
             multipleSpeciesOnly: true,
+            ownerConfirmedOnly: true,
             showHidden: true,
             groupVisits: false,
             page: 3
@@ -74,11 +75,22 @@ describe('writeExplorerQuery', () => {
     });
 
     it('writes no owner-only filter for a visitor', () => {
-        const search = writeExplorerQuery('', chosen({ subjects: 'garden', gardenReview: 'pending', showHidden: true, multipleSpeciesOnly: true }), guest);
+        const search = writeExplorerQuery('', chosen({ subjects: 'garden', gardenReview: 'pending', showHidden: true, multipleSpeciesOnly: true, ownerConfirmedOnly: true }), guest);
         const params = new URLSearchParams(search);
         expect(params.has('review')).toBe(false);
         expect(params.has('hidden')).toBe(false);
         expect(params.has('multiple')).toBe(false);
+        expect(params.has('confirmed')).toBe(false);
+    });
+
+    it('writes Owner confirmed as confirmed=1 for the owner and drops it once cleared', () => {
+        expect(writeExplorerQuery('', chosen({ ownerConfirmedOnly: true }), owner)).toBe('confirmed=1');
+        expect(writeExplorerQuery('?confirmed=1&species=Dunnock', chosen({ speciesFilter: 'Dunnock' }), owner)).toBe('species=Dunnock');
+    });
+
+    it('strips Owner confirmed from an address a visitor holds, as access falls away', () => {
+        // A signed-out owner keeps the old address until the next write; that write must not keep it.
+        expect(writeExplorerQuery('?confirmed=1&favorites=1', chosen({ favoritesOnly: true, ownerConfirmedOnly: true }), guest)).toBe('favorites=1');
     });
 
     it('writes the Garden review only under Garden animals', () => {
@@ -145,8 +157,15 @@ describe('parseExplorerQuery', () => {
     });
 
     it('never lets a link give a visitor owner-only filters', () => {
-        const query = parseExplorerQuery('?visitors=garden&review=pending&hidden=1&multiple=1', guest);
+        const query = parseExplorerQuery('?visitors=garden&review=pending&hidden=1&multiple=1&confirmed=1', guest);
         expect(query).toEqual(chosen({ subjects: 'garden' }));
+    });
+
+    it('reads Owner confirmed for the owner only', () => {
+        expect(parseExplorerQuery('?confirmed=1', owner).ownerConfirmedOnly).toBe(true);
+        expect(parseExplorerQuery('?confirmed=true', owner).ownerConfirmedOnly).toBe(true);
+        expect(parseExplorerQuery('?confirmed=yes', owner).ownerConfirmedOnly).toBe(false);
+        expect(parseExplorerQuery('?confirmed=1', guest).ownerConfirmedOnly).toBe(false);
     });
 
     it('refuses an oversized or control-character name rather than sending it on', () => {
@@ -202,5 +221,27 @@ describe('explorerWindow', () => {
 
     it('has no bounds for all time', () => {
         expect(explorerWindow('all', {}, now)).toEqual({ request: {}, start: null, end: null });
+    });
+});
+
+describe('rereadsAfterRecordChange', () => {
+    const captures = { ...defaultExplorerQuery(), groupVisits: false, selectionMode: false };
+
+    it('re-reads grouped visits after any change, since a change can join or split them', () => {
+        expect(rereadsAfterRecordChange({ ...captures, groupVisits: true })).toBe(true);
+    });
+
+    it('re-reads a filtered capture list and its count when a change can move a capture in or out', () => {
+        // Retagging a capture Unknown Bird under Owner confirmed must drop it and lower the count.
+        expect(rereadsAfterRecordChange({ ...captures, ownerConfirmedOnly: true })).toBe(true);
+        for (const filter of [{ favoritesOnly: true }, { audioConfirmedOnly: true }, { multipleSpeciesOnly: true }, { showHidden: true }, { speciesFilter: 'Dunnock' }, { taxonFilter: 4512 }]) {
+            expect(rereadsAfterRecordChange({ ...captures, ...filter })).toBe(true);
+        }
+    });
+
+    it('patches an unfiltered capture list in place, and leaves a selection alone', () => {
+        expect(rereadsAfterRecordChange(captures)).toBe(false);
+        expect(rereadsAfterRecordChange({ ...captures, ownerConfirmedOnly: true, selectionMode: true })).toBe(false);
+        expect(rereadsAfterRecordChange({ ...captures, groupVisits: true, selectionMode: true })).toBe(false);
     });
 });

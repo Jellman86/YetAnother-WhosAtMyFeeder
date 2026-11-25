@@ -389,8 +389,8 @@ measurement, never derived, and is not rewritten later. Live `detection` and
 - `GET /api/visits` Groups the accessible history before pagination. Accepts `limit` (1 to 500,
   24 by default; guests at most 50), `offset`, `start_date`/`end_date` (calendar days, above) or
   exact UTC `start_time`/`end_time`, which take precedence, `species`, `camera`, `favorites`,
-  `audio_confirmed_only`, `only_hidden`, `multiple_species_only` and `sort` (`newest`, `oldest`,
-  `confidence`). Returns `visits`, `total` (every matching visit, so a client can tell how many
+  `audio_confirmed_only`, `only_hidden`, `multiple_species_only`, `owner_confirmed_only` and `sort`
+  (`newest`, `oldest`, `confidence`). Returns `visits`, `total` (every matching visit, so a client can tell how many
   pages remain) and `gap_seconds`, the visit gap these visits were grouped with. Frigate is asked about each visit's `representative` capture
   only, at most one call per visit on the page. `latest` and `peak_capture` report the photo and
   clip this server holds, with `frigate_event_check: "not_checked"`. Each visit includes
@@ -421,6 +421,16 @@ captures without verified bounds continue to use their stored capture time.
 `multiple_species_only=true` filter. It matches at least two distinct resolved, named species
 among visible counted birds in a capture. Aliases of one species and unknown/excluded birds do
 not satisfy it. A visit matches if one of its captures qualifies. Guest requests ignore the flag.
+
+The same three reads accept the owner-only `owner_confirmed_only=true` filter. A capture matches
+when it has `manual_tagged` set and a named species: an owner's species pick, an owner-confirmed
+upload and an owner-requested video reclassification all set it, and a capture tagged Unknown
+Bird (or any label shown as Unknown Bird) confirms nothing. It is the rule the visit's
+`owner_confirmed` badge uses. A visit matches when any of its accessible captures in the window
+qualifies, and expanding it returns all of its accessible captures. The visit is matched as a
+whole, so with `favorites=true` one capture may be the favourite and another the confirmed one.
+`GET /api/events` and `GET /api/events/count` judge each capture on its own. Guest requests
+ignore the flag and receive the ordinary guest view.
 
 `GET /api/events`, `GET /api/events/count`, `GET /api/visits`,
 `GET /api/garden/timeline`, `GET /api/garden/visits` and

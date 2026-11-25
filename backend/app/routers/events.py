@@ -164,6 +164,10 @@ EXACT_START_HELP = (
 EXACT_END_HELP = (
     "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `±HH:MM` offset; overrides end_date"
 )
+OWNER_CONFIRMED_HELP = (
+    "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested "
+    "video reclassification); a visit matches when any capture in view does. Ignored for visitors"
+)
 NEXT_OFFSET_HEADER = "X-Next-Offset"
 
 
@@ -775,6 +779,7 @@ async def get_events(
     multiple_species_only: bool = Query(
         default=False, description="Owner: captures with at least two named bird species"
     ),
+    owner_confirmed_only: bool = Query(default=False, description=OWNER_CONFIRMED_HELP),
     sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
     only_hidden: bool = Query(default=False, description="Return only hidden/ignored detections"),
@@ -834,6 +839,7 @@ async def get_events(
             audio_confirmed_only=audio_confirmed_only,
             public_audio_evidence=not auth.is_owner,
             multiple_species_only=multiple_species_only and auth.is_owner,
+            owner_confirmed_only=owner_confirmed_only and auth.is_owner,
             frigate_event=event_id,
             species_ids=species_ids,
         )
@@ -1070,6 +1076,7 @@ async def get_events_count(
     multiple_species_only: bool = Query(
         default=False, description="Owner: captures with at least two named bird species"
     ),
+    owner_confirmed_only: bool = Query(default=False, description=OWNER_CONFIRMED_HELP),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
     only_hidden: bool = Query(default=False, description="Count only hidden/ignored detections"),
     taxon: Optional[int] = Query(
@@ -1112,6 +1119,7 @@ async def get_events_count(
             audio_confirmed_only=audio_confirmed_only,
             public_audio_evidence=not auth.is_owner,
             multiple_species_only=multiple_species_only and auth.is_owner,
+            owner_confirmed_only=owner_confirmed_only and auth.is_owner,
             species_ids=species_ids,
         )
 
@@ -1128,6 +1136,7 @@ async def get_events_count(
                 audio_confirmed_only,
                 only_hidden,
                 taxon,
+                owner_confirmed_only and auth.is_owner,
             ]
         )
 

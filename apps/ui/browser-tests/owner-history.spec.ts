@@ -91,6 +91,49 @@ test('Explorer sends the multiple-species filter for visits, captures and counts
     expect(errors).toEqual([]);
 });
 
+test('Explorer sends the Owner confirmed filter for visits, captures and counts, states it in the address and clears it', async ({ page }) => {
+    const requests: URL[] = [];
+    const errors: string[] = [];
+    page.on('pageerror', error => { if (!error.message.includes('ResizeObserver loop')) errors.push(error.message); });
+    await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
+    await page.route('https://fonts.gstatic.com/**', route => route.abort());
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
+        const url = new URL(route.request().url());
+        requests.push(url);
+        if (url.pathname === '/api/events/filters') return route.fulfill({ json: { species: [], cameras: ['birdcam'] } });
+        if (url.pathname === '/api/events') return route.fulfill({ json: [] });
+        if (url.pathname === '/api/visits') return route.fulfill({ json: { visits: [], total: 0, gap_seconds: 120 } });
+        if (url.pathname === '/api/events/count') return route.fulfill({ json: { count: 0 } });
+        if (url.pathname === '/api/events/hidden-count') return route.fulfill({ json: { hidden_count: 0 } });
+        if (url.pathname === '/api/classifier/labels') return route.fulfill({ json: { labels: [] } });
+        return route.fulfill({ json: {} });
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=explorer');
+    const filter = page.getByRole('button', { name: 'Owner confirmed', exact: true });
+    const wideFilters = await page.evaluate(() => matchMedia('(min-width: 64rem)').matches);
+    if (!wideFilters) await page.locator('[data-explorer-filter-toggle]').click();
+    await expect(page.locator('[data-explorer-facets]')).toBeVisible();
+    await page.locator('[data-explorer-only-facet] summary').click();
+    await expect(filter).toHaveAttribute('aria-pressed', 'false');
+    await filter.click();
+    await expect(filter).toHaveAttribute('aria-pressed', 'true');
+    await expect.poll(() => requests.some(url => url.pathname === '/api/visits' && url.searchParams.get('owner_confirmed_only') === 'true')).toBe(true);
+    await expect.poll(() => new URL(page.url()).searchParams.get('confirmed')).toBe('1');
+    const show = page.getByRole('group', { name: 'Show' });
+    await show.locator('[data-explorer-show="captures"]').click();
+    for (const path of ['/api/events', '/api/events/count']) {
+        await expect.poll(() => requests.some(url => url.pathname === path && url.searchParams.get('owner_confirmed_only') === 'true')).toBe(true);
+    }
+    const beforeClear = requests.length;
+    await page.getByRole('button', { name: 'Clear all', exact: true }).click();
+    await expect(filter).toHaveAttribute('aria-pressed', 'false');
+    for (const path of ['/api/events', '/api/events/count']) {
+        await expect.poll(() => requests.slice(beforeClear).some(url => url.pathname === path && !url.searchParams.has('owner_confirmed_only'))).toBe(true);
+    }
+    await expect.poll(() => new URL(page.url()).searchParams.has('confirmed')).toBe(false);
+    expect(errors).toEqual([]);
+});
+
 test('incoming capture refresh waits for the current visit read and updates membership', async ({ page }) => {
     let reads = 0;
     let release: () => void = () => undefined;

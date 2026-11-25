@@ -226,6 +226,57 @@ test('favouriting a capture opened from its visit marks that capture in the visi
     expect(errors).toEqual([]);
 });
 
+test('under Owner confirmed, a change to a capture re-reads the capture list and its count (#1099)', async ({ page }) => {
+    const at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const reads: URL[] = [];
+    const errors = await openExplorer(page, '&confirmed=1', (path, method) => {
+        if (/^\/api\/events\/[^/]+\/favorite$/.test(path) && method === 'POST') return { status: 'favorited', archive_state: 'pending' };
+        if (path.startsWith('/api/audio/context/')) return [];
+        if (path.endsWith('/snapshot/candidates')) return { candidates: [], birds: [], current_source: 'frigate_snapshot' };
+        return undefined;
+    });
+    // Registered after the page's own routes, so it answers first.
+    await page.route(url => url.pathname === '/api/events' || url.pathname === '/api/events/count', route => {
+        const url = new URL(route.request().url());
+        reads.push(url);
+        if (url.pathname === '/api/events/count') return route.fulfill({ json: { count: 1, filtered: true } });
+        return route.fulfill({ json: [{ ...record('first', at), manual_tagged: true }] });
+    });
+    await page.getByRole('button', { name: 'Captures', exact: true }).click();
+    await expect.poll(() => reads.filter(url => url.pathname === '/api/events/count').length).toBeGreaterThan(0);
+    for (const url of reads) expect(url.searchParams.get('owner_confirmed_only')).toBe('true');
+    const before = reads.length;
+    await page.getByRole('button', { name: 'Dunnock detected at birdcam', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Add favourite', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: 'Remove favourite', exact: true })).toBeVisible();
+    // The edited capture may have left the filter, so the list and its count are read again.
+    for (const path of ['/api/events', '/api/events/count']) {
+        await expect.poll(() => reads.slice(before).some(url => url.pathname === path && url.searchParams.get('owner_confirmed_only') === 'true')).toBe(true);
+    }
+    expect(errors).toEqual([]);
+});
+
+for (const manualTagged of [false, true]) {
+    test(`a visit whose favourite photo shows Unknown Bird still says another capture was confirmed, favourite manual_tagged ${manualTagged} (#1099)`, async ({ page }) => {
+        const at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        // The favourite leads the visit; its raw label 'life' is one the presenter shows as Unknown Bird.
+        const favourite = { ...record('first', at), display_name: 'Unknown Bird', category_name: 'Unknown Bird', common_name: null, scientific_name: null, is_favorite: true, manual_tagged: manualTagged };
+        const visit = {
+            visit_id: 'first', start_time: at, end_time: at, capture_count: 2, best_score: 0.91, needs_review: true, owner_confirmed: true,
+            audio_confirmed: false, representative: favourite, latest: favourite, peak_capture: null
+        };
+        await openExplorer(page, '', path => {
+            if (path === '/api/visits') return { total: 1, gap_seconds: 60, visits: [visit] };
+            return undefined;
+        });
+        const card = page.locator('[data-explorer-visit="first"] [data-detection-card]');
+        await expect(card.locator('[data-explorer-owner-confirmed="visit"]')).toHaveAccessibleName('Owner confirmed');
+        await page.getByRole('button', { name: 'List', exact: true }).click();
+        await expect(page.locator('[data-explorer-visit="first"] [data-explorer-owner-confirmed="visit"]')).toHaveText('Owner confirmed');
+    });
+}
+
 test('a confirmed species says so on Explorer visits and on single captures (#918)', async ({ page }) => {
     const at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const visitOf = (id: string, confirmed: boolean) => ({

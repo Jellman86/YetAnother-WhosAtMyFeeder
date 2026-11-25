@@ -20,6 +20,7 @@ from app.utils.canonical_species import (
 )
 from app.repositories.audio_history_repository import public_audio_evidence_sql
 from app.repositories.catalogue_identity import species_ids_condition
+from app.utils.owner_confirmation import owner_confirmed_sql
 from app.utils.api_datetime import (
     parse_storage_datetime as _parse_datetime,
     serialize_storage_datetime,
@@ -2685,12 +2686,14 @@ class DetectionRepository:
         audio_confirmed_only: bool = False,
         public_audio_evidence: bool = False,
         multiple_species_only: bool = False,
+        owner_confirmed_only: bool = False,
         frigate_event: str | None = None,
         species_ids: Collection[int] | None = None,
     ) -> list[Detection]:
         if (
             species_ids is None
             and not multiple_species_only
+            and not owner_confirmed_only
             and self._species_fast_path_eligible(
                 species=species,
                 species_any=species_any,
@@ -2815,6 +2818,8 @@ class DetectionRepository:
             )
             conditions.append(clause)
             params.extend(values)
+        if owner_confirmed_only:
+            conditions.append(await owner_confirmed_sql(self.db, "d"))
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
@@ -2850,6 +2855,7 @@ class DetectionRepository:
         public_audio_evidence: bool = False,
         exclude_species_floor: int = 0,
         multiple_species_only: bool = False,
+        owner_confirmed_only: bool = False,
         species_ids: Collection[int] | None = None,
     ) -> int:
         """Get total count of detections, optionally filtered."""
@@ -2947,6 +2953,8 @@ class DetectionRepository:
             )
             conditions.append(clause)
             params.extend(values)
+        if owner_confirmed_only:
+            conditions.append(await owner_confirmed_sql(self.db, "d"))
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 

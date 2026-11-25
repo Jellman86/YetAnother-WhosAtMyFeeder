@@ -93,7 +93,7 @@
     "spectrogram_alt": "Spettrogramma del canto più forte di {species}, {time}",
     "no_spectrogram": "BirdNET-Go non ha più uno spettrogramma per questi canti.",
     "blocked_camera": "I canti uditi sono nascosti mentre è scelta una telecamera, perché un canto non è legato a una telecamera.",
-    "blocked_visit_filter": "I canti uditi sono nascosti mentre Preferiti, Nascosti, Più specie o Canto corrispondente è attivo. Questi filtri descrivono solo le visite della telecamera.",
+    "blocked_visit_filter": "I canti uditi sono nascosti mentre Preferiti, Nascosti, Più specie, Confermato dal proprietario o Canto corrispondente è attivo. Questi filtri descrivono solo le visite della telecamera.",
     "blocked_group": "I canti uditi sono nascosti mentre è scelto un gruppo di specie. Scegli una specie per vederne i canti.",
     "blocked_sort": "I canti uditi compaiono tra le visite solo quando le visite sono in ordine di tempo.",
     "load_failed": "Impossibile caricare i canti uditi. Le visite non sono interessate.",

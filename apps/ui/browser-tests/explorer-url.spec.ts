@@ -149,11 +149,28 @@ test('a pasted link opens with its filters and ignores values it cannot trust', 
     expect(address.get('page')).toBeNull();
 });
 
+test('a visitor opening a shared clip link loses the owner-only filters it names', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockApi(page);
+    await page.goto('/browser-tests/owner-history.html?surface=explorer&guest=1&confirmed=1&multiple=1&hidden=1&event=clip-1&share=tok&video=1');
+    await expect.poll(() => new URL(page.url()).searchParams.has('confirmed')).toBe(false);
+    const address = new URL(page.url()).searchParams;
+    expect(address.has('multiple')).toBe(false);
+    expect(address.has('hidden')).toBe(false);
+    // The shared clip itself is another feature's address and is kept.
+    expect(address.get('event')).toBe('clip-1');
+    expect(address.get('share')).toBe('tok');
+    expect(address.get('video')).toBe('1');
+});
+
 test('a link cannot give a visitor the owner-only filters', async ({ page }) => {
-    const requests = await openExplorer(page, '&guest=1&hidden=1&multiple=1&review=pending&species=Prunella%20modularis');
+    const requests = await openExplorer(page, '&guest=1&hidden=1&multiple=1&confirmed=1&review=pending&species=Prunella%20modularis');
     await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => lastRead(requests, '/api/visits')?.searchParams.get('species')).toBe('Prunella modularis');
     const read = lastRead(requests, '/api/visits');
     expect(read?.searchParams.has('only_hidden')).toBe(false);
     expect(read?.searchParams.has('multiple_species_only')).toBe(false);
+    expect(read?.searchParams.has('owner_confirmed_only')).toBe(false);
+    await expect(page.locator('[data-explorer-owner-confirmed-facet]')).toHaveCount(0);
+    await expect.poll(() => new URL(page.url()).searchParams.has('confirmed')).toBe(false);
 });

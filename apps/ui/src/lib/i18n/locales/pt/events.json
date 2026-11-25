@@ -93,7 +93,7 @@
     "spectrogram_alt": "Espectrograma do canto mais forte de {species}, {time}",
     "no_spectrogram": "O BirdNET-Go não tem mais espectrograma para estes cantos.",
     "blocked_camera": "Os cantos ouvidos ficam ocultos enquanto uma câmera está escolhida, porque um canto não está ligado a uma câmera.",
-    "blocked_visit_filter": "Os cantos ouvidos ficam ocultos enquanto Favoritos, Ocultos, Várias espécies ou Canto correspondente está ativo. Esses filtros só descrevem visitas da câmera.",
+    "blocked_visit_filter": "Os cantos ouvidos ficam ocultos enquanto Favoritos, Ocultos, Várias espécies, Confirmado pelo proprietário ou Canto correspondente está ativo. Esses filtros só descrevem visitas da câmera.",
     "blocked_group": "Os cantos ouvidos ficam ocultos enquanto um grupo de espécies está escolhido. Escolha uma espécie para ver seus cantos.",
     "blocked_sort": "Os cantos ouvidos só aparecem entre visitas quando as visitas estão em ordem de tempo.",
     "load_failed": "Não foi possível carregar os cantos ouvidos. As visitas não foram afetadas.",
