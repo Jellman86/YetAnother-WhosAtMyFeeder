@@ -116,7 +116,7 @@
     "weather_backfill_filling": "Recupero meteo in corso…",
     "weather_backfill_button": "Compila campi meteo",
     "batch_analysis_title": "Analisi in batch",
-    "batch_analysis_long_desc": "Eseguilo dopo un cambio di modello. Analizza di nuovo in background il clip di ogni visita di Uccello sconosciuto; le visite senza clip vengono saltate.",
+    "batch_analysis_long_desc": "Eseguilo dopo un cambio di modello. Analizza di nuovo in background il clip di ogni visita di Uccello sconosciuto; le visite senza clip vengono saltate. Una cattura che riceve un nome può unirsi a una visita vicina della stessa specie sulla stessa telecamera. Questo riduce il numero di visite, non quello delle catture.",
     "batch_analysis_queueing": "Accodamento…",
     "batch_analysis_button": "Analizza tutti gli sconosciuti",
     "batch_analysis_processing": "Elaborazione…",

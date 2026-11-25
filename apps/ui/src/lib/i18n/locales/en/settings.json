@@ -129,7 +129,7 @@
     "weather_backfill_filling": "Filling in weather…",
     "weather_backfill_button": "Fill weather fields",
     "batch_analysis_title": "Batch analysis",
-    "batch_analysis_long_desc": "Run this after changing the model. It analyses the clip of every Unknown bird visit again in the background; visits without a clip are skipped.",
+    "batch_analysis_long_desc": "Run this after changing the model. It analyses the clip of every Unknown bird visit again in the background; visits without a clip are skipped. A capture that gets named can join a nearby visit of the same species on the same camera. That lowers the visit count, not the number of captures.",
     "batch_analysis_queueing": "Queueing…",
     "batch_analysis_button": "Analyse all unknowns",
     "batch_analysis_processing": "Processing…",

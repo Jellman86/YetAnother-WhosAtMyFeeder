@@ -116,7 +116,7 @@
     "weather_backfill_filling": "天気データを補完中…",
     "weather_backfill_button": "天気項目を補完",
     "batch_analysis_title": "一括分析",
-    "batch_analysis_long_desc": "モデルを変更した後に実行します。「不明な鳥」の各訪問のクリップをバックグラウンドで再解析します。クリップのない訪問はスキップされます。",
+    "batch_analysis_long_desc": "モデルを変更した後に実行します。「不明な鳥」の各訪問のクリップをバックグラウンドで再解析します。クリップのない訪問はスキップされます。名前が付いた撮影は、同じカメラで近い時刻にある同じ種の訪問にまとめられることがあります。減るのは訪問数で、撮影数は変わりません。",
     "batch_analysis_queueing": "キューに追加中…",
     "batch_analysis_button": "不明項目をすべて解析",
     "batch_analysis_processing": "処理中…",
