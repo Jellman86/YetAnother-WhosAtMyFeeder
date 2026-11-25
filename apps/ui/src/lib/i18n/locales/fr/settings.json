@@ -1045,7 +1045,7 @@
     "custom_rules": {
       "title": "Règles personnalisées",
       "active": "Vos propres déclencheurs. Une visite envoie au plus une alerte : ils ne peuvent donc pas la répéter quand la visite change. Pour cela, choisissez chaque mise à jour dans la phrase ci-dessus.",
-      "desc": "Ces interrupteurs n’ont d’effet qu’avec les règles personnalisées. Les autres choix de la phrase ci-dessus fixent leurs propres déclencheurs et les ignorent. Choisissez-y les règles personnalisées pour les utiliser.",
+      "desc": "Ces interrupteurs ne peuvent être modifiés qu’avec les règles personnalisées. Les autres choix de la phrase ci-dessus définissent leurs propres déclencheurs de début et de mise à jour et adaptent l’attente vidéo au choix retenu. Choisissez-y les règles personnalisées pour les modifier.",
       "on_insert": "Quand une visite commence",
       "on_insert_desc": "Envoie l’alerte quand Frigate signale la visite pour la première fois, si le nom est alors assez sûr.",
       "on_update": "Plus tard, si aucune alerte n’est partie",
@@ -1396,7 +1396,6 @@
     "api_key_label": "Clé API LLM",
     "test_button": "Tester la connexion IA",
     "test_loading": "Test en cours…",
-    "enabled": "Analyses par IA",
     "test_connection": "Tester la connexion IA",
     "recommended_model": "Recommandé : {model}",
     "get_gemini_key": "Obtenir une clé Google Gemini →",

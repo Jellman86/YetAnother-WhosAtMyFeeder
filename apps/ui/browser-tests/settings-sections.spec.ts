@@ -137,7 +137,7 @@ test('custom rules are a choice in the sentence; their switches cannot be change
     await expect(later).toBeDisabled();
     await expect(page.getByRole('switch', { name: 'When a visit starts' })).toBeDisabled();
     await expect(page.getByRole('switch', { name: 'Wait for the video check' })).toBeDisabled();
-    await expect(page.locator('[data-custom-rules-note="inactive"]')).toContainText('take effect only with custom rules');
+    await expect(page.locator('[data-custom-rules-note="inactive"]')).toContainText('can be changed only with custom rules');
     await later.click({ force: true });
     await expect(later).toHaveAttribute('aria-checked', 'true');
     // Looking at them, and pressing one, changed nothing.
@@ -161,6 +161,18 @@ test('custom rules are a choice in the sentence; their switches cannot be change
     expect(harness.writes[0]).toMatchObject({ notifications_mode: 'custom', notifications_notify_on_insert: true, notifications_notify_on_update: false, notifications_delay_until_video: false });
 
     // A preset in the sentence sets all three again, and locks them.
+    await page.getByRole('button', { name: /^custom rules/ }).click();
+    await page.getByRole('dialog', { name: 'Notification mode' }).getByRole('button', { name: /^every update/ }).click();
+    await expect(later).toHaveAttribute('aria-checked', 'true');
+    await expect(later).toBeDisabled();
+    // Returning to custom rules restores the owner's custom triggers without leaving phantom changes.
+    await page.getByRole('button', { name: /^every update/ }).click();
+    await page.getByRole('dialog', { name: 'Notification mode' }).locator('[data-policy-custom-rules]').click();
+    await expect(later).toHaveAttribute('aria-checked', 'false');
+    await expect(later).toBeEnabled();
+    await expect(saveBar(page)).toHaveCount(0);
+
+    // Switching to a preset and clicking Discard also restores the saved custom rules.
     await page.getByRole('button', { name: /^custom rules/ }).click();
     await page.getByRole('dialog', { name: 'Notification mode' }).getByRole('button', { name: /^every update/ }).click();
     await expect(later).toHaveAttribute('aria-checked', 'true');
@@ -259,7 +271,7 @@ test('a row with only a switch reads at the card\'s measure, and the AI provider
     await expect(page.locator('#llm-model')).toBeVisible();
 });
 
-test('the status column and the sidebar call it Notifications', async ({ page }) => {
+test('the status column calls it Notifications', async ({ page }) => {
     await openSettings(page, {}, {
         route: '/settings/notifications',
         respond: (path) => (path === '/api/status' ? { json: { captured_at: new Date().toISOString(), subsystems: [{ key: 'notifications', state: 'off', cause: 'none_enabled' }] } } : undefined)

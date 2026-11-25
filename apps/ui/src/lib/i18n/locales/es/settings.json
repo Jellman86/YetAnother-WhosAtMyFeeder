@@ -1045,7 +1045,7 @@
     "custom_rules": {
       "title": "Reglas personalizadas",
       "active": "Tus propios disparadores. Una visita envía como máximo una alerta, así que no pueden repetirla cuando la visita cambia: para eso elige cada actualización en la frase de arriba.",
-      "desc": "Estos interruptores solo tienen efecto con reglas personalizadas. Las demás opciones de la frase de arriba fijan sus propios disparadores y los ignoran. Elige allí reglas personalizadas para usarlos.",
+      "desc": "Estos interruptores solo pueden cambiarse con reglas personalizadas. Las demás opciones de la frase de arriba definen sus propios disparadores de inicio y actualización y ajustan la espera del vídeo a la opción elegida. Elige allí reglas personalizadas para editarlos.",
       "on_insert": "Cuando empieza una visita",
       "on_insert_desc": "Envía la alerta cuando Frigate informa de la visita por primera vez, si para entonces el nombre es lo bastante seguro.",
       "on_update": "Más tarde, si aún no se ha enviado ninguna",
@@ -1396,7 +1396,6 @@
     "api_key_label": "Clave API de LLM",
     "test_button": "Probar conexión de IA",
     "test_loading": "Probando…",
-    "enabled": "Información con IA",
     "test_connection": "Probar conexión de IA",
     "recommended_model": "Recomendado: {model}",
     "get_gemini_key": "Obtener clave de Google Gemini →",

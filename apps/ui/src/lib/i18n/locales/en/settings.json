@@ -1045,7 +1045,7 @@
     "custom_rules": {
       "title": "Custom rules",
       "active": "Your own triggers. A visit sends at most one alert, so these cannot repeat an alert as a visit changes: choose every update in the sentence above for that.",
-      "desc": "These switches take effect only with custom rules. The other choices in the sentence above set their own triggers and ignore them. Choose custom rules there to use these.",
+      "desc": "These switches can be changed only with custom rules. The other choices in the sentence above set their own start and update triggers and match the video wait to the choice. Choose custom rules there to edit these.",
       "on_insert": "When a visit starts",
       "on_insert_desc": "Sends the alert when Frigate first reports the visit, if its name is sure enough by then.",
       "on_update": "Later, if no alert has gone",
@@ -1396,7 +1396,6 @@
     "api_key_label": "AI API key",
     "test_button": "Test AI connection",
     "test_loading": "Testing…",
-    "enabled": "AI insights",
     "test_connection": "Test AI connection",
     "recommended_model": "Recommended: {model}",
     "get_gemini_key": "Get Google Gemini key →",
