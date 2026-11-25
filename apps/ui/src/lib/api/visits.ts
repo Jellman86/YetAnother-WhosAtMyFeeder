@@ -12,8 +12,6 @@ export type DetectionVisit = Omit<VisitResponse, 'representative' | 'latest' | '
     peak_capture: Detection | null;
 };
 export interface VisitOptions extends FetchEventsOptions {
-    startTime?: string;
-    endTime?: string;
     /** A bound on the whole read, body included; omit for the Explorer's own unbounded reads. */
     timeoutMs?: number;
 }

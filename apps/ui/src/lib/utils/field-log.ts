@@ -44,6 +44,15 @@ export function namesCameras(visits: readonly { camera: string }[]): boolean {
 }
 
 /**
+ * Where the log's "earlier visits in the last 24 hours" line opens the Explorer: the same rolling
+ * window and the same visitors. The visitors are named, not left to the device, so an Explorer last
+ * left on Garden alone cannot hide the bird visits the line counted.
+ */
+export function fieldLogWindowLink(includesGarden: boolean): string {
+    return `/events?date=24h&visitors=${includesGarden ? 'all' : 'birds'}`;
+}
+
+/**
  * The day as one thread: Garden visits placed between bird visits by their most recent activity,
  * newest first, capped at `limit` rows. Bird visits keep the order the server gave them, and a
  * Garden visit only goes ahead of a bird visit it is strictly newer than, so neither list is

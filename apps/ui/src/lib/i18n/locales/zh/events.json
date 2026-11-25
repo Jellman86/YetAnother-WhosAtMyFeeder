@@ -3,6 +3,7 @@
   "total_count": "共 {count} 条",
   "filters": {
     "all_time": "所有时间",
+    "last_24_hours": "过去24小时",
     "today": "今天",
     "week": "本周",
     "month": "本月",

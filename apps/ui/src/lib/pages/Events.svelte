@@ -73,7 +73,7 @@
     import { speciesPickerNames } from '../utils/species-picker';
     import { explanation } from '../utils/explanation';
     import { explorerPane } from '../utils/explorer-results';
-    import { parseExplorerQuery, writeExplorerQuery, type ExplorerQuery } from '../utils/explorer-query';
+    import { explorerWindow, parseExplorerQuery, writeExplorerQuery, type ExplorerQuery } from '../utils/explorer-query';
     import { explorerCameraOptions, seenGardenCameras } from '../utils/explorer-cameras';
     import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
 
@@ -269,6 +269,9 @@
         if (datePreset === 'custom') return { start: customStartDate || undefined, end: customEndDate || undefined };
         return { start: undefined, end: undefined };
     });
+    /** Fixed when a read of the last 24 hours begins, so its visits, captures, count, Garden and calls share one window. */
+    let windowNow = $state.raw(new Date());
+    let timeWindow = $derived(explorerWindow(datePreset, dateRange, windowNow));
 
     async function loadEvents() {
         const load = eventsLoad.begin();
@@ -291,7 +294,8 @@
         }
         writeAddress();
         try {
-            const range = dateRange;
+            if (datePreset === '24h') windowNow = new Date();
+            const range = timeWindow;
             let newEvents: Detection[];
             let nextTotal: number;
             let nextVisits: DetectionVisit[] = [];
@@ -300,8 +304,8 @@
                 // Garden pages complete groups; no bird history is read.
                 const gardenGeneration = ++gardenLoadGeneration;
                 const page = await fetchGardenVisits({
-                    start: localDayBound(range.start, false)?.toISOString() ?? null,
-                    end: localDayBound(range.end, true)?.toISOString(),
+                    start: range.start?.toISOString() ?? null,
+                    end: range.end?.toISOString(),
                     camera: cameraFilter || undefined,
                     taxon: taxonFilter ?? undefined,
                     order: sortOrder === 'oldest' ? 'oldest' : 'newest',
@@ -332,7 +336,7 @@
                 const padded = (heardWanted || gardenInTimeline) && offset > 0 ? 1 : 0;
                 const result = await fetchVisits({
                     limit: pageSize + padded, offset: offset - padded,
-                    startDate: range.start, endDate: range.end,
+                    ...range.request,
                     species: speciesFilter || undefined, camera: cameraFilter || undefined, taxon: taxonFilter ?? undefined,
                     sort: sortOrder, onlyHidden: showHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly,
                     requestKey: EVENTS_PAGE_REQUEST_KEYS.visits
@@ -346,8 +350,7 @@
                 fetchEvents({
                     limit: pageSize,
                     offset: (currentPage - 1) * pageSize,
-                    startDate: range.start,
-                    endDate: range.end,
+                    ...range.request,
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
                     taxon: taxonFilter ?? undefined,
@@ -360,8 +363,7 @@
                     requestKey: EVENTS_PAGE_REQUEST_KEYS.list
                 }),
                 fetchEventsCount({
-                    startDate: range.start,
-                    endDate: range.end,
+                    ...range.request,
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
                     taxon: taxonFilter ?? undefined,
@@ -1114,7 +1116,7 @@
     );
 
     const visitsByEvent = $derived(new Map(pageVisits.map((visit) => [visit.representative.frigate_event, visit])));
-    const captureWindow = $derived({ startDate: dateRange.start, endDate: dateRange.end, onlyHidden: showHidden });
+    const captureWindow = $derived({ ...timeWindow.request, onlyHidden: showHidden });
 
     let visibleEvents = $derived.by(() => {
         if (selectedTimelineBucket === 'all') return events;
@@ -1504,12 +1506,6 @@
     });
     const heardActive = $derived(heardWanted && heardBlocker === null);
 
-    function localDayBound(day: string | undefined, end: boolean): Date | null {
-        if (!day) return null;
-        const bound = new Date(`${day}T${end ? '23:59:59.999' : '00:00:00'}`);
-        return Number.isNaN(bound.getTime()) ? null : bound;
-    }
-
     const HEARD_MAX_SPAN_MS = 93 * 24 * 60 * 60 * 1000;
 
     async function loadHeard(): Promise<void> {
@@ -1524,8 +1520,8 @@
             sort: sortOrder === 'oldest' ? 'oldest' : 'newest',
             previous: previousVisit,
             hasNextPage: currentPage * pageSize < totalCount,
-            rangeStart: localDayBound(dateRange.start, false),
-            rangeEnd: localDayBound(dateRange.end, true),
+            rangeStart: timeWindow.start,
+            rangeEnd: timeWindow.end,
             now: new Date()
         });
         if (!span) {
@@ -1637,15 +1633,15 @@
             previous: page.previous,
             hasNextPage: currentPage * pageSize < page.total,
             birdTotal: page.total,
-            rangeStart: localDayBound(dateRange.start, false),
-            rangeEnd: localDayBound(dateRange.end, true),
+            rangeStart: timeWindow.start,
+            rangeEnd: timeWindow.end,
             now: new Date()
         });
         if (!span) return { kind: 'none' };
         try {
             const timeline = await fetchGardenVisits({
-                start: localDayBound(dateRange.start, false)?.toISOString() ?? null,
-                end: localDayBound(dateRange.end, true)?.toISOString(),
+                start: timeWindow.start?.toISOString() ?? null,
+                end: timeWindow.end?.toISOString(),
                 pageStart: span.start?.toISOString(),
                 pageEnd: span.end.toISOString(),
                 camera: cameraFilter || undefined,
@@ -1719,8 +1715,8 @@
     }
 
     function gardenCaptureScope(): { start: string | null; end?: string; camera?: string; taxon?: number; status: GardenReview } {
-        return { start: localDayBound(dateRange.start, false)?.toISOString() ?? null,
-            end: localDayBound(dateRange.end, true)?.toISOString(), camera: cameraFilter || undefined,
+        return { start: timeWindow.start?.toISOString() ?? null,
+            end: timeWindow.end?.toISOString(), camera: cameraFilter || undefined,
             taxon: taxonFilter ?? undefined, status: gardenOnly ? gardenReview : 'reviewable' };
     }
 

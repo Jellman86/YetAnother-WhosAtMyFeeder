@@ -16,7 +16,7 @@
     import { fetchGardenVisits, type GardenServerVisit } from '../api/garden';
     import { gardenHistory } from '../stores/garden_history.svelte';
     import { GardenVisitViewer } from '../utils/garden-visit-viewer.svelte';
-    import { mergeFieldLog } from '../utils/field-log';
+    import { fieldLogWindowLink, mergeFieldLog } from '../utils/field-log';
     import NotableNearby from '../components/NotableNearby.svelte';
     import ReviewQueueCard from '../components/ReviewQueueCard.svelte';
     import ProviderWarning from '../components/ProviderWarning.svelte';
@@ -796,6 +796,7 @@
                 onidentify={openRecord}
                 onplay={(detection) => { videoEventId = detection.frigate_event; videoHeading = videoHeadingFor(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames); showVideo = true; }}
                 onseeall={() => onnavigate?.(gardenVisits.length > 0 ? '/events?visitors=all' : '/events')}
+                onseewindow={() => onnavigate?.(fieldLogWindowLink(gardenAvailable))}
             />
         </div>
 

@@ -325,10 +325,24 @@ that day even when it is already the next day in UTC, and a day that changes the
 day, so a range holds up to 366 calendar days: a whole calendar year, leap years included. A
 longer range is rejected with `400`. Any other word is rejected with `422`.
 
+#### Exact instants
+
+The same four endpoints also take `start_time` and `end_time`: exact instants in ISO 8601 with an
+offset (`2026-11-24T10:15:30Z`), for a window no calendar day states, such as the last 24 hours.
+An instant outranks the day on the same side, so `start_time` replaces `start_date` and
+`end_time` replaces `end_date`. Both bounds are inclusive, as with days, and keep microseconds. A
+guest's shared window narrows instants exactly as it narrows days, and the 365-day limit applies.
+A value that is not an instant is rejected with `422`. The Explorer's "Last 24 hours" fixes one
+pair of instants for each read and sends it to the visits, the captures, their count, Garden and
+the heard calls, so every list on the page covers the same 24 hours.
+
 ```bash
 # Everything from today, oldest first in pages of 500, then today's visits in one request.
 curl -fsS "http://localhost:9852/api/events?start_date=today&end_date=today&sort=oldest&limit=500"
 curl -fsS "http://localhost:9852/api/visits?start_date=today&end_date=today&limit=500"
+# The captures and their count over an exact 24 hours.
+curl -fsS "http://localhost:9852/api/events?start_time=2026-11-24T10:00:00Z&end_time=2026-11-25T10:00:00Z"
+curl -fsS "http://localhost:9852/api/events/count?start_time=2026-11-24T10:00:00Z&end_time=2026-11-25T10:00:00Z"
 ```
 
 - `GET /api/events` Returns one page of events (`limit` 1 to 500, 50 by default; `offset` skips

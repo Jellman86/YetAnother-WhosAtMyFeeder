@@ -3,6 +3,7 @@
   "total_count": "{count} всего",
   "filters": {
     "all_time": "За все время",
+    "last_24_hours": "Последние 24 часа",
     "today": "Сегодня",
     "week": "Неделя",
     "month": "Месяц",

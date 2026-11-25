@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultExplorerQuery, parseExplorerQuery, writeExplorerQuery, type ExplorerQuery } from './explorer-query';
+import { defaultExplorerQuery, explorerWindow, parseExplorerQuery, writeExplorerQuery, type ExplorerQuery } from './explorer-query';
 
 const owner = { owner: true, gardenAvailable: true };
 const guest = { owner: false, gardenAvailable: true };
@@ -158,5 +158,49 @@ describe('parseExplorerQuery', () => {
         expect(parseExplorerQuery('?page=2.5', owner).page).toBe(1);
         expect(parseExplorerQuery('?page=99999999', owner).page).toBe(1);
         expect(parseExplorerQuery('?page=12', owner).page).toBe(12);
+    });
+});
+
+describe('the last 24 hours', () => {
+    it('round-trips through the address as date=24h with no dates beside it', () => {
+        const state = chosen({ subjects: 'birds', datePreset: '24h' });
+        const search = writeExplorerQuery('', state, owner);
+        expect(search).toBe('visitors=birds&date=24h');
+        expect(parseExplorerQuery(search, owner)).toEqual(state);
+    });
+
+    it('ignores custom dates a link sets beside it', () => {
+        const query = parseExplorerQuery('date=24h&start=2026-10-01&end=2026-10-02', owner);
+        expect(query.datePreset).toBe('24h');
+        expect(query.customStartDate).toBe('');
+        expect(query.customEndDate).toBe('');
+    });
+});
+
+describe('explorerWindow', () => {
+    const now = new Date('2026-11-25T10:15:30.250Z');
+
+    it('reads the last 24 hours as one pair of exact instants ending now', () => {
+        const window = explorerWindow('24h', {}, now);
+        expect(window.request).toEqual({ startTime: '2026-11-24T10:15:30.250Z', endTime: '2026-11-25T10:15:30.250Z' });
+        expect(window.start?.toISOString()).toBe('2026-11-24T10:15:30.250Z');
+        expect(window.end?.toISOString()).toBe('2026-11-25T10:15:30.250Z');
+    });
+
+    it('ignores calendar days under the last 24 hours', () => {
+        const window = explorerWindow('24h', { start: '2026-01-01', end: '2026-01-02' }, now);
+        expect(window.request.startDate).toBeUndefined();
+        expect(window.request.endDate).toBeUndefined();
+    });
+
+    it('keeps calendar days as days, bounded by local midnight and the last instant of the day', () => {
+        const window = explorerWindow('custom', { start: '2026-11-01', end: '2026-11-03' }, now);
+        expect(window.request).toEqual({ startDate: '2026-11-01', endDate: '2026-11-03' });
+        expect(window.start).toEqual(new Date('2026-11-01T00:00:00'));
+        expect(window.end).toEqual(new Date('2026-11-03T23:59:59.999'));
+    });
+
+    it('has no bounds for all time', () => {
+        expect(explorerWindow('all', {}, now)).toEqual({ request: {}, start: null, end: null });
     });
 });

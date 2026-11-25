@@ -36,9 +36,14 @@ empty state, never "today" or "of the day". A screen whose header says one thing
 count another is broken even when every figure is individually correct.
 
 A link that leaves the page says where it goes and points onward, not down: "9 earlier visits in
-the last 24 hours, open in Explorer" with a right chevron. The Explorer's address holds whole days (a
-preset or a custom range of dates), not a rolling window, so the link opens it unfiltered rather
-than on a window that is not the desk's.
+the last 24 hours, open in Explorer" with a right chevron. It opens the Explorer on the same
+window, `/events?date=24h`, and names the visitors the log holds (`visitors=all` while Garden is
+on, `visitors=birds` otherwise), so a device that last left the Explorer on Garden alone cannot
+hide the visits the line counted. The Explorer's "Last 24 hours" fixes one pair of exact instants
+for each read and gives the same pair to the visits, the captures, their count, Garden and the
+heard calls. The header's "See full history" is a different promise and stays unfiltered, so
+`FieldLog` takes the two as separate callbacks: `onseeall` for the header, `onseewindow` for the
+truncation line.
 
 When you add a panel, take the already-windowed list, not `detectionsStore.detections`.
 

@@ -48,7 +48,7 @@ from app.utils.public_access import (
 )
 from app.utils.calendar_day import CalendarDay, calendar_window, clamp_window, local_date
 from app.utils.timezone import calendar_timezone
-from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
+from app.utils.api_datetime import serialize_api_datetime, utc_naive_datetime, utc_naive_now
 from app.utils.canonical_species import (
     hidden_species_exact_labels,
     UNKNOWN_BIRD_DISPLAY_LABEL as CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL,
@@ -139,6 +139,8 @@ _LAST_INSTANT = timedelta(microseconds=1)
 CALENDAR_DAY_HELP = (
     "an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC"
 )
+EXACT_START_HELP = "Exact start instant (inclusive, ISO 8601 with an offset); overrides start_date"
+EXACT_END_HELP = "Exact end instant (inclusive, ISO 8601 with an offset); overrides end_date"
 NEXT_OFFSET_HEADER = "X-Next-Offset"
 
 
@@ -167,6 +169,22 @@ def visible_history_window(
         )
     _enforce_max_date_range(local_date(start, zone=zone), local_date(end, zone=zone))
     return start, end
+
+
+def visible_request_window(
+    request: Request,
+    auth: AuthContext,
+    start_day: CalendarDay | None,
+    end_day: CalendarDay | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
+) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Exact instants win over calendar days; the viewer's allowance narrows either."""
+    zone = calendar_timezone(request)
+    day_start, day_end = requested_calendar_window(start_day, end_day, zone)
+    start = utc_naive_datetime(start_time) if start_time else day_start
+    end = utc_naive_datetime(end_time) if end_time else day_end
+    return visible_history_window(auth, start, end, zone)
 
 
 def parse_species_filter(species: Optional[str]) -> tuple[Optional[str], Optional[int]]:
@@ -700,6 +718,8 @@ async def get_events(
     ),
     start_date: Optional[CalendarDay] = Query(default=None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
     end_date: Optional[CalendarDay] = Query(default=None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
+    start_time: Optional[datetime] = Query(default=None, description=EXACT_START_HELP),
+    end_time: Optional[datetime] = Query(default=None, description=EXACT_END_HELP),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     event_id: Optional[str] = Query(default=None, max_length=255, description="Filter by exact Frigate event ID"),
@@ -728,10 +748,7 @@ async def get_events(
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
 
-    zone = calendar_timezone(request)
-    start_datetime, end_datetime = visible_history_window(
-        auth, *requested_calendar_window(start_date, end_date, zone), zone
-    )
+    start_datetime, end_datetime = visible_request_window(request, auth, start_date, end_date, start_time, end_time)
 
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
@@ -1000,6 +1017,8 @@ async def get_events_count(
     request: Request,
     start_date: Optional[CalendarDay] = Query(default=None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
     end_date: Optional[CalendarDay] = Query(default=None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
+    start_time: Optional[datetime] = Query(default=None, description=EXACT_START_HELP),
+    end_time: Optional[datetime] = Query(default=None, description=EXACT_END_HELP),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     favorites: bool = Query(default=False, description="Only count favorited detections"),
@@ -1018,10 +1037,7 @@ async def get_events_count(
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
-    zone = calendar_timezone(request)
-    start_datetime, end_datetime = visible_history_window(
-        auth, *requested_calendar_window(start_date, end_date, zone), zone
-    )
+    start_datetime, end_datetime = visible_request_window(request, auth, start_date, end_date, start_time, end_time)
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
         include_hidden = False
@@ -1056,7 +1072,20 @@ async def get_events_count(
         )
 
         # Determine if any filters are applied
-        filtered = any([start_date, end_date, species, camera, favorites, audio_confirmed_only, only_hidden, taxon])
+        filtered = any(
+            [
+                start_date,
+                end_date,
+                start_time,
+                end_time,
+                species,
+                camera,
+                favorites,
+                audio_confirmed_only,
+                only_hidden,
+                taxon,
+            ]
+        )
 
         return EventsCountResponse(count=count, filtered=filtered)
 

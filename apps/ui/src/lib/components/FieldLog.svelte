@@ -38,7 +38,10 @@
         ongardenopen?: (visit: GardenServerVisit) => void;
         gardenScope?: GardenCaptureScope;
         ongardencapture?: (visit: GardenServerVisit, capture: GardenCapture, index: number) => void;
+        /** The header's link: the whole history, no window. */
         onseeall?: () => void;
+        /** The truncation line's link: the Explorer on this log's own window. */
+        onseewindow?: () => void;
         onretry?: () => void;
     }
 
@@ -61,6 +64,7 @@
         gardenScope,
         ongardencapture,
         onseeall,
+        onseewindow,
         onretry
     }: Props = $props();
 
@@ -226,7 +230,7 @@
         {#if hiddenCount > 0}
             <button
                 class="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold text-muted transition-colors hover:bg-surface-raised focus-ring"
-                onclick={() => onseeall?.()}
+                onclick={() => onseewindow?.()}
                 data-field-log-more
             >
                 <!-- It leaves the page for the Explorer, so it says so and points onward, not down. -->

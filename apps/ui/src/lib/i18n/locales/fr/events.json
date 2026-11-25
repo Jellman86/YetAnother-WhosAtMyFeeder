@@ -3,6 +3,7 @@
   "total_count": "{count} au total",
   "filters": {
     "all_time": "Tout le temps",
+    "last_24_hours": "Dernières 24 heures",
     "today": "Aujourd’hui",
     "week": "Semaine",
     "month": "Mois",
