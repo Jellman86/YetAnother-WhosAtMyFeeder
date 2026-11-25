@@ -167,10 +167,12 @@ WORKER_FAILURE_REQUEUE_REASONS: frozenset[str] = frozenset(
 )
 # Errors that say Frigate itself no longer has the event or its clip. Only these may
 # apply the missing-media policy, which can delete a record (#1096). Excluded on
-# purpose: ``clip_not_found`` (a 404 Frigate also answers while it is still writing
-# the clip), ``clip_invalid`` and ``clip_decode_failed`` (a local read or decode of a
-# downloaded file failed), timeouts, HTTP and network errors, and ``video_exception``.
-MISSING_UPSTREAM_MEDIA_ERRORS: frozenset[str] = frozenset({"event_not_found", "clip_not_retained", "clip_unavailable"})
+# purpose: ``clip_unavailable`` (the worker's own word when no clip loaded, given even
+# when Frigate was never asked), ``clip_not_found`` (a 404 Frigate also answers while
+# it is still writing the clip), ``clip_invalid`` and ``clip_decode_failed`` (a local
+# read or decode of a downloaded file failed), timeouts, HTTP and network errors, and
+# ``video_exception``.
+MISSING_UPSTREAM_MEDIA_ERRORS: frozenset[str] = frozenset({"event_not_found", "clip_not_retained"})
 WORKER_FAILURE_MAX_REQUEUES = 2
 WORKER_FAILURE_REQUEUE_DELAY_SECONDS = 20.0
 _PRECHECK_NO_CLIP_MAX_RETRIES = 1

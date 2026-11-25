@@ -559,9 +559,9 @@ history, are in [Maintenance](#maintenance). Telemetry, what leaves this install
   A failed event lookup is reported as an unsuccessful check, not missing media. Timeouts,
   authentication errors, server errors and unusable responses preserve the saved state for a
   later retry. A manual scan can clear an earlier missing flag only after confirming the media.
-  Only Frigate reporting that the event or its clip is gone applies this policy. A clip that YA-WAMF
-  cannot read or decode, or an unexpected failure inside video analysis, leaves the record as it
-  was, and so does a record you added by hand.
+  Only Frigate reporting that the event is gone or its recording is no longer retained applies
+  this policy. A clip that YA-WAMF cannot load, read or decode, or an unexpected failure inside
+  video analysis, leaves the record as it was, and so does a record you added by hand.
   Automatic missing-media deletion checks favourites in its final database decision. A favourite
   accepted before that decision keeps its detection and cached photos, even if a scan is running.
 - **Photos and video** — photographs, full-visit clips and previews are YA-WAMF's own record and are

@@ -178,11 +178,7 @@ def _assert_kept(before: dict, after: dict) -> None:
 
 
 def test_only_errors_that_affirm_frigate_lost_the_media_qualify_for_the_missing_media_policy():
-    assert auto_video_module.MISSING_UPSTREAM_MEDIA_ERRORS == {
-        "event_not_found",
-        "clip_not_retained",
-        "clip_unavailable",
-    }
+    assert auto_video_module.MISSING_UPSTREAM_MEDIA_ERRORS == {"event_not_found", "clip_not_retained"}
 
 
 @pytest.mark.asyncio
@@ -221,6 +217,35 @@ async def test_a_clip_that_fails_to_read_locally_never_applies_the_missing_media
 
 
 @pytest.mark.asyncio
+async def test_a_clip_load_that_never_asked_frigate_never_applies_the_missing_media_policy(history_pool, monkeypatch):
+    # With no polling attempts the loader returns no reason, and the worker reports clip_unavailable.
+    _delete_without_photo(monkeypatch)
+    monkeypatch.setattr(settings.classification, "video_classification_max_retries", -1)
+    event_id = "issue1096-clip-never-requested"
+    await _seed_capture(event_id, name="Unknown Bird", at=_captured_at(7))
+    before = await _history(event_id, 7)
+    service = _maintenance_service(AsyncMock())
+
+    async def load_from_frigate(frigate_event: str, dest_path: str, **_kwargs):
+        loaded, error = await service._wait_for_clip(frigate_event, dest_path, skip_delay=True)
+        return loaded, error, "event", None
+
+    service._load_preferred_clip = AsyncMock(side_effect=load_from_frigate)
+    download = AsyncMock(return_value=(False, "clip_not_retained"))
+    with (
+        patch.object(auto_video_module.frigate_client, "download_clip_to_file", new=download),
+        patch.object(auto_video_module, "apply_missing_policy", new=AsyncMock()) as policy,
+    ):
+        await _run_maintenance(service, event_id, fallback_to_snapshot=False)
+
+    download.assert_not_awaited()
+    policy.assert_not_awaited()
+    after = await _history(event_id, 7)
+    _assert_kept(before, after)
+    assert after["detection"].video_classification_error == "clip_unavailable"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "error",
     [
@@ -231,6 +256,8 @@ async def test_a_clip_that_fails_to_read_locally_never_applies_the_missing_media
         "clip_timeout",
         "clip_http_500",
         "clip_request_error",
+        # The worker's own word for "no clip loaded", given without any answer from Frigate.
+        "clip_unavailable",
     ],
 )
 async def test_the_missing_media_policy_ignores_errors_that_do_not_affirm_frigate_lost_the_media(
@@ -270,7 +297,7 @@ async def test_a_record_the_owner_added_never_applies_the_missing_media_policy(h
     await _seed_capture(event_id, name="Unknown Bird", at=_captured_at(1))
 
     with patch.object(auto_video_module.media_cache, "get_snapshot_path", new=AsyncMock(return_value=None)):
-        await auto_video_module.AutoVideoClassifierService()._auto_delete_if_missing(event_id, "clip_unavailable")
+        await auto_video_module.AutoVideoClassifierService()._auto_delete_if_missing(event_id, "clip_not_retained")
 
     assert (await _history(event_id, 1))["detection"] is not None
 
