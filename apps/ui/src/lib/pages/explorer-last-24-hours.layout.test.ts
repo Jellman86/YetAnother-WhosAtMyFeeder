@@ -20,7 +20,9 @@ describe('the Explorer reads the last 24 hours as one window (#1098)', () => {
     });
 
     it('fixes one pair of instants for each read and keeps it local until the read succeeds', () => {
-        expect(eventsSource).toContain('const range = explorerWindow(datePreset, dateRange, new Date());');
+        // Calendar days and instants both come from the read's own clock, so a read after midnight is the new day.
+        expect(eventsSource).toContain('const range = explorerReadWindow(datePreset, { start: customStartDate, end: customEndDate }, new Date());');
+        expect(eventsSource).not.toContain('let dateRange');
         expect(eventsSource).not.toContain('windowNow');
         expect(eventsSource).not.toContain('timeWindow');
         // The window is published with the visits or Garden page it read, after the stale-read guard.
@@ -92,8 +94,8 @@ describe('the field log links to the whole history and to its own window separat
         expect(dashboardSource).toContain("onseeall={() => onnavigate?.(gardenVisits.length > 0 ? '/events?visitors=all' : '/events')}");
     });
 
-    it('opens the truncation line on the last 24 hours with the visitors named', () => {
+    it('opens the truncation line on the Dashboard\'s window with the visitors named', () => {
         expect(tagWith(fieldLogSource, 'data-field-log-more')).toContain('onclick={() => onseewindow?.()}');
-        expect(dashboardSource).toContain('onseewindow={() => onnavigate?.(fieldLogWindowLink(gardenAvailable))}');
+        expect(dashboardSource).toContain('onseewindow={() => onnavigate?.(fieldLogWindowLink(gardenAvailable, deskKind))}');
     });
 });

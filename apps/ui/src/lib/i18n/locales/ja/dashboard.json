@@ -3,7 +3,13 @@
   "live_feed": "ライブフィード",
   "showing_last_3_days": "過去3日間を表示",
   "no_detections": "過去24時間に訪問はありません。",
+  "no_detections_today": "今日はまだ訪問がありません。",
   "waiting_first_visitor": "過去24時間に訪問はありません。新しい訪問は届きしだいここに表示されます。",
+  "waiting_first_visitor_today": "今日はまだ訪問がありません。新しい訪問は届きしだいここに表示されます。",
+  "waiting_first_visitor_shared": "共有されている履歴が始まる {time} 以降、訪問はありません。新しい訪問は届きしだいここに表示されます。",
+  "no_bird_visits": "過去24時間に鳥の訪問はありません。",
+  "no_bird_visits_today": "今日はまだ鳥の訪問がありません。",
+  "no_bird_visits_shared": "共有されている履歴が始まる {time} 以降、鳥の訪問はありません。",
   "discovery_feed": "ディスカバリーフィード",
   "see_full_history": "すべての履歴を表示",
   "audio_confirmations": "音声確認",
@@ -25,9 +31,11 @@
   "histogram": {
     "title": "アクティビティ",
     "visits_per_hour": "1時間ごとの訪問数（過去24時間）",
+    "visits_per_hour_today": "1時間ごとの訪問数（今日）",
     "peak": "{count, plural, other {最も多いのは {time}（# 回）}}",
     "now": "現在",
     "aria": "{count, plural, other {過去24時間の1時間ごとの訪問数：合計 # 回、最多は {time}}}",
+    "aria_today": "{count, plural, other {今日の1時間ごとの訪問数：合計 # 回、最多は {time}}}",
     "tooltip_visits": "{count, plural, other {{time} に # 回}}"
   },
   "audio_feed": {
@@ -45,6 +53,7 @@
     "preview_trigger": "{species} をプレビュー",
     "preview_alt": "{camera} の {species}",
     "earlier": "{count, plural, other {過去24時間のそれ以前の訪問 # 件、エクスプローラーで開く}}",
+    "earlier_today": "{count, plural, other {今日のそれ以前の訪問 # 件、エクスプローラーで開く}}",
     "preview_frame_position": "この訪問の {count} フレーム中 {position} 枚目",
     "birds_in_capture": "{count, plural, other {1回の撮影に # 羽}}",
     "birds_unknown": "不明 {count} 羽",
@@ -80,6 +89,9 @@
     "cross_confirmed": "件が相互確認済み",
     "reconnecting": "再接続中…",
     "window": "過去24時間",
+    "shared_from": "共有されている履歴は {time} からです。そのため、今日それより前の訪問は表示されません。",
+    "window_choice": "表示する期間",
+    "window_today": "今日",
     "loading": "読み込み中",
     "unavailable": "利用できません",
     "birds_scope_short": "{count, plural, other {解析済み # 件のキャプチャから}}",
@@ -97,6 +109,8 @@
     "most_heard": "よく聞こえた種",
     "latest_call": "最新の鳴き声: {time} の {species}",
     "heard_empty": "過去24時間に鳴き声は聞こえませんでした。",
+    "heard_empty_today": "今日はまだ鳴き声が聞こえていません。",
+    "heard_unavailable": "聞こえた鳴き声を読み込めませんでした。ダッシュボードは1分ごとに再試行します。",
     "cameras_loading": "カメラごとの訪問を読み込み中…",
     "camera_visits_unavailable": "訪問数を読み込めませんでした。",
     "camera_visits_unit": "{count, plural, other {回}}",
@@ -105,6 +119,7 @@
   "review_queue": {
     "title": "確認が必要です",
     "empty": "過去24時間の訪問にはすべて種名が付いています。保留中の項目はありません。",
+    "empty_today": "今日の訪問にはすべて種名が付いています。保留中の項目はありません。",
     "remaining": "他に {count} 件が保留中",
     "work_through": "キューを処理する",
     "new_species_tag": "新しい種 · {count, plural, other {# 回の観察}}",
@@ -113,6 +128,7 @@
     "reason_unknown_species": "種が不明",
     "reason_low_score": "識別のしきい値未満",
     "visits_clear": "過去24時間の訪問にはすべて種名が付いています。",
+    "visits_clear_today": "今日の訪問にはすべて種名が付いています。",
     "checks_summary": "{count, plural, other {#種の名前が誤っている可能性があります: {species}。}}",
     "checks_body": "{count, plural, other {カメラのみが根拠で、半径{distance}以内で観察者の報告はありません。}}",
     "checks_body_plain": "{count, plural, other {カメラのみが根拠です。}}",
@@ -169,5 +185,6 @@
   "provider_fallback": "選択した推論プロバイダーが動作していません",
   "provider_checking_detail": "この確認は一度だけ実行されます。成功すると分類器が自動的に再読み込みされます。",
   "provider_review": "モデルとプロバイダーを確認",
-  "top_visitors_empty_window": "過去24時間の訪問はありません。"
+  "top_visitors_empty_window": "過去24時間の訪問はありません。",
+  "top_visitors_empty_today": "今日はまだ訪問がありません。"
 }

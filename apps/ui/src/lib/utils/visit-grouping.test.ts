@@ -205,6 +205,20 @@ describe('groupDetectionsIntoVisits', () => {
         expect(kept.map((item) => item.frigate_event)).toEqual(['today', 'undated']);
     });
 
+    it('keeps Today\'s live captures from its local midnight, never yesterday evening\'s', () => {
+        const now = new Date(2026, 7, 11, 0, 20).getTime();
+        const midnight = new Date(2026, 7, 11).getTime();
+        const kept = withinDeskWindow(
+            [
+                detection({ frigate_event: 'just-after-midnight', detection_time: new Date(2026, 7, 11, 0, 5).toISOString() }),
+                detection({ frigate_event: 'late-yesterday', detection_time: new Date(2026, 7, 10, 23, 55).toISOString() })
+            ],
+            now,
+            midnight
+        );
+        expect(kept.map((item) => item.frigate_event)).toEqual(['just-after-midnight']);
+    });
+
     it('does not mutate the array it is given', () => {
         const input = [
             detection({ frigate_event: 'old', detection_time: '2026-08-11T06:18:00Z' }),

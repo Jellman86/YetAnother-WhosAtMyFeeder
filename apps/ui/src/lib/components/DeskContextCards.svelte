@@ -1,4 +1,5 @@
 <script lang="ts">
+    import type { DeskWindowKind } from '../utils/desk-window';
     import { weatherConditionMessage } from '../utils/weather-condition';
     import Separator from './Separator.svelte';
     import { readCameraStatuses } from '../api';
@@ -24,9 +25,11 @@
         loading?: boolean;
         /** The day could not be read, so visit counts stay unknown rather than zero. */
         unavailable?: boolean;
+        /** The Dashboard's window, which the visits were counted over. */
+        windowKind?: DeskWindowKind;
     }
 
-    let { detections, visits, cameraVisits = null, loading = false, unavailable = false }: Props = $props();
+    let { detections, visits, cameraVisits = null, loading = false, unavailable = false, windowKind = 'rolling' }: Props = $props();
 
     let cameraStatus = $state<CameraStatusResponse | null>(null);
     let cameraRequested = false;
@@ -112,7 +115,7 @@
             </svg>
             {$_('dashboard.desk.feeder_now', { default: 'At the feeder now' })}
         </h2>
-        <p class="mt-0.5 text-sm text-muted">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
+        <p class="mt-0.5 text-sm text-muted">{windowKind === 'today' ? $_('dashboard.day_bar.window_today', { default: 'Today' }) : $_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
     </div>
 
     {#if loading}

@@ -29,13 +29,13 @@ from app.utils.canonical_species import should_hide_species_label
 from app.utils.public_access import (
     hide_public_audio_fields,
     refresh_public_audio_fields,
-    public_events_cutoff,
+    public_events_window,
     public_event_query_bounds,
     effective_public_events_days,
 )
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.timezone import calendar_timezone
-from app.utils.calendar_day import instance_timezone, local_date, today_so_far
+from app.utils.calendar_day import clamp_window, instance_timezone, local_date, today_so_far
 from app.utils.local_hour_buckets import hour_alignment_segments, local_hour_start, local_hour_starts
 from app.services.leaderboard_window import LEADERBOARD_SPAN_DESCRIPTION, BoundedSpan, leaderboard_windows
 from app.services.daily_history import (
@@ -584,20 +584,31 @@ async def get_daily_summary(
     else:
         start_dt = end_dt - timedelta(hours=24)
     if not auth.is_owner:
-        start_dt = max(start_dt, public_events_cutoff(end_dt.replace(tzinfo=timezone.utc)).replace(tzinfo=None))
+        floor, ceiling = public_events_window(end_dt.replace(tzinfo=timezone.utc))
+        start_dt, end_dt = clamp_window(
+            start_dt,
+            end_dt,
+            floor=floor.replace(tzinfo=None),
+            ceiling=ceiling.replace(tzinfo=None) if ceiling is not None else None,
+        )
+    # Every count reads the half-open window [start_dt, end_dt), as Needs your call does: a capture at
+    # window_end belongs to the next read. Queries that take an inclusive end get its last instant.
+    last_instant = end_dt - timedelta(microseconds=1)
 
     async with get_db() as db:
         repo = DetectionRepository(db)
 
-        # 1. Hourly distribution
+        # 1. Hourly distribution, each capture in the local hour it was made in, also off the whole hour
         hourly = [0] * 24
-        hourly_counts = await repo.get_timebucket_counts_hourly(start_dt, end_dt)
-        for bucket_key, count in hourly_counts.items():
-            local_dt = _parse_utc_bucket_key(bucket_key).replace(tzinfo=timezone.utc).astimezone(user_tz)
-            hourly[local_dt.hour] += int(count)
+        for bucket_key, count in (
+            await _by_local_hour(repo.get_timebucket_counts_hourly, start_dt, end_dt, user_tz)
+        ).items():
+            hourly[_parse_utc_bucket_key(bucket_key).replace(tzinfo=timezone.utc).astimezone(user_tz).hour] += int(
+                count
+            )
 
         # 2. Species counts
-        species_raw = await repo.get_daily_species_counts(start_dt, end_dt)
+        species_raw = await repo.get_daily_species_counts(start_dt, last_instant)
 
         # Transform unknowns
         unknown_labels = settings.classification.unknown_bird_labels
@@ -654,7 +665,7 @@ async def get_daily_summary(
         summary_species.sort(key=lambda x: (x.visit_count, x.count), reverse=True)
 
         # 3. Latest detection
-        latest_raw = await repo.get_all(limit=1, start_date=start_dt, end_date=end_dt)
+        latest_raw = await repo.get_all(limit=1, start_date=start_dt, end_date=last_instant)
         latest_detection = None
         if latest_raw:
             d = latest_raw[0]
@@ -670,13 +681,13 @@ async def get_daily_summary(
             hide_public_audio_fields(latest_detection)
         total_today = sum(hourly)
         audio_confirmations = await repo.get_audio_confirmations_count(
-            start_dt, end_dt, public_evidence=not auth.is_owner
+            start_dt, last_instant, public_evidence=not auth.is_owner
         )
         if not auth.is_owner and not settings.public_access.show_audio:
             audio_confirmations = 0
         bird_counts = await BirdObservationRepository(db).count_visible_between(start_dt, end_dt)
 
-        openings = await repo.get_window_visit_openings(start_dt, end_dt)
+        openings = await repo.get_window_visit_openings(start_dt, last_instant)
         hourly_visits = [0] * 24
         visits_by_camera: dict[str, int] = {}
         for opening in openings:
@@ -686,7 +697,7 @@ async def get_daily_summary(
             visits_by_camera[camera] = visits_by_camera.get(camera, 0) + 1
         camera_visits = None
         if not hide_camera_names:
-            last_seen = await repo.get_camera_last_seen(start_dt, end_dt)
+            last_seen = await repo.get_camera_last_seen(start_dt, last_instant)
             camera_visits = [
                 DailyCameraVisits(camera=camera, visits=visits, last_seen=last_seen.get(camera))
                 for camera, visits in sorted(visits_by_camera.items(), key=lambda item: (-item[1], item[0]))

@@ -97,7 +97,7 @@ test('Back leaves the Explorer for where it was opened from, and Forward returns
     await page.goto('/browser-tests/owner-history.html?surface=explorer');
     await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toBeVisible();
     await page.getByRole('button', { name: /^Dunnock.*12$/ }).click();
-    await page.locator('[data-explorer-date-facet]').getByRole('button', { name: 'Week', exact: true }).click();
+    await page.locator('[data-explorer-date-facet]').getByRole('button', { name: 'Last 7 days', exact: true }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get('date')).toBe('week');
 
     await page.goBack();
@@ -106,7 +106,7 @@ test('Back leaves the Explorer for where it was opened from, and Forward returns
     requests.length = 0;
     await page.goForward();
     await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('[data-explorer-date-facet]').getByRole('button', { name: 'Week', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-explorer-date-facet]').getByRole('button', { name: 'Last 7 days', exact: true })).toHaveAttribute('aria-pressed', 'true');
     expect(new URL(page.url()).searchParams.get('species')).toBe('Prunella modularis');
 });
 
@@ -130,7 +130,7 @@ test('a pasted link opens with its filters and ignores values it cannot trust', 
     const requests = await openExplorer(page, '&species=Erithacus%20rubecula&camera=garden&date=week&start=2026-99-01&page=2&show=everything&favorites=maybe');
     await expect(page.getByRole('button', { name: /^European Robin.*8$/ })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('[data-explorer-camera-facet] summary')).toContainText('garden');
-    await expect(page.locator('[data-explorer-date-facet]').getByRole('button', { name: 'Week', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-explorer-date-facet]').getByRole('button', { name: 'Last 7 days', exact: true })).toHaveAttribute('aria-pressed', 'true');
     // Visits stay grouped: "everything" is not a way to show results.
     await expect(page.locator('[data-explorer-show="visits"]')).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => lastRead(requests, '/api/visits')?.searchParams.get('offset')).toBe('24');

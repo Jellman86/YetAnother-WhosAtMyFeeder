@@ -1,4 +1,5 @@
 <script lang="ts">
+    import type { DeskWindowKind } from '../utils/desk-window';
     import { getThumbnailUrl } from '../api';
     import type { Detection } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
@@ -16,6 +17,8 @@
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
 
     interface Props {
+        /** The Dashboard's window: the captures waiting and the species checks are read for it. */
+        windowKind?: DeskWindowKind;
         queue: ReviewQueue;
         /** Until the history is read, an empty queue is unknown, not "nothing waiting". */
         status?: ReadingStatus;
@@ -28,7 +31,7 @@
         onkept?: (bird: DomesticBirdKey) => void;
     }
 
-    let { queue, status = 'ready', checks, onreview, onreviewall, onretry, onopenchecks, onretrychecks, onkept }: Props = $props();
+    let { queue, status = 'ready', checks, onreview, onreviewall, onretry, onopenchecks, onretrychecks, onkept, windowKind = 'rolling' }: Props = $props();
 
     const call = $derived(
         needsYourCall({ canReview: true, queueStatus: status, queueTotal: queue.total, checksStatus: checks.status, checkCount: checks.names.length })
@@ -103,9 +106,9 @@
 
     {#if call.nothingWaiting}
         <p class="mt-2 text-xs text-muted">
-            {$_('dashboard.review_queue.empty', {
-                default: 'Every visit in the last 24 hours has a species. Nothing waiting on you.'
-            })}
+            {windowKind === 'today'
+                ? $_('dashboard.review_queue.empty_today', { default: 'Every visit today has a species. Nothing waiting on you.' })
+                : $_('dashboard.review_queue.empty', { default: 'Every visit in the last 24 hours has a species. Nothing waiting on you.' })}
         </p>
     {:else if call.visits === 'loading'}
         <p role="status" class="sr-only">
@@ -132,7 +135,7 @@
         {/if}
     {:else if call.visits === 'clear'}
         <p class="mt-2 text-xs text-muted" data-review-queue-visits-clear>
-            {$_('dashboard.review_queue.visits_clear', { default: 'Every visit in the last 24 hours has a species.' })}
+            {windowKind === 'today' ? $_('dashboard.review_queue.visits_clear_today', { default: 'Every visit today has a species.' }) : $_('dashboard.review_queue.visits_clear', { default: 'Every visit in the last 24 hours has a species.' })}
         </p>
     {:else}
         {#if call.visits === 'stale'}

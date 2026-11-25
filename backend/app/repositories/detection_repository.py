@@ -1885,6 +1885,7 @@ class DetectionRepository:
         first_seen_cutoff: datetime,
         excluded_labels: list[str] | None = None,
         limit: int = 20,
+        before: datetime | None = None,
     ) -> list[tuple[Detection, int]]:
         """Species with no confirmed history, represented by their latest sighting.
 
@@ -1892,7 +1893,8 @@ class DetectionRepository:
         arrivals: few of them, none manually tagged, first seen inside the
         window. Each returns once, wearing its newest detection, so the
         review queue can ask a person the one question that matters —
-        is this bird real here?
+        is this bird real here? With ``before``, history is read as it stood
+        then, exclusive: a sighting at or after it is the next read's.
         """
         excluded = [label.strip().lower() for label in (excluded_labels or []) if label and label.strip()]
         exclusion_clause = ""
@@ -1901,6 +1903,9 @@ class DetectionRepository:
             placeholders = ",".join("?" for _ in excluded)
             exclusion_clause = f"AND LOWER(d.display_name) NOT IN ({placeholders})"
             params.extend(excluded)
+        if before is not None:
+            exclusion_clause += " AND d.detection_time < ?"
+            params.append(before.isoformat(sep=" "))
         query = f"""
             WITH species_history AS (
                 SELECT LOWER(COALESCE(NULLIF(TRIM(d.scientific_name), ''), d.display_name)) AS species_key,
@@ -1938,7 +1943,7 @@ class DetectionRepository:
         window_end: datetime,
         threshold: float,
     ) -> dict[str, tuple[datetime, int, ReviewReason, Optional[int]]]:
-        """Visible undecided detections inside [window_start, window_end] judged by presentation rules."""
+        """Visible undecided detections inside [window_start, window_end) judged by presentation rules."""
         # Text bounds a day wider than the window keep the index in use for every stored format.
         wide_start = (window_start - timedelta(days=1)).date().isoformat()
         wide_end = (window_end + timedelta(days=2)).date().isoformat()
@@ -1958,7 +1963,7 @@ class DetectionRepository:
         waiting: dict[str, tuple[datetime, int, ReviewReason, Optional[int]]] = {}
         for row_id, frigate_event, detection_time, display_name, category_name, score in rows:
             at = utc_naive_datetime(_parse_datetime(detection_time))
-            if not window_start <= at <= window_end:
+            if not window_start <= at < window_end:
                 continue
             reason = _waiting_reason(display_name, category_name, score, threshold)
             if reason:
@@ -1972,7 +1977,7 @@ class DetectionRepository:
         window_end: datetime,
         threshold: float,
     ) -> int:
-        """Count visible undecided detections inside [window_start, window_end]."""
+        """Count visible undecided detections inside [window_start, window_end)."""
         waiting = await self._scan_waiting_in_window(
             window_start=window_start,
             window_end=window_end,

@@ -1,3 +1,4 @@
+import { toLocalYMD } from './date-only';
 import type { ExplorerSubjects, GardenReview } from './garden-explorer';
 
 /**
@@ -212,6 +213,27 @@ function localDayBound(day: string | undefined, end: boolean): Date | null {
  * The window for a preset at `now`. The caller fixes `now` once per read, so the visits, the
  * captures, their count, Garden and the heard calls all share one last 24 hours.
  */
+/** How many calendar days each named period holds, today included. */
+const PRESET_CALENDAR_DAYS: Readonly<Partial<Record<ExplorerDatePreset, number>>> = { today: 1, week: 7, month: 30 };
+
+/**
+ * The calendar days a period names, on the viewer's clock. "Last 7 days" is today and the six
+ * before it, as Audio history and the glossary count them; the last 24 hours is a pair of instants
+ * (`explorerWindow`), not days.
+ */
+export function explorerPresetDays(
+    preset: ExplorerDatePreset,
+    custom: { start: string; end: string },
+    today: Date
+): { start?: string; end?: string } {
+    if (preset === 'custom') return { start: custom.start || undefined, end: custom.end || undefined };
+    const days = PRESET_CALENDAR_DAYS[preset];
+    if (days === undefined) return { start: undefined, end: undefined };
+    const first = new Date(today);
+    first.setDate(first.getDate() - (days - 1));
+    return { start: toLocalYMD(first), end: toLocalYMD(today) };
+}
+
 export function explorerWindow(preset: ExplorerDatePreset, days: { start?: string; end?: string }, now: Date): ExplorerWindow {
     if (preset === '24h') {
         const start = new Date(now.getTime() - ROLLING_DAY_MS);
@@ -222,4 +244,12 @@ export function explorerWindow(preset: ExplorerDatePreset, days: { start?: strin
     if (days.start) request.startDate = days.start;
     if (days.end) request.endDate = days.end;
     return { request, start: localDayBound(days.start, false), end: localDayBound(days.end, true) };
+}
+
+/**
+ * What one read of the Explorer asks for: its calendar days and its instants, both from the one
+ * `now` the read was started at, so reading the same period again after midnight reads the new day.
+ */
+export function explorerReadWindow(preset: ExplorerDatePreset, custom: { start: string; end: string }, now: Date): ExplorerWindow {
+    return explorerWindow(preset, explorerPresetDays(preset, custom, now), now);
 }

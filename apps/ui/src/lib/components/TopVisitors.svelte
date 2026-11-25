@@ -1,4 +1,5 @@
 <script lang="ts">
+    import type { DeskWindowKind } from '../utils/desk-window';
     import { _, locale } from 'svelte-i18n';
     import {
         fetchSpeciesInfo,
@@ -12,9 +13,11 @@
     interface Props {
         species: DailySpeciesSummary[];
         onSpeciesClick?: (speciesFilter: string) => void;
+        /** The Dashboard's window, which the species were counted over. */
+        windowKind?: DeskWindowKind;
     }
 
-    let { species, onSpeciesClick }: Props = $props();
+    let { species, onSpeciesClick, windowKind = 'rolling' }: Props = $props();
 
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
     let speciesInfoPending = $state<Record<string, boolean>>({});
@@ -95,7 +98,7 @@
             <svg class="h-5 w-5 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
             {$_('dashboard.top_visitors_title')}
         </h2>
-        <p class="mt-0.5 text-sm text-muted">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
+        <p class="mt-0.5 text-sm text-muted">{windowKind === 'today' ? $_('dashboard.day_bar.window_today', { default: 'Today' }) : $_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
     </div>
 
     {#if processedSpecies.length > 0}
@@ -130,6 +133,6 @@
             {/each}
         </ol>
     {:else}
-        <p class="text-xs text-muted">{$_('dashboard.top_visitors_empty_window', { default: 'No visits in the last 24 hours.' })}</p>
+        <p class="text-xs text-muted">{windowKind === 'today' ? $_('dashboard.top_visitors_empty_today', { default: 'No visits yet today.' }) : $_('dashboard.top_visitors_empty_window', { default: 'No visits in the last 24 hours.' })}</p>
     {/if}
 </section>

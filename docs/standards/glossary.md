@@ -178,6 +178,10 @@ One form per language, in every string.
   (`formatDate`, `formatDay`, `formatShortDay`, `formatCalendarDay`, `formatDateTime`, `formatTime`,
   `formatHour`). They follow the owner's chosen date and clock format. No `toLocaleString` in a
   component, no date written into a locale string, and no seconds unless the second matters.
+- **A period has one name everywhere**: **All time**, **Today** (from local midnight to now), **Last
+  24 hours**, **Last 7 days** and **Last 30 days** (that many calendar days, today included), and
+  **Custom**. Not "Week" or "Month", which read as the calendar week or month; not "of the day",
+  which leaves open which day.
 - **A count chooses its word** with an ICU plural (`layout-patterns.md`, Writing). The number is
   passed as a number, so it is formatted for the reader's language.
 - **Every number the owner reads has its unit**, joined to it with a no-break space (U+00A0) so the

@@ -235,7 +235,10 @@ export async function fetchHiddenCount(): Promise<paths['/api/events/hidden-coun
 export type ReviewQueueResponse = paths['/api/events/review-queue']['get']['response'];
 
 /** Everything waiting on a person, oldest first, with the full count. Owner only. */
-export async function fetchReviewQueue(options: { limit: number; signal?: AbortSignal }): Promise<ReviewQueueResponse> {
-    const response = await apiFetch(`${API_BASE}/events/review-queue?limit=${options.limit}`, { signal: options.signal });
+type ReviewQueueWindow = NonNullable<paths['/api/events/review-queue']['get']['query']['window']>;
+
+/** What waits on the owner in `window`: the Dashboard's Today or its last 24 hours. */
+export async function fetchReviewQueue(options: { limit: number; window?: ReviewQueueWindow; signal?: AbortSignal }): Promise<ReviewQueueResponse> {
+    const response = await apiFetch(`${API_BASE}/events/review-queue?limit=${options.limit}&window=${options.window ?? 'rolling'}`, { signal: options.signal });
     return handleResponse<ReviewQueueResponse>(response);
 }

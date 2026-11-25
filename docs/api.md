@@ -315,7 +315,7 @@ and `GET /api/visits/{visit_id}/captures` take an ISO date (`2026-11-17`) or the
 
 A header or `TZ` that does not name a real zone is ignored (and logged once), never an error.
 Every other day, hour and weekday the API buckets by uses the same zone: `daily-summary`'s
-`window=today` and its hour buckets, the leaderboard's `span=today`, the timeline's buckets, both activity heatmaps, the
+`window=today` and its hour buckets, the review queue's `window=today`, the leaderboard's `span=today`, the timeline's buckets, both activity heatmaps, the
 species stats distributions, custom backfill dates and the local time an AI analysis is given.
 So a client with no header gets hours in the instance's zone that agree with its day. In a zone
 whose offset is not a whole hour (Asia/Kolkata, UTC+5:30), the Leaderboard's timeline and heatmap
@@ -455,9 +455,16 @@ current behaviour.
   `max_sightings` (default 3) and `window_days` (default 14) bound what still counts as new.
 - `GET /api/events/review-queue` (owner) — everything waiting on a person, for the dashboard's
   **Needs your call**: visible, undecided detections with no species or a score below the naming
-  threshold in the last `window_hours` (default 24), plus each new species' latest sighting. Lists
-  the oldest `limit` (default 12, up to 500), each with its `reason`, and `total` counts everything
-  however many were listed. `max_sightings` and `window_days` work as they do for new species.
+  threshold in the window, plus each new species' latest sighting. `window=rolling` (the default) is
+  the last `window_hours` (default 24); `window=today` runs from local midnight (in the zone chosen
+  as in [Calendar days](#calendar-days-and-today)) to now. The captures counted are the ones
+  `GET /api/stats/daily-summary` counts as `unresolved_count` for the same `window`, over the same
+  half-open interval, and `window_start` and `window_end` name the window used. A new species waits
+  whenever it was first seen in the last `window_days` and before `window_end` (a sighting at or
+  after it is the next read's), in either window, and counts once when it is also a capture waiting
+  in the window. Lists the oldest `limit` (default 12, up to 500), each with its `reason`, and
+  `total` counts everything however many were listed. `max_sightings` and `window_days` work as they
+  do for new species.
 - `GET /api/events/{event_id}/classification-status` (owner)
 - `PATCH /api/events/{event_id}` (owner)
 - `PATCH /api/events/bulk/manual-tag` (owner)
@@ -1215,8 +1222,12 @@ stores it (parentheses included when the source writes them), or null when unrec
 - `GET /api/stats/daily-summary` Covers the last 24 hours by default (`window=rolling`). With
   `window=today` it covers today so far: from local midnight (in the zone chosen as in
   [Calendar days](#calendar-days-and-today)) to now. The response names the window it used in
-  `window`, `window_start` and `window_end` (UTC). A guest's history window still applies, so
-  `window_start` can be later than midnight. Every count below covers that window. It
+  `window`, `window_start` and `window_end` (UTC). The window is half-open, from `window_start`
+  up to but not including `window_end`, so a capture stamped at `window_end` is counted by the next
+  read. A guest's history window still applies, start and end, so `window_start` can be later than
+  midnight. Every count below covers that window, and
+  `hourly_distribution` puts each capture in the local hour it was made in, also in zones a half or
+  three quarters of an hour off UTC. It
   includes `counted_birds` (visible child observations) and
   `counted_captures` (captures with at least one stored bird observation) for the same daily
   window. These counts cover analyzed captures and may count the same bird in later captures.
