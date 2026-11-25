@@ -219,7 +219,10 @@ def visible_request_window(
     then narrowed, so a well-formed window outside a guest's allowance reads nothing.
     """
     zone = calendar_timezone(request)
-    day_start, day_end = requested_calendar_window(start_day, end_day, zone)
+    # A day an instant replaces is never resolved: a calendar edge has no local midnight in UTC.
+    day_start, day_end = requested_calendar_window(
+        start_day if start_time is None else None, end_day if end_time is None else None, zone
+    )
     if start_time is None and end_time is None:
         return visible_history_window(auth, day_start, day_end, zone)
     start = utc_naive_datetime(start_time) if start_time else day_start

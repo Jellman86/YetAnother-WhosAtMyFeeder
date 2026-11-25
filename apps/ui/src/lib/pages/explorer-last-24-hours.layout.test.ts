@@ -57,6 +57,35 @@ describe('the Explorer reads the last 24 hours as one window (#1098)', () => {
     });
 });
 
+describe('an open Garden record pages in the window it was opened in (#1098)', () => {
+    /** The source from `from` up to the first `to` after it. */
+    function between(from: string, to: string): string {
+        const start = eventsSource.indexOf(from);
+        expect(start).toBeGreaterThan(-1);
+        const end = eventsSource.indexOf(to, start + from.length);
+        expect(end).toBeGreaterThan(start);
+        return eventsSource.slice(start, end);
+    }
+
+    it('pins the scope when the record opens and pages with it, not with the rows on screen', () => {
+        const open = between('function openGardenCapture(', 'function setSubjects(');
+        expect(open).toContain('openedGardenScope = openedGardenGroup ? gardenCaptureScope() : null;');
+        const paging = between('async function loadGardenCapturePage(', 'function openGardenCapture(');
+        expect(paging).toContain('const scope = openedGardenScope ?? gardenCaptureScope();');
+        expect(paging).toContain('fetchGardenVisitCaptures(group.id, scope, offset)');
+        expect(paging).not.toContain('fetchGardenVisitCaptures(group.id, gardenCaptureScope()');
+    });
+
+    it('moves the group id and its scope together when a Garden refresh rebinds the open record', () => {
+        const rebind = 'openedGardenGroup = { ...openedGardenGroup, id: refreshed.id, captureCount: refreshed.capture_count };\n                        openedGardenScope = gardenCaptureScope();';
+        expect(eventsSource).toContain(rebind);
+        expect(eventsSource).toContain('openedGardenScope = current ? gardenCaptureScope() : null;');
+        // Closing or dismissing the record lets go of its scope.
+        expect(between('function closeGardenRecord(', '/**')).toContain('openedGardenScope = null;');
+        expect(between('function gardenGroupDismissed(', "const message = $_('garden.batch_dismissed'")).toContain('openedGardenScope = null;');
+    });
+});
+
 describe('the field log links to the whole history and to its own window separately (#1098)', () => {
     it('keeps the header link on the whole history', () => {
         expect(fieldLogSource).toMatch(/<button\s+onclick=\{\(\) => onseeall\?\.\(\)\}/);

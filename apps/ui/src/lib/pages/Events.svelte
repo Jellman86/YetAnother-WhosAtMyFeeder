@@ -154,6 +154,11 @@
     // Camera candidates held back until their automatic check decides; only the owner is told.
     let gardenAwaitingCheck = $state(0);
     let openedGardenGroup = $state.raw<GardenVisit | null>(null);
+    /**
+     * The scope the open Garden record was opened in. Its group is an id in that window, so its pages
+     * are read there too, even after a Garden refresh moves the rows on screen to a newer window.
+     */
+    let openedGardenScope = $state.raw<OpenedGardenScope | null>(null);
     let gardenGroupOffset = $state(0);
     let gardenGroupLoading = $state(false);
     let gardenGroupError = $state<string | null>(null);
@@ -824,7 +829,9 @@
                 if (selectedGarden && !gardenFailed) {
                     const refreshed = findRefreshedGardenVisit(serverGardenVisits, openedGardenGroup);
                     if (refreshed && openedGardenGroup) {
+                        // The refreshed id belongs to the Garden read just applied, so its window comes with it.
                         openedGardenGroup = { ...openedGardenGroup, id: refreshed.id, captureCount: refreshed.capture_count };
+                        openedGardenScope = gardenCaptureScope();
                         await loadGardenCapturePage(gardenGroupOffset, false);
                     } else {
                         // A species correction can change the visit ID. Re-read this
@@ -836,6 +843,7 @@
                             if (generation !== gardenGroupGeneration || selectedGarden?.id !== selected.id) return;
                             selectedGarden = current;
                             openedGardenGroup = current ? { id: current.id, kind: 'visit', captureCount: 1, items: [current] } : null;
+                            openedGardenScope = current ? gardenCaptureScope() : null;
                             gardenGroupOffset = 0;
                         } catch (failure) {
                             if (generation === gardenGroupGeneration) gardenGroupError = failure instanceof Error ? failure.message : $_('garden.save_error');
@@ -1297,6 +1305,7 @@
         gardenGroupGeneration++;
         selectedGarden = null;
         openedGardenGroup = null;
+        openedGardenScope = null;
     }
 
     /**
@@ -1723,7 +1732,9 @@
         await loadGarden();
     }
 
-    function gardenCaptureScope(): { start: string | null; end?: string; camera?: string; taxon?: number; status: GardenReview } {
+    type OpenedGardenScope = { start: string | null; end?: string; camera?: string; taxon?: number; status: GardenReview };
+
+    function gardenCaptureScope(): OpenedGardenScope {
         return { start: shownGardenWindow.current.start?.toISOString() ?? null,
             end: shownGardenWindow.current.end?.toISOString(), camera: cameraFilter || undefined,
             taxon: taxonFilter ?? undefined, status: gardenOnly ? gardenReview : 'reviewable' };
@@ -1732,13 +1743,14 @@
     async function loadGardenCapturePage(index: number, selectCapture = true): Promise<void> {
         const group = openedGardenGroup;
         if (!group) return;
+        const scope = openedGardenScope ?? gardenCaptureScope();
         const generation = ++gardenGroupGeneration;
         const selectedId = selectedGarden?.id;
         gardenGroupLoading = true;
         gardenGroupError = null;
         const offset = Math.floor(index / 128) * 128;
         try {
-            const page = await fetchGardenVisitCaptures(group.id, gardenCaptureScope(), offset);
+            const page = await fetchGardenVisitCaptures(group.id, scope, offset);
             if (generation !== gardenGroupGeneration || !selectedGarden || selectedGarden.id !== selectedId) return;
             openedGardenGroup = { ...group, captureCount: page.total, items: page.items };
             gardenGroupOffset = offset;
@@ -1756,6 +1768,7 @@
         gardenGroupGeneration++;
         selectedGarden = capture;
         openedGardenGroup = visit ? { ...visit, items: [capture] } : gardenGroups.find((group) => group.items[0].id === capture.id) ?? null;
+        openedGardenScope = openedGardenGroup ? gardenCaptureScope() : null;
         gardenGroupOffset = Math.floor(index / 128) * 128;
         gardenGroupError = null;
         if (openedGardenGroup) void loadGardenCapturePage(index, false);
@@ -1909,6 +1922,7 @@
         gardenUndo = ids.length ? { ids, skipped, returnToReview: restoreMode === 'review' } : null;
         selectedGarden = null;
         openedGardenGroup = null;
+        openedGardenScope = null;
         void (gardenOnly ? loadEvents() : loadGarden());
         const message = $_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: ids.length } });
         if (skipped > 0) {

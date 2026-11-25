@@ -225,6 +225,29 @@ async def test_an_exact_end_before_a_start_day_is_refused(client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query",
+    [
+        "start_date=0001-01-01&start_time=2034-03-10T12:00:00Z",
+        "end_date=9999-12-31&end_time=2034-03-10T23:30:00Z",
+        "start_date=0001-01-01&start_time=2034-03-10T12:00:00Z&end_date=9999-12-31&end_time=2034-03-10T23:30:00Z",
+    ],
+)
+async def test_a_day_an_exact_time_replaces_is_never_read(client, query):
+    # The calendar edges have no midnight on some side of UTC; a day an instant overrides is not resolved.
+    for route in WINDOW_ROUTES:
+        assert await _status(client, route, query, {"X-Timezone": "America/New_York"}) == 200, (route, query)
+    assert await _events(
+        client,
+        "start_date=0001-01-01&start_time=2034-03-10T12:00:00Z&end_date=9999-12-31&end_time=2034-03-10T23:30:00Z",
+    ) == {
+        "exact-1",
+        "exact-2",
+        "exact-3",
+    }
+
+
+@pytest.mark.asyncio
 async def test_one_instant_for_both_bounds_is_a_window(client):
     query = "start_time=2034-03-10T12:00:00Z&end_time=2034-03-10T12:00:00Z"
     assert await _events(client, query) == {"exact-1"}
