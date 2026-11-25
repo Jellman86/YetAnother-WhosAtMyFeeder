@@ -40,7 +40,7 @@ it only when the sentence is about Frigate ("Frigate no longer has this event").
 ([`layout-patterns.md`](layout-patterns.md), Standing):
 
 - **visits** wherever the visit rule has been applied: the Dashboard, Explorer, and the
-  Leaderboard's day, week and month views;
+  Leaderboard's today, last 24 hours, last 7 days and last 30 days views;
 - **captures** for a raw total of stored photographs, where no visit count exists: the
   Leaderboard's all-time view, a species' all-time total, storage and retention figures.
 

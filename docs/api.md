@@ -315,7 +315,7 @@ and `GET /api/visits/{visit_id}/captures` take an ISO date (`2026-11-17`) or the
 
 A header or `TZ` that does not name a real zone is ignored (and logged once), never an error.
 Every other day, hour and weekday the API buckets by uses the same zone: `daily-summary`'s
-`window=today` and its hour buckets, the timeline's buckets, both activity heatmaps, the
+`window=today` and its hour buckets, the leaderboard's `span=today`, the timeline's buckets, both activity heatmaps, the
 species stats distributions, custom backfill dates and the local time an AI analysis is given.
 So a client with no header gets hours in the instance's zone that agree with its day. A guest's
 shared window is applied after the zone is resolved, so no header can widen it. A day runs from local midnight
@@ -1137,6 +1137,23 @@ Notes:
   reaches back to the first sealed day or the oldest lost capture when either is older than every
   stored capture. A capture corrected or added after its day was sealed does not change that day's
   counts, here or in `GET /api/species`.
+- Leaderboard periods. `GET /api/leaderboard/species`, `GET /api/audio/species`,
+  `GET /api/leaderboard/portraits`, `GET /api/stats/detections/timeline` and
+  `GET /api/stats/detections/activity-heatmap` take the same `span`: `today` (local midnight to
+  now, in the zone of [Calendar days and `today`](#calendar-days-and-today)), `day` (the last 24
+  hours, kept under that name for existing links), `week` (the last 7 days), `month` (the last 30
+  days) and, except on `/api/leaderboard/species`, `all`. Seen and heard counts for one `span` and
+  one zone cover the same window. `today` is compared with yesterday from local midnight up to the
+  same local time; the rolling spans with the same length before them. The timeline buckets
+  `today` by the hour, and a sealed day is counted from its daily totals only when the whole day
+  lies inside the window, so `today` always counts stored captures. A guest's window is the
+  requested one intersected with the shared window (in today-only sharing, the UTC day, ending
+  before the next UTC midnight). On the two rankings, `window_start` is the start actually counted,
+  `window_shortened` is true when the shared window moved it later than the span asks for, and
+  `previous_window_comparable` is false when the two windows do not cover the same stretch of
+  the clock: today so far and yesterday so far differ in length on the day the clocks change,
+  or the shared window cuts either one. `previous_window_complete` is false in both cases, as it
+  is when the history does not reach back over the whole previous window, so no trend is claimed.
 
 ### Taxonomy
 

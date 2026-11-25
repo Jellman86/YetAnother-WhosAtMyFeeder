@@ -1391,6 +1391,11 @@
             ],
             "title": "History Start"
           },
+          "previous_window_comparable": {
+            "default": true,
+            "title": "Previous Window Comparable",
+            "type": "boolean"
+          },
           "previous_window_complete": {
             "default": false,
             "title": "Previous Window Complete",
@@ -1398,6 +1403,7 @@
           },
           "span": {
             "enum": [
+              "today",
               "day",
               "week",
               "month",
@@ -1416,6 +1422,11 @@
           "window_end": {
             "title": "Window End",
             "type": "string"
+          },
+          "window_shortened": {
+            "default": false,
+            "title": "Window Shortened",
+            "type": "boolean"
           },
           "window_start": {
             "title": "Window Start",
@@ -12743,6 +12754,7 @@
           },
           "span": {
             "enum": [
+              "today",
               "day",
               "week",
               "month",
@@ -12938,6 +12950,11 @@
             ],
             "title": "Nearby Radius Km"
           },
+          "previous_window_comparable": {
+            "default": true,
+            "title": "Previous Window Comparable",
+            "type": "boolean"
+          },
           "previous_window_complete": {
             "default": false,
             "title": "Previous Window Complete",
@@ -12945,6 +12962,7 @@
           },
           "span": {
             "enum": [
+              "today",
               "day",
               "week",
               "month"
@@ -12962,6 +12980,11 @@
           "window_end": {
             "title": "Window End",
             "type": "string"
+          },
+          "window_shortened": {
+            "default": false,
+            "title": "Window Shortened",
+            "type": "boolean"
           },
           "window_start": {
             "title": "Window Start",
@@ -26944,12 +26967,15 @@
         "operationId": "get_audio_species_leaderboard_api_audio_species_get",
         "parameters": [
           {
+            "description": "`today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored call.",
             "in": "query",
             "name": "span",
             "required": false,
             "schema": {
               "default": "week",
+              "description": "`today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored call.",
               "enum": [
+                "today",
                 "day",
                 "week",
                 "month",
@@ -35911,14 +35937,15 @@
         "operationId": "get_leaderboard_portraits_api_leaderboard_portraits_get",
         "parameters": [
           {
-            "description": "The leaderboard's window",
+            "description": "The leaderboard's window. `today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored capture.",
             "in": "query",
             "name": "span",
             "required": false,
             "schema": {
               "default": "month",
-              "description": "The leaderboard's window",
+              "description": "The leaderboard's window. `today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored capture.",
               "enum": [
+                "today",
                 "day",
                 "week",
                 "month",
@@ -35981,18 +36008,19 @@
     },
     "/api/leaderboard/species": {
       "get": {
-        "description": "Leaderboard species stats for a rolling window aligned to the current time.\n\nSpan definitions:\n- day: last 24 hours\n- week: last 7 days\n- month: last 30 days",
+        "description": "Leaderboard species stats for a window aligned to the current time.\n\nSpan definitions:\n- today: local midnight to now, compared with yesterday up to the same time of day\n- day: last 24 hours\n- week: last 7 days\n- month: last 30 days",
         "operationId": "get_leaderboard_species_api_leaderboard_species_get",
         "parameters": [
           {
-            "description": "Rolling window for leaderboard stats",
+            "description": "`today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days.",
             "in": "query",
             "name": "span",
             "required": false,
             "schema": {
               "default": "week",
-              "description": "Rolling window for leaderboard stats",
+              "description": "`today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days.",
               "enum": [
+                "today",
                 "day",
                 "week",
                 "month"
@@ -38944,19 +38972,20 @@
     },
     "/api/stats/detections/activity-heatmap": {
       "get": {
-        "description": "Get detection activity grouped by weekday and hour for a rolling span.",
+        "description": "Get detection activity grouped by weekday and hour for the leaderboard's span.",
         "operationId": "get_detection_activity_heatmap_api_stats_detections_activity_heatmap_get",
         "parameters": [
           {
-            "description": "Time span for the heatmap",
+            "description": "Time span for the heatmap. `today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored capture.",
             "in": "query",
             "name": "span",
             "required": false,
             "schema": {
               "default": "week",
-              "description": "Time span for the heatmap",
+              "description": "Time span for the heatmap. `today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored capture.",
               "enum": [
                 "all",
+                "today",
                 "day",
                 "week",
                 "month"
@@ -39081,19 +39110,20 @@
     },
     "/api/stats/detections/timeline": {
       "get": {
-        "description": "Get detections over time for a rolling span aligned to the current time.\n\nSpan definitions (UI semantics):\n- day: last 24 hours, bucketed hourly\n- week: last 7 days, bucketed daily\n- month: last 30 days, bucketed daily\n- all: bucketed dynamically based on available history",
+        "description": "Get detections over time for a rolling span aligned to the current time.\n\nSpan definitions (UI semantics):\n- today: local midnight to now, bucketed hourly\n- day: last 24 hours, bucketed hourly\n- week: last 7 days, bucketed daily\n- month: last 30 days, bucketed daily\n- all: bucketed dynamically based on available history",
         "operationId": "get_detection_timeline_span_api_stats_detections_timeline_get",
         "parameters": [
           {
-            "description": "Time span for the timeline",
+            "description": "Time span for the timeline. `today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored capture.",
             "in": "query",
             "name": "span",
             "required": false,
             "schema": {
               "default": "week",
-              "description": "Time span for the timeline",
+              "description": "Time span for the timeline. `today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored capture.",
               "enum": [
                 "all",
+                "today",
                 "day",
                 "week",
                 "month"

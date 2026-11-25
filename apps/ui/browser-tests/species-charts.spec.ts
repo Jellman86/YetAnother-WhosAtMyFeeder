@@ -246,7 +246,7 @@ test('repeated guest refreshes and a new window do not leave a fixed page height
         await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ })).toBeVisible();
         await expect(page.locator('[data-leaderboard-page]')).not.toHaveAttribute('style', /min-height: [1-9]/);
     }
-    await page.getByRole('button', { name: 'Week', exact: true }).click();
+    await page.getByRole('button', { name: 'Last 7 days', exact: true }).click();
     await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ })).toBeVisible();
     await expect(page.locator('[data-leaderboard-page]')).not.toHaveAttribute('style', /min-height: [1-9]/);
 });
@@ -375,7 +375,7 @@ test('the Dashboard link opens the 24 hour window at the species checks', async 
         return route.fulfill({ json: { span: 'day', species: [...species, junglefowl], window_start: start, window_end: end, nearby_radius_km: 50, nearby_days_back: 14 } });
     });
     await page.goto('/browser-tests/species-charts.html?span=day#checks');
-    await expect(page.getByRole('button', { name: 'Day', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Last 24 hours', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const checks = page.locator('[data-spotlight-checks]');
     await expect(checks).toContainText('Red Junglefowl');
     await expect(checks.getByRole('button').first()).toBeFocused();
@@ -491,4 +491,26 @@ test('the hour and weekday heatmap says sealed days have no time of day rather t
     await expect(page.locator('[data-heatmap-stored-only]')).toHaveText(
         'Hour and weekday count stored captures only: a daily total has no time of day.'
     );
+});
+
+test('Today asks every source and chart for today, says an early day is empty and states a cut start', async ({ page }) => {
+    const charted = ['/api/leaderboard/species', '/api/leaderboard/portraits', '/api/stats/detections/timeline', '/api/stats/detections/activity-heatmap'];
+    const asked = new Map<string, string[]>();
+    await page.route(url => charted.includes(url.pathname), async route => {
+        const url = new URL(route.request().url());
+        asked.set(url.pathname, [...(asked.get(url.pathname) ?? []), url.searchParams.get('span') ?? '']);
+        if (url.pathname === '/api/leaderboard/species' && url.searchParams.get('span') === 'today') {
+            return route.fulfill({ json: {
+                span: 'today', species: [], window_start: '2026-09-08T00:00:00Z', window_end: '2026-09-08T05:00:00Z',
+                window_shortened: true, previous_window_complete: false, previous_window_comparable: false, nearby_check: 'off',
+            } });
+        }
+        return route.fallback();
+    });
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Today', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('heading', { name: 'No visits yet today' })).toBeVisible();
+    await expect(page.getByText('Today counts from midnight, so it starts empty each morning.')).toBeVisible();
+    await expect(page.locator('[data-leaderboard-window-shortened]')).toContainText('Counted from');
+    for (const path of charted) await expect.poll(() => asked.get(path) ?? []).toContain('today');
 });

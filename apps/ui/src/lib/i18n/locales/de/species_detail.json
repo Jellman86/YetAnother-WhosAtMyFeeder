@@ -30,6 +30,7 @@
   "detections_all_time": "Aufnahmen, gesamter Zeitraum",
   "detections_shared": "Aufnahmen, geteilter Verlauf",
   "visits_day": "Besuche, letzte 24 Stunden",
+  "visits_today": "Besuche, heute",
   "visits_week": "Besuche, letzte 7 Tage",
   "visits_month": "Besuche, letzte 30 Tage",
   "detections_note": "Jede bestimmte Aufnahme zählt einmal. Ein Besuch kann mehrere Aufnahmen enthalten, daher sind die Besuchszahlen in der Bestenliste niedriger.",

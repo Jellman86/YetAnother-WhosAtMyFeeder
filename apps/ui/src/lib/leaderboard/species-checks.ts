@@ -1,6 +1,7 @@
 import type { AudioSpeciesLeaderboardItem, LeaderboardSpan, LeaderboardSpeciesResponse } from '../api';
 import type { ChecksStatus } from '../utils/needs-your-call';
 import { evidenceFor, isUnlikelyHere, type EvidenceContext, type EvidenceRow } from './evidence';
+import { LEADERBOARD_SPANS } from './period';
 
 /**
  * The range check, shared by the Species page's "Needs a check" card and the Dashboard's
@@ -89,7 +90,6 @@ export function readRangeCheck(
     return { ...previous, status: 'unavailable' };
 }
 
-const LINK_SPANS: readonly LeaderboardSpan[] = ['day', 'week', 'month', 'all'];
 const CHECKS_ANCHOR = 'checks';
 
 /** The Species page over the Dashboard's 24 hours, opened at its species checks. */
@@ -104,6 +104,6 @@ export interface SpeciesPageLink {
 
 export function parseSpeciesPageLink(search: string, hash: string): SpeciesPageLink {
     const requested = new URLSearchParams(search).get('span');
-    const span = LINK_SPANS.find((candidate) => candidate === requested) ?? null;
+    const span = LEADERBOARD_SPANS.find((candidate) => candidate === requested) ?? null;
     return { span, focusChecks: hash.replace(/^#/, '') === CHECKS_ANCHOR };
 }

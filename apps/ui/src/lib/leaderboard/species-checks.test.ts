@@ -105,6 +105,14 @@ describe('the link to the Species page checks', () => {
         expect(parseSpeciesPageLink('?span=day', '#checks')).toEqual({ span: 'day', focusChecks: true });
     });
 
+    it('reads Today and keeps day for the last 24 hours', () => {
+        expect(parseSpeciesPageLink('?span=today', '')).toEqual({ span: 'today', focusChecks: false });
+        expect(parseSpeciesPageLink('?span=day', '')).toEqual({ span: 'day', focusChecks: false });
+        expect(parseSpeciesPageLink('?span=week', '')).toEqual({ span: 'week', focusChecks: false });
+        expect(parseSpeciesPageLink('?span=month', '')).toEqual({ span: 'month', focusChecks: false });
+        expect(parseSpeciesPageLink('?span=Today', '')).toEqual({ span: null, focusChecks: false });
+    });
+
     it('keeps the page default for a missing or unknown span', () => {
         expect(parseSpeciesPageLink('', '')).toEqual({ span: null, focusChecks: false });
         expect(parseSpeciesPageLink('?span=decade', '#other')).toEqual({ span: null, focusChecks: false });

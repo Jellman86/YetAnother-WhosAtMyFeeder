@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Request, Depends, Query
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from urllib.parse import quote
 import asyncio
 import httpx
@@ -43,7 +43,12 @@ from app.services.reference_identity import (
     linked_article_names_taxon,
 )
 from app.services.species_catalog_resolver import species_catalog_resolver
-from app.services.leaderboard_window import previous_window_is_complete
+from app.services.leaderboard_window import (
+    LEADERBOARD_SPAN_DESCRIPTION,
+    BoundedSpan,
+    leaderboard_windows,
+    previous_window_is_complete,
+)
 from app.services.nearby_species_service import nearby_species_service, reported_nearby
 from app.utils.classifier_labels import collapse_classifier_label
 from app.utils.species_aliases import (
@@ -124,11 +129,16 @@ class LeaderboardSpeciesItemResponse(BaseModel):
 
 
 class LeaderboardSpeciesResponse(BaseModel):
-    span: Literal["day", "week", "month"]
+    span: BoundedSpan
     window_start: str
     window_end: str
+    # Whether a guest's allowance moved window_start later than the span asks for.
+    window_shortened: bool = False
     history_start: str | None = None
     previous_window_complete: bool = False
+    # Whether the previous window covers the same stretch of the clock; false across a clock change
+    # in today or when a guest's allowance cuts either window, whatever the history holds.
+    previous_window_comparable: bool = True
     # The eBird check behind reported_nearby, or null when it did not run.
     nearby_radius_km: int | None = None
     nearby_days_back: int | None = None
@@ -1104,34 +1114,28 @@ def _sealed_leaderboard_row(species: SealedSpecies, *, counts: bool = True) -> d
 async def get_leaderboard_species(
     request: Request,
     auth: AuthContext = Depends(get_auth_context_with_legacy),
-    span: Literal["day", "week", "month"] = Query("week", description="Rolling window for leaderboard stats"),
+    span: BoundedSpan = Query("week", description=LEADERBOARD_SPAN_DESCRIPTION),
 ):
-    """Leaderboard species stats for a rolling window aligned to the current time.
+    """Leaderboard species stats for a window aligned to the current time.
 
     Span definitions:
+    - today: local midnight to now, compared with yesterday up to the same time of day
     - day: last 24 hours
     - week: last 7 days
     - month: last 30 days
     """
     lang = get_user_language(request)
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if span == "day":
-        window = timedelta(hours=24)
-    elif span == "week":
-        window = timedelta(days=7)
-    else:
-        window = timedelta(days=30)
-
-    window_start = now - window
-    window_end = now
-    prev_start = window_start - window
-    prev_end = window_start
-
-    bounds = {} if auth.is_owner else public_event_query_bounds(now.replace(tzinfo=timezone.utc))
-    if not auth.is_owner:
-        cutoff = bounds["start_date"].replace(tzinfo=None)
-        window_start = max(window_start, cutoff)
-        prev_start = max(prev_start, cutoff)
+    now = datetime.now(timezone.utc)
+    bounds = {} if auth.is_owner else public_event_query_bounds(now)
+    windows = leaderboard_windows(
+        span,
+        now=now,
+        zone=calendar_timezone(request),
+        floor=bounds["start_date"].replace(tzinfo=None) if bounds else None,
+        ceiling=bounds["end_date"].replace(tzinfo=None) if bounds.get("end_date") else None,
+    )
+    window_start, window_end = windows.start, windows.end
+    prev_start, prev_end = windows.prev_start, windows.prev_end
     unknown_labels = settings.classification.unknown_bird_labels
 
     # Read everything the database has to say first and give the connection back.
@@ -1289,8 +1293,11 @@ async def get_leaderboard_species(
         "span": span,
         "window_start": window_start.replace(tzinfo=timezone.utc).isoformat(),
         "window_end": window_end.replace(tzinfo=timezone.utc).isoformat(),
+        "window_shortened": windows.shortened,
+        "previous_window_comparable": windows.comparable,
         "history_start": serialize_api_datetime(history_start) if history_start else None,
-        "previous_window_complete": prev_start < prev_end
+        "previous_window_complete": windows.comparable
+        and prev_start < prev_end
         and previous_window_is_complete(history_start=history_start, prev_start=prev_start),
         "nearby_radius_km": nearby.radius_km if nearby else None,
         "nearby_days_back": nearby.days_back if nearby else None,
@@ -2797,7 +2804,7 @@ async def _get_wikipedia_summary(
 PORTRAITS_DEFAULT_LIMIT = 9
 PORTRAIT_CANDIDATES_PER_SPECIES = 8
 PORTRAITS_CACHE_SECONDS = 300
-_portraits_cache: dict[tuple[str, int, bool], tuple[float, list[dict]]] = {}
+_portraits_cache: dict[tuple[str, int, bool, str], tuple[float, list[dict]]] = {}
 
 
 class LeaderboardPortraitResponse(BaseModel):
@@ -2831,25 +2838,24 @@ async def _portrait_responses(portraits: list[dict], *, films_allowed: bool) -> 
 
 
 class LeaderboardPortraitsResponse(BaseModel):
-    span: Literal["day", "week", "month", "all"]
+    span: Literal["today", "day", "week", "month", "all"]
     portraits: list[LeaderboardPortraitResponse]
 
 
-def _portraits_window(span: str, now: datetime) -> tuple[datetime, datetime]:
-    if span == "day":
-        return now - timedelta(hours=24), now
-    if span == "week":
-        return now - timedelta(days=7), now
-    if span == "month":
-        return now - timedelta(days=30), now
-    return datetime(2000, 1, 1), now
+def _portraits_window(span: str, now: datetime, zone: tzinfo) -> tuple[datetime, datetime]:
+    if span == "all":
+        return datetime(2000, 1, 1), now
+    windows = leaderboard_windows(span, now=now.replace(tzinfo=timezone.utc), zone=zone)
+    return windows.start, windows.end
 
 
 @router.get("/leaderboard/portraits", response_model=LeaderboardPortraitsResponse)
 @guest_rate_limit()
 async def get_leaderboard_portraits(
     request: Request,
-    span: Literal["day", "week", "month", "all"] = Query("month", description="The leaderboard's window"),
+    span: Literal["today", "day", "week", "month", "all"] = Query(
+        "month", description=f"The leaderboard's window. {LEADERBOARD_SPAN_DESCRIPTION} `all`: every stored capture."
+    ),
     limit: int = Query(PORTRAITS_DEFAULT_LIMIT, ge=1, le=24, description="Ranked species to find a photograph for"),
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ) -> LeaderboardPortraitsResponse:
@@ -2866,7 +2872,9 @@ async def get_leaderboard_portraits(
     is_guest = not auth.is_owner and settings.public_access.enabled
     if is_guest and not settings.public_access.show_snapshots:
         return LeaderboardPortraitsResponse(span=span, portraits=[])
-    cache_key = (span, limit, is_guest)
+    zone = calendar_timezone(request)
+    # Today begins at the viewer's midnight, so viewers in different zones ask for different windows.
+    cache_key = (span, limit, is_guest, str(zone) if span == "today" else "")
     cached = _portraits_cache.get(cache_key)
     if not is_guest and cached and (asyncio.get_running_loop().time() - cached[0]) < PORTRAITS_CACHE_SECONDS:
         return LeaderboardPortraitsResponse(
@@ -2874,7 +2882,7 @@ async def get_leaderboard_portraits(
         )
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    window_start, window_end = _portraits_window(span, now)
+    window_start, window_end = _portraits_window(span, now, zone)
     guest_cutoff: datetime | None = None
     if is_guest:
         media_start, media_end = public_media_window(now.replace(tzinfo=timezone.utc))

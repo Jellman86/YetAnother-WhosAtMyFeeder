@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Response, Depends, Query
 from pydantic import Field
 import os
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from typing import List, Optional, Literal
 from collections import Counter
 from app.database import get_db
@@ -36,6 +36,7 @@ from app.utils.public_access import (
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.timezone import calendar_timezone
 from app.utils.calendar_day import instance_timezone, local_date, today_so_far
+from app.services.leaderboard_window import LEADERBOARD_SPAN_DESCRIPTION, BoundedSpan, leaderboard_windows
 from app.services.daily_history import (
     coverage,
     first_whole_day,
@@ -811,12 +812,29 @@ async def get_detection_timeline(
     )
 
 
+def _bounded_span_window(
+    span: BoundedSpan, now: datetime, zone: tzinfo, bounds: dict[str, datetime | None]
+) -> tuple[datetime, datetime]:
+    """The leaderboard's window for ``span``, so its charts count what its rankings count."""
+    start_date, end_date = bounds.get("start_date"), bounds.get("end_date")
+    windows = leaderboard_windows(
+        span,
+        now=now.replace(tzinfo=timezone.utc),
+        zone=zone,
+        floor=start_date.replace(tzinfo=None) if start_date is not None else None,
+        ceiling=end_date.replace(tzinfo=None) if end_date is not None else None,
+    )
+    return windows.start, windows.end
+
+
 @router.get("/stats/detections/timeline", response_model=DetectionsTimelineSpanResponse)
 @guest_rate_limit()
 async def get_detection_timeline_span(
     request: Request,
     auth: AuthContext = Depends(get_auth_context_with_legacy),
-    span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the timeline"),
+    span: Literal["all", "today", "day", "week", "month"] = Query(
+        "week", description=f"Time span for the timeline. {LEADERBOARD_SPAN_DESCRIPTION} `all`: every stored capture."
+    ),
     include_weather: bool = Query(False, description="Include weather overlays (best-effort)"),
     compare_species: Optional[List[str]] = Query(
         None, description="Optional species names to include as compare lines"
@@ -825,6 +843,7 @@ async def get_detection_timeline_span(
     """Get detections over time for a rolling span aligned to the current time.
 
     Span definitions (UI semantics):
+    - today: local midnight to now, bucketed hourly
     - day: last 24 hours, bucketed hourly
     - week: last 7 days, bucketed daily
     - month: last 30 days, bucketed daily
@@ -845,11 +864,10 @@ async def get_detection_timeline_span(
         # A guest sees no sealed day that began before their window, not even its boundary day.
         history_floor = None if auth.is_owner else first_whole_day(bounds["start_date"].replace(tzinfo=None), zone)
 
-        if span == "day":
-            window_start = now - timedelta(hours=24)
-            if not auth.is_owner:
-                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
-            window_end = now
+        if span != "all":
+            window_start, window_end = _bounded_span_window(span, now, user_tz, bounds)
+
+        if span in ("today", "day"):
             bucket = "hour"
             points = _build_local_timeline_points(
                 window_start,
@@ -860,11 +878,6 @@ async def get_detection_timeline_span(
             )
 
         elif span in ("week", "month"):
-            days = 7 if span == "week" else 30
-            window_start = now - timedelta(days=days)
-            if not auth.is_owner:
-                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
-            window_end = now
             bucket = "day"
             points = _build_local_timeline_points(
                 window_start,
@@ -1302,32 +1315,22 @@ async def get_uptime(
 async def get_detection_activity_heatmap(
     request: Request,
     auth: AuthContext = Depends(get_auth_context_with_legacy),
-    span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the heatmap"),
+    span: Literal["all", "today", "day", "week", "month"] = Query(
+        "week", description=f"Time span for the heatmap. {LEADERBOARD_SPAN_DESCRIPTION} `all`: every stored capture."
+    ),
     species: Optional[str] = Query(None, max_length=200, description="Limit the grid to one species"),
 ):
-    """Get detection activity grouped by weekday and hour for a rolling span."""
+    """Get detection activity grouped by weekday and hour for the leaderboard's span."""
     species_name = species.strip() if species and species.strip() else None
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+    user_tz = calendar_timezone(request)
 
     async with get_db() as db:
         repo = DetectionRepository(db)
         bounds = {} if auth.is_owner else public_event_query_bounds(now.replace(tzinfo=timezone.utc))
 
-        if span == "day":
-            window_start = now - timedelta(hours=24)
-            if not auth.is_owner:
-                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
-            window_end = now
-        elif span == "week":
-            window_start = now - timedelta(days=7)
-            if not auth.is_owner:
-                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
-            window_end = now
-        elif span == "month":
-            window_start = now - timedelta(days=30)
-            if not auth.is_owner:
-                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
-            window_end = now
+        if span != "all":
+            window_start, window_end = _bounded_span_window(span, now, user_tz, bounds)
         else:
             oldest, _newest = await repo.get_detection_time_bounds(**bounds)
             if oldest:
@@ -1336,7 +1339,6 @@ async def get_detection_activity_heatmap(
                 window_start = now
             window_end = now
 
-        user_tz = calendar_timezone(request)
         utc_hourly_counts = await repo.get_activity_heatmap_utc_hourly_counts(
             window_start, window_end, species_name=species_name
         )

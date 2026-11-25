@@ -78,6 +78,7 @@
     import type { TemperatureUnit } from '../utils/temperature';
     import { evidenceFor, isCorroborated, trendMeasured, type SpeciesEvidence } from '../leaderboard/evidence';
     import { heardFor, heardLookup, needsSpeciesCheck, parseSpeciesPageLink } from '../leaderboard/species-checks';
+    import { shortenedWindowStart, trendGap, type WindowReading } from '../leaderboard/period';
     import { HEATMAP_SPECIES_CHOICES, busiestHourOfDay, keptHeatmapChoice, weekdayHourTable } from '../leaderboard/heatmap';
     import ActivityHeatmap from '../components/ActivityHeatmap.svelte';
     import HeatmapSpeciesChips from '../components/HeatmapSpeciesChips.svelte';
@@ -138,6 +139,19 @@
     let previousWindowComplete = $state(false);
     let audioPreviousWindowComplete = $state(false);
     let audioHistoryStart = $state<string | null>(null);
+    // Whether a guest's allowance cut each source's window, and whether its previous window is like for like.
+    let seenWindowCut = $state.raw({ shortened: false, comparable: true });
+    let audioWindow = $state.raw<{ start: string; shortened: boolean; comparable: boolean } | null>(null);
+    let seenWindowReading = $derived<WindowReading | null>(
+        leaderboardWindow
+            ? { start: leaderboardWindow.start, ...seenWindowCut, complete: previousWindowComplete }
+            : null
+    );
+    let heardWindowReading = $derived<WindowReading | null>(
+        audioWindow ? { ...audioWindow, complete: audioPreviousWindowComplete } : null
+    );
+    let shortenedFrom = $derived(span === 'all' ? null : shortenedWindowStart(sourceMode, seenWindowReading, heardWindowReading));
+    let currentTrendGap = $derived(span === 'all' ? null : trendGap(sourceMode, seenWindowReading, heardWindowReading));
     // The history the current trend would need: the camera's, BirdNET's, or the later of the two.
     let trendHistoryStart = $derived(
         sourceMode === 'seen'
@@ -165,6 +179,7 @@
     }
     let includeUnknownBird = $state(false);
     const spanOptions = $derived<{ value: NonNullable<LeaderboardSpan>; label: string }[]>([
+        { value: 'today', label: $_('leaderboard.sort_by_today', { default: 'Today' }) },
         { value: 'day', label: $_('leaderboard.sort_by_day') },
         { value: 'week', label: $_('leaderboard.sort_by_week') },
         { value: 'month', label: $_('leaderboard.sort_by_month') },
@@ -642,6 +657,8 @@
             audioHistoryStart = null;
             previousWindowComplete = false;
             audioPreviousWindowComplete = false;
+            seenWindowCut = { shortened: false, comparable: true };
+            audioWindow = null;
             activityHeatmap = null;
             speciesHeatmap = null;
             heatmapChoice = null;
@@ -743,6 +760,7 @@
         if (!birdnetEnabled) audioSpecies = [];
         audioPreviousWindowComplete = false;
         audioHistoryStart = null;
+        audioWindow = null;
         // Fetch species and timeline independently so a chart/weather failure
         // doesn't make the leaderboard table disappear.
         try {
@@ -768,6 +786,10 @@
                 };
                 historyStart = response.history_start ?? null;
                 previousWindowComplete = response.previous_window_complete ?? false;
+                seenWindowCut = {
+                    shortened: response.window_shortened ?? false,
+                    comparable: response.previous_window_comparable ?? true
+                };
                 nearbyCheck = response.nearby_radius_km && response.nearby_days_back
                     ? { radiusKm: response.nearby_radius_km, daysBack: response.nearby_days_back }
                     : null;
@@ -806,6 +828,13 @@
             audioSpecies = audioResult.value?.species ?? [];
             audioPreviousWindowComplete = audioResult.value?.previous_window_complete ?? false;
             audioHistoryStart = audioResult.value?.history_start ?? null;
+            audioWindow = audioResult.value
+                ? {
+                      start: audioResult.value.window_start,
+                      shortened: audioResult.value.window_shortened ?? false,
+                      comparable: audioResult.value.previous_window_comparable ?? true
+                  }
+                : null;
             audioLoadState = birdnetEnabled ? 'ready' : 'disabled';
         } else {
             audioSpecies = [];
@@ -914,6 +943,7 @@
     }
 
     function spanLabel(): string {
+        if (span === 'today') return $_('leaderboard.sort_by_today', { default: 'Today' });
         if (span === 'day') return $_('leaderboard.sort_by_day');
         if (span === 'week') return $_('leaderboard.sort_by_week');
         if (span === 'month') return $_('leaderboard.sort_by_month');
@@ -1457,7 +1487,7 @@
         return chartTable($_('common.period', { default: 'Period' }), (config.data.labels ?? []).map(String), [...series, ...weather], figureValue);
     });
     const heatmapTable = $derived(
-        weekdayHourTable(shownHeatmap?.cells ?? [], { day: $_('leaderboard.sort_by_day', { default: 'Day' }), weekday: weekdayLabel, hour: formatHour })
+        weekdayHourTable(shownHeatmap?.cells ?? [], { day: $_('leaderboard.heatmap_day_column', { default: 'Day' }), weekday: weekdayLabel, hour: formatHour })
     );
     const compositionTable = $derived.by(() => {
         const { labels, series } = donutSeries();
@@ -1764,6 +1794,12 @@
         </div>
     </div>
 
+    {#if shortenedFrom}
+        <p class="text-sm text-muted" data-leaderboard-window-shortened>
+            {$_('leaderboard.window_shortened_note', { values: { time: formatDateTime(shortenedFrom) }, default: 'Counted from {time}, when the history shared with guests begins.' })}
+        </p>
+    {/if}
+
     {#if error}
         <div class="rounded-lg border border-status-fail-line bg-status-fail-soft p-4 text-status-fail" role="alert">
             {error}
@@ -1787,12 +1823,18 @@
         </div>
     {:else if leaderboardRows.length === 0}
         <div class="border-y border-line py-14 text-center">
-            <h2 class="text-lg font-semibold text-strong mb-2">{$_('leaderboard.no_species')}</h2>
+            {#if sourceMode !== 'heard' && span === 'today'}
+                <h2 class="text-lg font-semibold text-strong mb-2">{$_('leaderboard.today_empty_title', { default: 'No visits yet today' })}</h2>
+            {:else}
+                <h2 class="text-lg font-semibold text-strong mb-2">{$_('leaderboard.no_species')}</h2>
+            {/if}
             <p class="text-muted">
                 {sourceMode === 'heard'
                     ? $_('leaderboard.no_audio_species', { default: 'No calls were heard in this window.' })
                     : species.length > 0 && !includeUnknownBird
                     ? $_('leaderboard.only_unknown_desc')
+                    : span === 'today'
+                    ? $_('leaderboard.today_empty_desc', { default: 'Today counts from midnight, so it starts empty each morning. Visits appear here as they arrive. Choose Last 24 hours to include yesterday evening.' })
                     : $_('leaderboard.no_species_desc')}
             </p>
         </div>
@@ -1909,7 +1951,13 @@
                     </div>
                 </div>
             </div>
-            {#if span !== 'all' && !trendAvailable && trendHistoryStart}
+            {#if !trendAvailable && currentTrendGap === 'not_comparable'}
+                <p class="text-sm text-muted" data-leaderboard-trend-note>
+                    {authStore.isGuest
+                        ? $_('leaderboard.trend_not_comparable_shared', { default: 'No trend here. The history shared with guests does not cover the whole earlier window.' })
+                        : $_('leaderboard.trend_not_comparable_clock', { default: 'No trend today. The clocks changed, so today so far and yesterday up to this time are not the same length.' })}
+                </p>
+            {:else if span !== 'all' && !trendAvailable && currentTrendGap === 'history' && trendHistoryStart}
                 <p class="text-sm text-muted" data-leaderboard-trend-note>
                     {$_('leaderboard.trend_needs_history', { values: { date: formatShortDate(trendHistoryStart) }, default: 'No trend yet. Records start {date}, so there is no complete earlier window to compare with.' })}
                 </p>
