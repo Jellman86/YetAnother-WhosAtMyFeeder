@@ -73,7 +73,8 @@
     import { speciesPickerNames } from '../utils/species-picker';
     import { explanation } from '../utils/explanation';
     import { explorerPane } from '../utils/explorer-results';
-    import { explorerWindow, parseExplorerQuery, writeExplorerQuery, type ExplorerQuery } from '../utils/explorer-query';
+    import { explorerWindow, parseExplorerQuery, writeExplorerQuery, type ExplorerQuery, type ExplorerWindow } from '../utils/explorer-query';
+    import { ShownExplorerWindow } from '../utils/explorer-shown-window.svelte';
     import { explorerCameraOptions, seenGardenCameras } from '../utils/explorer-cameras';
     import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
 
@@ -269,9 +270,8 @@
         if (datePreset === 'custom') return { start: customStartDate || undefined, end: customEndDate || undefined };
         return { start: undefined, end: undefined };
     });
-    /** Fixed when a read of the last 24 hours begins, so its visits, captures, count, Garden and calls share one window. */
-    let windowNow = $state.raw(new Date());
-    let timeWindow = $derived(explorerWindow(datePreset, dateRange, windowNow));
+    /** The window of the results on screen; each read fixes its own and publishes it with them. */
+    const shownWindow = new ShownExplorerWindow();
 
     async function loadEvents() {
         const load = eventsLoad.begin();
@@ -294,8 +294,8 @@
         }
         writeAddress();
         try {
-            if (datePreset === '24h') windowNow = new Date();
-            const range = timeWindow;
+            // One pair of instants for the whole read, so its visits, captures, count, Garden and calls agree.
+            const range = explorerWindow(datePreset, dateRange, new Date());
             let newEvents: Detection[];
             let nextTotal: number;
             let nextVisits: DetectionVisit[] = [];
@@ -314,6 +314,7 @@
                     offset: (currentPage - 1) * effectivePageSize
                 });
                 if (!load.isCurrent() || gardenGeneration !== gardenLoadGeneration) return;
+                shownWindow.publish(range);
                 events = [];
                 pageVisits = [];
                 previousVisit = null;
@@ -385,7 +386,7 @@
             // that are already here.
             const firstPage = events.length === 0;
             if (firstPage) {
-                const gardenRead = readGarden({ visits: nextVisits, previous: nextPrevious, total: nextTotal });
+                const gardenRead = readGarden({ visits: nextVisits, previous: nextPrevious, total: nextTotal, window: range });
                 const inTime = await Promise.race([
                     gardenRead,
                     new Promise<null>((resolve) => setTimeout(() => resolve(null), GARDEN_FIRST_PAINT_WAIT_MS))
@@ -400,6 +401,7 @@
                     });
                 }
             }
+            shownWindow.publish(range);
             events = newEvents;
             pageVisits = nextVisits;
             previousVisit = nextPrevious;
@@ -1116,7 +1118,7 @@
     );
 
     const visitsByEvent = $derived(new Map(pageVisits.map((visit) => [visit.representative.frigate_event, visit])));
-    const captureWindow = $derived({ ...timeWindow.request, onlyHidden: showHidden });
+    const captureWindow = $derived({ ...shownWindow.current.request, onlyHidden: showHidden });
 
     let visibleEvents = $derived.by(() => {
         if (selectedTimelineBucket === 'all') return events;
@@ -1520,8 +1522,8 @@
             sort: sortOrder === 'oldest' ? 'oldest' : 'newest',
             previous: previousVisit,
             hasNextPage: currentPage * pageSize < totalCount,
-            rangeStart: timeWindow.start,
-            rangeEnd: timeWindow.end,
+            rangeStart: shownWindow.current.start,
+            rangeEnd: shownWindow.current.end,
             now: new Date()
         });
         if (!span) {
@@ -1590,8 +1592,8 @@
     const gardenInTimeline = $derived(subjects === 'all' && gardenNotice === null);
     const GARDEN_WINDOW_LIMIT = 200;
 
-    /** The bird page the Garden captures are read around; the page on screen unless one is given. */
-    interface GardenAnchorPage { visits: DetectionVisit[]; previous: DetectionVisit | null; total: number }
+    /** The bird page the Garden captures are read around, and its window; the page on screen unless one is given. */
+    interface GardenAnchorPage { visits: DetectionVisit[]; previous: DetectionVisit | null; total: number; window: ExplorerWindow }
 
     type GardenTimelinePage = Awaited<ReturnType<typeof fetchGardenVisits>>;
     /** What one Garden read found. Nothing is drawn until it is applied. */
@@ -1633,15 +1635,15 @@
             previous: page.previous,
             hasNextPage: currentPage * pageSize < page.total,
             birdTotal: page.total,
-            rangeStart: timeWindow.start,
-            rangeEnd: timeWindow.end,
+            rangeStart: page.window.start,
+            rangeEnd: page.window.end,
             now: new Date()
         });
         if (!span) return { kind: 'none' };
         try {
             const timeline = await fetchGardenVisits({
-                start: timeWindow.start?.toISOString() ?? null,
-                end: timeWindow.end?.toISOString(),
+                start: page.window.start?.toISOString() ?? null,
+                end: page.window.end?.toISOString(),
                 pageStart: span.start?.toISOString(),
                 pageEnd: span.end.toISOString(),
                 camera: cameraFilter || undefined,
@@ -1702,7 +1704,7 @@
         lateGarden = null;
     }
 
-    async function loadGarden(page: GardenAnchorPage = { visits: pageVisits, previous: previousVisit, total: totalCount }): Promise<void> {
+    async function loadGarden(page: GardenAnchorPage = { visits: pageVisits, previous: previousVisit, total: totalCount, window: shownWindow.current }): Promise<void> {
         const read = await readGarden(page);
         // Once the visits have been shown without their captures, later reads feed the held row too.
         if (lateGarden) holdGarden(read);
@@ -1715,8 +1717,8 @@
     }
 
     function gardenCaptureScope(): { start: string | null; end?: string; camera?: string; taxon?: number; status: GardenReview } {
-        return { start: timeWindow.start?.toISOString() ?? null,
-            end: timeWindow.end?.toISOString(), camera: cameraFilter || undefined,
+        return { start: shownWindow.current.start?.toISOString() ?? null,
+            end: shownWindow.current.end?.toISOString(), camera: cameraFilter || undefined,
             taxon: taxonFilter ?? undefined, status: gardenOnly ? gardenReview : 'reviewable' };
     }
 

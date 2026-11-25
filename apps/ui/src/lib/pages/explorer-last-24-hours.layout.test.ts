@@ -19,10 +19,16 @@ describe('the Explorer reads the last 24 hours as one window (#1098)', () => {
         expect(filtersSource).toContain("'24h': { key: 'last_24_hours', fallback: 'Last 24 hours' }");
     });
 
-    it('fixes one pair of instants when a read begins, and only for the rolling window', () => {
-        expect(eventsSource).toContain('let timeWindow = $derived(explorerWindow(datePreset, dateRange, windowNow));');
-        expect(eventsSource).toContain("if (datePreset === '24h') windowNow = new Date();");
-        expect(eventsSource.indexOf("if (datePreset === '24h') windowNow = new Date();")).toBeLessThan(eventsSource.indexOf('const range = timeWindow;'));
+    it('fixes one pair of instants for each read and keeps it local until the read succeeds', () => {
+        expect(eventsSource).toContain('const range = explorerWindow(datePreset, dateRange, new Date());');
+        expect(eventsSource).not.toContain('windowNow');
+        expect(eventsSource).not.toContain('timeWindow');
+        // The window is published with the visits or Garden page it read, after the stale-read guard.
+        const published = [...eventsSource.matchAll(/shownWindow\.publish\(range\);/g)].map((match) => match.index ?? -1);
+        expect(published).toHaveLength(2);
+        expect(published[0]).toBeGreaterThan(eventsSource.indexOf('if (!load.isCurrent() || gardenGeneration !== gardenLoadGeneration) return;'));
+        expect(published[1]).toBeLessThan(eventsSource.indexOf('            events = newEvents;'));
+        expect(published[1]).toBeGreaterThan(eventsSource.indexOf('            const firstPage = events.length === 0;'));
     });
 
     it('sends that window to the visits, the captures and their count', () => {
@@ -31,11 +37,14 @@ describe('the Explorer reads the last 24 hours as one window (#1098)', () => {
         expect(eventsSource).not.toMatch(/startDate: range\.start/);
     });
 
-    it('gives a visit\'s captures, Garden and the heard calls the same instants', () => {
-        expect(eventsSource).toContain('const captureWindow = $derived({ ...timeWindow.request, onlyHidden: showHidden });');
-        expect(eventsSource.match(/rangeStart: timeWindow\.start,/g)).toHaveLength(2);
+    it('reads a visit\'s captures, Garden and the heard calls in the window on screen', () => {
+        expect(eventsSource).toContain('const captureWindow = $derived({ ...shownWindow.current.request, onlyHidden: showHidden });');
+        expect(eventsSource).toContain('rangeStart: shownWindow.current.start,');
+        expect(eventsSource).toContain('start: shownWindow.current.start?.toISOString() ?? null,');
+        // The first page's Garden read waits on the in-flight read's own window, not the one on screen.
+        expect(eventsSource).toContain('readGarden({ visits: nextVisits, previous: nextPrevious, total: nextTotal, window: range })');
+        expect(eventsSource).toContain('rangeStart: page.window.start,');
         expect(eventsSource).toContain('start: range.start?.toISOString() ?? null,');
-        expect(eventsSource).toContain('start: timeWindow.start?.toISOString() ?? null,');
         // No read works the window out from the calendar days on its own any more.
         expect(eventsSource).not.toContain('localDayBound(dateRange');
     });

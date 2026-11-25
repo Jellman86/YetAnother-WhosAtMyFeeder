@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.auth import AuthContext, get_auth_context_with_legacy
@@ -16,6 +14,7 @@ from app.routers.events import (
     resolve_species_display_filter_aliases,
     visible_request_window,
 )
+from app.utils.api_datetime import ExactInstant
 from app.utils.calendar_day import CalendarDay
 from app.ratelimit import guest_rate_limit
 from app.services.explorer_search import bird_taxon_members
@@ -35,8 +34,8 @@ async def get_visits(
     offset: int = Query(0, ge=0, description="Visits to skip; `total` counts every matching visit"),
     start_date: CalendarDay | None = Query(None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
     end_date: CalendarDay | None = Query(None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
-    start_time: datetime | None = Query(None, description=EXACT_START_HELP),
-    end_time: datetime | None = Query(None, description=EXACT_END_HELP),
+    start_time: ExactInstant | None = Query(None, description=EXACT_START_HELP),
+    end_time: ExactInstant | None = Query(None, description=EXACT_END_HELP),
     species: str | None = None,
     camera: str | None = None,
     multiple_species_only: bool = False,
@@ -136,8 +135,8 @@ async def get_visit_captures(
     offset: int = Query(0, ge=0),
     start_date: CalendarDay | None = Query(None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
     end_date: CalendarDay | None = Query(None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
-    start_time: datetime | None = Query(None, description=EXACT_START_HELP),
-    end_time: datetime | None = Query(None, description=EXACT_END_HELP),
+    start_time: ExactInstant | None = Query(None, description=EXACT_START_HELP),
+    end_time: ExactInstant | None = Query(None, description=EXACT_END_HELP),
     only_hidden: bool = False,
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ) -> VisitCapturesResponse:

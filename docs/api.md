@@ -327,14 +327,20 @@ longer range is rejected with `400`. Any other word is rejected with `422`.
 
 #### Exact instants
 
-The same four endpoints also take `start_time` and `end_time`: exact instants in ISO 8601 with an
-offset (`2026-11-24T10:15:30Z`), for a window no calendar day states, such as the last 24 hours.
-An instant outranks the day on the same side, so `start_time` replaces `start_date` and
-`end_time` replaces `end_date`. Both bounds are inclusive, as with days, and keep microseconds. A
-guest's shared window narrows instants exactly as it narrows days, and the 365-day limit applies.
-A value that is not an instant is rejected with `422`. The Explorer's "Last 24 hours" fixes one
-pair of instants for each read and sends it to the visits, the captures, their count, Garden and
-the heard calls, so every list on the page covers the same 24 hours.
+The same four endpoints also take `start_time` and `end_time`: exact instants written as an ISO 8601
+date and time with `Z` or a `±HH:MM` offset (`2026-11-24T10:15:30Z`, `2026-11-24T11:15:30+01:00`,
+up to six fraction digits), for a window no calendar day states, such as the last 24 hours. A date
+alone, a time with no offset, a Unix timestamp or anything else is rejected with `422`, because each
+would be read on a clock the caller never named. Remember to encode `+` as `%2B` in a URL.
+
+An instant outranks the day on the same side, so `start_time` replaces `start_date` and `end_time`
+replaces `end_date`. Both bounds are inclusive, as with days, and keep microseconds. The window is
+checked as the caller sent it, before a guest's shared window narrows it: an end before the start,
+or an end more than 365 days (of elapsed time, whatever the viewer's zone) after the start, is
+rejected with `400`. A well-formed window that lies outside a guest's shared window reads nothing
+and answers `200`. The Explorer's "Last 24 hours" fixes one pair of instants for each read and sends
+it to the visits, the captures, their count, Garden and the heard calls, so every list on the page
+covers the same 24 hours.
 
 ```bash
 # Everything from today, oldest first in pages of 500, then today's visits in one request.

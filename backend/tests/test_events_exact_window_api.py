@@ -174,14 +174,102 @@ async def test_a_guest_window_of_days_still_starts_at_its_cutoff(client, monkeyp
     assert await _count(client, species_query) == 2
 
 
+WINDOW_ROUTES = ("/api/events", "/api/events/count", "/api/visits")
+
+
+async def _status(client: httpx.AsyncClient, route: str, query: str, headers: dict[str, str] | None = None) -> int:
+    return (await client.get(f"{route}?{query}", headers=headers)).status_code
+
+
 @pytest.mark.asyncio
 async def test_an_exact_range_longer_than_a_year_is_refused(client):
     query = "start_time=2032-01-01T00:00:00Z&end_time=2034-03-10T00:00:00Z"
-    assert (await client.get(f"/api/events?{query}")).status_code == 400
-    assert (await client.get(f"/api/events/count?{query}")).status_code == 400
+    for route in WINDOW_ROUTES:
+        assert await _status(client, route, query) == 400, route
 
 
 @pytest.mark.asyncio
-async def test_an_instant_that_is_not_a_time_is_rejected(client):
-    assert (await client.get("/api/events?start_time=yesterday")).status_code == 422
-    assert (await client.get("/api/events/count?end_time=soon")).status_code == 422
+async def test_an_exact_range_one_microsecond_past_365_days_is_refused(client):
+    allowed = "start_time=2033-03-10T12:00:00Z&end_time=2034-03-10T12:00:00Z"
+    refused = "start_time=2033-03-10T12:00:00Z&end_time=2034-03-10T12:00:00.000001Z"
+    for route in WINDOW_ROUTES:
+        assert await _status(client, route, allowed) == 200, route
+        assert await _status(client, route, refused) == 400, route
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("zone", ["Europe/Berlin", "America/New_York", "Pacific/Kiritimati", "Pacific/Pago_Pago"])
+async def test_the_exact_range_limit_is_the_same_in_every_viewer_zone(client, zone):
+    # 365 days across a clock change spans 366 local calendar days in some zones; elapsed time decides.
+    allowed = "start_time=2033-03-10T23:30:00Z&end_time=2034-03-10T23:30:00Z"
+    refused = "start_time=2033-03-10T23:30:00Z&end_time=2034-03-10T23:30:00.000001Z"
+    headers = {"X-Timezone": zone}
+    for route in WINDOW_ROUTES:
+        assert await _status(client, route, allowed, headers) == 200, (route, zone)
+        assert await _status(client, route, refused, headers) == 400, (route, zone)
+
+
+@pytest.mark.asyncio
+async def test_an_end_before_the_start_is_refused(client):
+    query = "start_time=2034-03-10T23:30:00Z&end_time=2034-03-10T12:00:00Z"
+    for route in WINDOW_ROUTES:
+        response = await client.get(f"{route}?{query}")
+        assert response.status_code == 400, route
+        assert "before the start" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_an_exact_end_before_a_start_day_is_refused(client):
+    query = "start_date=2034-03-10&end_time=2034-03-09T12:00:00Z"
+    assert await _status(client, "/api/events", query) == 400
+
+
+@pytest.mark.asyncio
+async def test_one_instant_for_both_bounds_is_a_window(client):
+    query = "start_time=2034-03-10T12:00:00Z&end_time=2034-03-10T12:00:00Z"
+    assert await _events(client, query) == {"exact-1"}
+    assert await _count(client, query) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_valid_window_outside_a_guests_allowance_is_empty_not_refused(client, monkeypatch):
+    # The guest may see 10 March UTC; the request is well formed but ends before it.
+    _as_guest(monkeypatch, days=0)
+    query = "start_time=2034-03-08T00:00:00Z&end_time=2034-03-09T23:00:00Z"
+    assert await _events(client, query) == set()
+    assert await _count(client, query) == 0
+    assert await _visits(client, query) == set()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "value",
+    [
+        "yesterday",
+        "2034-03-10",
+        "2034-03-10T12:00:00",
+        "2034-03-10T12:00",
+        "1773144000",
+        "1773144000.5",
+        "2034-03-10 12:00:00Z",
+        "2034-02-30T12:00:00Z",
+        "2034-03-10T12:00:00+0100",
+        "2034-03-10T12:00:00.1234567Z",
+        "",
+    ],
+)
+async def test_an_instant_without_a_date_time_and_offset_is_rejected(client, value):
+    for route in WINDOW_ROUTES:
+        for side in ("start_time", "end_time"):
+            response = await client.get(route, params={side: value})
+            assert response.status_code == 422, (route, side, value)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "value",
+    ["2034-03-10T12:00:00Z", "2034-03-10T13:00:00+01:00", "2034-03-10T12:00:00.000000+00:00", "2034-03-10T12:00Z"],
+)
+async def test_an_instant_with_an_offset_is_accepted(client, value):
+    for route in WINDOW_ROUTES:
+        assert (await client.get(route, params={"start_time": value})).status_code == 200, (route, value)
