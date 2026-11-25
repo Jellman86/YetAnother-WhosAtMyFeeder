@@ -40,7 +40,14 @@ describe('the Explorer reads the last 24 hours as one window (#1098)', () => {
     it('reads a visit\'s captures, Garden and the heard calls in the window on screen', () => {
         expect(eventsSource).toContain('const captureWindow = $derived({ ...shownWindow.current.request, onlyHidden: showHidden });');
         expect(eventsSource).toContain('rangeStart: shownWindow.current.start,');
-        expect(eventsSource).toContain('start: shownWindow.current.start?.toISOString() ?? null,');
+        // Garden rows are expanded in the window their own read published, not the birds'.
+        expect(eventsSource).toContain('start: shownGardenWindow.current.start?.toISOString() ?? null,');
+        expect(eventsSource).not.toContain('start: shownWindow.current.start?.toISOString() ?? null,');
+        expect(eventsSource).toContain("{ kind: 'page', page: timeline, window: page.window }");
+        const applied = eventsSource.slice(eventsSource.indexOf('function applyGarden('), eventsSource.indexOf('function holdGarden('));
+        expect(applied.indexOf('shownGardenWindow.publish(read.window);')).toBeGreaterThan(-1);
+        expect(applied.indexOf('shownGardenWindow.publish(read.window);')).toBeLessThan(applied.indexOf('serverGardenVisits = read.page.visits;'));
+        expect(eventsSource.match(/shownGardenWindow\.publish\(/g)).toHaveLength(2);
         // The first page's Garden read waits on the in-flight read's own window, not the one on screen.
         expect(eventsSource).toContain('readGarden({ visits: nextVisits, previous: nextPrevious, total: nextTotal, window: range })');
         expect(eventsSource).toContain('rangeStart: page.window.start,');

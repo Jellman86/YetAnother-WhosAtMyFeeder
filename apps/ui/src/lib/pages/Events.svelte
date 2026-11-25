@@ -270,8 +270,13 @@
         if (datePreset === 'custom') return { start: customStartDate || undefined, end: customEndDate || undefined };
         return { start: undefined, end: undefined };
     });
-    /** The window of the results on screen; each read fixes its own and publishes it with them. */
+    /** The window of the bird results on screen; each read fixes its own and publishes it with them. */
     const shownWindow = new ShownExplorerWindow();
+    /**
+     * The window of the Garden rows on screen. A mixed refresh shows its bird visits before its
+     * Garden read lands, so the Garden rows keep their own window until theirs are replaced.
+     */
+    const shownGardenWindow = new ShownExplorerWindow();
 
     async function loadEvents() {
         const load = eventsLoad.begin();
@@ -315,6 +320,7 @@
                 });
                 if (!load.isCurrent() || gardenGeneration !== gardenLoadGeneration) return;
                 shownWindow.publish(range);
+                shownGardenWindow.publish(range);
                 events = [];
                 pageVisits = [];
                 previousVisit = null;
@@ -1601,7 +1607,7 @@
         | { kind: 'superseded' }
         | { kind: 'off' }
         | { kind: 'none' }
-        | { kind: 'page'; page: GardenTimelinePage }
+        | { kind: 'page'; page: GardenTimelinePage; window: ExplorerWindow }
         | { kind: 'failed' };
 
     /**
@@ -1651,7 +1657,7 @@
                 order: sort,
                 limit: GARDEN_WINDOW_LIMIT
             });
-            return generation === gardenLoadGeneration ? { kind: 'page', page: timeline } : { kind: 'superseded' };
+            return generation === gardenLoadGeneration ? { kind: 'page', page: timeline, window: page.window } : { kind: 'superseded' };
         } catch (e) {
             if (generation !== gardenLoadGeneration) return { kind: 'superseded' };
             if (e instanceof Error && e.name === 'AbortError') return { kind: 'superseded' };
@@ -1672,6 +1678,7 @@
             gardenItems = null;
             gardenFailed = true;
         } else {
+            shownGardenWindow.publish(read.window);
             serverGardenVisits = read.page.visits;
             gardenItems = read.page.visits.map((visit) => visit.representative);
             gardenCamerasSeen = seenGardenCameras(gardenCamerasSeen, gardenItems);
@@ -1717,8 +1724,8 @@
     }
 
     function gardenCaptureScope(): { start: string | null; end?: string; camera?: string; taxon?: number; status: GardenReview } {
-        return { start: shownWindow.current.start?.toISOString() ?? null,
-            end: shownWindow.current.end?.toISOString(), camera: cameraFilter || undefined,
+        return { start: shownGardenWindow.current.start?.toISOString() ?? null,
+            end: shownGardenWindow.current.end?.toISOString(), camera: cameraFilter || undefined,
             taxon: taxonFilter ?? undefined, status: gardenOnly ? gardenReview : 'reviewable' };
     }
 

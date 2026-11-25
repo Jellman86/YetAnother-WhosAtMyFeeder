@@ -242,6 +242,17 @@ async def test_a_valid_window_outside_a_guests_allowance_is_empty_not_refused(cl
 
 
 @pytest.mark.asyncio
+async def test_a_visits_captures_outside_a_guests_allowance_are_unavailable_not_empty(client, monkeypatch):
+    visits = (await client.get(f"/api/visits?{LAST_24_HOURS}&limit=500")).json()["visits"]
+    visit_id = next(visit["visit_id"] for visit in visits if visit["representative"]["frigate_event"] == "exact-1")
+    _as_guest(monkeypatch, days=0)
+    inside = await client.get(f"/api/visits/{visit_id}/captures?{LAST_24_HOURS}")
+    assert inside.status_code == 200, inside.text
+    outside = "start_time=2034-03-08T00:00:00Z&end_time=2034-03-09T23:00:00Z"
+    assert (await client.get(f"/api/visits/{visit_id}/captures?{outside}")).status_code == 404
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "value",
     [
@@ -256,6 +267,11 @@ async def test_a_valid_window_outside_a_guests_allowance_is_empty_not_refused(cl
         "2034-03-10T12:00:00+0100",
         "2034-03-10T12:00:00.1234567Z",
         "",
+        "2034-03-10T12:00:00+01:60",
+        "2034-03-10T12:00:00+24:00",
+        "2034-03-10T24:00:00Z",
+        "0001-01-01T00:00:00+05:00",
+        "9999-12-31T23:59:59-05:00",
     ],
 )
 async def test_an_instant_without_a_date_time_and_offset_is_rejected(client, value):
