@@ -122,18 +122,6 @@ def today_so_far(*, now: datetime, zone: tzinfo) -> tuple[datetime, datetime]:
     return start, now.astimezone(timezone.utc).replace(tzinfo=None)
 
 
-def yesterday_until_now(*, now: datetime, zone: tzinfo) -> tuple[datetime, datetime]:
-    """Naive-UTC bounds of yesterday from its local midnight for as long as today has run so far.
-
-    The fair comparison for "today so far": the same stretch of the day before, never past today's
-    midnight on a day a clock change made short.
-    """
-    today_start, today_end = today_so_far(now=now, zone=zone)
-    yesterday = resolve_calendar_day(TODAY, now=now, zone=zone) - timedelta(days=1)
-    start = _local_midnight_utc(yesterday, zone)
-    return start, min(start + (today_end - today_start), today_start)
-
-
 def clamp_window(
     start: datetime | None,
     end: datetime | None,

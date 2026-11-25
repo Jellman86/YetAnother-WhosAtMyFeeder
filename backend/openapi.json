@@ -31341,7 +31341,7 @@
     },
     "/api/events/review-queue": {
       "get": {
-        "description": "Everything waiting on a person: the source of Needs your call (#917).\n\nCounted here rather than from a recent page of detections, so a visit stays\nqueued however many others arrive after it. Owner only.",
+        "description": "Everything waiting on a person: the source of Needs your call (#917).\n\nCounted here rather than from a recent page of detections, so a visit stays\nqueued however many others arrive after it. Owner only. The window bounds the captures that\nwait for a species, so the queue agrees with the day summary's ``unresolved_count`` for the same\nwindow; a new species waits whenever it was first seen in the last ``window_days``.",
         "operationId": "get_review_queue_api_events_review_queue_get",
         "parameters": [
           {
@@ -31359,13 +31359,29 @@
             }
           },
           {
-            "description": "How far back a detection can still be waiting",
+            "description": "`rolling`: the last `window_hours`. `today`: from local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC, as `GET /api/stats/daily-summary?window=today` counts it.",
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": "rolling",
+              "description": "`rolling`: the last `window_hours`. `today`: from local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC, as `GET /api/stats/daily-summary?window=today` counts it.",
+              "enum": [
+                "rolling",
+                "today"
+              ],
+              "title": "Window",
+              "type": "string"
+            }
+          },
+          {
+            "description": "How far back a detection can still be waiting, for the rolling window",
             "in": "query",
             "name": "window_hours",
             "required": false,
             "schema": {
               "default": 24,
-              "description": "How far back a detection can still be waiting",
+              "description": "How far back a detection can still be waiting, for the rolling window",
               "maximum": 168,
               "minimum": 1,
               "title": "Window Hours",

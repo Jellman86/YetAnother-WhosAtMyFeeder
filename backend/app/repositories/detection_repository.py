@@ -3929,28 +3929,6 @@ class DetectionRepository:
             rows = await cursor.fetchall()
         return {row[0]: int(row[1] or 0) for row in rows if row and row[0]}
 
-    async def get_utc_quarter_hour_counts(self, start: datetime, end: datetime) -> list[tuple[datetime, int]]:
-        """Visible captures per UTC quarter hour within [start, end), as naive UTC bucket starts.
-
-        Quarter hours, not hours: every zone's offset is a whole number of quarter hours, so each
-        bucket lies inside one local hour. A UTC hour would not in India (UTC+5:30), where 18:40 UTC
-        is 00:10 the next day but its UTC hour starts at 23:30 the day before.
-        """
-        query = """
-            SELECT strftime('%Y-%m-%d %H:', detection_time)
-                   || printf('%02d', (CAST(strftime('%M', detection_time) AS INTEGER) / 15) * 15)
-                   || ':00' AS bucket_start,
-                   COUNT(*)
-            FROM detections
-            WHERE detection_time >= ? AND detection_time < ?
-              AND (is_hidden = 0 OR is_hidden IS NULL)
-            GROUP BY bucket_start
-            ORDER BY bucket_start ASC
-        """
-        async with self.db.execute(query, (start, end)) as cursor:
-            rows = await cursor.fetchall()
-        return [(datetime.fromisoformat(row[0]), int(row[1])) for row in rows if row[0] and int(row[1] or 0) > 0]
-
     async def get_timebucket_counts_halfday(self, start: datetime, end: datetime) -> dict[str, int]:
         """Counts grouped by half-day (AM/PM) within [start, end).
 

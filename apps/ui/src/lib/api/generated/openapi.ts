@@ -4408,6 +4408,7 @@ export interface paths {
       query: {
     limit?: number;
     max_sightings?: number;
+    window?: "rolling" | "today";
     window_days?: number;
     window_hours?: number;
 };

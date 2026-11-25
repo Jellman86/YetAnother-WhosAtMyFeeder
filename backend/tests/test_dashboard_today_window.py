@@ -74,6 +74,9 @@ async def _clear() -> None:
     async with get_db() as db:
         await db.execute("DELETE FROM detections")
         await db.execute("DELETE FROM audio_detections")
+        await db.execute("DELETE FROM lost_captures WHERE frigate_event LIKE 'dtw-%'")
+        await db.execute("DELETE FROM species_daily_totals WHERE day = '2034-03-10'")
+        await db.execute("DELETE FROM daily_totals_days WHERE day = '2034-03-10'")
         await db.commit()
 
 
@@ -360,3 +363,44 @@ async def test_at_midnight_todays_queue_drops_yesterdays_captures_and_keeps_a_ne
     assert after["window_start"] == "2034-03-10T18:30:00Z"
     assert [item["event"]["frigate_event"] for item in after["items"]] == ["hoopoe-4-days-ago"]
     assert after["total"] == 1
+
+
+# The species checks beside the day ---------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_todays_species_checks_count_what_the_leaderboard_does_and_the_day_what_is_stored(client):
+    # Needs your call's species checks read the Leaderboard's Today (span=today), and link to it:
+    # stored captures and captures Frigate lost, never a sealed day's total. The day's figures count
+    # the stored captures a person can open. Both start at the same local midnight.
+    await _seed("robin-today", datetime(2034, 3, 10, 18, 40))
+    async with get_db() as db:
+        for event, at in (("dtw-lost-today", "2034-03-10 19:10:00"), ("dtw-lost-yesterday", "2034-03-10 18:10:00")):
+            await db.execute(
+                """INSERT INTO lost_captures (frigate_event, detection_time, species_key, scientific_name,
+                    display_name, lost_at) VALUES (?, ?, 'name:european robin', 'Erithacus rubecula', 'European Robin', ?)""",
+                (event, at, at),
+            )
+        # The instance's whole UTC day of the 10th is sealed with captures no longer stored.
+        await db.execute(
+            "INSERT INTO daily_totals_days (day, sealed_at, complete) VALUES ('2034-03-10', '2034-03-10 19:30:00', 1)"
+        )
+        await db.execute(
+            """INSERT INTO species_daily_totals (day, species_key, scientific_name, common_name, display_name,
+                capture_count, visit_count) VALUES ('2034-03-10', 'name:dunnock', 'Prunella modularis', 'Dunnock', 'Dunnock', 4, 2)"""
+        )
+        await db.commit()
+
+    board = _ok(await client.get("/api/leaderboard/species?span=today", headers=INDIA))
+    summary = _ok(await client.get("/api/stats/daily-summary?window=today", headers=INDIA))
+
+    assert datetime.fromisoformat(board["window_start"].replace("Z", "+00:00")) == datetime(
+        2034, 3, 10, 18, 30, tzinfo=timezone.utc
+    )
+    assert summary["window_start"] == "2034-03-10T18:30:00Z"
+    # The Leaderboard counts the stored capture and the one Frigate lost today, not yesterday's.
+    assert [(row["species"], row["window_count"]) for row in board["species"]] == [("European Robin", 2)]
+    # The day counts the capture that is stored.
+    assert [(row["species"], row["count"]) for row in summary["top_species"]] == [("European Robin", 1)]
+    # A sealed total counts in neither.
+    assert all(row["species"] != "Dunnock" for row in board["species"] + summary["top_species"])

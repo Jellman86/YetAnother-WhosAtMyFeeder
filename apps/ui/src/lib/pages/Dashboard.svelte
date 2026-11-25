@@ -28,7 +28,7 @@
     import { toastStore } from '../stores/toast.svelte';
     import type { AudioSummaryResponse, Detection, DailySummary } from '../api';
     import { deleteDetection, hideDetection, IdentificationChangedError, updateDetectionSpecies, fetchAudioSummary, fetchDailySummary, reclassifyDetection, fetchReviewQueue, updateSettings, fetchLeaderboardSpecies, fetchAudioSpeciesLeaderboard } from '../api';
-    import { readRangeCheck, SPECIES_CHECKS_LINK, type RangeCheckReading } from '../leaderboard/species-checks';
+    import { readRangeCheck, speciesChecksLink, type RangeCheckReading } from '../leaderboard/species-checks';
     import { needsYourCall, type ReadingStatus, type SpeciesChecksView } from '../utils/needs-your-call';
     import type { DomesticBirdKey } from '../utils/domestic-birds';
     import { DomesticBirdOffers } from '../utils/domestic-bird-offers.svelte';
@@ -942,7 +942,7 @@
                     onretry={retryReviewQueue}
                     onreview={openRecord}
                     onreviewall={() => void openReviewSession()}
-                    onopenchecks={() => onnavigate?.(SPECIES_CHECKS_LINK)}
+                    onopenchecks={() => onnavigate?.(speciesChecksLink(deskKind))}
                     onretrychecks={() => loadSpeciesChecks({ retry: true })}
                     onkept={speciesKept}
                     windowKind={deskKind}

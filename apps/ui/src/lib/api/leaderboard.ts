@@ -1,15 +1,12 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
 import type { paths } from './generated/openapi';
 
-/** The windows the Species page offers. */
-export type LeaderboardSpan = 'all' | Exclude<paths['/api/leaderboard/species']['get']['query']['span'], 'today'>;
-/** The species readings also answer for the Dashboard's Today, from the viewer's local midnight. */
-export type SpeciesReadingSpan = LeaderboardSpan | 'today';
+export type LeaderboardSpan = 'all' | paths['/api/leaderboard/species']['get']['query']['span'];
 
 export type LeaderboardSpeciesResponse = paths['/api/leaderboard/species']['get']['response'];
 
 export async function fetchLeaderboardSpecies(
-    span: SpeciesReadingSpan = 'week',
+    span: LeaderboardSpan = 'week',
     signal?: AbortSignal
 ): Promise<LeaderboardSpeciesResponse> {
     const response = await apiFetch(`${API_BASE}/leaderboard/species?span=${encodeURIComponent(span)}`, {

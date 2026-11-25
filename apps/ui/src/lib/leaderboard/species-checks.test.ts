@@ -6,7 +6,7 @@ import {
     needsSpeciesCheck,
     parseSpeciesPageLink,
     readRangeCheck,
-    SPECIES_CHECKS_LINK,
+    speciesChecksLink,
     windowSpeciesChecks,
     type RangeCheckReading
 } from './species-checks';
@@ -100,8 +100,11 @@ describe('windowSpeciesChecks', () => {
 });
 
 describe('the link to the Species page checks', () => {
-    it('opens the 24 hour window at the checks', () => {
-        expect(SPECIES_CHECKS_LINK).toBe('/species?span=day#checks');
+    it('opens the Dashboard\'s window at the checks', () => {
+        expect(speciesChecksLink('rolling')).toBe('/species?span=day#checks');
+        // On Today the Dashboard opens the Leaderboard on Today, the window its checks were read for.
+        expect(speciesChecksLink('today')).toBe('/species?span=today#checks');
+        expect(parseSpeciesPageLink('?span=today', '#checks')).toEqual({ span: 'today', focusChecks: true });
         expect(parseSpeciesPageLink('?span=day', '#checks')).toEqual({ span: 'day', focusChecks: true });
     });
 

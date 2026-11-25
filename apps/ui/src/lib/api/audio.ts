@@ -1,6 +1,6 @@
 import { API_BASE, apiFetch, apiFetchJson, handleResponse, type Guarded } from './core';
 import type { components, paths } from './generated/openapi';
-import type { LeaderboardSpan, SpeciesReadingSpan } from './leaderboard';
+import type { LeaderboardSpan } from './leaderboard';
 
 export type AudioDetection = paths['/api/audio/recent']['get']['response'][number];
 
@@ -69,7 +69,7 @@ export type AudioSpeciesLeaderboardItem = paths['/api/audio/species']['get']['re
 export type AudioSpeciesLeaderboardResponse = paths['/api/audio/species']['get']['response'];
 
 export async function fetchAudioSpeciesLeaderboard(
-    span: SpeciesReadingSpan = 'week',
+    span: LeaderboardSpan = 'week',
     signal?: AbortSignal
 ): Promise<AudioSpeciesLeaderboardResponse> {
     const response = await apiFetch(`${API_BASE}/audio/species?span=${encodeURIComponent(span)}`, {

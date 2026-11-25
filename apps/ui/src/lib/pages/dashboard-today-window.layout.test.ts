@@ -118,6 +118,7 @@ describe('the Dashboard\'s Today (#1097)', () => {
         expect(dashboardSource).toContain('hiddenLabel={fieldLogEarlier}');
         expect(dashboardSource).toContain("$_('dashboard.field_log.earlier_today'");
         expect(dashboardSource).toContain('onseewindow={() => onnavigate?.(fieldLogWindowLink(gardenAvailable, deskKind))}');
+        expect(dashboardSource).toContain('onopenchecks={() => onnavigate?.(speciesChecksLink(deskKind))}');
     });
 
     it('draws Today from midnight to the current hour', () => {

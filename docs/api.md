@@ -1127,11 +1127,7 @@ Notes:
 - `PUT /api/species/common-name-override` (owner; preserves the provider name separately)
 - `DELETE /api/species/common-name-override?scientific_name=...` (owner; restores the provider name)
 - `DELETE /api/species/{species_name}/cache` (owner)
-- `GET /api/leaderboard/species?span=` (`day` the last 24 hours, `week` the last 7 days, `month` the
-  last 30 days, or `today` from local midnight, in the zone chosen as in
-  [Calendar days](#calendar-days-and-today), to now, whose previous window is yesterday from its
-  midnight for as long as today has run; a guest's shared window narrows each; per species: window
-  and previous-window counts, confirmed and
+- `GET /api/leaderboard/species` (per species: window and previous-window counts, confirmed and
   call-matched detections in the window; `history_start` and `previous_window_complete` say whether
   the previous window was fully recorded; with eBird configured, `reported_nearby` per species and
   the `nearby_radius_km` / `nearby_days_back` of that check; `nearby_check` says whether that check
@@ -1789,8 +1785,7 @@ snapshot, not a destructive queue-control API.
     of the strongest servable call for the spectrogram. Guests get the public window, no visit older
     than it, and no source names when camera names are private; `truncated` says the window held
     more than 20,000 calls
-  - `GET /api/audio/species?span=` (`day`, `today`, `week`, `month` or `all`; the windows are the
-    seen leaderboard's, so `today` runs from local midnight to now)
+  - `GET /api/audio/species`
   - `GET /api/audio/context`
   - `GET /api/audio/context/event/{event_id}` — nearby BirdNET detections for one persisted visual
     event, using the configured correlation window and camera-to-audio-source mapping. Both retain

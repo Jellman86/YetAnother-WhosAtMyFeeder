@@ -131,9 +131,13 @@ captures it waits on are the ones the **Unresolved** figure counts over the same
 them whenever it was first seen in the last fortnight, and the day bar says "nothing needs your
 call" only when neither waits. It also names the species the leaderboard's range check flags over
 the same window (`windowSpeciesChecks()` in `leaderboard/species-checks.ts`, the predicate the
-Species page's **Needs a check** uses, read with `span=today` on Today), links to them at
-`/species?span=day#checks`, and offers the kept-bird
-action through the same `KeptBirdOffers` component. `needsYourCall()` in
+Species page's **Needs a check** uses, read with `span=today` on Today), links to them on the
+same window (`speciesChecksLink()`: `/species?span=today#checks` on Today, `/species?span=day#checks`
+over the last 24 hours), and offers the kept-bird
+action through the same `KeptBirdOffers` component. The checks count what the Leaderboard counts
+for that window, stored captures and captures Frigate lost, never a sealed day's total, so the card
+and the page it opens name the same species; the day's figures and the waiting captures count the
+stored captures a person can open. `needsYourCall()` in
 `utils/needs-your-call.ts` decides what the card may say: each reading (visits, species checks)
 is loading, unavailable, clear, waiting or stale on its own, and "Nothing waiting on you" appears
 only when both were measured and are zero. A leaderboard answer measures the species checks only

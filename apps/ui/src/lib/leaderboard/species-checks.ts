@@ -2,6 +2,7 @@ import type { AudioSpeciesLeaderboardItem, LeaderboardSpan, LeaderboardSpeciesRe
 import type { ChecksStatus } from '../utils/needs-your-call';
 import { evidenceFor, isUnlikelyHere, type EvidenceContext, type EvidenceRow } from './evidence';
 import { LEADERBOARD_SPANS } from './period';
+import type { DeskWindowKind } from '../utils/desk-window';
 
 /**
  * The range check, shared by the Species page's "Needs a check" card and the Dashboard's
@@ -92,8 +93,10 @@ export function readRangeCheck(
 
 const CHECKS_ANCHOR = 'checks';
 
-/** The Species page over the Dashboard's 24 hours, opened at its species checks. */
-export const SPECIES_CHECKS_LINK = `/species?span=day#${CHECKS_ANCHOR}`;
+/** The Species page over the Dashboard's window (Today, or the last 24 hours), opened at its species checks. */
+export function speciesChecksLink(window: DeskWindowKind): string {
+    return `/species?span=${window === 'today' ? 'today' : 'day'}#${CHECKS_ANCHOR}`;
+}
 
 export interface SpeciesPageLink {
     /** The window the link asks for, or null to keep the page's default. */
