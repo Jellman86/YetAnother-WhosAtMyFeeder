@@ -351,11 +351,37 @@ def test_history_retains_accelerator_descriptors_across_unmeasured_gaps_until_wi
     assert [(item.id, item.label, item.utilization_percent) for item in mid.accelerators] == [
         ("drm:card0", "Intel GPU", None)
     ]
+    assert mid.accelerator_kind == "gpu"
+    assert mid.accelerator_label == "Intel GPU"
+    assert mid.points[-1].accelerator_percent is None
 
     # Once the window rolls completely past every sample containing the device, its descriptor expires.
     history.record(SystemTelemetrySample(cpu_percent=21.0, accelerators=()), [], at=10.0)
     history.record(SystemTelemetrySample(cpu_percent=22.0, accelerators=()), [], at=15.0)
-    assert history.snapshot().accelerators == []
+    expired = history.snapshot()
+    assert expired.accelerators == []
+    assert expired.accelerator_kind is None
+    assert expired.accelerator_label is None
+
+
+def test_primary_accelerator_prefers_readable_unmeasured_gpu_over_unreadable_device() -> None:
+    nvidia = AcceleratorReading(
+        id="nvidia-0",
+        kind="gpu",
+        label="NVIDIA GPU",
+        scope="device",
+        utilization_percent=None,
+        unreadable="nvidia_no_counter",
+    )
+    intel = AcceleratorReading(
+        id="gpu-0000:00:02.0",
+        kind="gpu",
+        label="Intel GPU",
+        scope="app",
+        utilization_percent=None,
+    )
+    sample = SystemTelemetrySample(cpu_percent=12.0, accelerators=(nvidia, intel))
+    assert sample.primary_accelerator == intel
 
 
 @pytest.mark.asyncio

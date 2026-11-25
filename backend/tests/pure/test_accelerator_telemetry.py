@@ -578,3 +578,94 @@ def test_gpu_probe_does_not_treat_a_drop_in_a_counter_wider_than_32_bits_as_a_wr
 
     assert probe.read(now=15.0, pids=[100])[0].utilization_percent is None
     assert probe.diagnostics.counters[0].state == "counter_regressed"
+
+
+def _write_drm_node(
+    drm_root: Path,
+    dev_dri_root: Path | None,
+    node: str,
+    *,
+    driver: str,
+    pci_slot: str | None = None,
+    expose_dev_node: bool = True,
+) -> None:
+    device_dir = drm_root / node / "device"
+    device_dir.mkdir(parents=True, exist_ok=True)
+    driver_target = drm_root.parent / "drivers" / driver
+    driver_target.mkdir(parents=True, exist_ok=True)
+    driver_link = device_dir / "driver"
+    if not driver_link.exists() and not driver_link.is_symlink():
+        driver_link.symlink_to(driver_target)
+    uevent = f"DRIVER={driver}\n"
+    if pci_slot is not None:
+        uevent += f"PCI_SLOT_NAME={pci_slot}\n"
+    (device_dir / "uevent").write_text(uevent, encoding="utf-8")
+    if dev_dri_root is not None and expose_dev_node:
+        dev_dri_root.mkdir(parents=True, exist_ok=True)
+        (dev_dri_root / node).write_text("", encoding="utf-8")
+
+
+def test_gpu_probe_reports_present_drm_gpu_as_unmeasured_before_any_worker_opens_it(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    (proc / "100" / "fdinfo").mkdir(parents=True)
+    drm_root = tmp_path / "sys_drm"
+    dev_dri = tmp_path / "dev_dri"
+    # Typical Docker mount: host sysfs shows card1, connectors, and renderD128,
+    # while the container only mounted renderD128 (and an unrelated simpledrm card2).
+    _write_drm_node(drm_root, dev_dri, "card1", driver="i915", pci_slot="0000:00:02.0", expose_dev_node=False)
+    _write_drm_node(drm_root, dev_dri, "renderD128", driver="i915", pci_slot="0000:00:02.0", expose_dev_node=True)
+    _write_drm_node(drm_root, dev_dri, "card1-HDMI-A-1", driver="i915", pci_slot="0000:00:02.0", expose_dev_node=False)
+    _write_drm_node(drm_root, dev_dri, "card2", driver="simpledrm", pci_slot="0000:00:03.0", expose_dev_node=True)
+
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=drm_root, dev_dri_root=dev_dri)
+
+    before_worker = probe.read(now=10.0, pids=[100])
+    assert len(before_worker) == 1
+    assert before_worker[0].id == "gpu-0000:00:02.0"
+    assert before_worker[0].kind == "gpu"
+    assert before_worker[0].label == "Intel GPU"
+    assert before_worker[0].scope == "app"
+    assert before_worker[0].utilization_percent is None
+    assert before_worker[0].unreadable is None
+
+    # A worker opens the same GPU: id stays identical (no duplicate series) and measures normally.
+    _write_fdinfo(proc, 200, 9, _drm_client(1, render_ns=0, video_ns=0))
+    baseline = probe.read(now=12.0, pids=[100, 200])
+    assert [(r.id, r.label, r.utilization_percent) for r in baseline] == [("gpu-0000:00:02.0", "Intel GPU", None)]
+
+    _write_fdinfo(proc, 200, 9, _drm_client(1, render_ns=500_000_000, video_ns=0))
+    measured = probe.read(now=14.0, pids=[100, 200])
+    assert [(r.id, r.label, r.utilization_percent) for r in measured] == [("gpu-0000:00:02.0", "Intel GPU", 25.0)]
+
+    # When the worker exits, the accessible GPU remains visible as unmeasured rather than disappearing.
+    after_exit = probe.read(now=16.0, pids=[100])
+    assert [(r.id, r.label, r.utilization_percent) for r in after_exit] == [("gpu-0000:00:02.0", "Intel GPU", None)]
+
+
+def test_gpu_probe_ignores_host_drm_sysfs_when_dev_dri_is_not_passed_to_container(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    (proc / "100" / "fdinfo").mkdir(parents=True)
+    drm_root = tmp_path / "sys_drm"
+    dev_dri = tmp_path / "missing_dev_dri"
+    _write_drm_node(drm_root, None, "card1", driver="i915", pci_slot="0000:00:02.0", expose_dev_node=False)
+    _write_drm_node(drm_root, None, "renderD128", driver="i915", pci_slot="0000:00:02.0", expose_dev_node=False)
+
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=drm_root, dev_dri_root=dev_dri)
+    assert probe.read(now=10.0, pids=[100]) == []
+
+
+def test_gpu_probe_ignores_proprietary_nvidia_drm_card_and_disambiguates_multiple_gpus(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    (proc / "100" / "fdinfo").mkdir(parents=True)
+    drm_root = tmp_path / "sys_drm"
+    dev_dri = tmp_path / "dev_dri"
+    _write_drm_node(drm_root, dev_dri, "card0", driver="nvidia", pci_slot="0000:01:00.0")
+    _write_drm_node(drm_root, dev_dri, "renderD128", driver="i915", pci_slot="0000:00:02.0")
+    _write_drm_node(drm_root, dev_dri, "renderD129", driver="xe", pci_slot="0000:03:00.0")
+
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=drm_root, dev_dri_root=dev_dri)
+    readings = probe.read(now=10.0, pids=[100])
+    assert [(r.id, r.label, r.utilization_percent) for r in readings] == [
+        ("gpu-0000:00:02.0", "Intel GPU 0000:00:02.0", None),
+        ("gpu-0000:03:00.0", "Intel GPU 0000:03:00.0", None),
+    ]
