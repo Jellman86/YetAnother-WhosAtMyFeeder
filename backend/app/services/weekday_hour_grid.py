@@ -1,10 +1,12 @@
-"""Folding UTC hour counts into the viewer's weekday-by-hour grid.
+"""Folding UTC bucket counts into the viewer's weekday-by-hour grid.
 
-History is stored in UTC and grouped by UTC hour in SQL, because SQLite knows no time zones. Each
-hour is then moved into the zone the viewer's browser named, so a grid reads in local time. A zone
-whose offset is not a whole hour (India, UTC+5:30) puts each UTC hour in the local slot it starts
-in. Pure, so the Leaderboard's camera grid and Audio history's call grid fold the same way and are
-tested without a database or a clock.
+History is stored in UTC and grouped into UTC buckets in SQL, because SQLite knows no time zones.
+Each bucket is then moved into the zone the viewer's browser named, so a grid reads in local time.
+A bucket lands in the local slot it starts in, so it is exact only when it lies inside one local
+hour: UTC hours are for whole-hour zones, and quarter hours (as Audio history groups its calls) are
+exact everywhere, since every zone's offset is a whole number of quarter hours. Pure, so the
+Leaderboard's camera grid and Audio history's call grid fold the same way and are tested without a
+database or a clock.
 """
 
 from dataclasses import dataclass
@@ -26,13 +28,13 @@ class WeekdayHourGrid:
     max_cell_count: int
 
 
-def weekday_hour_grid(utc_hourly_counts: Iterable[tuple[datetime, int]], zone: tzinfo) -> WeekdayHourGrid:
+def weekday_hour_grid(utc_bucket_counts: Iterable[tuple[datetime, int]], zone: tzinfo) -> WeekdayHourGrid:
     """Every weekday and hour, Sunday first, with the counts that fall in each in ``zone``.
 
-    ``utc_hourly_counts`` holds naive UTC hour starts with the count in each.
+    ``utc_bucket_counts`` holds naive UTC bucket starts (hours or quarter hours) with the count in each.
     """
     counts: dict[tuple[int, int], int] = {}
-    for bucket_start, count in utc_hourly_counts:
+    for bucket_start, count in utc_bucket_counts:
         if count <= 0:
             continue
         local = bucket_start.replace(tzinfo=timezone.utc).astimezone(zone)

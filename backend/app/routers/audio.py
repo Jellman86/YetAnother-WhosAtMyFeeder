@@ -497,7 +497,7 @@ async def get_audio_activity_heatmap(
     if hide_sensor:
         source = None
     async with privacy_checked_db(get_db) as db:
-        utc_hourly_counts = await AudioHistoryRepository(db).get_audio_activity_utc_hourly_counts(
+        utc_quarter_hour_counts = await AudioHistoryRepository(db).get_audio_activity_utc_quarter_hour_counts(
             start_date=window.start_date,
             end_date=window.end_date,
             species=species,
@@ -509,7 +509,7 @@ async def get_audio_activity_heatmap(
             search=search,
             search_include_source=not hide_sensor,
         )
-    grid = weekday_hour_grid(utc_hourly_counts, calendar_timezone(request))
+    grid = weekday_hour_grid(utc_quarter_hour_counts, calendar_timezone(request))
     return AudioActivityHeatmapResponse(
         window_start=serialize_api_datetime(window.start_date),
         window_end=serialize_api_datetime(window.counted_end),

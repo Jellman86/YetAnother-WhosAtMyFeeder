@@ -728,7 +728,7 @@ class AudioHistoryRepository:
             "sources": sources,
         }
 
-    async def get_audio_activity_utc_hourly_counts(
+    async def get_audio_activity_utc_quarter_hour_counts(
         self,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
@@ -741,7 +741,12 @@ class AudioHistoryRepository:
         search: Optional[str] = None,
         search_include_source: bool = True,
     ) -> list[tuple[datetime, int]]:
-        """Visible calls per UTC hour, under the summary's filters, optionally for one species exactly."""
+        """Visible calls per UTC quarter hour, under the summary's filters, optionally for one species exactly.
+
+        Quarter hours, not hours: every zone's offset is a whole number of quarter hours, so each bucket
+        lies inside one local hour. A UTC hour would not in India (UTC+5:30), where 18:40 UTC on Tuesday
+        is 00:10 on Wednesday but its UTC hour starts at 23:30 on Tuesday.
+        """
         where_sql, params = self._build_audio_history_filter(
             start_date=start_date,
             end_date=end_date,
@@ -755,7 +760,10 @@ class AudioHistoryRepository:
             search_include_source=search_include_source,
         )
         async with self.db.execute(
-            f"""SELECT strftime('%Y-%m-%d %H:00:00', timestamp) AS bucket_start, COUNT(*)
+            f"""SELECT strftime('%Y-%m-%d %H:', timestamp)
+                       || printf('%02d', (CAST(strftime('%M', timestamp) AS INTEGER) / 15) * 15)
+                       || ':00' AS bucket_start,
+                       COUNT(*)
                 FROM audio_detections
                 {where_sql}
                 GROUP BY bucket_start

@@ -71,22 +71,26 @@ def owner_without_auth():
 
 
 @pytest.mark.asyncio
-async def test_repository_counts_visible_calls_per_utc_hour_with_the_history_filters():
+async def test_repository_counts_visible_calls_per_utc_quarter_hour_with_the_history_filters():
     await _seed(ROWS)
     async with get_db() as db:
         repo = AudioHistoryRepository(db)
         start, end = ANCHOR - timedelta(days=1), ANCHOR + timedelta(days=1)
-        every = await repo.get_audio_activity_utc_hourly_counts(start_date=start, end_date=end)
-        dunnock = await repo.get_audio_activity_utc_hourly_counts(start_date=start, end_date=end, species="dunn")
-        confident = await repo.get_audio_activity_utc_hourly_counts(start_date=start, end_date=end, min_confidence=0.8)
-        garden = await repo.get_audio_activity_utc_hourly_counts(start_date=start, end_date=end, source="garden")
+        every = await repo.get_audio_activity_utc_quarter_hour_counts(start_date=start, end_date=end)
+        dunnock = await repo.get_audio_activity_utc_quarter_hour_counts(start_date=start, end_date=end, species="dunn")
+        confident = await repo.get_audio_activity_utc_quarter_hour_counts(
+            start_date=start, end_date=end, min_confidence=0.8
+        )
+        garden = await repo.get_audio_activity_utc_quarter_hour_counts(start_date=start, end_date=end, source="garden")
 
     naive = ANCHOR.replace(tzinfo=None)
-    # The hidden Wren and the call from 20 days ago are not counted.
-    assert every == [(naive, 3), (naive + timedelta(hours=2), 1)]
-    assert dunnock == [(naive, 2)]
-    assert confident == [(naive, 2), (naive + timedelta(hours=2), 1)]
-    assert garden == [(naive, 1), (naive + timedelta(hours=2), 1)]
+    quarter = timedelta(minutes=15)
+    # 08:05 is in the 08:00 quarter, 08:40 in 08:30 and 08:50 in 08:45. The hidden Wren and the call
+    # from 20 days ago are not counted.
+    assert every == [(naive, 1), (naive + 2 * quarter, 1), (naive + 3 * quarter, 1), (naive + timedelta(hours=2), 1)]
+    assert dunnock == [(naive, 1), (naive + 2 * quarter, 1)]
+    assert confident == [(naive, 1), (naive + 3 * quarter, 1), (naive + timedelta(hours=2), 1)]
+    assert garden == [(naive + 3 * quarter, 1), (naive + timedelta(hours=2), 1)]
 
 
 @pytest.mark.asyncio
@@ -114,9 +118,10 @@ async def test_route_moves_hours_into_the_requested_time_zone(client: httpx.Asyn
     )
 
     payload = response.json()
-    # 08:05 UTC is 13:35 in India (UTC+5:30); 08:40 and 08:50 are 14:10 and 14:20, but every call
-    # is counted in the slot of the UTC hour that holds it, which starts at 13:30 local.
-    assert _cell(payload, 1, 13) == 3
+    # 08:05 UTC is 13:35 in India (UTC+5:30); 08:40 and 08:50 are 14:10 and 14:20. Each call is in
+    # the local hour it was heard in, not the one its UTC hour starts in.
+    assert _cell(payload, 1, 13) == 1
+    assert _cell(payload, 1, 14) == 2
     assert payload["total_count"] == 4
 
 
@@ -245,5 +250,25 @@ async def test_route_without_a_header_uses_the_instance_time_zone(client: httpx.
 
     payload = (await client.get("/api/audio/activity-heatmap", params={"days": 14})).json()
 
-    assert _cell(payload, 1, 13) == 3
+    assert _cell(payload, 1, 13) == 1
+    assert _cell(payload, 1, 14) == 2
     assert _cell(payload, 1, 8) == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("one_species", [False, True])
+async def test_a_call_just_after_midnight_in_india_is_in_that_days_first_hour(client: httpx.AsyncClient, one_species):
+    """00:10 on Wednesday 25 November in India is 18:40 UTC on Tuesday, inside a UTC hour that starts at 23:30
+    local on Tuesday. Today's grid, and a species' grid beside it, must put it on Wednesday at 00:00."""
+    await _seed_named([(datetime(2026, 11, 24, 18, 40, tzinfo=timezone.utc), "Robin", "Erithacus rubecula")])
+    params = {"start_date": "2026-11-24T18:30:00Z", "end_date": "2026-11-25T04:30:00Z"}
+    if one_species:
+        params["scientific_name"] = "Erithacus rubecula"
+
+    payload = (
+        await client.get("/api/audio/activity-heatmap", params=params, headers={"X-Timezone": "Asia/Kolkata"})
+    ).json()
+
+    assert _cell(payload, 3, 0) == 1
+    assert _cell(payload, 2, 23) == 0
+    assert payload["total_count"] == payload["max_cell_count"] == 1
