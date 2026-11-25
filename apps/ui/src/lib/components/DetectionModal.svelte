@@ -320,6 +320,7 @@
             if (!isCurrent()) return;
             snapshotStatus = status;
             snapshotCandidates = candidateList.candidates ?? [];
+            asRecordedDismissed = Boolean(candidateList.as_recorded_dismissed);
             if (parentIdentity === countedParentIdentity) {
                 countedBirds = candidateList.birds ?? [];
                 countedBirdsGeneration += 1;
@@ -332,6 +333,7 @@
             if (!isCurrent()) return;
             snapshotStatus = null;
             snapshotCandidates = [];
+            asRecordedDismissed = false;
             if (parentIdentity === countedParentIdentity) {
                 countedBirds = [];
                 countedBirdsGeneration += 1;
@@ -407,6 +409,7 @@
             snapshotControlsSubject = null;
             snapshotStatus = null;
             snapshotCandidates = [];
+            asRecordedDismissed = false;
             countedBirds = [];
             snapshotCandidatesLoading = false;
             currentSnapshotCandidateId = null;
@@ -417,6 +420,7 @@
         if (snapshotControlsSubject !== eventId) {
             snapshotControlsSubject = eventId;
             snapshotCandidates = [];
+            asRecordedDismissed = false;
             countedBirds = [];
             // Keep keyed rows and focus while rereading this same capture.
             untrack(() => { countedBirdsGeneration += 1; });
@@ -572,6 +576,7 @@
     }
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
+    let asRecordedDismissed = $state(false);
     let countedBirds = $state<BirdObservation[]>([]);
     /** Advanced on every reread of the birds, so an edit answered after it is not applied. */
     let countedBirdsGeneration = $state(0);
@@ -813,7 +818,9 @@
         && !readOnly
         && !reclassifyProgress
     );
-    const originalFrigateSnapshotAvailable = $derived(snapshotStatus?.original_frigate_snapshot_available === true);
+    const originalFrigateSnapshotAvailable = $derived(
+        snapshotStatus?.original_frigate_snapshot_available === true && !asRecordedDismissed
+    );
     const fullFrameSnapshotCandidate = $derived(
         findMatchingFullFrameCandidate(snapshotCandidates, currentSnapshotCandidateId)
     );
@@ -1392,7 +1399,10 @@
         snapshotApplyPending = true;
         try {
             const response = await dismissSnapshotCandidate(eventId, candidateId, dismissed);
-            if (detection.frigate_event === eventId && hasOwnerDetectionActions) snapshotCandidates = response.candidates;
+            if (detection.frigate_event === eventId && hasOwnerDetectionActions) {
+                snapshotCandidates = response.candidates;
+                asRecordedDismissed = Boolean(response.as_recorded_dismissed);
+            }
         } catch (error) {
             toastStore.error(getErrorMessage(error));
             throw error;

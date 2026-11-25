@@ -2944,6 +2944,7 @@ export interface components {
     status: "applied";
 };
     SnapshotCandidateListResponse: {
+    as_recorded_dismissed?: boolean;
     birds?: Array<components['schemas']['BirdObservationResponse']>;
     candidates: Array<components['schemas']['SnapshotCandidateResponse']>;
     current_candidate_id?: string | null;

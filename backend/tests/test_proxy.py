@@ -1694,6 +1694,7 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
                 }
             ]
         )
+        mock_repo.is_as_recorded_dismissed = AsyncMock(return_value=False)
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {
@@ -1790,6 +1791,7 @@ async def test_proxy_snapshot_candidate_image_returns_retained_full_resolution_i
         mock_db = AsyncMock()
         mock_get_db.return_value.__aenter__.return_value = mock_db
         mock_repo = mock_repo_cls.return_value
+        mock_repo.is_as_recorded_dismissed = AsyncMock(return_value=False)
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {
@@ -1820,6 +1822,7 @@ async def test_proxy_snapshot_candidate_image_returns_404_when_retained_image_is
         mock_db = AsyncMock()
         mock_get_db.return_value.__aenter__.return_value = mock_db
         mock_repo = mock_repo_cls.return_value
+        mock_repo.is_as_recorded_dismissed = AsyncMock(return_value=False)
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {
@@ -2416,6 +2419,7 @@ async def test_snapshot_candidates_response_includes_model_crop_miss_reason_when
         mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
         mock_repo = mock_repo_cls.return_value
         mock_bird_repo_cls.return_value.named_for_event = AsyncMock(return_value=[])
+        mock_repo.is_as_recorded_dismissed = AsyncMock(return_value=False)
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {
@@ -2472,6 +2476,7 @@ async def test_snapshot_candidates_response_no_model_crop_miss_reason_when_model
         mock_get_metadata.return_value = {"source": source}
         mock_repo = mock_repo_cls.return_value
         mock_bird_repo_cls.return_value.named_for_event = AsyncMock(return_value=[])
+        mock_repo.is_as_recorded_dismissed = AsyncMock(return_value=False)
         mock_repo.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {

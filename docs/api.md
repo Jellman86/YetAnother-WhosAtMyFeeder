@@ -948,10 +948,11 @@ other identifications for `needs_review`, and are excluded from personalization 
   A species must be a complete known common or scientific name. Partial or ambiguous names return
   HTTP 400. Send the selected `id` from `/api/species/search` to preserve canonical identity.
 - `PATCH /api/frigate/{event_id}/snapshot/candidates/{candidate_id}` (owner). Body:
-  `{"dismissed": true}` removes a photo choice; `false` restores it. Returns the updated candidate
-  list with `photo_hidden` flags. Source images and bird evidence remain intact. The current chosen
+  `{"dismissed": true}` removes a photo choice; `false` restores it. Pass `candidate_id = "as-recorded"`
+  to remove or restore the original Frigate snapshot option. Returns the updated candidate
+  list with `photo_hidden` flags and `as_recorded_dismissed`. Source images and bird evidence remain intact. The current chosen
   photo returns 409 until another is chosen; missing choices return 404. Applying a removed choice
-  returns 409 until restored. Dismissals are tied to image content, so regeneration keeps an
+  (including `mode: "revert_original"` while `"as-recorded"` is dismissed) returns 409 until restored. Dismissals are tied to image content, so regeneration keeps an
   unchanged removed image excluded while a genuinely changed image can become a new choice.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner) — the
   small chooser thumbnail for one candidate.
