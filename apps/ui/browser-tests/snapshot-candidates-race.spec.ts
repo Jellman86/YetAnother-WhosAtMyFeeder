@@ -1,11 +1,17 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
-function candidateResponse(eventId: string, stale: boolean) {
+/** A second, unchosen photo choice the owner can remove; absent unless a test offers it. */
+type OtherChoice = 'absent' | 'shown' | 'removed';
+
+function candidateResponse(eventId: string, stale: boolean, other: OtherChoice = 'absent') {
     const scene = `${eventId}__full_frame__f150__fixture`;
+    const choices = other === 'absent' ? [] : [{ candidate_id: `${eventId}__model_crop__f20__fixture`, source_mode: 'model_crop',
+        clip_variant: 'event', frame_index: 20, ranking_score: 0.5, selected: false, snapshot_source: 'hq_candidate_model_crop',
+        photo_hidden: other === 'removed', image_url: '/api/race-crop.svg', thumbnail_url: '/api/race-crop.svg' }];
     return {
         event_id: eventId, current_source: 'hq_candidate_full_frame', current_candidate_id: scene,
         candidates: [{ candidate_id: scene, source_mode: 'full_frame', clip_variant: 'event', frame_index: 150,
-            ranking_score: 0.9, selected: true, snapshot_source: 'hq_candidate_full_frame', image_url: '/api/race-scene.svg' }],
+            ranking_score: 0.9, selected: true, snapshot_source: 'hq_candidate_full_frame', image_url: '/api/race-scene.svg' }, ...choices],
         birds: Array.from({ length: stale ? 1 : 2 }, (_, index) => ({
             id: index + 1, bird_index: index, candidate_id: `${scene}__observed__${index}`, clip_variant: 'event', frame_index: 150,
             crop_box: [100 + index * 300, 100, 250 + index * 300, 250], detector_confidence: 0.8,
@@ -15,7 +21,9 @@ function candidateResponse(eventId: string, stale: boolean) {
     };
 }
 
-interface CandidateFixture { held: Route | null; heldRefresh: Route | null; holdRefresh: boolean; requestsA: number; errors: string[]; }
+interface CandidateFixture {
+    held: Route | null; heldRefresh: Route | null; holdRefresh: boolean; requestsA: number; errors: string[]; other: OtherChoice;
+}
 
 test('regenerate snapshots announces recounting and refreshes the counted frame', async ({ page }) => {
     const fixture = await open(page);
@@ -72,8 +80,8 @@ test('progress ticks and another record finishing do not reread the open record 
     expect(fixture.errors).toEqual([]);
 });
 
-async function open(page: Page): Promise<CandidateFixture> {
-    const fixture: CandidateFixture = { held: null, heldRefresh: null, holdRefresh: false, requestsA: 0, errors: [] };
+async function open(page: Page, other: OtherChoice = 'absent'): Promise<CandidateFixture> {
+    const fixture: CandidateFixture = { held: null, heldRefresh: null, holdRefresh: false, requestsA: 0, errors: [], other };
     page.on('pageerror', error => fixture.errors.push(error.message));
     // Isolate the HTTP/prop race from a late external stylesheet applying after the modal
     // mounts. The actual application fonts are checked separately against Quark.
@@ -88,7 +96,16 @@ async function open(page: Page): Promise<CandidateFixture> {
                 if (fixture.requestsA === 1) { fixture.held = route; return; }
                 if (fixture.holdRefresh) { fixture.heldRefresh = route; return; }
             }
-            return route.fulfill({ json: candidateResponse(match[1], false) });
+            return route.fulfill({ json: candidateResponse(match[1], false, fixture.other) });
+        }
+        const removal = /^\/api\/frigate\/A\/snapshot\/candidates\/([^/]+)$/.exec(path);
+        if (removal && route.request().method() === 'PATCH') {
+            const candidateId = decodeURIComponent(removal[1]);
+            fixture.other = (route.request().postDataJSON() as { dismissed: boolean }).dismissed ? 'removed' : 'shown';
+            return route.fulfill({ json: {
+                ...candidateResponse('A', false, fixture.other),
+                changed_dismissals: [{ candidate_id: candidateId, content_identity: 'fixture-pixels' }]
+            } });
         }
         if (path.endsWith('/snapshot/status')) return route.fulfill({ json: {
             available: true, high_quality_bird_crop_enabled: true, source: 'hq_candidate_full_frame'
@@ -117,7 +134,7 @@ async function currentA(page: Page, fixture: CandidateFixture): Promise<void> {
 async function release(fixture: CandidateFixture, fail: boolean): Promise<void> {
     const held = fixture.held;
     if (!held) throw new Error('First A candidate request was not captured');
-    await held.fulfill(fail ? { status: 503, json: { detail: 'Old read failed' } } : { json: candidateResponse('A', true) });
+    await held.fulfill(fail ? { status: 503, json: { detail: 'Old read failed' } } : { json: candidateResponse('A', true, fixture.other) });
 }
 
 for (const failure of [false, true]) {
@@ -169,4 +186,28 @@ test('a fresh summary reloads an open capture without discarding its focused bir
     await expect(firstBird).toBeFocused();
     expect(fixture.errors).toEqual([]);
     await page.screenshot({ path: testInfo.outputPath('summary-refresh-focus.png'), fullPage: true });
+});
+
+test('a candidate read sent before a photo removal cannot bring the removed photo back (#1107)', async ({ page }) => {
+    const fixture = await open(page, 'shown');
+    await release(fixture, false);
+    const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+    await expect(triggers).toHaveCount(2);
+    fixture.holdRefresh = true;
+    await page.evaluate(() => window.snapshotRace?.setSummary(2));
+    await expect.poll(() => fixture.heldRefresh !== null).toBe(true);
+
+    await triggers.nth(0).click();
+    await page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' }).click();
+    await expect(triggers).toHaveCount(1);
+    const refresh = fixture.heldRefresh;
+    if (!refresh) throw new Error('Refresh read was not captured');
+    // The read left before the removal, so it still lists the photo as a choice.
+    await refresh.fulfill({ json: candidateResponse('A', false, 'shown') });
+
+    await expect(page.locator('[data-counted-birds-total]')).toHaveText('2');
+    await page.waitForTimeout(150);
+    await expect(triggers).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
+    expect(fixture.errors).toEqual([]);
 });

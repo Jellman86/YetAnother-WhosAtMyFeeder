@@ -96,7 +96,11 @@ async def photos(tmp_path, monkeypatch):
         can_generate_hq_bird_crop=True,
     )
     monkeypatch.setattr(proxy, "_build_snapshot_status", AsyncMock(return_value=status))
-    monkeypatch.setattr(proxy, "_build_snapshot_candidates_response", AsyncMock(return_value={}))
+    monkeypatch.setattr(
+        proxy,
+        "_build_snapshot_candidates_response",
+        AsyncMock(return_value=proxy.SnapshotCandidateListResponse(event_id=event, candidates=[])),
+    )
     monkeypatch.setattr(archive_service, "refresh_photograph", AsyncMock())
     yield SimpleNamespace(event=event, cache=cache, choices=choices, first=choices[0], second=choices[1])
     async with get_db() as db:
@@ -218,7 +222,7 @@ async def test_apply_waits_for_removal_then_rechecks_the_dismissed_choice(photos
     async def response(*args):
         entered.set()
         await release.wait()
-        return {}
+        return proxy.SnapshotCandidateListResponse(event_id=photos.event, candidates=[])
 
     monkeypatch.setattr(proxy, "_build_snapshot_candidates_response", response)
     removing = asyncio.create_task(remove(photos))

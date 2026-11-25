@@ -22713,15 +22713,144 @@
       },
       "SnapshotDismissRequest": {
         "properties": {
+          "companion_candidate_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 16,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Companion Candidate Ids"
+          },
           "dismissed": {
             "title": "Dismissed",
             "type": "boolean"
+          },
+          "expected_content_identities": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxProperties": 17,
+                "propertyNames": {
+                  "maxLength": 160,
+                  "minLength": 1
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Content Identities"
           }
         },
         "required": [
           "dismissed"
         ],
         "title": "SnapshotDismissRequest",
+        "type": "object"
+      },
+      "SnapshotDismissResponse": {
+        "properties": {
+          "as_recorded_dismissed": {
+            "default": false,
+            "title": "As Recorded Dismissed",
+            "type": "boolean"
+          },
+          "birds": {
+            "items": {
+              "$ref": "#/components/schemas/BirdObservationResponse"
+            },
+            "title": "Birds",
+            "type": "array"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotCandidateResponse"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "changed_dismissals": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotDismissalTarget"
+            },
+            "title": "Changed Dismissals",
+            "type": "array"
+          },
+          "current_candidate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Candidate Id"
+          },
+          "current_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Source"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "model_crop_miss_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Crop Miss Reason"
+          }
+        },
+        "required": [
+          "event_id",
+          "candidates"
+        ],
+        "title": "SnapshotDismissResponse",
+        "type": "object"
+      },
+      "SnapshotDismissalTarget": {
+        "properties": {
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "content_identity": {
+            "title": "Content Identity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "content_identity"
+        ],
+        "title": "SnapshotDismissalTarget",
         "type": "object"
       },
       "SnapshotGenerateResponse": {
@@ -33370,7 +33499,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SnapshotCandidateListResponse"
+                  "$ref": "#/components/schemas/SnapshotDismissResponse"
                 }
               }
             },

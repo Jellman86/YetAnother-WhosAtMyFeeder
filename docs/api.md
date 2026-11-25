@@ -999,6 +999,22 @@ other identifications for `needs_review`, and are excluded from personalization 
   photo returns 409 until another is chosen; missing choices return 404. Applying a removed choice
   (including `mode: "revert_original"` while `"as-recorded"` is dismissed) returns 409 until restored. Dismissals are tied to image content, so regeneration keeps an
   unchanged removed image excluded while a genuinely changed image can become a new choice.
+  - Optional `companion_candidate_ids` (up to 16) names the other framings behind the same
+    displayed choice, for example a frame's detector crop, camera crop and whole scene. They are
+    removed or restored with `candidate_id` in one transaction: if any of them is the saved
+    photograph (marked `selected`, or the candidate the current photograph's source names), the
+    request returns 409 and nothing changes. Every named candidate must be a photo choice of the
+    same frame (`clip_variant` and `frame_index`) of this capture. A repeated or blank ID, a
+    candidate of another frame, an evidence-only `model_observation` candidate, and companions for
+    `"as-recorded"` or an earlier photograph (`retained_photo`) return 400; a candidate of another
+    capture returns 404. Omitting the field behaves as before.
+  - Optional `expected_content_identities` (restore only, keys among the named candidates) maps a
+    candidate ID to the `content_identity` its removal was bound to. Restoring then clears only a
+    removal of those pixels, so an Undo never clears a later removal of replacement pixels.
+    Restoring a candidate that is not removed succeeds and changes nothing.
+  - The response adds `changed_dismissals`: the `{candidate_id, content_identity}` removals this
+    request created, or cleared when restoring. A removal that already stood is not listed, so
+    restoring exactly these undoes the request and leaves earlier removals in place.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner) — the
   small chooser thumbnail for one candidate.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg` (owner) — the retained

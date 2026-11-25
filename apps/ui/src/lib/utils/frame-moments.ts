@@ -33,6 +33,12 @@ export interface FrameMoment {
     previous: SnapshotCandidate | null;
     /** Multi-bird frames expose their photographs; ordinary frames fold their framings. */
     choice: 'as_recorded' | 'previous' | 'folded' | 'crop' | 'whole';
+    /**
+     * Every candidate this thumbnail stands for, the one shown first. Removing the thumbnail
+     * removes all of them, so another framing of the same frame cannot take its place (#1107).
+     * A crop's whole-scene preview is not one of its members.
+     */
+    members: SnapshotCandidate[];
 }
 
 export const AS_RECORDED_KEY = 'as-recorded';
@@ -45,6 +51,16 @@ const PREVIOUS_PHOTO_MODE = 'retained_photo';
 
 function isWholeSceneCandidate(candidate: SnapshotCandidate): boolean {
     return WHOLE_SCENE_MODES.has(candidate.source_mode);
+}
+
+function pickWhole(candidates: SnapshotCandidate[]): SnapshotCandidate | null {
+    const wholes = candidates.filter(isWholeSceneCandidate);
+    return wholes.find((candidate) => candidate.selected) ?? wholes[0] ?? null;
+}
+
+/** The shown candidate first, then the rest in their given order. */
+function shownFirst(shown: SnapshotCandidate | null, candidates: SnapshotCandidate[]): SnapshotCandidate[] {
+    return shown ? [shown, ...candidates.filter((candidate) => candidate !== shown)] : candidates;
 }
 
 function pickCrop(candidates: SnapshotCandidate[]): SnapshotCandidate | null {
@@ -92,8 +108,9 @@ export function groupCandidatesIntoMoments(
     const groups = new Map<string, SnapshotCandidate[]>();
     const previousPhotos: FrameMoment[] = [];
     for (const candidate of candidates) {
-        if (candidate.photo_hidden || candidate.source_mode === 'model_observation') continue;
+        if (candidate.source_mode === 'model_observation') continue;
         if (candidate.source_mode === PREVIOUS_PHOTO_MODE) {
+            if (candidate.photo_hidden) continue;
             previousPhotos.push({
                 key: `previous:${candidate.candidate_id}`,
                 position: 0,
@@ -104,7 +121,8 @@ export function groupCandidatesIntoMoments(
                 read: pickRead(candidate),
                 asRecorded: false,
                 previous: candidate,
-                choice: 'previous'
+                choice: 'previous',
+                members: [candidate]
             });
             continue;
         }
@@ -126,24 +144,30 @@ export function groupCandidatesIntoMoments(
             read: null,
             asRecorded: true,
             previous: null,
-            choice: 'as_recorded'
+            choice: 'as_recorded',
+            members: []
         });
     }
     moments.push(...previousPhotos);
 
-    const grouped = [...groups.entries()].flatMap(([key, group]): FrameMoment[] => {
+    // Whether a frame shows several birds is read from every photograph it had, removed or not, so
+    // removing one bird's crop leaves the others as they were instead of folding them together.
+    const grouped = [...groups.entries()].flatMap(([key, everyPhoto]): FrameMoment[] => {
+        const group = everyPhoto.filter((candidate) => !candidate.photo_hidden);
+        if (group.length === 0) return [];
         const offsets = group
             .map((candidate) => candidate.frame_offset_seconds)
             .filter((value): value is number => typeof value === 'number');
-        const whole = group.find(isWholeSceneCandidate) ?? null;
+        const whole = pickWhole(group);
         const frameIndex = group[0]?.frame_index ?? null;
         const offsetSeconds = offsets.length > 0 ? Math.min(...offsets) : null;
-        const crops = group.filter((candidate) => !isWholeSceneCandidate(candidate));
-        const modelCrops = crops.filter((candidate) => candidate.source_mode === 'model_crop');
-        const hasDistinctBirds = modelCrops.length > 1 || crops.some((candidate, index) =>
-            crops.slice(index + 1).some((other) => cropsAreSpatiallyDistinct(candidate, other))
+        const everyCrop = everyPhoto.filter((candidate) => !isWholeSceneCandidate(candidate));
+        const modelCrops = everyCrop.filter((candidate) => candidate.source_mode === 'model_crop');
+        const hasDistinctBirds = modelCrops.length > 1 || everyCrop.some((candidate, index) =>
+            everyCrop.slice(index + 1).some((other) => cropsAreSpatiallyDistinct(candidate, other))
         );
         if (hasDistinctBirds) {
+            const crops = group.filter((candidate) => !isWholeSceneCandidate(candidate));
             crops.sort((a, b) => {
                 const leftA = a.crop_box?.[0];
                 const leftB = b.crop_box?.[0];
@@ -162,7 +186,8 @@ export function groupCandidatesIntoMoments(
                     read: pickRead(whole),
                     asRecorded: false,
                     previous: null,
-                    choice: 'whole'
+                    choice: 'whole',
+                    members: shownFirst(whole, group.filter(isWholeSceneCandidate))
                 });
             }
             for (const candidate of crops) {
@@ -176,7 +201,8 @@ export function groupCandidatesIntoMoments(
                     read: pickRead(candidate),
                     asRecorded: false,
                     previous: null,
-                    choice: 'crop'
+                    choice: 'crop',
+                    members: [candidate]
                 });
             }
             return views;
@@ -193,7 +219,8 @@ export function groupCandidatesIntoMoments(
             read: pickRead(shown),
             asRecorded: false,
             previous: null,
-            choice: 'folded'
+            choice: 'folded',
+            members: shownFirst(shown, group)
         } satisfies FrameMoment];
     });
     grouped.sort((a, b) => {
@@ -204,6 +231,17 @@ export function groupCandidatesIntoMoments(
     moments.push(...grouped);
 
     return moments.map((moment, index) => ({ ...moment, position: index + 1 }));
+}
+
+/** What removing a moment removes: its candidates, or the camera's own snapshot, the shown one first. */
+export function momentCandidateIds(moment: FrameMoment): string[] {
+    if (moment.asRecorded) return [AS_RECORDED_KEY];
+    return moment.members.map((candidate) => candidate.candidate_id);
+}
+
+/** Whether the record's saved photograph is one of the candidates behind a moment. */
+export function holdsSelectedCandidate(moment: FrameMoment): boolean {
+    return moment.members.some((candidate) => candidate.selected);
 }
 
 /** The candidate a moment stands for: close on the bird when it can be, the whole scene otherwise. */
@@ -244,6 +282,7 @@ export function currentMoment(
     if (!currentCandidateId) return null;
     return (
         moments.find((moment) => preferredCandidate(moment)?.candidate_id === currentCandidateId) ??
+        moments.find((moment) => moment.members.some((candidate) => candidate.candidate_id === currentCandidateId)) ??
         moments.find(
             (moment) =>
                 moment.crop?.candidate_id === currentCandidateId || moment.whole?.candidate_id === currentCandidateId

@@ -201,7 +201,7 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
     });
 
     it('offers the whole-scene rescue only while pinned, and Escape unpins before it closes', () => {
-        expect(modalSource).toContain('{#if wholeScene.pinned && wholeSceneReady}');
+        expect(modalSource).toContain('{#if canUseWholeScene}');
         expect(modalSource).toContain('detection.whole_scene_use');
         expect(modalSource).toContain('detection.whole_scene_back');
         expect(modalSource).toContain('useWholeSceneAsPhotograph()');
@@ -243,5 +243,44 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
         // The rail's "Identified as" names the bird, and titles the dialog; the photograph never repeats it.
         expect(modalSource).not.toContain('data-detection-media-title');
         expect(modalSource).toContain('<h3 id="detection-modal-title" class="font-display text-2xl font-bold text-strong">{primaryName}</h3>');
+    });
+});
+
+describe('removing a photo choice removes the thumbnail, not one framing of it (#1107)', () => {
+    it('sends every candidate behind the choice and undoes only what the server removed', () => {
+        expect(stripSource).toContain('const candidateIds = momentCandidateIds(moment);');
+        expect(stripSource).toContain('const targets = await onremove(candidateIds, true);');
+        expect(stripSource).toContain('removedPhoto = targets.length > 0 ? { eventId: subject, targets } : null;');
+        expect(stripSource).toContain('previous.targets.map((target) => target.candidate_id),');
+        expect(stripSource).toContain('Object.fromEntries(previous.targets.map((target) => [target.candidate_id, target.content_identity]))');
+        expect(modalSource).toContain('const [candidateId, ...companionCandidateIds] = candidateIds;');
+        expect(modalSource).toContain('return response.changed_dismissals ?? [];');
+    });
+
+    it('protects a choice whose saved photograph is any of its framings', () => {
+        expect(stripSource).toContain('return holdsSelectedCandidate(moment) || isCurrent(moment);');
+    });
+
+    it('keeps the strip, and its Undo, while the last removal can be undone even when no choice is left', () => {
+        expect(modalSource).toContain('|| undoablePhotoRemoval === detection.frigate_event');
+        expect(modalSource).toContain('undoablePhotoRemoval = dismissed ? eventId : null;');
+        // The Undo row sits outside the strip, so an empty strip hides the frames and keeps it.
+        const undoAt = stripSource.indexOf('{#if removedPhoto?.eventId === eventId}');
+        expect(undoAt).toBeGreaterThan(stripSource.indexOf("data-snapshot-strip-shell"));
+        expect(stripSource.slice(stripSource.indexOf('data-snapshot-strip-shell'), undoAt)).not.toContain('{#if noFrames}');
+    });
+
+    it('never lets a candidate read sent before a photo change replace that change\'s answer', () => {
+        expect(modalSource).toContain('const listRevision = candidateListRevision;');
+        expect(modalSource).toContain('const listIsFresh = () => listRevision === candidateListRevision;');
+        expect(modalSource).toMatch(/if \(listIsFresh\(\)\) \{\s*snapshotCandidates = candidateList\.candidates \?\? \[\];/);
+        expect(modalSource).toMatch(/candidateListRevision \+= 1;\s*snapshotCandidates = response\.candidates;/);
+    });
+
+    it('offers no Use as photograph for a whole scene the owner removed, and still lets it be looked at', () => {
+        expect(modalSource).toContain('const canUseWholeScene = $derived(wholeScene.pinned && wholeSceneReady && !fullFrameSnapshotCandidate?.photo_hidden);');
+        expect(modalSource).toContain('{#if canUseWholeScene}');
+        // Back to the crop stays: the scene can still be inspected.
+        expect(modalSource).toMatch(/\{#if wholeScene\.pinned && wholeSceneReady\}\s*<!-- The way back[\s\S]{0,800}?data-detection-whole-scene-back/);
     });
 });

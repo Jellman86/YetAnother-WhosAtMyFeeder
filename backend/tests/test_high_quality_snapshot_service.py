@@ -97,7 +97,7 @@ async def _removed_photo_choices(monkeypatch, event_id, *, changed=False, remain
                 for choice in choices
             ],
         )
-        assert await repo.dismiss_snapshot_candidate(event_id, "removed-photo", True)
+        assert await repo.set_snapshot_candidate_dismissals(event_id, ["removed-photo"], True) is not None
     monkeypatch.setattr(service, "_score_snapshot_candidate", AsyncMock(side_effect=lambda candidate: dict(candidate)))
     monkeypatch.setattr(service, "_load_expected_species_labels", AsyncMock(return_value={"House Finch"}))
     monkeypatch.setattr(service, "_detect_count_candidates", AsyncMock(return_value=[]))
@@ -116,7 +116,10 @@ async def test_regeneration_respects_removed_photo_content_without_losing_count_
     service, choices, _ = await _removed_photo_choices(monkeypatch, event, changed=changed)
     if restored:
         async with get_db() as db:
-            assert await DetectionRepository(db).dismiss_snapshot_candidate(event, "removed-photo", False)
+            assert (
+                await DetectionRepository(db).set_snapshot_candidate_dismissals(event, ["removed-photo"], False)
+                is not None
+            )
     bundle = await service._score_and_select_snapshot_candidates(event, choices)
     assert bundle["selected_candidate"]["candidate_id"] == ("removed-photo" if changed or restored else "chosen-photo")
     assert {row["candidate_id"] for row in bundle["candidates"]} == {

@@ -304,16 +304,16 @@ async def test_removed_photo_is_reversible_and_keeps_counting_evidence(repo):
         ],
     )
     with pytest.raises(ValueError, match="Choose another"):
-        await repo.dismiss_snapshot_candidate(event, "chosen", True)
-    assert await repo.dismiss_snapshot_candidate(event, "bad-photo", True)
+        await repo.set_snapshot_candidate_dismissals(event, ["chosen"], True)
+    assert await repo.set_snapshot_candidate_dismissals(event, ["bad-photo"], True) is not None
     listed = await repo.list_snapshot_candidates(event)
     assert len(listed) == 2
     assert listed[1]["photo_hidden"]
     async with repo.db.execute("SELECT COUNT(*) FROM bird_observations WHERE frigate_event = ?", (event,)) as cursor:
         assert (await cursor.fetchone())[0] == 1
-    assert await repo.dismiss_snapshot_candidate(event, "bad-photo", False)
+    assert await repo.set_snapshot_candidate_dismissals(event, ["bad-photo"], False) is not None
     assert not (await repo.list_snapshot_candidates(event))[1]["photo_hidden"]
-    assert not await repo.dismiss_snapshot_candidate(event, "missing", True)
+    assert await repo.set_snapshot_candidate_dismissals(event, ["missing"], True) is None
 
 
 @pytest.mark.asyncio
@@ -709,7 +709,7 @@ async def test_removal_rechecks_selection_at_the_write(repo, monkeypatch):
     await repo.mark_selected_snapshot_candidate(event, "race-photo")
     monkeypatch.setattr(repo, "list_snapshot_candidates", AsyncMock(return_value=stale))
     with pytest.raises(ValueError, match="Choose another photograph"):
-        await repo.dismiss_snapshot_candidate(event, "race-photo", True)
+        await repo.set_snapshot_candidate_dismissals(event, ["race-photo"], True)
     async with repo.db.execute(
         "SELECT COUNT(*) FROM snapshot_candidate_dismissals WHERE frigate_event=?", (event,)
     ) as cursor:

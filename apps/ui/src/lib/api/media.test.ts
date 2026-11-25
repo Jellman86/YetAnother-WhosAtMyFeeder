@@ -7,6 +7,7 @@ import {
     fetchSnapshotStatus,
     generateHighQualityBirdCropSnapshot,
     fetchSnapshotCandidates,
+    dismissSnapshotCandidate,
     applySnapshotCandidate,
     getHlsUrl,
     getOriginalFrigateSnapshotUrl,
@@ -186,6 +187,57 @@ describe('snapshot HQ crop helpers', () => {
                 method: 'POST',
                 headers: expect.any(Object),
                 body: JSON.stringify({ mode: 'candidate', candidate_id: 'cand-2' })
+            })
+        );
+    });
+
+    it('removes one photo choice with the same body as before when it has no other framings', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ event_id: 'evt-12', candidates: [] }));
+
+        await dismissSnapshotCandidate('evt-12', 'as-recorded', true);
+
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+            '/api/frigate/evt-12/snapshot/candidates/as-recorded',
+            expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ dismissed: true }) })
+        );
+    });
+
+    it('removes every framing of a folded choice in one request and returns what it removed (#1107)', async () => {
+        const removed = [
+            { candidate_id: 'crop', content_identity: 'a'.repeat(64) },
+            { candidate_id: 'scene', content_identity: 'b'.repeat(64) }
+        ];
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({
+            event_id: 'evt-13',
+            changed_dismissals: removed,
+            candidates: [{
+                candidate_id: 'crop',
+                frame_index: 1,
+                source_mode: 'model_crop',
+                clip_variant: 'event',
+                ranking_score: 0.5,
+                selected: false,
+                photo_hidden: true,
+                thumbnail_url: '/api/frigate/evt-13/snapshot/candidates/crop/thumbnail.jpg'
+            }]
+        }));
+
+        const response = await dismissSnapshotCandidate('evt-13', 'crop', false, {
+            companionCandidateIds: ['scene'],
+            expectedContentIdentities: { crop: removed[0].content_identity, scene: removed[1].content_identity }
+        });
+
+        expect(response.changed_dismissals).toEqual(removed);
+        expect(response.candidates[0].thumbnail_url).toContain('/api/frigate/evt-13/snapshot/candidates/crop/thumbnail.jpg');
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+            '/api/frigate/evt-13/snapshot/candidates/crop',
+            expect.objectContaining({
+                method: 'PATCH',
+                body: JSON.stringify({
+                    dismissed: false,
+                    companion_candidate_ids: ['scene'],
+                    expected_content_identities: { crop: removed[0].content_identity, scene: removed[1].content_identity }
+                })
             })
         );
     });

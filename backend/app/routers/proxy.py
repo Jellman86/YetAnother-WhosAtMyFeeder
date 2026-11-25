@@ -19,12 +19,13 @@ import httpx
 import sqlite3
 import structlog
 from prometheus_client import Counter, Histogram
-from typing import Literal
+from typing import Annotated, Literal
 from app.utils.diagnostic_redaction import redact_address, safe_error_message
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.photo_choice_actions import photo_choice_lock
+from app.services.photo_choice_membership import PhotoChoiceNotFound, PhotoChoiceRequestError, resolve_photo_choice
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.utils.api_datetime import utc_naive_datetime
@@ -45,7 +46,11 @@ from app.auth import (
 )
 from app.ratelimit import guest_rate_limit, hls_rate_limit, share_create_rate_limit
 from app.database import get_db
-from app.repositories.detection_repository import AS_RECORDED_CANDIDATE_ID, DetectionRepository
+from app.repositories.detection_repository import (
+    AS_RECORDED_CANDIDATE_ID,
+    CHOOSE_ANOTHER_PHOTOGRAPH_FIRST,
+    DetectionRepository,
+)
 from app.repositories.garden_repository import GardenRepository
 from app.repositories.bird_observation_repository import (
     BirdObservationRepository,
@@ -372,6 +377,19 @@ _AS_RECORDED_SOURCES = frozenset(
 )
 
 
+def _current_candidate_id(current_source: str | None, candidates: list[dict]) -> str | None:
+    """The candidate the saved photograph came from, inferred from its source when no row is marked."""
+    if not current_source or not current_source.startswith(("hq_candidate_", "video_evidence_")):
+        return None
+    selected_candidate = next((item for item in candidates if bool(item.get("selected"))), None)
+    if selected_candidate and str(selected_candidate.get("snapshot_source") or "") == current_source:
+        return str(selected_candidate.get("candidate_id") or "")
+    for candidate in candidates:
+        if str(candidate.get("snapshot_source") or "") == current_source:
+            return str(candidate.get("candidate_id") or "")
+    return None
+
+
 def _is_as_recorded_current(current_source: str | None, candidates: list[dict]) -> bool:
     if current_source in _AS_RECORDED_SOURCES:
         return True
@@ -431,16 +449,7 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
         as_recorded_dismissed = await DetectionRepository(db).is_as_recorded_dismissed(event_id)
     current_source = status.source
     as_recorded_dismissed = as_recorded_dismissed and not _is_as_recorded_current(current_source, candidates)
-    current_candidate_id = None
-    if current_source and current_source.startswith(("hq_candidate_", "video_evidence_")):
-        selected_candidate = next((item for item in candidates if bool(item.get("selected"))), None)
-        if selected_candidate and str(selected_candidate.get("snapshot_source") or "") == current_source:
-            current_candidate_id = str(selected_candidate.get("candidate_id") or "")
-        else:
-            for candidate in candidates:
-                if str(candidate.get("snapshot_source") or "") == current_source:
-                    current_candidate_id = str(candidate.get("candidate_id") or "")
-                    break
+    current_candidate_id = _current_candidate_id(current_source, candidates)
     has_model_crop = any(str(c.get("source_mode") or "") == "model_crop" for c in candidates)
     model_crop_miss_reason: str | None = None
     if not has_model_crop:
@@ -1912,11 +1921,33 @@ async def get_snapshot_candidate_image(
     return Response(content=image_bytes, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
 
+PhotoChoiceCandidateId = Annotated[str, Field(min_length=1, max_length=160)]
+
+
 class SnapshotDismissRequest(BaseModel):
     dismissed: bool
+    # The other framings behind the same thumbnail, removed or restored with candidate_id in one
+    # step, so removing a folded photo never leaves its whole frame standing in for it (#1107).
+    companion_candidate_ids: list[PhotoChoiceCandidateId] | None = Field(default=None, max_length=16)
+    # Restore only: the pixels each dismissal was bound to when it was made. A dismissal of
+    # replacement pixels made since then is a later removal, and Undo leaves it in place.
+    expected_content_identities: (
+        dict[PhotoChoiceCandidateId, Annotated[str, Field(min_length=1, max_length=160)]] | None
+    ) = Field(default=None, max_length=17)
 
 
-@router.patch("/frigate/{event_id}/snapshot/candidates/{candidate_id}", response_model=SnapshotCandidateListResponse)
+class SnapshotDismissalTarget(BaseModel):
+    candidate_id: str
+    content_identity: str
+
+
+class SnapshotDismissResponse(SnapshotCandidateListResponse):
+    # The dismissals this request created (removing) or cleared (restoring); ones that already
+    # stood, or were already gone, are not listed. An Undo restores exactly these.
+    changed_dismissals: list[SnapshotDismissalTarget] = Field(default_factory=list)
+
+
+@router.patch("/frigate/{event_id}/snapshot/candidates/{candidate_id}", response_model=SnapshotDismissResponse)
 async def dismiss_snapshot_candidate(
     request: Request,
     body: SnapshotDismissRequest,
@@ -1932,29 +1963,49 @@ async def dismiss_snapshot_candidate(
 
 async def _dismiss_snapshot_candidate(
     request: Request, body: SnapshotDismissRequest, event_id: str, candidate_id: str
-) -> SnapshotCandidateListResponse:
-    if candidate_id == AS_RECORDED_CANDIDATE_ID:
-        status = await _build_snapshot_status(event_id, check_original_frigate_snapshot=False)
-        candidates = await _list_snapshot_candidates(event_id)
-        is_current = _is_as_recorded_current(status.source, candidates)
-        async with get_db() as db:
-            try:
-                changed = await DetectionRepository(db).dismiss_as_recorded_snapshot(
-                    event_id, body.dismissed, is_current=is_current
+) -> SnapshotDismissResponse:
+    expected = body.expected_content_identities or {}
+    if expected and body.dismissed:
+        raise HTTPException(400, "Expected photographs apply to restoring a photo choice")
+    if set(expected) - {candidate_id, *(body.companion_candidate_ids or [])}:
+        raise HTTPException(400, "Restore only the photo choice named in this request")
+    status = await _build_snapshot_status(event_id, check_original_frigate_snapshot=False)
+    candidates = await _list_snapshot_candidates(event_id)
+    try:
+        members = resolve_photo_choice(candidates, candidate_id, body.companion_candidate_ids)
+    except PhotoChoiceRequestError as error:
+        raise HTTPException(400, str(error)) from error
+    except PhotoChoiceNotFound as error:
+        raise HTTPException(404, str(error)) from error
+    async with get_db() as db:
+        repository = DetectionRepository(db)
+        try:
+            if candidate_id == AS_RECORDED_CANDIDATE_ID:
+                changed = await repository.dismiss_as_recorded_snapshot(
+                    event_id,
+                    body.dismissed,
+                    is_current=_is_as_recorded_current(status.source, candidates),
+                    expected_content_identity=expected.get(candidate_id),
                 )
-            except ValueError as error:
-                raise HTTPException(409, str(error)) from error
-    else:
-        async with get_db() as db:
-            try:
-                changed = await DetectionRepository(db).dismiss_snapshot_candidate(
-                    event_id, candidate_id, body.dismissed
+            else:
+                current_candidate_id = _current_candidate_id(status.source, candidates)
+                if body.dismissed and any(member["candidate_id"] == current_candidate_id for member in members):
+                    raise ValueError(CHOOSE_ANOTHER_PHOTOGRAPH_FIRST)
+                changed = await repository.set_snapshot_candidate_dismissals(
+                    event_id,
+                    [str(member["candidate_id"]) for member in members],
+                    body.dismissed,
+                    expected_content_identities=expected,
                 )
-            except ValueError as error:
-                raise HTTPException(409, str(error)) from error
-    if not changed:
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+    if changed is None:
         raise HTTPException(404, "Photo choice unavailable")
-    return await _build_snapshot_candidates_response(request, event_id)
+    listing = await _build_snapshot_candidates_response(request, event_id)
+    return SnapshotDismissResponse(
+        **listing.model_dump(),
+        changed_dismissals=[SnapshotDismissalTarget(**target) for target in changed],
+    )
 
 
 @router.post("/frigate/{event_id}/snapshot/apply", response_model=SnapshotApplyResponse)

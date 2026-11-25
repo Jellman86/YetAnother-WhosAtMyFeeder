@@ -38,6 +38,7 @@ INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL = "frigate_sublabel"
 # Reserved dismissal key for the original "As Frigate recorded it" photo option,
 # which has no row in snapshot_candidates.
 AS_RECORDED_CANDIDATE_ID = "as-recorded"
+CHOOSE_ANOTHER_PHOTOGRAPH_FIRST = "Choose another photograph before removing this one"
 
 
 ReviewReason = Literal["unknown_species", "low_score", "new_species"]
@@ -729,40 +730,73 @@ class DetectionRepository:
             rows = await cursor.fetchall()
         return [(int(row[0]), str(row[1])) for row in rows]
 
-    async def dismiss_snapshot_candidate(self, event_id: str, candidate_id: str, dismissed: bool) -> bool:
-        candidates = await self.list_snapshot_candidates(event_id)
-        candidate = next((item for item in candidates if item["candidate_id"] == candidate_id), None)
-        if candidate is None:
-            return False
-        if dismissed and candidate["selected"]:
-            raise ValueError("Choose another photograph before removing this one")
-        if dismissed:
-            await self.db.execute(
-                """INSERT INTO snapshot_candidate_dismissals (frigate_event, candidate_id, content_identity)
-                SELECT frigate_event, candidate_id, COALESCE(content_sha256, candidate_id)
-                FROM snapshot_candidates WHERE frigate_event = ? AND candidate_id = ? AND selected = 0
-                  AND COALESCE(content_sha256, candidate_id) = ?
-                ON CONFLICT(frigate_event, candidate_id)
-                DO UPDATE SET content_identity = excluded.content_identity""",
-                (event_id, candidate_id, candidate.get("content_sha256") or candidate_id),
-            )
-            if await self._last_statement_changes() == 0:
-                async with self.db.execute(
-                    "SELECT selected FROM snapshot_candidates WHERE frigate_event = ? AND candidate_id = ?",
-                    (event_id, candidate_id),
-                ) as cursor:
-                    current = await cursor.fetchone()
-                await self.db.rollback()
-                if current and current[0]:
-                    raise ValueError("Choose another photograph before removing this one")
-                return False
-        else:
-            await self.db.execute(
-                "DELETE FROM snapshot_candidate_dismissals WHERE frigate_event = ? AND candidate_id = ?",
-                (event_id, candidate_id),
-            )
-        await self.db.commit()
-        return True
+    async def set_snapshot_candidate_dismissals(
+        self,
+        event_id: str,
+        candidate_ids: Sequence[str],
+        dismissed: bool,
+        *,
+        expected_content_identities: Mapping[str, str] | None = None,
+    ) -> list[dict[str, str]] | None:
+        """Remove or restore the candidates of one photo choice together, in one transaction.
+
+        Returns the dismissals this call created or cleared, each with the pixels it is bound
+        to, so an Undo can restore exactly those. A removal that already stood is left alone and
+        not reported. Restoring with an expected identity leaves a dismissal bound to other
+        pixels in place: that is a later removal of a replacement photograph. Returns None when a
+        candidate is gone or its pixels changed while the removal was written.
+        """
+        by_id = {item["candidate_id"]: item for item in await self.list_snapshot_candidates(event_id)}
+        members = [by_id.get(candidate_id) for candidate_id in candidate_ids]
+        if any(member is None for member in members):
+            return None
+        found = [member for member in members if member is not None]
+        if dismissed and any(member["selected"] for member in found):
+            raise ValueError(CHOOSE_ANOTHER_PHOTOGRAPH_FIRST)
+        changed: list[dict[str, str]] = []
+        try:
+            for member in found:
+                candidate_id = member["candidate_id"]
+                if dismissed:
+                    if member["photo_hidden"]:
+                        continue
+                    identity = member.get("content_sha256") or candidate_id
+                    await self.db.execute(
+                        """INSERT INTO snapshot_candidate_dismissals (frigate_event, candidate_id, content_identity)
+                        SELECT frigate_event, candidate_id, COALESCE(content_sha256, candidate_id)
+                        FROM snapshot_candidates WHERE frigate_event = ? AND candidate_id = ? AND selected = 0
+                          AND COALESCE(content_sha256, candidate_id) = ?
+                        ON CONFLICT(frigate_event, candidate_id)
+                        DO UPDATE SET content_identity = excluded.content_identity""",
+                        (event_id, candidate_id, identity),
+                    )
+                    if await self._last_statement_changes() == 0:
+                        async with self.db.execute(
+                            "SELECT selected FROM snapshot_candidates WHERE frigate_event = ? AND candidate_id = ?",
+                            (event_id, candidate_id),
+                        ) as cursor:
+                            current = await cursor.fetchone()
+                        await self.db.rollback()
+                        if current and current[0]:
+                            raise ValueError(CHOOSE_ANOTHER_PHOTOGRAPH_FIRST)
+                        return None
+                    changed.append({"candidate_id": candidate_id, "content_identity": identity})
+                else:
+                    expected = (expected_content_identities or {}).get(candidate_id)
+                    async with self.db.execute(
+                        """DELETE FROM snapshot_candidate_dismissals
+                        WHERE frigate_event = ? AND candidate_id = ? AND (? IS NULL OR content_identity = ?)
+                        RETURNING content_identity""",
+                        (event_id, candidate_id, expected, expected),
+                    ) as cursor:
+                        cleared = await cursor.fetchone()
+                    if cleared is not None:
+                        changed.append({"candidate_id": candidate_id, "content_identity": str(cleared[0])})
+            await self.db.commit()
+        except BaseException:
+            await self.db.rollback()
+            raise
+        return changed
 
     async def is_as_recorded_dismissed(self, frigate_event: str) -> bool:
         if not await self._table_exists("snapshot_candidate_dismissals"):
@@ -774,30 +808,41 @@ class DetectionRepository:
         ) as cursor:
             return await cursor.fetchone() is not None
 
-    async def dismiss_as_recorded_snapshot(self, event_id: str, dismissed: bool, *, is_current: bool) -> bool:
+    async def dismiss_as_recorded_snapshot(
+        self,
+        event_id: str,
+        dismissed: bool,
+        *,
+        is_current: bool,
+        expected_content_identity: str | None = None,
+    ) -> list[dict[str, str]] | None:
+        """Remove or restore the camera's own snapshot; returns the dismissal changed, None without a capture."""
         async with self.db.execute(
             "SELECT 1 FROM detections WHERE frigate_event = ? LIMIT 1",
             (event_id,),
         ) as cursor:
             if await cursor.fetchone() is None:
-                return False
+                return None
         if dismissed and is_current:
-            raise ValueError("Choose another photograph before removing this one")
+            raise ValueError(CHOOSE_ANOTHER_PHOTOGRAPH_FIRST)
+        target = {"candidate_id": AS_RECORDED_CANDIDATE_ID, "content_identity": AS_RECORDED_CANDIDATE_ID}
         if dismissed:
             await self.db.execute(
                 """INSERT INTO snapshot_candidate_dismissals (frigate_event, candidate_id, content_identity)
                 VALUES (?, ?, ?)
-                ON CONFLICT(frigate_event, candidate_id)
-                DO UPDATE SET content_identity = excluded.content_identity""",
+                ON CONFLICT(frigate_event, candidate_id) DO NOTHING""",
                 (event_id, AS_RECORDED_CANDIDATE_ID, AS_RECORDED_CANDIDATE_ID),
             )
+        elif expected_content_identity not in (None, AS_RECORDED_CANDIDATE_ID):
+            return []
         else:
             await self.db.execute(
                 "DELETE FROM snapshot_candidate_dismissals WHERE frigate_event = ? AND candidate_id = ?",
                 (event_id, AS_RECORDED_CANDIDATE_ID),
             )
+        changed = await self._last_statement_changes() > 0
         await self.db.commit()
-        return True
+        return [target] if changed else []
 
     async def bind_legacy_snapshot_candidate_dismissal(self, event_id: str, candidate_id: str, digest: str) -> None:
         """Bind verified legacy pixels inside the caller's candidate replacement transaction."""
