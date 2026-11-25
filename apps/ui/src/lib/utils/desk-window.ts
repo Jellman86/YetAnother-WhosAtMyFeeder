@@ -96,11 +96,12 @@ function countedWithinDay(window: DeskWindow, counted: string): boolean {
 
 /**
  * One read of Today that never mixes two days. The window is settled from `clock` for `day`, the
- * local midnight the page is reading; once midnight has passed here the read stops with
- * `DayTurnedError`, so the page reads the new day from the start. Each server answer names where it
- * counted from (`countedFrom`; a reading that was not taken is null), and an answer for another day,
- * a server already past midnight, is asked again, at most twice, before `StraddledReadError`. The
- * last 24 hours name no day and are taken as they come.
+ * local midnight the page is reading. Midnight passing here, before the read or while it was
+ * answered, stops it with `DayTurnedError`, so the page reads the new day from the start instead of
+ * publishing the old one. Each server answer names where it counted from (`countedFrom`; a reading
+ * that was not taken is null), and an answer for another day, a server already past midnight, or a
+ * read whose own answers disagree (`consistent`), is asked again, at most twice, before
+ * `StraddledReadError`. The last 24 hours name no day, so only `consistent` is checked for them.
  */
 export async function readOneDay<T>(options: {
     kind: DeskWindowKind;
@@ -108,14 +109,37 @@ export async function readOneDay<T>(options: {
     clock: () => Date;
     read: (window: DeskWindow) => Promise<T>;
     countedFrom: (value: T) => readonly (string | null | undefined)[];
+    consistent?: (value: T) => boolean;
 }): Promise<{ value: T; window: DeskWindow }> {
+    const dayTurned = (): boolean => options.day !== null && deskWindowStart('today', options.clock()) !== options.day;
     for (let attempt = 0; attempt <= STRADDLE_RETRIES; attempt += 1) {
         const window = deskWindow(options.kind, options.clock());
-        if (window.kind === 'rolling') return { value: await options.read(window), window };
-        if (options.day !== null && window.start.getTime() !== options.day) throw new DayTurnedError();
+        const today = window.kind === 'today';
+        if (today && options.day !== null && window.start.getTime() !== options.day) throw new DayTurnedError();
         const value = await options.read(window);
+        if (today && dayTurned()) throw new DayTurnedError();
+        const agrees = options.consistent?.(value) ?? true;
         const counted = options.countedFrom(value).filter((start): start is string => start !== null && start !== undefined);
-        if (counted.every((start) => countedWithinDay(window, start))) return { value, window };
+        if (agrees && (!today || counted.every((start) => countedWithinDay(window, start)))) return { value, window };
     }
     throw new StraddledReadError();
+}
+
+/**
+ * Whether an instant lies inside the window a reading counted, `[start, end)`. A bound the reading
+ * did not report does not exclude anything.
+ */
+export function withinCounted(at: string, start: string | null | undefined, end: string | null | undefined): boolean {
+    const instant = Date.parse(at);
+    if (!Number.isFinite(instant)) return false;
+    const from = start ? Date.parse(start) : Number.NaN;
+    const to = end ? Date.parse(end) : Number.NaN;
+    return (!Number.isFinite(from) || instant >= from) && (!Number.isFinite(to) || instant < to);
+}
+
+/** A guest's shared history starts at a UTC midnight, so a counted start there, later than asked, is that floor. */
+export function narrowedToSharedDay(window: DeskWindow, counted: string | null | undefined): string | null {
+    const start = counted ? Date.parse(counted) : Number.NaN;
+    if (!Number.isFinite(start) || start <= window.start.getTime() || start % ROLLING_DAY_MS !== 0) return null;
+    return new Date(start).toISOString();
 }

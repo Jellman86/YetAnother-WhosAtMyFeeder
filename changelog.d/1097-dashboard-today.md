@@ -20,10 +20,11 @@
   used to cover 8 and 31. Links that use `date=week` and `date=month` still work.
 - **The Dashboard no longer says "nothing" when it could not look.** A refresh that fails after an
   empty reading now says the visits could not be loaded. With Garden visits unreadable, an empty
-  log says "No bird visits", and the Heard card says when its calls could not be loaded instead of
-  "No calls heard".
+  log says "No bird visits" and no earlier Garden rows stay on screen, and the Heard card says when
+  its calls could not be loaded instead of "No calls heard". Its latest call is always one from the
+  window it counted.
 - **The day's counts share one window edge.** The day summary and Needs your call now count from
   `window_start` up to, but not including, `window_end`, so a capture made at that instant is
-  counted once, by the next read, in every figure.
+  counted once, by the next read, in every figure, new species included.
 - **The Explorer reads Today again on the new day.** Reading the same period again after midnight
   now asks for the new day's dates instead of the day the page was opened on.

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { DeskWindowKind } from '../utils/desk-window';
+    import { withinCounted, type DeskWindowKind } from '../utils/desk-window';
     import { onMount, onDestroy, untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fetchRecentAudio, type AudioDetection, type AudioSummaryResponse } from '../api';
@@ -126,7 +126,9 @@
         audioLoader.dispose();
     });
 
-    const latestCall = $derived(audioDetections[0] ?? null);
+    // The latest call is read on its own; it is shown only inside the window the summary counted, so
+    // yesterday's call never stands under Today while the two readings catch up with each other.
+    const latestCall = $derived(audioDetections.find((call) => withinCounted(call.timestamp, summary?.window_start, summary?.window_end)) ?? null);
     const mostHeard = $derived((summary?.top_species ?? []).slice(0, MOST_HEARD_LIMIT));
     const mostHeardMax = $derived(Math.max(1, ...mostHeard.map((item) => item.count)));
 </script>

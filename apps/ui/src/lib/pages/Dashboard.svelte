@@ -56,6 +56,7 @@
         readOneDay,
         readDeskWindowChoice,
         saveDeskWindowChoice,
+        narrowedToSharedDay,
         sharedHistoryStart,
         type DeskWindow,
         type DeskWindowKind
@@ -105,8 +106,12 @@
     let readingDay = deskWindowStart('today', new Date());
 
     /** One read of the desk's window, never across two days (see `readOneDay`). */
-    function readDeskDay<T>(read: (window: DeskWindow) => Promise<T>, countedFrom: (value: T) => readonly (string | null | undefined)[]): Promise<{ value: T; window: DeskWindow }> {
-        return readOneDay({ kind: windowChoice, day: windowChoice === 'today' ? readingDay : null, clock: () => new Date(), read, countedFrom });
+    function readDeskDay<T>(
+        read: (window: DeskWindow) => Promise<T>,
+        countedFrom: (value: T) => readonly (string | null | undefined)[],
+        consistent?: (value: T) => boolean
+    ): Promise<{ value: T; window: DeskWindow }> {
+        return readOneDay({ kind: windowChoice, day: windowChoice === 'today' ? readingDay : null, clock: () => new Date(), read, countedFrom, consistent });
     }
 
     let summary = $state<DailySummary | null>(null);
@@ -503,8 +508,7 @@
             await settleGardenSwitch(signal);
             readGardenAvailable = gardenAvailable;
             // One pair of instants for this load: the summary's window, the visits and Garden all read it.
-            const { value, window: desk } = await readDeskDay(async (desk) => {
-                const window = { startTime: desk.start.toISOString(), endTime: desk.end.toISOString() };
+            const readLog = (window: { startTime: string; endTime: string }) => {
                 // A Garden failure is stated beside the birds rather than taking the whole log down.
                 const gardenRead = gardenAvailable
                     ? fetchGardenVisits({ start: window.startTime, end: window.endTime, order: 'newest', limit: VISIT_ROW_LIMIT }, signal)
@@ -514,13 +518,24 @@
                             return { page: null };
                         })
                     : Promise.resolve(null);
-                const [summaryRes, visitsRes, gardenRes] = await Promise.all([
-                    fetchDailySummary(desk.kind, signal),
-                    fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' }),
-                    gardenRead
-                ]);
-                return { summaryRes, visitsRes, gardenRes, window };
-            }, ({ summaryRes }) => [summaryRes.window_start]);
+                return Promise.all([fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' }), gardenRead]);
+            };
+            const utcDay = (): string => new Date().toISOString().slice(0, 10);
+            const { value, window: desk } = await readDeskDay(async (desk) => {
+                const sharedDayAtStart = utcDay();
+                let window = { startTime: desk.start.toISOString(), endTime: desk.end.toISOString() };
+                let [summaryRes, [visitsRes, gardenRes]] = await Promise.all([fetchDailySummary(desk.kind, signal), readLog(window)]);
+                // A guest's shared history can start after the window asked for. The log is read again
+                // over the start the figures counted from, so its rows and the figures agree.
+                const sharedFrom = authStore.isGuest ? narrowedToSharedDay(desk, summaryRes.window_start) : null;
+                if (sharedFrom) {
+                    window = { startTime: sharedFrom, endTime: window.endTime };
+                    [visitsRes, gardenRes] = await readLog(window);
+                }
+                // The shared history moves at UTC midnight: a guest read that crossed it is read again.
+                const sharedDayMoved = authStore.isGuest && utcDay() !== sharedDayAtStart;
+                return { summaryRes, visitsRes, gardenRes, window, sharedDayMoved };
+            }, ({ summaryRes }) => [summaryRes.window_start], ({ sharedDayMoved }) => !sharedDayMoved);
             return { ...value, desk };
         },
         apply: ({ summaryRes, visitsRes, gardenRes, window, desk }) => {
@@ -532,8 +547,9 @@
             serverVisits = visitsRes.visits.map((visit) => fromServerVisit(visit, window)); totalVisits = visitsRes.total;
             gardenWindow = { start: window.startTime, end: window.endTime };
             gardenUnavailable = gardenRes !== null && gardenRes.page === null;
-            if (gardenRes === null) { gardenVisits = []; gardenTotal = 0; }
-            else if (gardenRes.page) { gardenVisits = gardenRes.page.visits; gardenTotal = gardenRes.page.total; }
+            // Garden that could not be read shows none of its earlier rows beside "only birds are shown".
+            if (gardenRes?.page) { gardenVisits = gardenRes.page.visits; gardenTotal = gardenRes.page.total; }
+            else { gardenVisits = []; gardenTotal = 0; }
         },
         clear: () => { summary = null; shownWindow = null; serverVisits = []; totalVisits = 0; gardenVisits = []; gardenTotal = 0; gardenUnavailable = false; summaryRefreshFailed = false; },
         fail: (e) => {

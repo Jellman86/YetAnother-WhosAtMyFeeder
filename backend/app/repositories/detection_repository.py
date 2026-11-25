@@ -1885,6 +1885,7 @@ class DetectionRepository:
         first_seen_cutoff: datetime,
         excluded_labels: list[str] | None = None,
         limit: int = 20,
+        before: datetime | None = None,
     ) -> list[tuple[Detection, int]]:
         """Species with no confirmed history, represented by their latest sighting.
 
@@ -1892,7 +1893,8 @@ class DetectionRepository:
         arrivals: few of them, none manually tagged, first seen inside the
         window. Each returns once, wearing its newest detection, so the
         review queue can ask a person the one question that matters —
-        is this bird real here?
+        is this bird real here? With ``before``, history is read as it stood
+        then, exclusive: a sighting at or after it is the next read's.
         """
         excluded = [label.strip().lower() for label in (excluded_labels or []) if label and label.strip()]
         exclusion_clause = ""
@@ -1901,6 +1903,9 @@ class DetectionRepository:
             placeholders = ",".join("?" for _ in excluded)
             exclusion_clause = f"AND LOWER(d.display_name) NOT IN ({placeholders})"
             params.extend(excluded)
+        if before is not None:
+            exclusion_clause += " AND d.detection_time < ?"
+            params.append(before.isoformat(sep=" "))
         query = f"""
             WITH species_history AS (
                 SELECT LOWER(COALESCE(NULLIF(TRIM(d.scientific_name), ''), d.display_name)) AS species_key,

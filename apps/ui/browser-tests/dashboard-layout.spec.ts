@@ -72,7 +72,7 @@ interface Opening {
     /** Every request the page sends to the API, for checking which window each one read. */
     requests?: URL[];
     /** Answers a request before the fixture does, for a test's own scenario. */
-    answer?: (url: URL) => { json?: unknown; status?: number } | undefined;
+    answer?: (url: URL) => { json?: unknown; status?: number } | undefined | Promise<{ json?: unknown; status?: number } | undefined>;
 }
 
 /** The fixture's browser runs in London (playwright.config.ts), whose midnight Today counts from. */
@@ -108,7 +108,7 @@ async function openDashboard(page: Page, { status, readingDelayMs = 0, summaryOv
         const path = url.pathname;
         requests?.push(url);
         if (path === '/api/sse') return route.abort();
-        const answered = answer?.(url);
+        const answered = await answer?.(url);
         if (answered) {
             return answered.status && answered.status >= 400
                 ? route.fulfill({ status: answered.status, json: { detail: 'Unavailable in this scenario' } })
@@ -650,3 +650,150 @@ test('a Heard summary that could not be read is not "no calls heard"', async ({ 
     await expect(heard.locator('[data-dashboard-heard-unavailable]')).toContainText('Calls heard could not be loaded.');
     await expect(heard).not.toContainText('No calls heard');
 });
+
+test('an old-day answer that lands just after midnight is not shown as Today', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.addInitScript(() => {
+        localStorage.setItem('yawamf.dashboard.window', 'today');
+        const seen = { oldDay: false };
+        (window as unknown as { __oldDay: typeof seen }).__oldDay = seen;
+        new MutationObserver(() => {
+            if (document.body?.textContent?.includes('Pre-midnight Nightjar')) seen.oldDay = true;
+        }).observe(document, { childList: true, subtree: true, characterData: true });
+    });
+    await page.clock.install({ time: new Date('2026-11-25T23:59:50Z') });
+    await page.clock.pauseAt(new Date('2026-11-25T23:59:59.900Z'));
+    // The old day's answers are held until the browser's clock reads 00:00:00.200.
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const phase = { afterMidnight: false };
+    const summaryAsked: string[] = [];
+    const oldCapture = { ...detection(0, Date.parse('2026-11-25T23:30:00Z')), frigate_event: 'pre-midnight', display_name: 'Pre-midnight Nightjar', common_name: 'Pre-midnight Nightjar' };
+    const newCaptures = [detection(1, Date.parse('2026-11-26T00:00:00.100Z'))];
+    await openDashboard(page, {
+        status: owner,
+        answer: async (url) => {
+            const day = phase.afterMidnight ? NEW_DAY : OLD_DAY;
+            if (url.pathname === '/api/stats/daily-summary') summaryAsked.push(day);
+            const answerFor = (): { json?: unknown } | undefined => {
+                switch (url.pathname) {
+                    case '/api/stats/daily-summary':
+                        return { json: daySummary(day, day, day === NEW_DAY ? 1 : 5) };
+                    case '/api/visits':
+                        return { json: day === NEW_DAY ? { total: 1, gap_seconds: 60, visits: newCaptures.map(visitOf) } : { total: 1, gap_seconds: 60, visits: [visitOf(oldCapture)] } };
+                    case '/api/events/review-queue':
+                        return { json: { items: [], total: 0, window_start: day, window_end: day } };
+                    case '/api/leaderboard/species':
+                        return { json: { span: 'today', window_start: day, window_end: '', species: [], nearby_check: 'off' } };
+                    case '/api/audio/species':
+                        return { json: { span: 'today', window_start: day, window_end: '', species: [] } };
+                    default:
+                        return undefined;
+                }
+            };
+            const response = answerFor();
+            if (response && day === OLD_DAY) await held;
+            return response;
+        }
+    });
+    await expect.poll(() => summaryAsked.length).toBeGreaterThan(0);
+    await page.clock.runFor(300);
+    phase.afterMidnight = true;
+    release();
+    // The old answers settle after midnight: the page reads the new day instead of showing them.
+    await expect(page.locator('[data-day-bar-figure="visits"] .figure')).toHaveText('1');
+    expect(summaryAsked).toContain(NEW_DAY);
+    expect(await page.evaluate(() => (window as unknown as { __oldDay: { oldDay: boolean } }).__oldDay.oldDay)).toBe(false);
+});
+
+test.describe('a guest in Tokyo at UTC midnight', () => {
+    test.use({ timezoneId: 'Asia/Tokyo' });
+
+    test('reads the log again from where the shared history starts, never beside earlier captures', async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await page.addInitScript(() => {
+            localStorage.setItem('yawamf.dashboard.window', 'today');
+            const seen = { beforeCutoff: false };
+            (window as unknown as { __cutoff: typeof seen }).__cutoff = seen;
+            new MutationObserver(() => {
+                if (document.body?.textContent?.includes('Before Cutoff Wren')) seen.beforeCutoff = true;
+            }).observe(document, { childList: true, subtree: true, characterData: true });
+        });
+        // 08:59:59.9 in Tokyo, whose Today began at 15:00 UTC; the shared UTC day turns a moment later.
+        await page.clock.install({ time: new Date('2026-11-25T23:59:50Z') });
+        await page.clock.pauseAt(new Date('2026-11-25T23:59:59.900Z'));
+        const tokyoMidnight = '2026-11-25T15:00:00.000Z';
+        const sharedDay = NEW_DAY;
+        const before = { ...detection(0, Date.parse('2026-11-25T23:30:00Z')), frigate_event: 'before-cutoff', display_name: 'Before Cutoff Wren', common_name: 'Before Cutoff Wren' };
+        const after = detection(1, Date.parse('2026-11-26T00:00:00.500Z'));
+        const visitReads: string[] = [];
+        await openDashboard(page, {
+            status: guest,
+            answer: (url) => {
+                switch (url.pathname) {
+                    // The summary was answered after UTC midnight: it counted from the new shared day.
+                    case '/api/stats/daily-summary':
+                        return { json: daySummary(sharedDay, '2026-11-26T00:00:01.000Z', 1) };
+                    // The visits read sent from Tokyo's midnight was answered before it, so it holds earlier captures.
+                    case '/api/visits': {
+                        const start = url.searchParams.get('start_time') ?? '';
+                        visitReads.push(start);
+                        return { json: start === sharedDay
+                            ? { total: 1, gap_seconds: 60, visits: [visitOf(after)] }
+                            : { total: 2, gap_seconds: 60, visits: [visitOf(after), visitOf(before)] } };
+                    }
+                    case '/api/audio/summary':
+                        return { json: { total: 0, species_count: 0, source_count: 0, daily_counts: [], hourly_counts: [], sources: [], top_species: [], window_start: sharedDay, window_end: url.searchParams.get('end_date') } };
+                    default:
+                        return undefined;
+                }
+            }
+        });
+        await expect(page.locator('[data-day-bar-shared-from]')).toBeVisible();
+        await expect(page.locator('[data-dashboard-field-log] [data-field-log-row]')).toHaveCount(1);
+        expect(visitReads).toEqual([tokyoMidnight, sharedDay]);
+        expect(await page.evaluate(() => (window as unknown as { __cutoff: { beforeCutoff: boolean } }).__cutoff.beforeCutoff)).toBe(false);
+    });
+});
+
+test('Garden that fails on a refresh takes its earlier rows down with it', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const refresh = { gardenFails: false };
+    await openDashboard(page, {
+        status: owner,
+        garden: true,
+        answer: (url) => {
+            if (url.pathname !== '/api/garden/visits') return undefined;
+            if (refresh.gardenFails) return { status: 503 };
+            return { json: { visits: [gardenVisitOf('fox-today', new Date(Date.now() - 30 * 60_000).toISOString())], total: 1, capture_total: 1, limit: 12, offset: 0 } };
+        }
+    });
+    const log = page.locator('[data-dashboard-field-log]');
+    await expect(log.locator('[data-field-log-garden="fox-today"]')).toBeVisible();
+    refresh.gardenFails = true;
+    await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+    await expect(log.locator('[data-field-log-garden-unavailable]')).toBeVisible();
+    await expect(log.locator('[data-field-log-garden="fox-today"]')).toHaveCount(0);
+});
+
+for (const [when, at, shown] of [
+    ['yesterday', '2026-11-24T23:50:00Z', false],
+    ['today', 'NOW', true]
+] as const) {
+    test(`a latest call from ${when} ${shown ? 'is' : 'is not'} shown under Today's calls`, async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await page.addInitScript(() => localStorage.setItem('yawamf.dashboard.window', 'today'));
+        const heardAt = at === 'NOW' ? new Date(Date.now() - 60_000).toISOString() : at;
+        test.skip(at === 'NOW' && Date.parse(heardAt) < Date.parse(londonMidnight()), 'Today began less than a minute ago');
+        await openDashboard(page, {
+            status: owner,
+            answer: (url) => (url.pathname === '/api/audio/recent'
+                ? { json: [{ id: 1, species: 'Tawny Owl', scientific_name: 'Strix aluco', confidence: 0.9, timestamp: heardAt, source_name: 'garden-mic' }] }
+                : undefined)
+        });
+        const heard = page.locator('[data-dashboard-audio]');
+        await expect(heard.locator('[data-dashboard-species-heard]')).toBeVisible();
+        if (shown) await expect(heard.locator('[data-dashboard-latest-call]')).toContainText('Tawny Owl');
+        else await expect(heard.locator('[data-dashboard-latest-call]')).toHaveCount(0);
+    });
+}

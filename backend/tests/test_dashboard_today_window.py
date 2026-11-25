@@ -404,3 +404,26 @@ async def test_todays_species_checks_count_what_the_leaderboard_does_and_the_day
     assert [(row["species"], row["count"]) for row in summary["top_species"]] == [("European Robin", 1)]
     # A sealed total counts in neither.
     assert all(row["species"] != "Dunnock" for row in board["species"] + summary["top_species"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("window", ["rolling", "today"])
+async def test_a_new_species_at_or_after_the_window_end_waits_for_the_next_read(client, window):
+    # Needs your call is as of window_end, exclusive: a species first stamped then, or later, is not
+    # yet new to this read, while a newcomer from four days ago still waits.
+    await _established_robin()
+    await _seed("hoopoe-4-days-ago", datetime(2034, 3, 6, 12, 0), name="Eurasian Hoopoe", scientific="Upupa epops")
+    await _seed("wren-at-end", NOW, name="Wren", scientific="Troglodytes troglodytes")
+    await _seed("nuthatch-after-end", NOW + timedelta(minutes=1), name="Nuthatch", scientific="Sitta europaea")
+    # A newcomer seen before the window ends and again at its end waits by its earlier sighting.
+    await _seed("siskin-before-end", datetime(2034, 3, 10, 19, 0), name="Siskin", scientific="Spinus spinus")
+    await _seed("siskin-at-end", NOW, name="Siskin", scientific="Spinus spinus")
+
+    queue = _ok(await client.get(f"/api/events/review-queue?window={window}", headers=INDIA))
+    newcomers = {
+        item["event"]["frigate_event"]: item["species_sightings"]
+        for item in queue["items"]
+        if item["reason"] == "new_species"
+    }
+    assert newcomers == {"hoopoe-4-days-ago": 1, "siskin-before-end": 1}
+    assert queue["total"] == 2

@@ -1049,6 +1049,8 @@ async def get_review_queue(
             first_seen_cutoff=window_end - timedelta(days=window_days),
             excluded_labels=hidden_species_exact_labels(),
             limit=REVIEW_QUEUE_NEW_SPECIES_LIMIT,
+            # As of the window's end, exclusive, as the waiting captures are counted.
+            before=window_end,
         )
         entries, total = await repo.get_review_queue(
             window_start=window_start,

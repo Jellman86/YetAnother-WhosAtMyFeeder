@@ -455,15 +455,16 @@ current behaviour.
   `max_sightings` (default 3) and `window_days` (default 14) bound what still counts as new.
 - `GET /api/events/review-queue` (owner) — everything waiting on a person, for the dashboard's
   **Needs your call**: visible, undecided detections with no species or a score below the naming
-  threshold in the window, plus each new species' latest sighting. `window=rolling` (the default)
-  is the last `window_hours` (default 24); `window=today` runs from local midnight (in the zone
-  chosen as in [Calendar days](#calendar-days-and-today)) to now. The captures counted are the ones
+  threshold in the window, plus each new species' latest sighting. `window=rolling` (the default) is
+  the last `window_hours` (default 24); `window=today` runs from local midnight (in the zone chosen
+  as in [Calendar days](#calendar-days-and-today)) to now. The captures counted are the ones
   `GET /api/stats/daily-summary` counts as `unresolved_count` for the same `window`, over the same
-  half-open interval, and `window_start` and `window_end` name the window used. A new species waits whenever it was first
-  seen in the last `window_days`, in either window, and counts once when it is also a capture
-  waiting in the window. Lists the oldest `limit` (default 12, up to 500), each with its `reason`,
-  and `total` counts everything however many were listed. `max_sightings` and `window_days` work as
-  they do for new species.
+  half-open interval, and `window_start` and `window_end` name the window used. A new species waits
+  whenever it was first seen in the last `window_days` and before `window_end` (a sighting at or
+  after it is the next read's), in either window, and counts once when it is also a capture waiting
+  in the window. Lists the oldest `limit` (default 12, up to 500), each with its `reason`, and
+  `total` counts everything however many were listed. `max_sightings` and `window_days` work as they
+  do for new species.
 - `GET /api/events/{event_id}/classification-status` (owner)
 - `PATCH /api/events/{event_id}` (owner)
 - `PATCH /api/events/bulk/manual-tag` (owner)

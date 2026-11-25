@@ -70,12 +70,12 @@ describe('the Dashboard\'s Today (#1097)', () => {
     it('settles one window per load and gives it to every read on the desk', () => {
         const summaryRead = between(dashboardSource, 'const summaryLoader = createObservationProjectionLoader({', 'apply:');
         expect(summaryRead).toContain('const { value, window: desk } = await readDeskDay(async (desk) => {');
-        expect(summaryRead).toContain("}, ({ summaryRes }) => [summaryRes.window_start]);");
+        expect(summaryRead).toContain("}, ({ summaryRes }) => [summaryRes.window_start], ({ sharedDayMoved }) => !sharedDayMoved);");
         expect(summaryRead).toContain('fetchDailySummary(desk.kind, signal)');
         expect(summaryRead).toContain("fetchGardenVisits({ start: window.startTime, end: window.endTime, order: 'newest', limit: VISIT_ROW_LIMIT }, signal)");
         expect(summaryRead).toContain("fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' })");
         // Every read is settled and checked by readOneDay for the day the desk is reading.
-        expect(dashboardSource).toContain('return readOneDay({ kind: windowChoice, day: windowChoice === \'today\' ? readingDay : null, clock: () => new Date(), read, countedFrom });');
+        expect(dashboardSource).toContain('return readOneDay({ kind: windowChoice, day: windowChoice === \'today\' ? readingDay : null, clock: () => new Date(), read, countedFrom, consistent });');
         expect(dashboardSource).toContain('(window) => fetchReviewQueue({ limit: REVIEW_QUEUE_READ_LIMIT, window: window.kind, signal }),');
         expect(dashboardSource).toContain('(window) => fetchReviewQueue({ limit: REVIEW_SESSION_READ_LIMIT, window: window.kind }),');
         expect(dashboardSource.match(/\(response\) => \[response\.window_start\]/g)).toHaveLength(2);
@@ -153,5 +153,20 @@ describe('the Dashboard\'s Today (#1097)', () => {
         expect(recentAudioSource).toContain('{:else if !summary && summaryFailed}');
         // With Garden unread, an empty log is said of birds only.
         expect(dashboardSource).toContain("$_('dashboard.no_bird_visits_today', { default: 'No bird visits yet today.' })");
+    });
+
+    it('reads a guest\'s log over the start the figures counted from, and again if the shared day moved', () => {
+        const summaryRead = between(dashboardSource, 'const summaryLoader = createObservationProjectionLoader({', 'apply:');
+        expect(summaryRead).toContain('const sharedFrom = authStore.isGuest ? narrowedToSharedDay(desk, summaryRes.window_start) : null;');
+        expect(summaryRead).toContain('[visitsRes, gardenRes] = await readLog(window);');
+        expect(summaryRead).toContain('({ sharedDayMoved }) => !sharedDayMoved');
+    });
+
+    it('takes Garden\'s earlier rows down when Garden could not be read', () => {
+        expect(dashboardSource).toContain('if (gardenRes?.page) { gardenVisits = gardenRes.page.visits; gardenTotal = gardenRes.page.total; }\n            else { gardenVisits = []; gardenTotal = 0; }');
+    });
+
+    it('shows the latest call only inside the window the Heard summary counted', () => {
+        expect(recentAudioSource).toContain('withinCounted(call.timestamp, summary?.window_start, summary?.window_end)');
     });
 });

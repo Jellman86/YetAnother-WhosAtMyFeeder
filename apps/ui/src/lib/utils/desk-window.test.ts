@@ -6,10 +6,12 @@ import {
     StraddledReadError,
     deskWindow,
     deskWindowStart,
+    narrowedToSharedDay,
     readDeskWindowChoice,
     readOneDay,
     saveDeskWindowChoice,
-    sharedHistoryStart
+    sharedHistoryStart,
+    withinCounted
 } from './desk-window';
 
 function memoryStorage(initial: Record<string, string> = {}): Storage {
@@ -166,6 +168,33 @@ describe('reading one day', () => {
         expect(read).not.toHaveBeenCalled();
     });
 
+    it('never publishes an old-day answer that settles just after midnight', async () => {
+        // Asked at 23:59:59.5, answered at 00:00:00.200, before the page's own midnight timer.
+        const read = vi.fn(async () => ({ window_start: new Date(day25).toISOString() }));
+        await expect(readOneDay({
+            kind: 'today',
+            day: day25,
+            clock: clockAt(beforeMidnight, new Date(2026, 10, 26, 0, 0, 0, 200)),
+            read,
+            countedFrom: (value) => [value.window_start]
+        })).rejects.toBeInstanceOf(DayTurnedError);
+        expect(read).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks again when a read reports its own answers do not agree', async () => {
+        let attempt = 0;
+        const result = await readOneDay({
+            kind: 'today',
+            day: day25,
+            clock: clockAt(beforeMidnight),
+            read: async () => ({ window_start: new Date(day25).toISOString(), agrees: ++attempt > 1 }),
+            countedFrom: (value) => [value.window_start],
+            consistent: (value) => value.agrees
+        });
+        expect(attempt).toBe(2);
+        expect(result.value.agrees).toBe(true);
+    });
+
     it('checks every answer a read collects, and skips one that was not read', async () => {
         let attempt = 0;
         const result = await readOneDay({
@@ -203,5 +232,36 @@ describe('reading one day', () => {
         });
         expect(read).toHaveBeenCalledTimes(1);
         expect(result.window.kind).toBe('rolling');
+    });
+});
+
+describe('the window a reading counted', () => {
+    it('holds an instant from its start up to, not including, its end', () => {
+        const start = '2026-11-26T00:00:00Z';
+        const end = '2026-11-26T09:00:00Z';
+        expect(withinCounted('2026-11-26T00:00:00Z', start, end)).toBe(true);
+        expect(withinCounted('2026-11-25T23:50:00Z', start, end)).toBe(false);
+        expect(withinCounted('2026-11-26T09:00:00Z', start, end)).toBe(false);
+        expect(withinCounted('2026-11-26T08:59:59Z', start, end)).toBe(true);
+    });
+
+    it('excludes nothing by a bound the reading did not report, and refuses an unreadable instant', () => {
+        expect(withinCounted('2026-11-25T23:50:00Z', null, undefined)).toBe(true);
+        expect(withinCounted('not a time', '2026-11-26T00:00:00Z', null)).toBe(false);
+    });
+});
+
+describe('a guest\'s shared day', () => {
+    // Tokyo's Today began at 15:00 UTC; the shared history starts at a UTC midnight after it.
+    const window = { kind: 'today' as const, start: new Date('2026-11-25T15:00:00Z'), end: new Date('2026-11-26T00:30:00Z') };
+
+    it('is the counted start when it is a UTC midnight later than the window asked for', () => {
+        expect(narrowedToSharedDay(window, '2026-11-26T00:00:00Z')).toBe('2026-11-26T00:00:00.000Z');
+    });
+
+    it('is nothing when the count started where it was asked, or a moment later on the server clock', () => {
+        expect(narrowedToSharedDay(window, '2026-11-25T15:00:00Z')).toBeNull();
+        expect(narrowedToSharedDay(window, '2026-11-25T15:00:00.120Z')).toBeNull();
+        expect(narrowedToSharedDay(window, null)).toBeNull();
     });
 });
