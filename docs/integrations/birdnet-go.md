@@ -112,6 +112,10 @@ calls do not become visual captures or inflate camera counts.
 
 Audio History provides date-window, species, source, and confidence filters plus top-species,
 source, and hourly summaries. Use it to inspect individual persisted messages and spectrograms.
+The window is **Today** (from your local midnight to now), **Last 24 hours**, **Last 7 days**,
+**Last 30 days** (the default), **Last 90 days** or **Last 365 days**. Today moves on to the new day
+at midnight while the page stays open. Guests see only the history the owner shares, so when that
+starts after their own midnight the page says from what time Today is shown.
 
 Source summaries process stored messages in small batches to limit memory use while other
 requests run. Summaries still cover the entire selected window, so a narrower date range reduces

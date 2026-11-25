@@ -14,14 +14,19 @@ type AudioHeatmapRead = { heatmap: AudioActivityHeatmapResponse } | { error: unk
  * not part of it: a grid that cannot be read is reported as its own failure beside a list and
  * summary that were read, never a reason to withdraw them.
  */
-export function createAudioHistoryLoader(options: {
+export function createAudioHistoryLoader<Request = undefined>(options: {
+    /**
+     * Settles what one load asks for, once, before any read starts: a window that ends "now" would
+     * otherwise end at a different instant for each of the reads it is made of.
+     */
+    resolveRequest?: () => Request;
     /** Identifies what is being asked for, so a failed refresh can tell it apart from a new question. */
-    requestKey?: () => string;
-    fetchHistory: () => Promise<AudioHistoryResponse>;
-    fetchSummary: () => Promise<AudioSummaryResponse>;
-    fetchHeatmap: () => Promise<AudioActivityHeatmapResponse>;
+    requestKey?: (request: Request) => string;
+    fetchHistory: (request: Request) => Promise<AudioHistoryResponse>;
+    fetchSummary: (request: Request) => Promise<AudioSummaryResponse>;
+    fetchHeatmap: (request: Request) => Promise<AudioActivityHeatmapResponse>;
     begin: () => void;
-    apply: (history: AudioHistoryResponse, summary: AudioSummaryResponse, heatmap: AudioHeatmapRead) => void;
+    apply: (history: AudioHistoryResponse, summary: AudioSummaryResponse, heatmap: AudioHeatmapRead, request: Request) => void;
     clear: () => void;
     fail: (error: unknown, state: { stale: boolean }) => void;
     finish: () => void;
@@ -31,22 +36,24 @@ export function createAudioHistoryLoader(options: {
     return {
         async load(invalidated = false): Promise<void> {
             const requestGeneration = ++generation;
-            const key = options.requestKey?.() ?? '';
+            // Without a resolver there is nothing to settle, and every callback ignores its argument.
+            const request = (options.resolveRequest ? options.resolveRequest() : undefined) as Request;
+            const key = options.requestKey?.(request) ?? '';
             if (invalidated) {
                 options.clear();
                 shownKey = null;
             }
             options.begin();
             // Settled on its own, so its failure can neither reject the list's read nor go unhandled.
-            const heatmapRead: Promise<AudioHeatmapRead> = options.fetchHeatmap().then(
+            const heatmapRead: Promise<AudioHeatmapRead> = options.fetchHeatmap(request).then(
                 (heatmap) => ({ heatmap }),
                 (error: unknown) => ({ error })
             );
             try {
-                const [history, summary] = await Promise.all([options.fetchHistory(), options.fetchSummary()]);
+                const [history, summary] = await Promise.all([options.fetchHistory(request), options.fetchSummary(request)]);
                 const heatmap = await heatmapRead;
                 if (requestGeneration === generation) {
-                    options.apply(history, summary, heatmap);
+                    options.apply(history, summary, heatmap, request);
                     shownKey = key;
                 }
             } catch (error) {

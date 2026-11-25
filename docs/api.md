@@ -1685,7 +1685,18 @@ snapshot, not a destructive queue-control API.
     UI no longer reads it, and `GET /api/audio/activity-heatmap` gives calls by the viewer's local
     weekday and hour instead. It stays in the response so existing clients keep working. Each
     `top_species` row carries its `scientific_name` (null when the calls were stored without one):
-    `species` is translated, so the scientific name is what asks the activity grid for that species
+    `species` is translated, so the scientific name is what asks the activity grid for that species.
+    `daily_counts` counts calls per calendar day in the zone `X-Timezone` names, else the container's
+    `TZ`, else UTC, so a call is filed under the viewer's own date. `window_start` and `window_end`
+    state the window counted: a guest's window is the requested one narrowed to the public history,
+    so a client can tell when the start of its day was left out
+  - `GET /api/audio/history`, `GET /api/audio/summary` and `GET /api/audio/activity-heatmap` read an
+    explicit `start_date`/`end_date` pair in place of `days`. Both requested ends are inclusive: a
+    call at exactly `start_date` or exactly `end_date` is counted. A guest's window is then cut to the
+    public history. Its start is an inclusive UTC midnight; in today-only mode its end is the next UTC
+    midnight and is exclusive, so a call at exactly that midnight is never shared, whatever `end_date`
+    asks for. `window_end` then reports that exclusive cutoff. Audio history's **Today** sends the
+    viewer's local midnight and the moment of the load, both in UTC, the same pair to all three
   - `GET /api/audio/activity-heatmap` — calls heard by weekday and hour, in the zone the
     `X-Timezone` header names, else the container's `TZ`, else UTC. It takes the summary's window
     (`days`, or `start_date`/`end_date`) and filters (`species`, `source`, `min_confidence`), so its
