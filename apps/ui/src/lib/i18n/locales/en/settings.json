@@ -1385,7 +1385,8 @@
     "frigate_video_title": "Frigate and video",
     "frigate_video_desc": "Whether to use labels Frigate already has, write YA-WAMF species back to Frigate, and check recorded clips after the snapshot.",
     "model_manager_in_use": "In use",
-    "threshold_help": "At or above this score, a visit is saved under the species name."
+    "threshold_help": "At or above this score, a visit is saved under the species name.",
+    "active_model_label": "Active model"
   },
   "llm": {
     "toggle_label": "Turn on AI insights",

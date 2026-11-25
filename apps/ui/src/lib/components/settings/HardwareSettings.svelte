@@ -408,8 +408,14 @@
                 {#if classifierStatus.openvino_model_compile_ok === false}
                     <div class="space-y-2 text-status-attention">
                         <p class="text-sm font-semibold text-status-attention">{$_('settings.detection.openvino_compile_failure', { default: 'OpenVINO model incompatibility on this host' })}</p>
+                        <p class="text-xs font-medium text-status-attention">
+                            {$_('settings.detection.openvino_compile_failure_detail', {
+                                values: { fallback: classifierStatus.active_provider || classifierStatus.inference_backend || 'CPU' },
+                                default: 'This model cannot compile on the currently selected OpenVINO device. YA-WAMF will keep the model installed but run inference on {fallback}.'
+                            })}
+                        </p>
                         <p class="break-all text-xs font-medium text-status-attention">
-                            {$_('settings.detection.openvino_compile_failure_detail', { default: 'Active model' })}: <code>{classifierStatus.active_model_id || 'unknown'}</code>
+                            {$_('settings.detection.active_model_label', { default: 'Active model' })}: <code>{classifierStatus.active_model_id || 'unknown'}</code>
                             {#if classifierStatus.openvino_model_compile_device}({classifierStatus.openvino_model_compile_device}){/if}
                         </p>
                         <p class="text-xs font-medium text-status-attention">

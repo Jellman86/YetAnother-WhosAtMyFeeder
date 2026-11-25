@@ -1385,7 +1385,8 @@
     "frigate_video_title": "Frigate y vídeo",
     "frigate_video_desc": "Si se usan las etiquetas que ya tiene Frigate, se escriben las especies de YA-WAMF en Frigate y se revisan los clips grabados después de la instantánea.",
     "model_manager_in_use": "En uso",
-    "threshold_help": "Con esta puntuación o más, la visita se guarda con el nombre de la especie."
+    "threshold_help": "Con esta puntuación o más, la visita se guarda con el nombre de la especie.",
+    "active_model_label": "Modelo activo"
   },
   "llm": {
     "toggle_label": "Alternar análisis de IA",

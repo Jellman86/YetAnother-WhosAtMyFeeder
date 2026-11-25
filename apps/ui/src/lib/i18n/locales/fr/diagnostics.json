@@ -1,3 +1,4 @@
 {
-  "step_skipped": "Non exécuté, car une étape précédente a échoué."
+  "step_skipped": "Non exécuté, car une étape précédente a échoué.",
+  "step_failed": "La vérification a échoué."
 }

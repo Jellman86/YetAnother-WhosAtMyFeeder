@@ -1,5 +1,6 @@
 <script lang="ts">
     import { compassPointKey, weatherConditionMessage } from '../utils/weather-condition';
+    import { formatSnapshotFallbackReason } from '../utils/snapshot-fallback-reason';
     import DialogHeader from './ui/DialogHeader.svelte';
     import ClassificationSource from './ClassificationSource.svelte';
     import RecordTechnicalDetails from './RecordTechnicalDetails.svelte';
@@ -1048,9 +1049,12 @@
             });
         }
         if (error) {
-            return $_(
-                `detection.reclassification.snapshot_fallback_reason.${error}`,
-                { default: $_('detection.video_analysis.fallback_desc', { default: 'Video analysis was not available, so this capture was named from a single frame. The score may be lower.' }) }
+            return formatSnapshotFallbackReason(
+                error,
+                $_,
+                $_('detection.video_analysis.fallback_desc', {
+                    default: 'Video analysis was not available, so this capture was named from a single frame. The score may be lower.'
+                })
             );
         }
         // No error code: say what was learned about the event in Frigate, and no more than that.

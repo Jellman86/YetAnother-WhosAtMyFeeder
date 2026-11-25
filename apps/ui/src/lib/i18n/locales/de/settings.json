@@ -1385,7 +1385,8 @@
     "frigate_video_title": "Frigate und Video",
     "frigate_video_desc": "Ob vorhandene Frigate-Labels genutzt, YA-WAMF-Arten an Frigate zurückgeschrieben und aufgezeichnete Clips nach dem Schnappschuss geprüft werden.",
     "model_manager_in_use": "In Verwendung",
-    "threshold_help": "Ab diesem Wert wird ein Besuch unter dem Artnamen gespeichert."
+    "threshold_help": "Ab diesem Wert wird ein Besuch unter dem Artnamen gespeichert.",
+    "active_model_label": "Aktives Modell"
   },
   "llm": {
     "toggle_label": "KI-Einblicke umschalten",

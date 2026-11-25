@@ -335,3 +335,35 @@ def test_email_errors_with_variables():
 
     result2 = i18n_service.translate("errors.email.disconnect_error", "en", error="Token expired")
     assert "Token expired" in result2
+
+
+def test_all_backend_locales_preserve_placeholders_and_translate_sentences():
+    """Every backend locale must match English placeholders and translate English sentences."""
+    import re
+
+    def flatten(d: dict, prefix: str = "") -> dict[str, str]:
+        out: dict[str, str] = {}
+        for k, v in d.items():
+            path = f"{prefix}.{k}" if prefix else k
+            if isinstance(v, dict):
+                out.update(flatten(v, path))
+            else:
+                out[path] = v
+        return out
+
+    en_flat = flatten(i18n_service.translations["en"])
+    placeholder_re = re.compile(r"\{(\w+)\}")
+
+    for loc in ["es", "fr", "de", "ja", "zh", "ru", "pt", "it"]:
+        loc_flat = flatten(i18n_service.translations[loc])
+        for key, en_val in en_flat.items():
+            loc_val = loc_flat[key]
+            assert isinstance(loc_val, str) and loc_val.strip(), f"Empty value for {loc}:{key}"
+            en_placeholders = set(placeholder_re.findall(en_val))
+            loc_placeholders = set(placeholder_re.findall(loc_val))
+            assert loc_placeholders == en_placeholders, (
+                f"Placeholder mismatch for {loc}:{key}: expected {en_placeholders}, got {loc_placeholders}"
+            )
+            # Multi-word prose sentences must be translated, not copied verbatim from English.
+            if len(en_val.split()) >= 4:
+                assert loc_val != en_val, f"Untranslated English sentence in {loc}:{key}: {loc_val!r}"

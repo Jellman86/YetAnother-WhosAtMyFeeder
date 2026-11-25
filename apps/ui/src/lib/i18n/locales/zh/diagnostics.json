@@ -1,3 +1,4 @@
 {
-  "step_skipped": "由于前一步失败，未运行。"
+  "step_skipped": "由于前一步失败，未运行。",
+  "step_failed": "检查未通过。"
 }

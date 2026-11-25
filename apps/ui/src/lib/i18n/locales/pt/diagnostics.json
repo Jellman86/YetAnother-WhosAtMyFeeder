@@ -1,3 +1,4 @@
 {
-  "step_skipped": "Não executado porque um passo anterior falhou."
+  "step_skipped": "Não executado porque um passo anterior falhou.",
+  "step_failed": "A verificação não foi concluída com sucesso."
 }
