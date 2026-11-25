@@ -257,23 +257,25 @@ test('under Owner confirmed, a change to a capture re-reads the capture list and
     expect(errors).toEqual([]);
 });
 
-test('a visit whose favourite photo shows Unknown Bird still says another capture was confirmed (#1099)', async ({ page }) => {
-    const at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    // The favourite leads the visit; its raw label is one the presenter shows as Unknown Bird.
-    const favourite = { ...record('first', at), display_name: 'Unknown Bird', category_name: 'Unknown Bird', common_name: null, scientific_name: null, is_favorite: true, manual_tagged: false };
-    const visit = {
-        visit_id: 'first', start_time: at, end_time: at, capture_count: 2, best_score: 0.91, needs_review: true, owner_confirmed: true,
-        audio_confirmed: false, representative: favourite, latest: favourite, peak_capture: null
-    };
-    await openExplorer(page, '', path => {
-        if (path === '/api/visits') return { total: 1, gap_seconds: 60, visits: [visit] };
-        return undefined;
+for (const manualTagged of [false, true]) {
+    test(`a visit whose favourite photo shows Unknown Bird still says another capture was confirmed, favourite manual_tagged ${manualTagged} (#1099)`, async ({ page }) => {
+        const at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        // The favourite leads the visit; its raw label 'life' is one the presenter shows as Unknown Bird.
+        const favourite = { ...record('first', at), display_name: 'Unknown Bird', category_name: 'Unknown Bird', common_name: null, scientific_name: null, is_favorite: true, manual_tagged: manualTagged };
+        const visit = {
+            visit_id: 'first', start_time: at, end_time: at, capture_count: 2, best_score: 0.91, needs_review: true, owner_confirmed: true,
+            audio_confirmed: false, representative: favourite, latest: favourite, peak_capture: null
+        };
+        await openExplorer(page, '', path => {
+            if (path === '/api/visits') return { total: 1, gap_seconds: 60, visits: [visit] };
+            return undefined;
+        });
+        const card = page.locator('[data-explorer-visit="first"] [data-detection-card]');
+        await expect(card.locator('[data-explorer-owner-confirmed="visit"]')).toHaveAccessibleName('Owner confirmed');
+        await page.getByRole('button', { name: 'List', exact: true }).click();
+        await expect(page.locator('[data-explorer-visit="first"] [data-explorer-owner-confirmed="visit"]')).toHaveText('Owner confirmed');
     });
-    const card = page.locator('[data-explorer-visit="first"] [data-detection-card]');
-    await expect(card.locator('[data-explorer-owner-confirmed="visit"]')).toHaveAccessibleName('Owner confirmed');
-    await page.getByRole('button', { name: 'List', exact: true }).click();
-    await expect(page.locator('[data-explorer-visit="first"] [data-explorer-owner-confirmed="visit"]')).toHaveText('Owner confirmed');
-});
+}
 
 test('a confirmed species says so on Explorer visits and on single captures (#918)', async ({ page }) => {
     const at = new Date(Date.now() - 60 * 60 * 1000).toISOString();

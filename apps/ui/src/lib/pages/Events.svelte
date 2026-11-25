@@ -17,7 +17,7 @@
     import { findRefreshedGardenVisit, gardenVisitIdentity, gardenBelongs, gardenBlocker, gardenWindow, placeGardenCaptures, type GardenVisit, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
     import { reviewGardenBatch } from '../api/garden';
     import type { DetectionVisit } from '../api/visits';
-    import { ownerConfirmationScope } from '../utils/visit-grouping';
+    import { lostSpecies, ownerConfirmationScope } from '../utils/visit-grouping';
     import { onDestroy, onMount, untrack } from 'svelte';
     import { MediaQuery } from 'svelte/reactivity';
     import {
@@ -143,6 +143,8 @@
     let selectionMode = $state(false);
     let groupVisits = $state(true);
     let pageVisits = $state<DetectionVisit[]>([]);
+    /** Cards this page saw lose their species since the visits were read; their visit's confirmation waits for the next read. */
+    let unnamedSinceVisitRead = $state.raw<ReadonlySet<string>>(new Set());
     /** The visit just before this page, which bounds the calls this page owns. */
     let previousVisit = $state<DetectionVisit | null>(null);
     let heardGroups = $state.raw<HeardGroup[] | null>(null);
@@ -420,6 +422,7 @@
             shownWindow.publish(range);
             events = newEvents;
             pageVisits = nextVisits;
+            unnamedSinceVisitRead = new Set();
             previousVisit = nextPrevious;
             totalCount = nextTotal;
             measured = true;
@@ -778,6 +781,7 @@
     function applyStoreUpdatesToEventList() {
         if (!events.length) return;
         let changed = false;
+        const unnamed = new Set(unnamedSinceVisitRead);
         const nextEvents = events.map((event) => {
             const updated = detectionsStore.getDetectionPatch(event.frigate_event);
             if (!updated) return event;
@@ -787,12 +791,14 @@
             const merged = { ...event, ...definedPatch } as Detection;
             if (detectionSyncSignature(merged) !== detectionSyncSignature(event)) {
                 changed = true;
+                if (lostSpecies(event, merged)) unnamed.add(event.frigate_event);
                 return merged;
             }
             return event;
         });
         if (changed) {
             events = nextEvents;
+            if (unnamed.size !== unnamedSinceVisitRead.size) unnamedSinceVisitRead = unnamed;
         }
     }
 
@@ -2618,7 +2624,7 @@
                             onPlay={() => playClip(event)}
                             selectionMode={selectionMode}
                             selected={selectedEventIds.includes(event.frigate_event)}
-                            ownerConfirmation={ownerConfirmationScope(event, visit)}
+                            ownerConfirmation={ownerConfirmationScope(event, visit, unnamedSinceVisitRead.has(event.frigate_event))}
                             speciesMix={visitSpeciesMix(visit)}
                             stackFrame={visit?.peak_capture ?? null}
                             matchedCalls={entry.matchedCalls}
@@ -2666,7 +2672,7 @@
                         selectionMode={selectionMode}
                         selected={selectedEventIds.includes(event.frigate_event)}
                         footer={visit && hasCaptureFooter(visit) ? captures : undefined}
-                        ownerConfirmation={ownerConfirmationScope(event, visit)}
+                        ownerConfirmation={ownerConfirmationScope(event, visit, unnamedSinceVisitRead.has(event.frigate_event))}
                         speciesMix={visitSpeciesMix(visit)}
                         matchedCalls={entry.matchedCalls}
                     />

@@ -6,6 +6,7 @@ import {
     visitGapMs,
     needsReview,
     ownerConfirmationScope,
+    lostSpecies,
     fromServerVisit,
     withinDeskWindow
 } from './visit-grouping';
@@ -276,14 +277,22 @@ describe('ownerConfirmationScope (#918)', () => {
         expect(ownerConfirmationScope(named, undefined)).toBeNull();
     });
 
-    it('a visit confirmed in another capture says so even when its photo shows Unknown Bird', () => {
-        // The favourite leads the visit; its raw label may be one shown as Unknown Bird ('life').
-        const unnamedFavourite = { display_name: 'Unknown Bird', manual_tagged: false, is_favorite: true } as Detection;
+    it.each([false, true])('a loaded visit confirmed in another capture says so even when its photo shows Unknown Bird (manual_tagged %s)', (manualTagged) => {
+        // The favourite leads the visit; its raw label is one shown as Unknown Bird ('life').
+        const unnamedFavourite = { display_name: 'Unknown Bird', manual_tagged: manualTagged, is_favorite: true } as Detection;
         expect(ownerConfirmationScope(unnamedFavourite, { owner_confirmed: true })).toBe('visit');
     });
 
-    it('a card an owner has just tagged unknown claims nothing before the visit is read again', () => {
-        expect(ownerConfirmationScope(taggedUnknown, { owner_confirmed: true })).toBeNull();
+    it('a card this page saw lose its species claims nothing until the visit is read again', () => {
+        expect(ownerConfirmationScope(taggedUnknown, { owner_confirmed: true }, true)).toBeNull();
+        expect(ownerConfirmationScope(named, { owner_confirmed: true }, true)).toBeNull();
+    });
+
+    it('notices only a change that takes a species away', () => {
+        expect(lostSpecies(tagged, taggedUnknown)).toBe(true);
+        expect(lostSpecies(taggedUnknown, tagged)).toBe(false);
+        expect(lostSpecies(named, tagged)).toBe(false);
+        expect(lostSpecies(taggedUnknown, taggedUnknown)).toBe(false);
     });
 
     it('tagging a record as unknown confirms no species', () => {

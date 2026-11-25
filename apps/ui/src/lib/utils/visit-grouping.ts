@@ -82,17 +82,22 @@ function isOwnerConfirmed(detection: Detection): boolean {
 
 /**
  * What an Explorer record can claim was confirmed. A grouped card may wear a capture other than the
- * confirmed one, even one shown as Unknown Bird, so the visit answers for itself; the record still
- * counts while a fresh choice has not reached the visit yet.
+ * confirmed one, even one shown as Unknown Bird, so a loaded visit answers for itself; the record
+ * still counts while a fresh choice has not reached the visit yet. `unnamedSinceRead` is the page's
+ * own record that it saw this card lose its species after the visit was read.
  */
 export function ownerConfirmationScope(
     detection: Detection,
-    visit: Pick<ServerVisit, 'owner_confirmed'> | undefined
+    visit: Pick<ServerVisit, 'owner_confirmed'> | undefined,
+    unnamedSinceRead = false
 ): 'visit' | 'capture' | null {
-    // An owner who has just tagged this card unknown sees no confirmation until the visit is read again.
-    const justTaggedUnknown = detection.manual_tagged === true && hasNoSpecies(detection);
-    if (visit) return !justTaggedUnknown && (visit.owner_confirmed === true || isOwnerConfirmed(detection)) ? 'visit' : null;
+    if (visit) return !unnamedSinceRead && (visit.owner_confirmed === true || isOwnerConfirmed(detection)) ? 'visit' : null;
     return isOwnerConfirmed(detection) ? 'capture' : null;
+}
+
+/** A change on this page took the record's species away, so a confirmation read before it may no longer hold. */
+export function lostSpecies(before: Detection, after: Detection): boolean {
+    return !hasNoSpecies(before) && hasNoSpecies(after);
 }
 
 function belongsToVisit(previous: Detection, candidate: Detection, gapMs: number): boolean {
