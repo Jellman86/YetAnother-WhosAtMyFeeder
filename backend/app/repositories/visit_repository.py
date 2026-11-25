@@ -12,6 +12,7 @@ from app.repositories.audio_history_repository import public_audio_evidence_sql
 from app.config import settings
 from app.services.visit_grouping import valid_event_bounds
 from app.utils.canonical_species import hidden_species_exact_labels
+from app.utils.owner_confirmation import owner_confirmed_sql
 
 
 class VisitRepository(DetectionRepository):
@@ -228,6 +229,7 @@ class VisitRepository(DetectionRepository):
         audio_only: bool = False,
         public_audio: bool = False,
         multiple_species_only: bool = False,
+        owner_confirmed_only: bool = False,
         species_ids: Collection[int] | None = None,
         gap_seconds: int | None = None,
     ) -> tuple[list[dict], int]:
@@ -248,6 +250,12 @@ class VisitRepository(DetectionRepository):
             camera=camera,
             hidden_only=hidden_only,
         )
+        confirmed_sql, confirmed_params = owner_confirmed_sql("v")
+        if owner_confirmed_only:
+            # A visit is confirmed when any capture in view is, as its badge says, so the other
+            # filters may be met by a different capture of the same visit.
+            condition = f"{condition} AND d.visit_id IN (SELECT v.visit_id FROM visit_members v WHERE {confirmed_sql})"
+            values = [*values, *confirmed_params]
         audio_sql, audio_params = ("1 = 1", [])
         if public_audio:
             audio_sql, audio_params = await public_audio_evidence_sql(self.db)
@@ -282,10 +290,11 @@ class VisitRepository(DetectionRepository):
                 MAX(CASE WHEN v.representative_position = 1 THEN v.frigate_event END) AS representative_event,
                 MAX(CASE WHEN v.latest_position = 1 THEN v.frigate_event END) AS latest_event,
                 MAX(v.manual_tagged) AS manual_tagged, {peak} AS peak_event,
+                MAX(CASE WHEN {confirmed_sql} THEN 1 ELSE 0 END) AS owner_confirmed,
                 MAX(CASE WHEN v.audio_confirmed = 1 AND {audio_sql} THEN 1 ELSE 0 END) AS audio_confirmed
             FROM header_members v GROUP BY v.visit_id
         )"""
-        params.extend([*values, *audio_params])
+        params.extend([*values, *confirmed_params, *audio_params])
         order = {
             "newest": "latest_time DESC",
             "oldest": "start_time ASC",

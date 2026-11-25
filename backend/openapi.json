@@ -30633,6 +30633,18 @@
             }
           },
           {
+            "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+            "in": "query",
+            "name": "owner_confirmed_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+              "title": "Owner Confirmed Only",
+              "type": "boolean"
+            }
+          },
+          {
             "description": "Sort order",
             "in": "query",
             "name": "sort",
@@ -31019,6 +31031,18 @@
               "default": false,
               "description": "Owner: captures with at least two named bird species",
               "title": "Multiple Species Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+            "in": "query",
+            "name": "owner_confirmed_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+              "title": "Owner Confirmed Only",
               "type": "boolean"
             }
           },
@@ -40111,6 +40135,18 @@
             "schema": {
               "default": false,
               "title": "Multiple Species Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+            "in": "query",
+            "name": "owner_confirmed_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+              "title": "Owner Confirmed Only",
               "type": "boolean"
             }
           },

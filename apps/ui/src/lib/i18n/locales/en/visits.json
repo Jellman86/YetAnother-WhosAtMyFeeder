@@ -31,5 +31,6 @@
   "open_capture": "Open {species} capture",
   "owner_confirmed": "Owner confirmed",
   "owner_confirmed_hint": "An owner explicitly confirmed this species in at least one visible capture of the visit. Model confidence and matching audio are separate evidence.",
-  "owner_confirmed_capture_hint": "An owner explicitly confirmed this species in this capture. Model confidence and matching audio are separate evidence."
+  "owner_confirmed_capture_hint": "An owner explicitly confirmed this species in this capture. Model confidence and matching audio are separate evidence.",
+  "owner_confirmed_filter_hint": "An owner named the species. A visit counts when one of its captures was named."
 }

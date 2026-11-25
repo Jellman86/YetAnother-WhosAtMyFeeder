@@ -32,6 +32,8 @@
         favoritesOnly: boolean;
         audioConfirmedOnly: boolean;
         multipleSpeciesOnly?: boolean;
+        /** Owner-only: records an owner named a species for. */
+        ownerConfirmedOnly?: boolean;
         /** The Explorer search, at the head of the rail on a phone; a desktop holds it in the page header. */
         search?: Snippet;
         /** The view switch, beside the Filters button where the page header does not hold it. */
@@ -65,6 +67,7 @@
             favoritesOnly?: boolean;
             audioConfirmedOnly?: boolean;
             multipleSpeciesOnly?: boolean;
+            ownerConfirmedOnly?: boolean;
             groupVisits?: boolean;
             showHidden?: boolean;
             customStartDate?: string;
@@ -88,6 +91,7 @@
         favoritesOnly,
         audioConfirmedOnly,
         multipleSpeciesOnly = false,
+        ownerConfirmedOnly = false,
         search,
         beside,
         controls,
@@ -249,6 +253,7 @@
             });
         }
         if (multipleSpeciesOnly) applied.push({ key: 'multiple-species', label: $_('visits.multiple_species', { default: 'Multiple bird species' }), clear: () => onchange({ multipleSpeciesOnly: false }) });
+        if (ownerConfirmedOnly) applied.push({ key: 'owner-confirmed', label: $_('visits.owner_confirmed', { default: 'Owner confirmed' }), clear: () => onchange({ ownerConfirmedOnly: false }) });
         if (showHidden) {
             applied.push({
                 key: 'hidden',
@@ -267,7 +272,7 @@
         })
     );
     // A folded section names what is chosen inside it, so a choice is never out of sight.
-    const onlyActiveCount = $derived([favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, showHidden].filter(Boolean).length);
+    const onlyActiveCount = $derived([favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, ownerConfirmedOnly, showHidden].filter(Boolean).length);
 
     // One look for every choice: a chosen row is the kit's recessed brand key with a lit check, so it
     // reads by weight and shape as well as tint. Hover is a neutral wash; keyboard focus is a ring.
@@ -558,6 +563,19 @@
                             {@render chosenEnd(multipleSpeciesOnly)}
                         </button>
                         <p id="explorer-multiple-species-hint" class="px-2 text-2xs leading-4 text-muted">{$_('visits.multiple_species_hint', { default: 'Two or more named species in one analyzed capture.' })}</p>
+
+                        <button
+                            type="button"
+                            class="{rowClass} {ownerConfirmedOnly ? rowChosenClass : rowIdleClass}"
+                            aria-pressed={ownerConfirmedOnly}
+                            aria-describedby="explorer-owner-confirmed-hint"
+                            onclick={() => onchange({ ownerConfirmedOnly: !ownerConfirmedOnly })}
+                            data-explorer-owner-confirmed-facet
+                        >
+                            <span>{$_('visits.owner_confirmed', { default: 'Owner confirmed' })}</span>
+                            {@render chosenEnd(ownerConfirmedOnly)}
+                        </button>
+                        <p id="explorer-owner-confirmed-hint" class="px-2 text-2xs leading-4 text-muted">{$_('visits.owner_confirmed_filter_hint', { default: 'An owner named the species. A visit counts when one of its captures was named.' })}</p>
                     {/if}
 
                     <button

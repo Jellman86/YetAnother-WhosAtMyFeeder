@@ -31,5 +31,6 @@
   "open_capture": "打开{species}的拍摄",
   "owner_confirmed": "所有者已确认",
   "owner_confirmed_hint": "所有者在本次到访至少一张可见照片中明确确认了此物种。模型置信度和匹配的音频是不同的证据。",
-  "owner_confirmed_capture_hint": "所有者在这张照片中明确确认了此物种。模型置信度和匹配的音频是不同的证据。"
+  "owner_confirmed_capture_hint": "所有者在这张照片中明确确认了此物种。模型置信度和匹配的音频是不同的证据。",
+  "owner_confirmed_filter_hint": "所有者已指定物种。访问中任一拍摄被指定时，该访问即符合。"
 }

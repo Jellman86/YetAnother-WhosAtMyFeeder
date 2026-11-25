@@ -18,6 +18,8 @@ export interface FetchEventsOptions {
     favoritesOnly?: boolean;
     audioConfirmedOnly?: boolean;
     multipleSpeciesOnly?: boolean;
+    /** Owner-only: records an owner named a species for; the server ignores it for visitors. */
+    ownerConfirmedOnly?: boolean;
     /** A catalogue taxon: species at or beneath it, from the Explorer search. */
     taxon?: number;
     eventId?: string;
@@ -27,7 +29,7 @@ export interface FetchEventsOptions {
 }
 
 export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
-    const { limit = 50, offset = 0, startDate, endDate, startTime, endTime, species, camera, sort, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, taxon, eventId, fields, requestKey, signal } = options;
+    const { limit = 50, offset = 0, startDate, endDate, startTime, endTime, species, camera, sort, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, ownerConfirmedOnly, taxon, eventId, fields, requestKey, signal } = options;
     const params = new URLSearchParams();
     params.set('limit', limit.toString());
     params.set('offset', offset.toString());
@@ -43,6 +45,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     if (favoritesOnly) params.set('favorites', 'true');
     if (audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
     if (multipleSpeciesOnly) params.set('multiple_species_only', 'true');
+    if (ownerConfirmedOnly) params.set('owner_confirmed_only', 'true');
     if (taxon) params.set('taxon', String(taxon));
     if (eventId) params.set('event_id', eventId);
     if (fields) params.set('fields', fields);
@@ -56,6 +59,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
         favoritesOnly ? 'favorites' : 'all',
         audioConfirmedOnly ? 'audio' : 'all',
         multipleSpeciesOnly ? 'multi-species' : 'all',
+        ownerConfirmedOnly ? 'owner-confirmed' : 'all',
         taxon ? `taxon-${taxon}` : 'all-taxa',
         eventId || 'all-events',
         fields || 'full',
@@ -108,6 +112,7 @@ export interface EventsCountOptions {
     favoritesOnly?: boolean;
     audioConfirmedOnly?: boolean;
     multipleSpeciesOnly?: boolean;
+    ownerConfirmedOnly?: boolean;
     taxon?: number;
     requestKey?: string | null;
 }
@@ -115,7 +120,7 @@ export interface EventsCountOptions {
 export type EventsCountResponse = paths['/api/events/count']['get']['response'];
 
 export async function fetchEventsCount(options: EventsCountOptions = {}): Promise<EventsCountResponse> {
-    const { startDate, endDate, startTime, endTime, species, camera, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, taxon, requestKey } = options;
+    const { startDate, endDate, startTime, endTime, species, camera, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, ownerConfirmedOnly, taxon, requestKey } = options;
     const params = new URLSearchParams();
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
@@ -128,6 +133,7 @@ export async function fetchEventsCount(options: EventsCountOptions = {}): Promis
     if (favoritesOnly) params.set('favorites', 'true');
     if (audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
     if (multipleSpeciesOnly) params.set('multiple_species_only', 'true');
+    if (ownerConfirmedOnly) params.set('owner_confirmed_only', 'true');
     if (taxon) params.set('taxon', String(taxon));
 
     const filterKey = [
@@ -138,6 +144,7 @@ export async function fetchEventsCount(options: EventsCountOptions = {}): Promis
         favoritesOnly ? 'favorites' : 'all',
         audioConfirmedOnly ? 'audio' : 'all',
         multipleSpeciesOnly ? 'multi-species' : 'all',
+        ownerConfirmedOnly ? 'owner-confirmed' : 'all',
         taxon ? `taxon-${taxon}` : 'all-taxa',
         startDate || 'none',
         endDate || 'none',

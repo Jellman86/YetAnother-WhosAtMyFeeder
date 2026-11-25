@@ -150,10 +150,13 @@ test('a pasted link opens with its filters and ignores values it cannot trust', 
 });
 
 test('a link cannot give a visitor the owner-only filters', async ({ page }) => {
-    const requests = await openExplorer(page, '&guest=1&hidden=1&multiple=1&review=pending&species=Prunella%20modularis');
+    const requests = await openExplorer(page, '&guest=1&hidden=1&multiple=1&confirmed=1&review=pending&species=Prunella%20modularis');
     await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => lastRead(requests, '/api/visits')?.searchParams.get('species')).toBe('Prunella modularis');
     const read = lastRead(requests, '/api/visits');
     expect(read?.searchParams.has('only_hidden')).toBe(false);
     expect(read?.searchParams.has('multiple_species_only')).toBe(false);
+    expect(read?.searchParams.has('owner_confirmed_only')).toBe(false);
+    await expect(page.locator('[data-explorer-owner-confirmed-facet]')).toHaveCount(0);
+    await expect.poll(() => new URL(page.url()).searchParams.has('confirmed')).toBe(false);
 });

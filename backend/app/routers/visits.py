@@ -9,6 +9,7 @@ from app.routers.events import (
     CALENDAR_DAY_HELP,
     EXACT_END_HELP,
     EXACT_START_HELP,
+    OWNER_CONFIRMED_HELP,
     parse_species_filter,
     present_events,
     resolve_species_display_filter_aliases,
@@ -39,6 +40,7 @@ async def get_visits(
     species: str | None = None,
     camera: str | None = None,
     multiple_species_only: bool = False,
+    owner_confirmed_only: bool = Query(False, description=OWNER_CONFIRMED_HELP),
     favorites: bool = False,
     audio_confirmed_only: bool = False,
     only_hidden: bool = False,
@@ -78,6 +80,7 @@ async def get_visits(
             public_audio=not auth.is_owner,
             sort=sort,
             multiple_species_only=multiple_species_only and auth.is_owner,
+            owner_confirmed_only=owner_confirmed_only and auth.is_owner,
         )
         event_ids = list(
             dict.fromkeys(
@@ -114,8 +117,7 @@ async def get_visits(
                 best_score=header["best_score"],
                 needs_review=representative.display_name == "Unknown Bird"
                 or (not header["manual_tagged"] and header["best_score"] < settings.classification.threshold),
-                owner_confirmed=bool(header["manual_tagged"])
-                and representative.display_name.strip().casefold() not in {"", "unknown bird"},
+                owner_confirmed=bool(header["owner_confirmed"]),
                 audio_confirmed=bool(header["audio_confirmed"])
                 and (auth.is_owner or settings.public_access.show_audio),
                 representative=representative,

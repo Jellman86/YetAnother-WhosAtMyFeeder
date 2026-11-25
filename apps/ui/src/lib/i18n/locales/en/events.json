@@ -93,7 +93,7 @@
     "spectrogram_alt": "Spectrogram of the strongest {species} call, {time}",
     "no_spectrogram": "BirdNET-Go has no spectrogram for these calls any more.",
     "blocked_camera": "Heard calls are hidden while a camera is chosen, because a call is not tied to a camera.",
-    "blocked_visit_filter": "Heard calls are hidden while Favourites, Hidden, Multiple species or Matching call is on. Those only describe camera visits.",
+    "blocked_visit_filter": "Heard calls are hidden while Favourites, Hidden, Multiple species, Owner confirmed or Matching call is on. Those only describe camera visits.",
     "blocked_group": "Heard calls are hidden while a group of species is chosen. Choose one species to see its calls.",
     "blocked_sort": "Heard calls show between visits only when visits are in time order.",
     "load_failed": "Could not load the heard calls. The visits are unaffected.",

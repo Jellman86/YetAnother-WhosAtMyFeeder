@@ -93,7 +93,7 @@
     "spectrogram_alt": "{species} 最强鸣叫的声谱图，{time}",
     "no_spectrogram": "BirdNET-Go 已不再保留这些鸣叫的声谱图。",
     "blocked_camera": "选择了摄像头时会隐藏听到的鸣叫，因为鸣叫不属于任何摄像头。",
-    "blocked_visit_filter": "开启收藏、已隐藏、多个物种或匹配的鸣叫时会隐藏听到的鸣叫。这些筛选只描述摄像头来访。",
+    "blocked_visit_filter": "开启收藏、已隐藏、多个物种、所有者已确认或匹配的鸣叫时会隐藏听到的鸣叫。这些筛选只描述摄像头来访。",
     "blocked_group": "选择了一组物种时会隐藏听到的鸣叫。选择一个物种即可看到它的鸣叫。",
     "blocked_sort": "只有来访按时间排序时，听到的鸣叫才会出现在来访之间。",
     "load_failed": "无法加载听到的鸣叫。来访不受影响。",

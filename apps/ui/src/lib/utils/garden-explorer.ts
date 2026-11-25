@@ -72,6 +72,7 @@ export interface GardenFilterState {
     favoritesOnly: boolean;
     showHidden: boolean;
     multipleSpeciesOnly: boolean;
+    ownerConfirmedOnly: boolean;
     audioConfirmedOnly: boolean;
     sortOrder: 'newest' | 'oldest' | 'confidence';
     groupVisits: boolean;
@@ -81,15 +82,15 @@ export interface GardenFilterState {
 export type GardenBlocker = 'bird_filter' | 'confidence_sort' | 'ungrouped' | 'selection' | 'bird_filter_ignored';
 
 function birdOnlyFilter(state: GardenFilterState): boolean {
-    return Boolean(state.speciesFilter || state.favoritesOnly || state.showHidden || state.multipleSpeciesOnly || state.audioConfirmedOnly);
+    return Boolean(state.speciesFilter || state.favoritesOnly || state.showHidden || state.multipleSpeciesOnly || state.ownerConfirmedOnly || state.audioConfirmedOnly);
 }
 
 /**
  * Why Garden captures are not shown, or are shown without some filters.
  *
- * A capture has no bird species, favourite, hidden state or matching call, so a filter about
- * those cannot apply to it. Beside birds the captures step aside and the page says why; on their
- * own they are shown and the page says which filters were left out.
+ * A capture has no bird species, favourite, hidden state, owner confirmation or matching call, so
+ * a filter about those cannot apply to it. Beside birds the captures step aside and the page says
+ * why; on their own they are shown and the page says which filters were left out.
  */
 export function gardenBlocker(subjects: ExplorerSubjects, state: GardenFilterState): GardenBlocker | null {
     if (subjects === 'birds') return null;

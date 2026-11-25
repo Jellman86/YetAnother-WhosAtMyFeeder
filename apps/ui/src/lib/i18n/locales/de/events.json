@@ -93,7 +93,7 @@
     "spectrogram_alt": "Spektrogramm des stärksten Rufs: {species}, {time}",
     "no_spectrogram": "BirdNET-Go hat für diese Rufe kein Spektrogramm mehr.",
     "blocked_camera": "Gehörte Rufe sind ausgeblendet, solange eine Kamera gewählt ist, weil ein Ruf keiner Kamera zugeordnet ist.",
-    "blocked_visit_filter": "Gehörte Rufe sind ausgeblendet, solange Favoriten, Ausgeblendet, Mehrere Arten oder Passender Ruf aktiv ist. Diese beschreiben nur Kamerabesuche.",
+    "blocked_visit_filter": "Gehörte Rufe sind ausgeblendet, solange Favoriten, Ausgeblendet, Mehrere Arten, Vom Besitzer bestätigt oder Passender Ruf aktiv ist. Diese beschreiben nur Kamerabesuche.",
     "blocked_group": "Gehörte Rufe sind ausgeblendet, solange eine Artengruppe gewählt ist. Wählen Sie eine Art, um ihre Rufe zu sehen.",
     "blocked_sort": "Gehörte Rufe erscheinen nur zwischen Besuchen, wenn die Besuche zeitlich sortiert sind.",
     "load_failed": "Die gehörten Rufe konnten nicht geladen werden. Die Besuche sind davon nicht betroffen.",
