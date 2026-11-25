@@ -250,12 +250,11 @@ class VisitRepository(DetectionRepository):
             camera=camera,
             hidden_only=hidden_only,
         )
-        confirmed_sql, confirmed_params = owner_confirmed_sql("v")
+        confirmed_sql = await owner_confirmed_sql(self.db, "v")
         if owner_confirmed_only:
             # A visit is confirmed when any capture in view is, as its badge says, so the other
             # filters may be met by a different capture of the same visit.
             condition = f"{condition} AND d.visit_id IN (SELECT v.visit_id FROM visit_members v WHERE {confirmed_sql})"
-            values = [*values, *confirmed_params]
         audio_sql, audio_params = ("1 = 1", [])
         if public_audio:
             audio_sql, audio_params = await public_audio_evidence_sql(self.db)
@@ -294,7 +293,7 @@ class VisitRepository(DetectionRepository):
                 MAX(CASE WHEN v.audio_confirmed = 1 AND {audio_sql} THEN 1 ELSE 0 END) AS audio_confirmed
             FROM header_members v GROUP BY v.visit_id
         )"""
-        params.extend([*values, *confirmed_params, *audio_params])
+        params.extend([*values, *audio_params])
         order = {
             "newest": "latest_time DESC",
             "oldest": "start_time ASC",

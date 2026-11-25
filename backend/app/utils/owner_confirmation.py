@@ -6,38 +6,41 @@ Bird, or as any label the Explorer shows as Unknown Bird, confirms nothing. The 
 the capture badge and the Explorer's Owner confirmed filter all read this one rule.
 """
 
-from app.utils.canonical_species import (
-    UNKNOWN_BIRD_DISPLAY_LABEL,
-    hidden_species_exact_labels,
-    hidden_species_substrings,
-    user_facing_species_label,
-)
+import aiosqlite
 
-# SQLite's TRIM removes only spaces unless told otherwise; Python's strip removes these too.
-_SQL_WHITESPACE = "char(32, 9, 10, 13)"
+from app.utils.canonical_species import UNKNOWN_BIRD_DISPLAY_LABEL, user_facing_species_label
+
+OWNER_NAMED_SPECIES_SQL_FUNCTION = "yawamf_owner_named_species"
+
+
+def _text(value: object) -> str | None:
+    return None if value is None else str(value)
+
+
+def owner_named_species(display_name: object, category_name: object) -> int:
+    """1 when the presenter would show a species name rather than Unknown Bird, else 0.
+
+    This is the function SQL calls, so a query and the presenter cannot disagree about
+    whitespace, case or a configured unknown label.
+    """
+    shown = user_facing_species_label(_text(display_name), raw_label=_text(category_name))
+    return int(shown != UNKNOWN_BIRD_DISPLAY_LABEL)
 
 
 def is_owner_confirmed(manual_tagged: object, display_name: str | None, category_name: str | None) -> bool:
     """An owner named a species: the capture would not be shown as Unknown Bird."""
-    if not manual_tagged:
-        return False
-    return user_facing_species_label(display_name, raw_label=category_name) != UNKNOWN_BIRD_DISPLAY_LABEL
+    return bool(manual_tagged) and owner_named_species(display_name, category_name) == 1
 
 
-def owner_confirmed_sql(alias: str = "d") -> tuple[str, list[str]]:
-    """``is_owner_confirmed`` as a SQL condition on a row with detection columns under ``alias``."""
-    labels = sorted({" ".join(str(label).casefold().split()) for label in hidden_species_exact_labels()} - {""})
-    fragments = [str(fragment).strip().casefold() for fragment in hidden_species_substrings() if str(fragment).strip()]
-    placeholders = ",".join("?" for _ in labels)
-    display = f"COALESCE({alias}.display_name, '')"
-    category = f"COALESCE({alias}.category_name, '')"
-    clauses = [f"{alias}.manual_tagged = 1", f"TRIM({display}, {_SQL_WHITESPACE}) <> ''"]
-    params: list[str] = []
-    for column in (display, category):
-        if labels:
-            clauses.append(f"LOWER(TRIM({column}, {_SQL_WHITESPACE})) NOT IN ({placeholders})")
-            params.extend(labels)
-        for fragment in fragments:
-            clauses.append(f"LOWER({column}) NOT LIKE ?")
-            params.append(f"%{fragment}%")
-    return "(" + " AND ".join(clauses) + ")", params
+async def owner_confirmed_sql(db: aiosqlite.Connection, alias: str = "d") -> str:
+    """``is_owner_confirmed`` as a SQL condition on detection columns under ``alias``.
+
+    The function is registered on the connection that runs the query. It reads the configured
+    unknown labels when called, so it is not declared deterministic to SQLite; within one
+    statement it answers the same for the same row.
+    """
+    await db.create_function(OWNER_NAMED_SPECIES_SQL_FUNCTION, 2, owner_named_species)
+    return (
+        f"({alias}.manual_tagged = 1 AND "
+        f"{OWNER_NAMED_SPECIES_SQL_FUNCTION}({alias}.display_name, {alias}.category_name) = 1)"
+    )

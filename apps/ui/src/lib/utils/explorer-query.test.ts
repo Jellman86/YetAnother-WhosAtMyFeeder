@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultExplorerQuery, explorerWindow, parseExplorerQuery, writeExplorerQuery, type ExplorerQuery } from './explorer-query';
+import { defaultExplorerQuery, explorerWindow, parseExplorerQuery, rereadsAfterRecordChange, writeExplorerQuery, type ExplorerQuery } from './explorer-query';
 
 const owner = { owner: true, gardenAvailable: true };
 const guest = { owner: false, gardenAvailable: true };
@@ -221,5 +221,27 @@ describe('explorerWindow', () => {
 
     it('has no bounds for all time', () => {
         expect(explorerWindow('all', {}, now)).toEqual({ request: {}, start: null, end: null });
+    });
+});
+
+describe('rereadsAfterRecordChange', () => {
+    const captures = { ...defaultExplorerQuery(), groupVisits: false, selectionMode: false };
+
+    it('re-reads grouped visits after any change, since a change can join or split them', () => {
+        expect(rereadsAfterRecordChange({ ...captures, groupVisits: true })).toBe(true);
+    });
+
+    it('re-reads a filtered capture list and its count when a change can move a capture in or out', () => {
+        // Retagging a capture Unknown Bird under Owner confirmed must drop it and lower the count.
+        expect(rereadsAfterRecordChange({ ...captures, ownerConfirmedOnly: true })).toBe(true);
+        for (const filter of [{ favoritesOnly: true }, { audioConfirmedOnly: true }, { multipleSpeciesOnly: true }, { showHidden: true }, { speciesFilter: 'Dunnock' }, { taxonFilter: 4512 }]) {
+            expect(rereadsAfterRecordChange({ ...captures, ...filter })).toBe(true);
+        }
+    });
+
+    it('patches an unfiltered capture list in place, and leaves a selection alone', () => {
+        expect(rereadsAfterRecordChange(captures)).toBe(false);
+        expect(rereadsAfterRecordChange({ ...captures, ownerConfirmedOnly: true, selectionMode: true })).toBe(false);
+        expect(rereadsAfterRecordChange({ ...captures, groupVisits: true, selectionMode: true })).toBe(false);
     });
 });

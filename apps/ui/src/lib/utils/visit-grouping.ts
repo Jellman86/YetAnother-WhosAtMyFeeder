@@ -82,15 +82,16 @@ function isOwnerConfirmed(detection: Detection): boolean {
 
 /**
  * What an Explorer record can claim was confirmed. A grouped card may wear a capture other than the
- * confirmed one, so the visit answers for itself; the record still counts while a fresh choice has
- * not reached the visit yet.
+ * confirmed one, even one shown as Unknown Bird, so the visit answers for itself; the record still
+ * counts while a fresh choice has not reached the visit yet.
  */
 export function ownerConfirmationScope(
     detection: Detection,
     visit: Pick<ServerVisit, 'owner_confirmed'> | undefined
 ): 'visit' | 'capture' | null {
-    // A record that has since lost its species cannot wear a confirmation read before it did.
-    if (visit) return (visit.owner_confirmed === true && !hasNoSpecies(detection)) || isOwnerConfirmed(detection) ? 'visit' : null;
+    // An owner who has just tagged this card unknown sees no confirmation until the visit is read again.
+    const justTaggedUnknown = detection.manual_tagged === true && hasNoSpecies(detection);
+    if (visit) return !justTaggedUnknown && (visit.owner_confirmed === true || isOwnerConfirmed(detection)) ? 'visit' : null;
     return isOwnerConfirmed(detection) ? 'capture' : null;
 }
 

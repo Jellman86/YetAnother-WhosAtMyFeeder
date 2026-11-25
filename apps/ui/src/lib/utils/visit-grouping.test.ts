@@ -276,9 +276,14 @@ describe('ownerConfirmationScope (#918)', () => {
         expect(ownerConfirmationScope(named, undefined)).toBeNull();
     });
 
-    it('a visit read before its record lost its species no longer claims confirmation', () => {
-        const nowUnknown = { display_name: 'Unknown Bird', manual_tagged: false } as Detection;
-        expect(ownerConfirmationScope(nowUnknown, { owner_confirmed: true })).toBeNull();
+    it('a visit confirmed in another capture says so even when its photo shows Unknown Bird', () => {
+        // The favourite leads the visit; its raw label may be one shown as Unknown Bird ('life').
+        const unnamedFavourite = { display_name: 'Unknown Bird', manual_tagged: false, is_favorite: true } as Detection;
+        expect(ownerConfirmationScope(unnamedFavourite, { owner_confirmed: true })).toBe('visit');
+    });
+
+    it('a card an owner has just tagged unknown claims nothing before the visit is read again', () => {
+        expect(ownerConfirmationScope(taggedUnknown, { owner_confirmed: true })).toBeNull();
     });
 
     it('tagging a record as unknown confirms no species', () => {

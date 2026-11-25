@@ -174,6 +174,22 @@ export function writeExplorerQuery(current: string | URLSearchParams, query: Exp
     return params.toString();
 }
 
+/**
+ * Whether a change to one record (a new species, a favourite, hiding it) must re-read the page.
+ * Grouped visits can join or split; a filtered capture list can gain or lose the record, and its
+ * count with it. An unfiltered capture list is patched in place, and a selection is left alone.
+ */
+export function rereadsAfterRecordChange(
+    view: Pick<ExplorerQuery, 'groupVisits' | 'speciesFilter' | 'taxonFilter' | 'favoritesOnly' | 'audioConfirmedOnly' | 'multipleSpeciesOnly' | 'ownerConfirmedOnly' | 'showHidden'> & { selectionMode: boolean }
+): boolean {
+    if (view.selectionMode) return false;
+    if (view.groupVisits) return true;
+    return Boolean(
+        view.speciesFilter || view.taxonFilter !== null || view.favoritesOnly || view.audioConfirmedOnly
+            || view.multipleSpeciesOnly || view.ownerConfirmedOnly || view.showHidden
+    );
+}
+
 const ROLLING_DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The window one Explorer read covers, as the history reads ask for it and as two instants. */

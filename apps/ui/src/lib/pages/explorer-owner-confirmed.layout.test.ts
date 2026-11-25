@@ -46,4 +46,13 @@ describe('the Owner confirmed filter in the Explorer', () => {
         expect(enGarden.explorer.blocked_bird_filter).toContain('Owner confirmed');
         expect(enGarden.explorer.bird_filters_ignored).toContain('Owner confirmed');
     });
+
+    it('re-reads a filtered capture list after a record changes, through the shared rule', () => {
+        expect(eventsSource).toContain('if (rereadsAfterRecordChange(view)) scheduleReclassifyCompletionRefresh();');
+        expect(eventsSource).toContain('multipleSpeciesOnly, ownerConfirmedOnly, showHidden };');
+    });
+
+    it('states the address before a shared clip link returns without a read', () => {
+        expect(eventsSource).toMatch(/if \(openedViaShare\) \{[\s\S]{0,160}writeAddress\(\);\s+loading = false;\s+return;/);
+    });
 });

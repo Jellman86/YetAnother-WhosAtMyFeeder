@@ -105,6 +105,60 @@ async def test_sql_rule_matches_the_badge_rule_for_every_label(repo):
     assert {header["visit_id"] for header in headers} == expected
 
 
+# Labels the presenter shows as Unknown Bird only after collapsing whitespace and casefolding.
+SPACED_UNKNOWN_LABELS = [
+    ("Unknown  Bird", None),
+    ("Turdus merula", "Unknown\tBird"),
+    ("Thrushes and\tallies", None),
+    ("Turdus merula", "Thrushes and\tallies"),
+    ("UNKNOWN\u00a0BIRD", None),
+]
+
+
+@pytest.mark.asyncio
+async def test_unknown_labels_with_odd_spacing_confirm_nothing_in_any_read(repo):
+    for number, (species, category) in enumerate(SPACED_UNKNOWN_LABELS):
+        await capture(
+            repo, number, number * 600, species=species, category=category, manual=True, camera=f"cam{number}"
+        )
+    named = await capture(repo, 40, 30, manual=True, camera="cam-named")
+    end = START + timedelta(hours=2)
+    assert [
+        row.frigate_event for row in await repo.get_all(start_date=START, end_date=end, owner_confirmed_only=True)
+    ] == [named]
+    assert await repo.get_count(start_date=START, end_date=end, owner_confirmed_only=True) == 1
+    headers, total = await repo.list_visits(start=START, end=end, owner_confirmed_only=True)
+    assert total == 1
+    assert [header["visit_id"] for header in headers] == [named]
+    unfiltered, _ = await repo.list_visits(start=START, end=end)
+    assert {header["visit_id"] for header in unfiltered if header["owner_confirmed"]} == {named}
+
+
+@pytest.mark.asyncio
+async def test_odd_spacing_unknown_labels_are_left_out_of_each_api_read(repo, monkeypatch):
+    from app.main import app
+
+    headers = await birds_present(monkeypatch, owner=True)
+    for number, (species, category) in enumerate(SPACED_UNKNOWN_LABELS):
+        await capture(
+            repo, number, number * 600, species=species, category=category, manual=True, camera=f"cam{number}"
+        )
+    named = await capture(repo, 40, 30, manual=True, camera="cam-named")
+    window_query = "start_date=2034-04-09&end_date=2034-04-09&owner_confirmed_only=true"
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test", headers=headers
+    ) as client:
+        listed = await client.get(f"/api/events?{window_query}")
+        assert [row["frigate_event"] for row in listed.json()] == [named]
+        counted = await client.get(f"/api/events/count?{window_query}")
+        assert counted.json()["count"] == 1
+        visits = await client.get(f"/api/visits?{window_query}")
+        assert [visit["visit_id"] for visit in visits.json()["visits"]] == [named]
+        everything = await client.get("/api/visits?start_date=2034-04-09&end_date=2034-04-09")
+        badges = {visit["visit_id"] for visit in everything.json()["visits"] if visit["owner_confirmed"]}
+        assert badges == {named}
+
+
 @pytest.mark.asyncio
 async def test_a_visit_matches_on_one_confirmed_capture_and_expands_to_all_of_them(repo):
     first = await capture(repo, 0, 0)

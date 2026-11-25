@@ -7,3 +7,7 @@
   visitors never see it and a link that names it shows them the ordinary view. Heard calls and
   Garden captures step aside while it is on, and the page says so. See
   [the API reference](docs/api.md).
+- A visit whose photo shows Unknown Bird now wears its Owner confirmed badge when another of its
+  captures was confirmed, and the badge's hint says the confirmed capture may not be the one
+  shown. With a filter on in Captures, changing a capture (a new species, a favourite) reads the
+  list and its count again, so a capture that no longer matches leaves the page.

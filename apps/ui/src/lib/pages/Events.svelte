@@ -73,7 +73,7 @@
     import { speciesPickerNames } from '../utils/species-picker';
     import { explanation } from '../utils/explanation';
     import { explorerPane } from '../utils/explorer-results';
-    import { explorerWindow, parseExplorerQuery, writeExplorerQuery, type ExplorerQuery, type ExplorerWindow } from '../utils/explorer-query';
+    import { explorerWindow, parseExplorerQuery, rereadsAfterRecordChange, writeExplorerQuery, type ExplorerQuery, type ExplorerWindow } from '../utils/explorer-query';
     import { ShownExplorerWindow } from '../utils/explorer-shown-window.svelte';
     import { explorerCameraOptions, seenGardenCameras } from '../utils/explorer-cameras';
     import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
@@ -674,6 +674,8 @@
 
         const openedViaShare = !!(deepLinkedEvent && deepLinkWantsVideo && deepLinkedShare);
         if (openedViaShare) {
+            // No read follows, so the address is stated here: a visitor's link loses owner-only filters.
+            writeAddress();
             loading = false;
             return;
         }
@@ -868,7 +870,8 @@
         if (version === handledVisitMutationVersion) return;
         handledVisitMutationVersion = version;
         untrack(() => {
-            if (groupVisits && !selectionMode) scheduleReclassifyCompletionRefresh();
+            const view = { groupVisits, selectionMode, speciesFilter, taxonFilter, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, ownerConfirmedOnly, showHidden };
+            if (rereadsAfterRecordChange(view)) scheduleReclassifyCompletionRefresh();
         });
     });
 

@@ -2819,9 +2819,7 @@ class DetectionRepository:
             conditions.append(clause)
             params.extend(values)
         if owner_confirmed_only:
-            confirmed_clause, confirmed_params = owner_confirmed_sql("d")
-            conditions.append(confirmed_clause)
-            params.extend(confirmed_params)
+            conditions.append(await owner_confirmed_sql(self.db, "d"))
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
@@ -2956,9 +2954,7 @@ class DetectionRepository:
             conditions.append(clause)
             params.extend(values)
         if owner_confirmed_only:
-            confirmed_clause, confirmed_params = owner_confirmed_sql("d")
-            conditions.append(confirmed_clause)
-            params.extend(confirmed_params)
+            conditions.append(await owner_confirmed_sql(self.db, "d"))
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
 
