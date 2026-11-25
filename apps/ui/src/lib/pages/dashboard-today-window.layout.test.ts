@@ -40,7 +40,9 @@ describe('the Dashboard\'s Today (#1097)', () => {
     it('names the window of the figures on screen, never the one still being read', () => {
         expect(dashboardSource).toContain('const deskKind = $derived<DeskWindowKind>(shownWindow?.kind ?? windowChoice);');
         // The window is published with the summary it was read for, and cleared with it.
-        expect(dashboardSource).toContain('summary = summaryRes; summaryHour = desk.end.getHours(); shownWindow = desk;');
+        expect(dashboardSource).toContain('summary = summaryRes; summaryHour = Number.isNaN(counted.getTime()) ? desk.end.getHours() : counted.getHours(); shownWindow = desk;');
+        // The chart ends in the hour the server counted to.
+        expect(dashboardSource).toContain('const counted = new Date(summaryRes.window_end);');
         expect(dashboardSource).toContain('clear: () => { summary = null; shownWindow = null;');
         for (const prop of [
             '<DayBar',
@@ -67,25 +69,36 @@ describe('the Dashboard\'s Today (#1097)', () => {
 
     it('settles one window per load and gives it to every read on the desk', () => {
         const summaryRead = between(dashboardSource, 'const summaryLoader = createObservationProjectionLoader({', 'apply:');
-        expect(summaryRead).toContain('const desk = deskWindow(windowChoice, new Date());');
+        expect(summaryRead).toContain('const { value, window: desk } = await readDeskDay(async (desk) => {');
+        expect(summaryRead).toContain("}, ({ summaryRes }) => [summaryRes.window_start]);");
         expect(summaryRead).toContain('fetchDailySummary(desk.kind, signal)');
         expect(summaryRead).toContain("fetchGardenVisits({ start: window.startTime, end: window.endTime, order: 'newest', limit: VISIT_ROW_LIMIT }, signal)");
         expect(summaryRead).toContain("fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' })");
-        expect(dashboardSource).toContain('fetchReviewQueue({ limit: REVIEW_QUEUE_READ_LIMIT, window: windowChoice, signal })');
-        expect(dashboardSource).toContain('fetchReviewQueue({ limit: REVIEW_SESSION_READ_LIMIT, window: windowChoice })');
-        expect(dashboardSource).toContain("const span = windowChoice === 'today' ? 'today' : 'day';");
+        // Every read is settled and checked by readOneDay for the day the desk is reading.
+        expect(dashboardSource).toContain('return readOneDay({ kind: windowChoice, day: windowChoice === \'today\' ? readingDay : null, clock: () => new Date(), read, countedFrom });');
+        expect(dashboardSource).toContain('(window) => fetchReviewQueue({ limit: REVIEW_QUEUE_READ_LIMIT, window: window.kind, signal }),');
+        expect(dashboardSource).toContain('(window) => fetchReviewQueue({ limit: REVIEW_SESSION_READ_LIMIT, window: window.kind }),');
+        expect(dashboardSource.match(/\(response\) => \[response\.window_start\]/g)).toHaveLength(2);
+        expect(dashboardSource).toContain("const span = window.kind === 'today' ? 'today' : 'day';");
         expect(dashboardSource).toContain('fetchLeaderboardSpecies(span, signal)');
         expect(dashboardSource).toContain('fetchAudioSpeciesLeaderboard(span, signal)');
-        expect(dashboardSource).toContain('fetchAudioSummary({ start_date: desk.start.toISOString(), end_date: desk.end.toISOString() }, signal)');
+        expect(dashboardSource).toContain('({ leaderboard, audio }) => [leaderboard.window_start, audio?.window_start ?? null]');
+        expect(dashboardSource).toContain('(desk) => fetchAudioSummary({ start_date: desk.start.toISOString(), end_date: desk.end.toISOString() }, signal),');
+        expect(dashboardSource).toContain('(value) => [value.window_start]');
+        // Each loader that notices midnight passed rolls the whole desk over instead of failing.
+        expect(dashboardSource.match(/if \(e instanceof DayTurnedError\) \{ rollOverIfNewDay\(\); return; \}/g)).toHaveLength(4);
         expect(statsApiSource).toContain('`${API_BASE}/stats/daily-summary?window=${window}`');
         expect(eventsApiSource).toContain("&window=${options.window ?? 'rolling'}");
     });
 
     it('keeps live captures inside the window and reads the new day at local midnight', () => {
         expect(dashboardSource).toContain('withinDeskWindow(detectionsStore.detections, now.getTime(), deskWindowStart(deskKind, now))');
-        const midnight = between(dashboardSource, "if (windowChoice !== 'today') return;", 'return () => clearTimeout(timer);');
-        expect(midnight).toContain('msUntilNextLocalMidnight(new Date()) + 1000');
-        expect(midnight).toContain('untrack(rereadDesk);');
+        const midnight = between(dashboardSource, "if (windowChoice !== 'today') return;\n        void dayTurn;", 'return () => clearTimeout(timer);');
+        expect(midnight).toContain('setTimeout(() => untrack(rollOverIfNewDay), msUntilNextLocalMidnight(new Date()) + 1000);');
+        const rollOver = between(dashboardSource, 'function rollOverIfNewDay(): void {', '\n    }');
+        expect(rollOver).toContain("deskWindowStart('today', new Date()) === readingDay) return;");
+        expect(rollOver).toContain('rereadDesk();');
+        expect(between(dashboardSource, 'function rereadDesk(): void {', '\n    }')).toContain("readingDay = deskWindowStart('today', new Date());");
     });
 
     it('says "yet today" only of a Today that was read, and tells a guest where shared history starts', () => {
@@ -121,5 +134,23 @@ describe('the Dashboard\'s Today (#1097)', () => {
         for (const source of [recentAudioSource, visitorsSource, contextSource]) {
             expect(source).toContain("windowKind === 'today' ? $_('dashboard.day_bar.window_today', { default: 'Today' })");
         }
+    });
+
+    it('opens an open walkthrough afresh on the new day, or closes it rather than keep yesterday\'s list', () => {
+        expect(between(dashboardSource, 'function rereadDesk(): void {', '\n    }')).toContain('if (reviewSessionOpen) void refreshReviewSession();');
+        const refresh = between(dashboardSource, 'async function refreshReviewSession(): Promise<void> {', '\n    }\n');
+        expect(refresh).toContain('reviewSessionKey += 1;');
+        expect(refresh).toContain('if (request === reviewSessionRequest) reviewSessionOpen = false;');
+        expect(dashboardSource).toContain('{#key reviewSessionKey}');
+    });
+
+    it('never keeps an empty reading once a refresh of it fails', () => {
+        const failed = between(dashboardSource, 'const summaryLoader = createObservationProjectionLoader({', 'settled:');
+        expect(failed).toContain('if (authStore.isGuest || (summary?.visit_count === 0 && serverVisits.length === 0 && gardenVisits.length === 0)) {');
+        expect(dashboardSource).toContain('if (authStore.isGuest || audioSummary?.total === 0) audioSummary = null;');
+        expect(dashboardSource).toContain('summaryFailed={audioSummaryFailed}');
+        expect(recentAudioSource).toContain('{:else if !summary && summaryFailed}');
+        // With Garden unread, an empty log is said of birds only.
+        expect(dashboardSource).toContain("$_('dashboard.no_bird_visits_today', { default: 'No bird visits yet today.' })");
     });
 });

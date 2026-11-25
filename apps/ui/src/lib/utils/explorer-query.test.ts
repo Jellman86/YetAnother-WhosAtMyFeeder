@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultExplorerQuery, explorerPresetDays, explorerWindow, parseExplorerQuery, rereadsAfterRecordChange, writeExplorerQuery, type ExplorerQuery } from './explorer-query';
+import { defaultExplorerQuery, explorerPresetDays, explorerReadWindow, explorerWindow, parseExplorerQuery, rereadsAfterRecordChange, writeExplorerQuery, type ExplorerQuery } from './explorer-query';
 
 const owner = { owner: true, gardenAvailable: true };
 const guest = { owner: false, gardenAvailable: true };
@@ -282,5 +282,25 @@ describe('explorerPresetDays', () => {
         expect(explorerPresetDays('custom', { start: '', end: '2026-10-05' }, new Date())).toEqual({ start: undefined, end: '2026-10-05' });
         expect(explorerPresetDays('all', custom, new Date())).toEqual({ start: undefined, end: undefined });
         expect(explorerPresetDays('24h', custom, new Date())).toEqual({ start: undefined, end: undefined });
+    });
+});
+
+describe('explorerReadWindow', () => {
+    const custom = { start: '', end: '' };
+
+    it('reads the same period again on the new day after midnight', () => {
+        const beforeMidnight = new Date(2026, 10, 25, 23, 59, 30);
+        const afterMidnight = new Date(2026, 10, 26, 0, 0, 30);
+        expect(explorerReadWindow('today', custom, beforeMidnight).request).toEqual({ startDate: '2026-11-25', endDate: '2026-11-25' });
+        expect(explorerReadWindow('today', custom, afterMidnight).request).toEqual({ startDate: '2026-11-26', endDate: '2026-11-26' });
+        expect(explorerReadWindow('week', custom, afterMidnight).request).toEqual({ startDate: '2026-11-20', endDate: '2026-11-26' });
+        expect(explorerReadWindow('month', custom, afterMidnight).request).toEqual({ startDate: '2026-10-28', endDate: '2026-11-26' });
+    });
+
+    it('takes the days and the last 24 hours from the one instant it is given', () => {
+        const now = new Date('2026-11-26T00:00:30Z');
+        const window = explorerReadWindow('24h', custom, now);
+        expect(window.end?.getTime()).toBe(now.getTime());
+        expect(window.request.startTime).toBe('2026-11-25T00:00:30.000Z');
     });
 });

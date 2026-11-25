@@ -1938,7 +1938,7 @@ class DetectionRepository:
         window_end: datetime,
         threshold: float,
     ) -> dict[str, tuple[datetime, int, ReviewReason, Optional[int]]]:
-        """Visible undecided detections inside [window_start, window_end] judged by presentation rules."""
+        """Visible undecided detections inside [window_start, window_end) judged by presentation rules."""
         # Text bounds a day wider than the window keep the index in use for every stored format.
         wide_start = (window_start - timedelta(days=1)).date().isoformat()
         wide_end = (window_end + timedelta(days=2)).date().isoformat()
@@ -1958,7 +1958,7 @@ class DetectionRepository:
         waiting: dict[str, tuple[datetime, int, ReviewReason, Optional[int]]] = {}
         for row_id, frigate_event, detection_time, display_name, category_name, score in rows:
             at = utc_naive_datetime(_parse_datetime(detection_time))
-            if not window_start <= at <= window_end:
+            if not window_start <= at < window_end:
                 continue
             reason = _waiting_reason(display_name, category_name, score, threshold)
             if reason:
@@ -1972,7 +1972,7 @@ class DetectionRepository:
         window_end: datetime,
         threshold: float,
     ) -> int:
-        """Count visible undecided detections inside [window_start, window_end]."""
+        """Count visible undecided detections inside [window_start, window_end)."""
         waiting = await self._scan_waiting_in_window(
             window_start=window_start,
             window_end=window_end,

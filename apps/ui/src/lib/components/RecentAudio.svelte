@@ -26,12 +26,15 @@
         summary,
         summaryLoading,
         matchedCalls = null,
+        summaryFailed = false,
         windowKind = 'rolling'
     }: {
         onNavigate?: (path: string) => void;
         summary: AudioSummaryResponse | null;
         summaryLoading: boolean;
         matchedCalls?: number | null;
+        /** The latest read of the summary failed, so a missing summary is not "nothing heard". */
+        summaryFailed?: boolean;
         /** The Dashboard's window, which the summary was read for. */
         windowKind?: DeskWindowKind;
     } = $props();
@@ -142,6 +145,10 @@
 
     {#if (loading || summaryLoading) && !summary}
         <div class="h-24 animate-pulse rounded-lg bg-surface-raised"></div>
+    {:else if !summary && summaryFailed}
+        <p class="text-xs text-muted" data-dashboard-heard-unavailable>
+            {$_('dashboard.desk.heard_unavailable', { default: 'Calls heard could not be loaded. The dashboard tries again every minute.' })}
+        </p>
     {:else if !summary || summary.total === 0}
         <p class="text-xs text-muted">{windowKind === 'today' ? $_('dashboard.desk.heard_empty_today', { default: 'No calls heard yet today.' }) : $_('dashboard.desk.heard_empty', { default: 'No calls heard in the last 24 hours.' })}</p>
     {:else}

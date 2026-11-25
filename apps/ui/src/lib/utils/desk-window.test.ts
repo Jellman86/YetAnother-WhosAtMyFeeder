@@ -1,10 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
+    DayTurnedError,
     DESK_WINDOW_STORAGE_KEY,
+    StraddledReadError,
     deskWindow,
     deskWindowStart,
     readDeskWindowChoice,
+    readOneDay,
     saveDeskWindowChoice,
     sharedHistoryStart
 } from './desk-window';
@@ -102,5 +105,103 @@ describe('a guest\'s shared history', () => {
         expect(sharedHistoryStart(window, null)).toBeNull();
         expect(sharedHistoryStart(window, undefined)).toBeNull();
         expect(sharedHistoryStart(window, 'not a time')).toBeNull();
+    });
+});
+
+describe('reading one day', () => {
+    const beforeMidnight = new Date(2026, 10, 25, 23, 59, 59, 500);
+    const afterMidnight = new Date(2026, 10, 26, 0, 0, 1);
+    const day25 = new Date(2026, 10, 25).getTime();
+    const day26 = new Date(2026, 10, 26).getTime();
+
+    function clockAt(...instants: Date[]): () => Date {
+        let index = 0;
+        return () => instants[Math.min(index++, instants.length - 1)];
+    }
+
+    it('publishes an answer counted from the day it asked about', async () => {
+        const result = await readOneDay({
+            kind: 'today',
+            day: day25,
+            clock: clockAt(beforeMidnight),
+            read: async (window) => ({ window_start: window.start.toISOString() }),
+            countedFrom: (value) => [value.window_start]
+        });
+        expect(result.window.start.getTime()).toBe(day25);
+    });
+
+    it('accepts a guest answer that starts later the same day', async () => {
+        const result = await readOneDay({
+            kind: 'today',
+            day: day25,
+            clock: clockAt(beforeMidnight),
+            read: async () => ({ window_start: new Date(2026, 10, 25, 9).toISOString() }),
+            countedFrom: (value) => [value.window_start]
+        });
+        expect(result.value.window_start).toBe(new Date(2026, 10, 25, 9).toISOString());
+    });
+
+    it('asks again when the server answered for the next day, and never publishes mixed days', async () => {
+        const read = vi.fn(async () => ({ window_start: new Date(day26).toISOString() }));
+        await expect(readOneDay({
+            kind: 'today',
+            day: day25,
+            clock: clockAt(beforeMidnight),
+            read,
+            countedFrom: (value) => [value.window_start]
+        })).rejects.toBeInstanceOf(StraddledReadError);
+        // The first read and two retries.
+        expect(read).toHaveBeenCalledTimes(3);
+    });
+
+    it('stops as soon as midnight has passed on this side, so the new day is read from the start', async () => {
+        const read = vi.fn(async () => ({ window_start: new Date(day25).toISOString() }));
+        await expect(readOneDay({
+            kind: 'today',
+            day: day25,
+            clock: clockAt(afterMidnight),
+            read,
+            countedFrom: (value) => [value.window_start]
+        })).rejects.toBeInstanceOf(DayTurnedError);
+        expect(read).not.toHaveBeenCalled();
+    });
+
+    it('checks every answer a read collects, and skips one that was not read', async () => {
+        let attempt = 0;
+        const result = await readOneDay({
+            kind: 'today',
+            day: day25,
+            clock: clockAt(beforeMidnight),
+            read: async () => {
+                attempt += 1;
+                return { seen: new Date(day25).toISOString(), heard: attempt === 1 ? new Date(day26).toISOString() : null };
+            },
+            countedFrom: (value) => [value.seen, value.heard]
+        });
+        expect(attempt).toBe(2);
+        expect(result.value.heard).toBeNull();
+    });
+
+    it('refuses an answer whose start cannot be read', async () => {
+        await expect(readOneDay({
+            kind: 'today',
+            day: day25,
+            clock: clockAt(beforeMidnight),
+            read: async () => ({ window_start: 'not a time' }),
+            countedFrom: (value) => [value.window_start]
+        })).rejects.toBeInstanceOf(StraddledReadError);
+    });
+
+    it('takes the last 24 hours as they come, since they name no day', async () => {
+        const read = vi.fn(async () => ({ window_start: 'anything' }));
+        const result = await readOneDay({
+            kind: 'rolling',
+            day: null,
+            clock: clockAt(afterMidnight),
+            read,
+            countedFrom: (value) => [value.window_start]
+        });
+        expect(read).toHaveBeenCalledTimes(1);
+        expect(result.window.kind).toBe('rolling');
     });
 });

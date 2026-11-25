@@ -289,3 +289,74 @@ async def test_a_guest_leaderboard_today_never_reaches_before_the_shared_day(cli
     seen = _ok(await client.get("/api/leaderboard/species?span=today", headers={"X-Timezone": "Asia/Tokyo"}))
     assert seen["window_start"].startswith("2034-03-11T00:00:00")
     assert seen["species"][0]["window_count"] == 1
+
+
+# One half-open window ------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("window", "start"),
+    [("today", datetime(2034, 3, 10, 18, 30)), ("rolling", datetime(2034, 3, 9, 20, 0))],
+)
+async def test_every_count_takes_the_window_start_and_leaves_its_end_to_the_next_read(client, window, start):
+    # [window_start, window_end): a capture at the very start counts, one at the very end does not,
+    # in the figures, the hours, the species, Unresolved, the latest capture and Needs your call.
+    await _established_robin()
+    await _seed("at-start", start, name="Unknown Bird")
+    await _seed("inside", datetime(2034, 3, 10, 19, 0), score=THRESHOLD - 0.1)
+    await _seed("at-end", NOW, name="Unknown Bird")
+
+    summary = _ok(await client.get(f"/api/stats/daily-summary?window={window}", headers=INDIA))
+    assert summary["window_start"] == start.isoformat() + "Z"
+    assert summary["window_end"] == NOW.isoformat() + "Z"
+    assert summary["total_count"] == 2
+    assert sum(summary["hourly_distribution"]) == 2
+    assert sum(species["count"] for species in summary["top_species"]) == 2
+    assert summary["visit_count"] == 2
+    assert sum(summary["hourly_visits"]) == 2
+    assert summary["unresolved_count"] == 2
+    assert summary["latest_detection"]["frigate_event"] == "inside"
+
+    queue = _ok(await client.get(f"/api/events/review-queue?window={window}", headers=INDIA))
+    assert queue["total"] == 2
+    assert [item["event"]["frigate_event"] for item in queue["items"]] == ["at-start", "inside"]
+
+
+@pytest.mark.asyncio
+async def test_a_guest_window_ends_where_the_shared_day_does(client, monkeypatch):
+    # With no earlier days shared, a guest's history is the UTC day, start inclusive.
+    _clock(monkeypatch, datetime(2034, 3, 11, 0, 30))  # 09:30 on the 11th in Tokyo
+    monkeypatch.setattr(settings.public_access, "enabled", True)
+    monkeypatch.setattr(settings.public_access, "historical_days_mode", "custom")
+    monkeypatch.setattr(settings.public_access, "show_historical_days", 0)
+    app.dependency_overrides[get_auth_context_with_legacy] = lambda: AuthContext("guest")
+    await _seed("at-utc-midnight", datetime(2034, 3, 11, 0, 0))
+    await _seed("just-before", datetime(2034, 3, 10, 23, 59, 59))
+    summary = _ok(await client.get("/api/stats/daily-summary?window=today", headers={"X-Timezone": "Asia/Tokyo"}))
+    assert summary["window_start"] == "2034-03-11T00:00:00Z"
+    assert summary["window_end"] == "2034-03-11T00:30:00Z"
+    assert summary["total_count"] == 1
+    assert summary["latest_detection"]["frigate_event"] == "at-utc-midnight"
+
+
+@pytest.mark.asyncio
+async def test_at_midnight_todays_queue_drops_yesterdays_captures_and_keeps_a_new_species(client, monkeypatch):
+    # 23:59 in India is 18:29 UTC; a minute after midnight is 18:31 UTC.
+    await _established_robin()
+    await _seed("unknown-before-midnight", datetime(2034, 3, 10, 18, 0), name="Unknown Bird")
+    await _seed("hoopoe-4-days-ago", datetime(2034, 3, 6, 12, 0), name="Eurasian Hoopoe", scientific="Upupa epops")
+
+    _clock(monkeypatch, datetime(2034, 3, 10, 18, 29))
+    before = _ok(await client.get("/api/events/review-queue?window=today", headers=INDIA))
+    assert before["window_start"] == "2034-03-09T18:30:00Z"
+    assert {item["event"]["frigate_event"] for item in before["items"]} == {
+        "unknown-before-midnight",
+        "hoopoe-4-days-ago",
+    }
+
+    _clock(monkeypatch, datetime(2034, 3, 10, 18, 31))
+    after = _ok(await client.get("/api/events/review-queue?window=today", headers=INDIA))
+    assert after["window_start"] == "2034-03-10T18:30:00Z"
+    assert [item["event"]["frigate_event"] for item in after["items"]] == ["hoopoe-4-days-ago"]
+    assert after["total"] == 1

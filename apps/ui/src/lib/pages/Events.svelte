@@ -73,7 +73,7 @@
     import { speciesPickerNames } from '../utils/species-picker';
     import { explanation } from '../utils/explanation';
     import { explorerPane } from '../utils/explorer-results';
-    import { explorerPresetDays, explorerWindow, parseExplorerQuery, rereadsAfterRecordChange, writeExplorerQuery, type ExplorerQuery, type ExplorerWindow } from '../utils/explorer-query';
+    import { explorerReadWindow, parseExplorerQuery, rereadsAfterRecordChange, writeExplorerQuery, type ExplorerQuery, type ExplorerWindow } from '../utils/explorer-query';
     import { ShownExplorerWindow } from '../utils/explorer-shown-window.svelte';
     import { explorerCameraOptions, seenGardenCameras } from '../utils/explorer-cameras';
     import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
@@ -271,7 +271,6 @@
         })
     );
 
-    let dateRange = $derived(explorerPresetDays(datePreset, { start: customStartDate, end: customEndDate }, new Date()));
     /** The window of the bird results on screen; each read fixes its own and publishes it with them. */
     const shownWindow = new ShownExplorerWindow();
     /**
@@ -302,7 +301,7 @@
         writeAddress();
         try {
             // One pair of instants for the whole read, so its visits, captures, count, Garden and calls agree.
-            const range = explorerWindow(datePreset, dateRange, new Date());
+            const range = explorerReadWindow(datePreset, { start: customStartDate, end: customEndDate }, new Date());
             let newEvents: Detection[];
             let nextTotal: number;
             let nextVisits: DetectionVisit[] = [];

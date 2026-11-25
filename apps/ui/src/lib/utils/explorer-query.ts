@@ -245,3 +245,11 @@ export function explorerWindow(preset: ExplorerDatePreset, days: { start?: strin
     if (days.end) request.endDate = days.end;
     return { request, start: localDayBound(days.start, false), end: localDayBound(days.end, true) };
 }
+
+/**
+ * What one read of the Explorer asks for: its calendar days and its instants, both from the one
+ * `now` the read was started at, so reading the same period again after midnight reads the new day.
+ */
+export function explorerReadWindow(preset: ExplorerDatePreset, custom: { start: string; end: string }, now: Date): ExplorerWindow {
+    return explorerWindow(preset, explorerPresetDays(preset, custom, now), now);
+}

@@ -208,5 +208,7 @@ async def test_daily_summary_today_and_legacy_timestamps_count_exact_window(monk
         ).json()
         rolling = (await client.get("/api/stats/daily-summary")).json()
 
-    assert today_ny["unresolved_count"] == 3
-    assert rolling["unresolved_count"] == 4
+    # The window is half-open, [window_start, window_end), as Needs your call reads it: the capture
+    # at window_end belongs to the next read.
+    assert today_ny["unresolved_count"] == 2
+    assert rolling["unresolved_count"] == 3

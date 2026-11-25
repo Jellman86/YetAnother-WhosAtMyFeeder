@@ -34,7 +34,12 @@ early morning is never empty), and each device remembers its choice (`utils/desk
 load settles one window (`deskWindow()`) and gives it to every read: the day summary's `window`,
 the visits' and Garden's exact instants, the Heard summary's `start_date` and `end_date`, the review
 queue's `window` and the species checks' `span`. Live captures stay on the desk only inside it
-(`withinDeskWindow()`), and an open Dashboard on Today reads the new day at local midnight. Every
+(`withinDeskWindow()`), and an open Dashboard on Today reads the new day at local midnight.
+Midnight never splits a load: every read goes through `readOneDay()`, which settles the window for
+the day the desk is reading and checks each answer's `window_start` against it. A read that notices
+midnight has passed on this side reads the whole desk again for the new day; an answer for another
+day (a server already past midnight) is asked again at most twice and is never shown. An open
+review walkthrough takes the new day's list at midnight, or closes. Every
 line on the desk names that window the same way: "earlier visits in the last 24 hours" or "earlier
 visits today", and the review queue's, the log's and the cards' empty states, never "of the day". A
 screen whose header says one thing and whose cards count another is broken even when every figure
@@ -44,7 +49,9 @@ The heading names the window the figures on screen were read for, never the one 
 choice clears every reading and drops the reads in flight, so the figures stand as placeholders
 under the new name until its answers land, and a slower answer for the window just left cannot
 appear under it. "No visits yet today" is said only of a Today that was read and is empty; a read
-that failed says so instead. When a guest's shared history starts after their midnight, the server
+that failed says so instead, and an empty reading is dropped once a refresh of it fails, since
+nothing then shows it is still empty. With Garden unread, an empty log says "No bird visits", and a
+Heard summary that could not be read says so rather than "No calls heard". When a guest's shared history starts after their midnight, the server
 counts from its start and says so in `window_start`, and the heading says from what time Today is
 shown.
 

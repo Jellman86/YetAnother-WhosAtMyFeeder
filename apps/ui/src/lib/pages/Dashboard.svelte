@@ -51,8 +51,9 @@
 
     import { fromServerVisit, withinDeskWindow } from '../utils/visit-grouping';
     import {
-        deskWindow,
+        DayTurnedError,
         deskWindowStart,
+        readOneDay,
         readDeskWindowChoice,
         saveDeskWindowChoice,
         sharedHistoryStart,
@@ -99,6 +100,14 @@
     const deskKind = $derived<DeskWindowKind>(shownWindow?.kind ?? windowChoice);
     // Advanced at local midnight while Today is chosen, so the live captures move to the new day too.
     let dayTurn = $state(0);
+    // The local midnight the desk reads while Today is chosen. Every read is checked against it, so
+    // one load never shows a new day's figures beside the old day's visits or calls.
+    let readingDay = deskWindowStart('today', new Date());
+
+    /** One read of the desk's window, never across two days (see `readOneDay`). */
+    function readDeskDay<T>(read: (window: DeskWindow) => Promise<T>, countedFrom: (value: T) => readonly (string | null | undefined)[]): Promise<{ value: T; window: DeskWindow }> {
+        return readOneDay({ kind: windowChoice, day: windowChoice === 'today' ? readingDay : null, clock: () => new Date(), read, countedFrom });
+    }
 
     let summary = $state<DailySummary | null>(null);
     // The clock hour the summary's window ended in, so the activity chart ends where its data does.
@@ -257,8 +266,11 @@
 
     const reviewQueueLoader = createObservationProjectionLoader({
         // Needs your call waits on the captures of the desk's window, as the Unresolved figure counts them.
-        fetch: (signal) => fetchReviewQueue({ limit: REVIEW_QUEUE_READ_LIMIT, window: windowChoice, signal }),
-        apply: (response) => {
+        fetch: (signal) => readDeskDay(
+            (window) => fetchReviewQueue({ limit: REVIEW_QUEUE_READ_LIMIT, window: window.kind, signal }),
+            (response) => [response.window_start]
+        ),
+        apply: ({ value: response }) => {
             reviewReading = readingFromResponse(response);
             reviewReadingStatus = 'ready';
             dayReadFailed.queue = false;
@@ -268,6 +280,7 @@
             reviewReadingStatus = 'loading';
         },
         fail: (e) => {
+            if (e instanceof DayTurnedError) { rollOverIfNewDay(); return; }
             reviewReadingStatus = 'unavailable';
             dayReadFailed.queue = true;
             logger.warn('Review queue unavailable', { message: getErrorMessage(e) });
@@ -300,19 +313,41 @@
     let reviewSessionReading = $state.raw<ReviewQueueReading>(EMPTY_REVIEW_QUEUE_READING);
     let reviewSessionOpening = false;
     let reviewSessionRequest = 0;
+    // The walkthrough captures its list when it opens; a new list for a new day opens it afresh.
+    let reviewSessionKey = $state(0);
+    function readReviewSession(): Promise<ReviewQueueReading> {
+        return readDeskDay(
+            (window) => fetchReviewQueue({ limit: REVIEW_SESSION_READ_LIMIT, window: window.kind }),
+            (response) => [response.window_start]
+        ).then(({ value }) => readingFromResponse(value));
+    }
     async function openReviewSession(): Promise<void> {
         if (reviewSessionOpening) return;
         reviewSessionOpening = true;
         const request = ++reviewSessionRequest;
         try {
-            const response = await fetchReviewQueue({ limit: REVIEW_SESSION_READ_LIMIT, window: windowChoice });
+            const reading = await readReviewSession();
             if (request !== reviewSessionRequest) return;
-            reviewSessionReading = readingFromResponse(response);
+            reviewSessionReading = reading;
             reviewSessionOpen = true;
         } catch (e) {
-            if (request === reviewSessionRequest) toastStore.show(getErrorMessage(e), 'error');
+            if (request !== reviewSessionRequest) return;
+            if (e instanceof DayTurnedError) rollOverIfNewDay();
+            else toastStore.show(getErrorMessage(e), 'error');
         } finally {
             reviewSessionOpening = false;
+        }
+    }
+    /** At midnight an open walkthrough takes the new day's list, or closes rather than keep yesterday's. */
+    async function refreshReviewSession(): Promise<void> {
+        const request = ++reviewSessionRequest;
+        try {
+            const reading = await readReviewSession();
+            if (request !== reviewSessionRequest || !reviewSessionOpen) return;
+            reviewSessionReading = reading;
+            reviewSessionKey += 1;
+        } catch {
+            if (request === reviewSessionRequest) reviewSessionOpen = false;
         }
     }
 
@@ -321,26 +356,27 @@
     const UNREAD_RANGE_CHECK: RangeCheckReading = { status: 'loading', checks: [], nearbyRadiusKm: null };
     let rangeCheck = $state.raw<RangeCheckReading>(UNREAD_RANGE_CHECK);
     const speciesChecksLoader = createObservationProjectionLoader({
-        fetch: async (signal) => {
-            const span = windowChoice === 'today' ? 'today' : 'day';
+        fetch: (signal) => readDeskDay(async (window) => {
+            const span = window.kind === 'today' ? 'today' : 'day';
             // BirdNET silence only means "not heard" when its rollup for the same window loaded.
             const heard = birdnetEnabled
-                ? fetchAudioSpeciesLeaderboard(span, signal).then((response) => response.species, (error: unknown) => {
+                ? fetchAudioSpeciesLeaderboard(span, signal).then((response) => response, (error: unknown) => {
                     if (signal.aborted) throw error;
                     return null;
                 })
                 : Promise.resolve(null);
             const [leaderboard, audio] = await Promise.all([fetchLeaderboardSpecies(span, signal), heard]);
             return { leaderboard, audio };
-        },
-        apply: ({ leaderboard, audio }) => {
-            const next = readRangeCheck(rangeCheck, leaderboard, audio);
+        }, ({ leaderboard, audio }) => [leaderboard.window_start, audio?.window_start ?? null]),
+        apply: ({ value: { leaderboard, audio } }) => {
+            const next = readRangeCheck(rangeCheck, leaderboard, audio?.species ?? null);
             if (next.status !== 'unavailable') domesticOffers.measured();
             rangeCheck = next;
             dayReadFailed.checks = next.status === 'unavailable';
         },
         clear: () => { rangeCheck = UNREAD_RANGE_CHECK; domesticOffers.measured(); },
         fail: (e) => {
+            if (e instanceof DayTurnedError) { rollOverIfNewDay(); return; }
             rangeCheck = { ...rangeCheck, status: 'unavailable' };
             dayReadFailed.checks = true;
             logger.warn('Species checks unavailable for the dashboard', { message: getErrorMessage(e) });
@@ -467,26 +503,31 @@
             await settleGardenSwitch(signal);
             readGardenAvailable = gardenAvailable;
             // One pair of instants for this load: the summary's window, the visits and Garden all read it.
-            const desk = deskWindow(windowChoice, new Date());
-            const window = { startTime: desk.start.toISOString(), endTime: desk.end.toISOString() };
-            // A Garden failure is stated beside the birds rather than taking the whole log down.
-            const gardenRead = gardenAvailable
-                ? fetchGardenVisits({ start: window.startTime, end: window.endTime, order: 'newest', limit: VISIT_ROW_LIMIT }, signal)
-                    .then((page) => ({ page }), (error: unknown) => {
-                        if (signal.aborted) throw error;
-                        logger.warn('Garden visits unavailable for the field log', { message: getErrorMessage(error) });
-                        return { page: null };
-                    })
-                : Promise.resolve(null);
-            const [summaryRes, visitsRes, gardenRes] = await Promise.all([
-                fetchDailySummary(desk.kind, signal),
-                fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' }),
-                gardenRead
-            ]);
-            return { summaryRes, visitsRes, gardenRes, window, desk };
+            const { value, window: desk } = await readDeskDay(async (desk) => {
+                const window = { startTime: desk.start.toISOString(), endTime: desk.end.toISOString() };
+                // A Garden failure is stated beside the birds rather than taking the whole log down.
+                const gardenRead = gardenAvailable
+                    ? fetchGardenVisits({ start: window.startTime, end: window.endTime, order: 'newest', limit: VISIT_ROW_LIMIT }, signal)
+                        .then((page) => ({ page }), (error: unknown) => {
+                            if (signal.aborted) throw error;
+                            logger.warn('Garden visits unavailable for the field log', { message: getErrorMessage(error) });
+                            return { page: null };
+                        })
+                    : Promise.resolve(null);
+                const [summaryRes, visitsRes, gardenRes] = await Promise.all([
+                    fetchDailySummary(desk.kind, signal),
+                    fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' }),
+                    gardenRead
+                ]);
+                return { summaryRes, visitsRes, gardenRes, window };
+            }, ({ summaryRes }) => [summaryRes.window_start]);
+            return { ...value, desk };
         },
         apply: ({ summaryRes, visitsRes, gardenRes, window, desk }) => {
-            summary = summaryRes; summaryHour = desk.end.getHours(); shownWindow = desk;
+            // The chart ends in the hour the server's count did, not the hour the read was sent in.
+            const counted = new Date(summaryRes.window_end);
+            summary = summaryRes; summaryHour = Number.isNaN(counted.getTime()) ? desk.end.getHours() : counted.getHours(); shownWindow = desk;
+            summaryRefreshFailed = false;
             dayReadFailed.summary = false;
             serverVisits = visitsRes.visits.map((visit) => fromServerVisit(visit, window)); totalVisits = visitsRes.total;
             gardenWindow = { start: window.startTime, end: window.endTime };
@@ -494,10 +535,16 @@
             if (gardenRes === null) { gardenVisits = []; gardenTotal = 0; }
             else if (gardenRes.page) { gardenVisits = gardenRes.page.visits; gardenTotal = gardenRes.page.total; }
         },
-        clear: () => { summary = null; shownWindow = null; serverVisits = []; totalVisits = 0; gardenVisits = []; gardenTotal = 0; gardenUnavailable = false; },
+        clear: () => { summary = null; shownWindow = null; serverVisits = []; totalVisits = 0; gardenVisits = []; gardenTotal = 0; gardenUnavailable = false; summaryRefreshFailed = false; },
         fail: (e) => {
+            if (e instanceof DayTurnedError) { rollOverIfNewDay(); return; }
             dayReadFailed.summary = true;
-            if (authStore.isGuest) { summary = null; shownWindow = null; }
+            summaryRefreshFailed = true;
+            // An earlier reading that found nothing is no reading once a refresh fails: an empty
+            // window is said only of a read that succeeded. A guest keeps nothing a refresh lost.
+            if (authStore.isGuest || (summary?.visit_count === 0 && serverVisits.length === 0 && gardenVisits.length === 0)) {
+                summary = null; shownWindow = null;
+            }
             if (isTransientRequestError(e)) {
                 logger.warn('Dashboard summary fetch failed (transient)', { message: getErrorMessage(e) });
             } else {
@@ -514,6 +561,9 @@
         return summaryLoader.load();
     }
 
+    // The latest read of the day failed; what is on screen, if anything, is an earlier reading.
+    let summaryRefreshFailed = $state(false);
+
     // Until the day has been read, its figures are unknown rather than zero.
     let summaryPending = $derived(summary === null && summaryLoading);
     let summaryUnavailable = $derived(summary === null && !summaryLoading);
@@ -525,16 +575,29 @@
     // A guest's Today starts where the owner's shared history does when that is after their midnight.
     let sharedFrom = $derived(authStore.isGuest && shownWindow ? sharedHistoryStart(shownWindow, summary?.window_start) : null);
     // "Yet today" is said only of a Today that was read and is empty; a failed read says so instead.
-    let fieldLogEmpty = $derived(
-        sharedFrom
-            ? $_('dashboard.waiting_first_visitor_shared', {
+    // With Garden unread, only birds were measured, so the empty log says birds.
+    let fieldLogEmpty = $derived.by(() => {
+        if (gardenUnavailable) {
+            if (sharedFrom) {
+                return $_('dashboard.no_bird_visits_shared', {
+                    values: { time: formatTime(sharedFrom) },
+                    default: 'No bird visits since {time}, when the shared history starts.'
+                });
+            }
+            return deskKind === 'today'
+                ? $_('dashboard.no_bird_visits_today', { default: 'No bird visits yet today.' })
+                : $_('dashboard.no_bird_visits', { default: 'No bird visits in the last 24 hours.' });
+        }
+        if (sharedFrom) {
+            return $_('dashboard.waiting_first_visitor_shared', {
                 values: { time: formatTime(sharedFrom) },
                 default: 'No visits since {time}, when the shared history starts. New visits appear here as they arrive.'
-            })
-            : deskKind === 'today'
-              ? $_('dashboard.waiting_first_visitor_today', { default: 'No visits yet today. New visits appear here as they arrive.' })
-              : null
-    );
+            });
+        }
+        return deskKind === 'today'
+            ? $_('dashboard.waiting_first_visitor_today', { default: 'No visits yet today. New visits appear here as they arrive.' })
+            : null;
+    });
     let fieldLogEarlier = $derived(
         deskKind === 'today'
             ? $_('dashboard.field_log.earlier_today', {
@@ -558,6 +621,7 @@
      * the new name.
      */
     function rereadDesk(): void {
+        readingDay = deskWindowStart('today', new Date());
         summaryLoading = true;
         audioSummaryLoading = true;
         summaryLoader.invalidate();
@@ -569,16 +633,22 @@
         if (birdnetEnabled) void audioSummaryLoader.load();
         loadReviewQueue();
         loadSpeciesChecks();
+        if (reviewSessionOpen) void refreshReviewSession();
     }
 
-    // Today becomes another day at local midnight; the open page reads the new one.
+    /** Midnight has passed since the day being read was settled: read the new day, once. */
+    function rollOverIfNewDay(): void {
+        if (windowChoice !== 'today' || deskWindowStart('today', new Date()) === readingDay) return;
+        dayTurn += 1;
+        rereadDesk();
+    }
+
+    // Today becomes another day at local midnight; the open page reads the new one. A read that
+    // notices midnight first rolls over sooner.
     $effect(() => {
         if (windowChoice !== 'today') return;
         void dayTurn;
-        const timer = setTimeout(() => {
-            dayTurn += 1;
-            untrack(rereadDesk);
-        }, msUntilNextLocalMidnight(new Date()) + 1000);
+        const timer = setTimeout(() => untrack(rollOverIfNewDay), msUntilNextLocalMidnight(new Date()) + 1000);
         return () => clearTimeout(timer);
     });
 
@@ -701,17 +771,21 @@
     // What the microphone heard: the day bar's call count and the Heard card read this one summary.
     let audioSummary = $state.raw<AudioSummaryResponse | null>(null);
     let audioSummaryLoading = $state(true);
+    let audioSummaryFailed = $state(false);
 
     const audioSummaryLoader = createObservationProjectionLoader({
-        fetch: (signal) => {
-            // The Heard figures count the desk's own instants, so they agree with the day bar's window.
-            const desk = deskWindow(windowChoice, new Date());
-            return fetchAudioSummary({ start_date: desk.start.toISOString(), end_date: desk.end.toISOString() }, signal);
-        },
-        apply: (value) => { audioSummary = value; },
-        clear: () => { audioSummary = null; },
+        // The Heard figures count the desk's own instants, so they agree with the day bar's window.
+        fetch: (signal) => readDeskDay(
+            (desk) => fetchAudioSummary({ start_date: desk.start.toISOString(), end_date: desk.end.toISOString() }, signal),
+            (value) => [value.window_start]
+        ),
+        apply: ({ value }) => { audioSummary = value; audioSummaryFailed = false; },
+        clear: () => { audioSummary = null; audioSummaryFailed = false; },
         fail: (e) => {
-            if (authStore.isGuest) audioSummary = null;
+            if (e instanceof DayTurnedError) { rollOverIfNewDay(); return; }
+            audioSummaryFailed = true;
+            // As with the day: nothing heard is said only of a read that succeeded.
+            if (authStore.isGuest || audioSummary?.total === 0) audioSummary = null;
             if (isTransientRequestError(e)) {
                 logger.warn('Audio summary unavailable (transient)', { message: getErrorMessage(e) });
             } else {
@@ -920,6 +994,7 @@
                         summary={audioSummary}
                         summaryLoading={audioSummaryLoading}
                         matchedCalls={summary ? audioConfirmations : null}
+                        summaryFailed={audioSummaryFailed}
                         windowKind={deskKind}
                     />
                 {/if}
@@ -957,6 +1032,7 @@
 </div>
 
 {#if reviewSessionOpen && canReview}
+    {#key reviewSessionKey}
     {@const fullQueue = buildReviewQueue(reviewSessionReading, {
         reviewThreshold,
         limit: Number.MAX_SAFE_INTEGER,
@@ -979,6 +1055,7 @@
             />
         {/snippet}
     </LazyModal>
+    {/key}
 {/if}
 
 <!-- Event Detail Modal -->

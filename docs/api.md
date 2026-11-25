@@ -458,8 +458,8 @@ current behaviour.
   threshold in the window, plus each new species' latest sighting. `window=rolling` (the default)
   is the last `window_hours` (default 24); `window=today` runs from local midnight (in the zone
   chosen as in [Calendar days](#calendar-days-and-today)) to now. The captures counted are the ones
-  `GET /api/stats/daily-summary` counts as `unresolved_count` for the same `window`, and
-  `window_start` and `window_end` name the window used. A new species waits whenever it was first
+  `GET /api/stats/daily-summary` counts as `unresolved_count` for the same `window`, over the same
+  half-open interval, and `window_start` and `window_end` name the window used. A new species waits whenever it was first
   seen in the last `window_days`, in either window, and counts once when it is also a capture
   waiting in the window. Lists the oldest `limit` (default 12, up to 500), each with its `reason`,
   and `total` counts everything however many were listed. `max_sightings` and `window_days` work as
@@ -1225,8 +1225,10 @@ stores it (parentheses included when the source writes them), or null when unrec
 - `GET /api/stats/daily-summary` Covers the last 24 hours by default (`window=rolling`). With
   `window=today` it covers today so far: from local midnight (in the zone chosen as in
   [Calendar days](#calendar-days-and-today)) to now. The response names the window it used in
-  `window`, `window_start` and `window_end` (UTC). A guest's history window still applies, so
-  `window_start` can be later than midnight. Every count below covers that window, and
+  `window`, `window_start` and `window_end` (UTC). The window is half-open, from `window_start`
+  up to but not including `window_end`, so a capture stamped at `window_end` is counted by the next
+  read. A guest's history window still applies, start and end, so `window_start` can be later than
+  midnight. Every count below covers that window, and
   `hourly_distribution` puts each capture in the local hour it was made in, also in zones a half or
   three quarters of an hour off UTC. It
   includes `counted_birds` (visible child observations) and
