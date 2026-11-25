@@ -165,6 +165,12 @@ WORKER_FAILURE_REQUEUE_REASONS: frozenset[str] = frozenset(
         "video_worker_circuit_open",
     }
 )
+# Errors that say Frigate itself no longer has the event or its clip. Only these may
+# apply the missing-media policy, which can delete a record (#1096). Excluded on
+# purpose: ``clip_not_found`` (a 404 Frigate also answers while it is still writing
+# the clip), ``clip_invalid`` and ``clip_decode_failed`` (a local read or decode of a
+# downloaded file failed), timeouts, HTTP and network errors, and ``video_exception``.
+MISSING_UPSTREAM_MEDIA_ERRORS: frozenset[str] = frozenset({"event_not_found", "clip_not_retained", "clip_unavailable"})
 WORKER_FAILURE_MAX_REQUEUES = 2
 WORKER_FAILURE_REQUEUE_DELAY_SECONDS = 20.0
 _PRECHECK_NO_CLIP_MAX_RETRIES = 1
@@ -2921,23 +2927,16 @@ class AutoVideoClassifierService:
         )
 
     async def _auto_delete_if_missing(self, frigate_event: str, error: str):
-        """Apply the configured missing-upstream policy when clip/event is missing.
+        """Apply the configured missing-upstream policy when Frigate has lost the event or clip.
 
-        Only an error that affirms Frigate no longer has the event or a usable clip
-        counts. The policy can delete the record, so an unexpected failure in YA-WAMF
-        itself must never reach it (#1096).
+        The policy can delete the record, so only ``MISSING_UPSTREAM_MEDIA_ERRORS`` count:
+        a local decode, read or worker failure is not evidence that Frigate lost anything
+        (#1096). A record the owner added by hand never came from Frigate, so it never
+        qualifies either.
         """
         if not settings.maintenance.auto_delete_missing_clips:
             return
-
-        missing_errors = {
-            "event_not_found",
-            "clip_unavailable",
-            "clip_not_retained",
-            "clip_invalid",
-            "clip_decode_failed",
-        }
-        if error not in missing_errors:
+        if error not in MISSING_UPSTREAM_MEDIA_ERRORS or frigate_event.startswith("manual_"):
             return
 
         try:

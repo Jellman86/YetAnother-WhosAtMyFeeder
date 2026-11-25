@@ -559,8 +559,9 @@ history, are in [Maintenance](#maintenance). Telemetry, what leaves this install
   A failed event lookup is reported as an unsuccessful check, not missing media. Timeouts,
   authentication errors, server errors and unusable responses preserve the saved state for a
   later retry. A manual scan can clear an earlier missing flag only after confirming the media.
-  Only Frigate reporting that the event or its clip is gone applies this policy; an unexpected
-  failure inside video analysis leaves the record as it was.
+  Only Frigate reporting that the event or its clip is gone applies this policy. A clip that YA-WAMF
+  cannot read or decode, or an unexpected failure inside video analysis, leaves the record as it
+  was, and so does a record you added by hand.
   Automatic missing-media deletion checks favourites in its final database decision. A favourite
   accepted before that decision keeps its detection and cached photos, even if a scan is running.
 - **Photos and video** — photographs, full-visit clips and previews are YA-WAMF's own record and are
@@ -649,8 +650,8 @@ scan finds something, and says so beside the button.
   is explicit. Historical missing photo output is checked in pages of 100 every five minutes,
   with bounded retries when Frigate no longer retains the source media.
 - **Batch analysis** — re-run classification over detections currently saved as Unknown Bird,
-  either on demand or automatically each day. A capture that gets named can join a neighbouring
-  visit of the same species on the same camera, so the visit count may fall; no capture is removed.
+  either on demand or automatically each day. A capture that gets named can join a nearby visit
+  of the same species on the same camera. That lowers the visit count, not the number of captures.
 - **Taxonomy repair** — normalise species names across your whole history against iNaturalist.
   It fills in missing names only and commits each detection as it goes, so live detections keep
   saving while it waits on lookups.

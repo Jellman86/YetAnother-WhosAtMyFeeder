@@ -389,3 +389,14 @@ async def test_an_owner_confirmation_during_an_automatic_move_keeps_the_record_i
 
     assert await hidden(event_id) == 0
     assert await garden_capture() is None
+
+
+@pytest.mark.asyncio
+async def test_move_to_garden_moves_a_record_whose_name_the_owner_confirmed():
+    event_id = await renamed_record("domestic-route-confirmed-endpoint", manual_tagged=True)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(f"/api/events/{event_id}/move-to-garden")
+    assert response.status_code == 200, response.text
+    assert await hidden(event_id) == 1
+    capture = await garden_capture()
+    assert capture is not None and capture.id == response.json()["capture_id"]

@@ -116,7 +116,7 @@
     "weather_backfill_filling": "正在补全天气…",
     "weather_backfill_button": "填充天气字段",
     "batch_analysis_title": "批量分析",
-    "batch_analysis_long_desc": "更换模型后运行此项。它会在后台重新分析每次“未知鸟类”到访的片段；没有片段的到访会被跳过。获得名称的拍摄可能会并入同一摄像头上相邻的同一物种到访，因此到访次数可能减少，但不会删除任何拍摄。",
+    "batch_analysis_long_desc": "更换模型后运行此项。它会在后台重新分析每次“未知鸟类”到访的片段；没有片段的到访会被跳过。获得名称的拍摄可能会并入同一摄像头上相近的同一物种到访。这会减少到访次数，但不会减少拍摄数量。",
     "batch_analysis_queueing": "正在排队…",
     "batch_analysis_button": "分析所有未知项",
     "batch_analysis_processing": "处理中…",
