@@ -36,6 +36,7 @@
         type AudioContextDetection,
         type SnapshotStatusResponse,
         type SnapshotCandidate,
+        type SnapshotDismissalTarget,
         type BirdObservation
     } from '../api';
     import type { Detection } from '../api';
@@ -306,9 +307,12 @@
 
     async function refreshSnapshotControls(eventId: string) {
         const requestEpoch = ++snapshotControlsEpoch;
+        const listRevision = candidateListRevision;
         const parentIdentity = untrack(() => countedParentIdentity);
         const isCurrent = () => requestEpoch === snapshotControlsEpoch
             && detection?.frigate_event === eventId && hasOwnerDetectionActions;
+        // A photo choice changed while this read was out: its answer may predate that change.
+        const listIsFresh = () => listRevision === candidateListRevision;
         if (!isCurrent()) return;
         snapshotCandidatesLoading = true;
         snapshotCandidatesError = false;
@@ -318,30 +322,34 @@
                 fetchSnapshotCandidates(eventId)
             ]);
             if (!isCurrent()) return;
-            snapshotStatus = status;
-            snapshotCandidates = candidateList.candidates ?? [];
-            asRecordedDismissed = Boolean(candidateList.as_recorded_dismissed);
+            if (listIsFresh()) {
+                snapshotCandidates = candidateList.candidates ?? [];
+                asRecordedDismissed = Boolean(candidateList.as_recorded_dismissed);
+                snapshotStatus = status;
+                currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
+                currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
+            }
             if (parentIdentity === countedParentIdentity) {
                 countedBirds = candidateList.birds ?? [];
                 countedBirdsGeneration += 1;
                 countedBirdsError = false;
                 countedBirdsLoading = false;
             }
-            currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
-            currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
         } catch {
             if (!isCurrent()) return;
-            snapshotStatus = null;
-            snapshotCandidates = [];
-            asRecordedDismissed = false;
+            if (listIsFresh()) {
+                snapshotStatus = null;
+                snapshotCandidates = [];
+                asRecordedDismissed = false;
+                snapshotCandidatesError = true;
+                currentSnapshotCandidateId = null;
+                currentSnapshotSource = null;
+            }
             if (parentIdentity === countedParentIdentity) {
                 countedBirds = [];
                 countedBirdsGeneration += 1;
                 countedBirdsLoading = false;
             }
-            snapshotCandidatesError = true;
-            currentSnapshotCandidateId = null;
-            currentSnapshotSource = null;
         } finally {
             if (isCurrent()) {
                 snapshotCandidatesLoading = false;
@@ -419,6 +427,7 @@
 
         if (snapshotControlsSubject !== eventId) {
             snapshotControlsSubject = eventId;
+            undoablePhotoRemoval = null;
             snapshotCandidates = [];
             asRecordedDismissed = false;
             countedBirds = [];
@@ -577,6 +586,13 @@
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
     let asRecordedDismissed = $state(false);
+    /**
+     * Advanced by each answered photo-choice change. A candidate read sent before it may describe
+     * the list before the change, so it is not allowed to replace the change's own answer.
+     */
+    let candidateListRevision = 0;
+    /** The capture whose last removed photo choice can still be undone, so its strip stays to offer Undo. */
+    let undoablePhotoRemoval = $state<string | null>(null);
     let countedBirds = $state<BirdObservation[]>([]);
     /** Advanced on every reread of the birds, so an edit answered after it is not applied. */
     let countedBirdsGeneration = $state(0);
@@ -892,6 +908,8 @@
     const wholeSceneReady = $derived(
         wholeScene.showing && sceneLoadedUrl !== null && sceneLoadedUrl === wholeSceneSources[0]
     );
+    // A whole scene the owner removed from the photo choices can still be looked at, but not saved.
+    const canUseWholeScene = $derived(wholeScene.pinned && wholeSceneReady && !fullFrameSnapshotCandidate?.photo_hidden);
 
     function wholeSceneLoaded(image: HTMLImageElement): void {
         sceneLoadedUrl = image.getAttribute('src');
@@ -983,6 +1001,7 @@
             snapshotCandidatesLoading
             || frameMoments.length > 0
             || canGenerateSnapshotCandidates
+            || undoablePhotoRemoval === detection.frigate_event
         )
     );
 
@@ -1392,17 +1411,31 @@
         await handleApplySnapshot('candidate', candidate.candidate_id);
     }
 
-    /** "Use this frame" from the strip: the photograph changes, the identification does not. */
-    async function removePhotoChoice(candidateId: string, dismissed: boolean): Promise<void> {
-        if (!hasOwnerDetectionActions || snapshotApplyPending) return;
+    /** Removes or restores every candidate behind one strip choice, and says which removals changed. */
+    async function removePhotoChoice(
+        candidateIds: string[],
+        dismissed: boolean,
+        expectedContentIdentities?: Record<string, string>
+    ): Promise<SnapshotDismissalTarget[]> {
+        const [candidateId, ...companionCandidateIds] = candidateIds;
+        if (!candidateId || !hasOwnerDetectionActions || snapshotApplyPending) return [];
         const eventId = detection.frigate_event;
         snapshotApplyPending = true;
         try {
-            const response = await dismissSnapshotCandidate(eventId, candidateId, dismissed);
+            const response = await dismissSnapshotCandidate(eventId, candidateId, dismissed, {
+                companionCandidateIds,
+                expectedContentIdentities
+            });
             if (detection.frigate_event === eventId && hasOwnerDetectionActions) {
+                candidateListRevision += 1;
                 snapshotCandidates = response.candidates;
                 asRecordedDismissed = Boolean(response.as_recorded_dismissed);
+                currentSnapshotCandidateId = response.current_candidate_id ?? null;
+                currentSnapshotSource = response.current_source ?? currentSnapshotSource;
+                snapshotCandidatesError = false;
+                undoablePhotoRemoval = dismissed ? eventId : null;
             }
+            return response.changed_dismissals ?? [];
         } catch (error) {
             toastStore.error(getErrorMessage(error));
             throw error;
@@ -2258,8 +2291,8 @@
                             {#if mediaFooterHasActions}
                             <!-- The star and play buttons sit on the photograph's lower edge rather than in a black
                                  band of their own under it, so the identification starts a band higher. -->
-                            <div class="flex flex-col gap-3 px-4 {wholeScene.pinned && wholeSceneReady ? 'pt-3' : ''}">
-                                {#if wholeScene.pinned && wholeSceneReady}
+                            <div class="flex flex-col gap-3 px-4 {canUseWholeScene ? 'pt-3' : ''}">
+                                {#if canUseWholeScene}
                                     <div class="flex" data-detection-whole-scene-actions>
                                         <button
                                             type="button"

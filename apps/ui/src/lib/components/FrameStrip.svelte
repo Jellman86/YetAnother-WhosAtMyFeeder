@@ -7,10 +7,11 @@
     import { authStore } from '../stores/auth.svelte';
     import { portal } from '../utils/portal';
     import MediaImage from './MediaImage.svelte';
+    import type { SnapshotDismissalTarget } from '../api';
     import {
-        AS_RECORDED_KEY,
         formatOffset,
-        preferredCandidate,
+        holdsSelectedCandidate,
+        momentCandidateIds,
         momentImageUrl,
         momentThumbnailUrl,
         type FrameMoment
@@ -53,7 +54,16 @@
         oninspect?: (moment: FrameMoment) => void;
         onregenerate?: () => void;
         eventId?: string;
-        onremove?: (candidateId: string, dismissed: boolean) => Promise<void>;
+        /**
+         * Removes (or, with `dismissed` false, restores) every candidate behind one choice, the shown
+         * one first, and answers with the removals the server actually made or undid. A restore
+         * names the pixels each removal was bound to, so it cannot undo a later removal.
+         */
+        onremove?: (
+            candidateIds: string[],
+            dismissed: boolean,
+            expectedContentIdentities?: Record<string, string>
+        ) => Promise<SnapshotDismissalTarget[]>;
     }
 
     let {
@@ -84,33 +94,30 @@
     const noFrames = $derived(!loading && moments.length === 0);
     // An earlier photograph is not a frame of the clip, so a strip holding one, like a strip of
     // several birds' crops, counts photo options rather than frames.
-    let removedPhoto = $state<{ eventId: string; candidateId: string } | null>(null);
+    // What the last removal hid, as the server recorded it: Undo restores exactly that, and leaves
+    // any framing the owner had removed before it removed.
+    let removedPhoto = $state<{ eventId: string; targets: SnapshotDismissalTarget[] } | null>(null);
     let removalError = $state(false);
     let hoverPaused = false;
     let undoButton = $state<HTMLButtonElement | null>(null);
-    function removableId(moment: FrameMoment): string | null {
-        if (moment.asRecorded) return AS_RECORDED_KEY;
-        return preferredCandidate(moment)?.candidate_id ?? null;
-    }
-
     function isSelectedChoice(moment: FrameMoment): boolean {
         if (moment.asRecorded) {
-            return isCurrent(moment) || (!current && !moments.some((item) => Boolean(preferredCandidate(item)?.selected)));
+            return isCurrent(moment) || (!current && !moments.some(holdsSelectedCandidate));
         }
-        return Boolean(preferredCandidate(moment)?.selected) || isCurrent(moment);
+        return holdsSelectedCandidate(moment) || isCurrent(moment);
     }
 
     async function removeChoice(moment: FrameMoment): Promise<void> {
-        const candidateId = removableId(moment);
+        const candidateIds = momentCandidateIds(moment);
         const subject = eventId;
-        if (!candidateId || !subject || !onremove || busy) return;
+        if (candidateIds.length === 0 || !subject || !onremove || busy) return;
         removalError = false;
         try {
-            await onremove(candidateId, true);
+            const targets = await onremove(candidateIds, true);
             if (eventId === subject) {
                 hoverPaused = true;
                 hide(true);
-                removedPhoto = { eventId: subject, candidateId };
+                removedPhoto = targets.length > 0 ? { eventId: subject, targets } : null;
                 await tick();
                 if (eventId === subject) undoButton?.focus();
             }
@@ -123,7 +130,11 @@
         const previous = removedPhoto;
         removalError = false;
         try {
-            await onremove(previous.candidateId, false);
+            await onremove(
+                previous.targets.map((target) => target.candidate_id),
+                false,
+                Object.fromEntries(previous.targets.map((target) => [target.candidate_id, target.content_identity]))
+            );
             if (removedPhoto === previous) removedPhoto = null;
         } catch { removalError = true; }
     }
@@ -772,7 +783,7 @@
                                             {$_(offersPhotoOptions ? 'detection.photo_option_use' : 'detection.frame_use', { default: offersPhotoOptions ? 'Use this photo' : 'Use this frame' })}
                                         </button>
                                     {/if}
-                                    {#if mode === 'choose' && onremove && removableId(moment)}
+                                    {#if mode === 'choose' && onremove && momentCandidateIds(moment).length > 0}
                                         {@const selectedChoice = isSelectedChoice(moment)}
                                         <button type="button" class="btn btn-ghost mt-1 min-h-11 px-3 text-xs"
                                             disabled={busy || selectedChoice}

@@ -19,6 +19,9 @@ from app.services.bird_observation_selection import BirdCountRegion, BirdObserva
 from app.services import bird_scan_service as scans
 from app.services import high_quality_snapshot_service as hq
 
+# The scene fixture stands in for the stored rows; a removal needs the real ones.
+STORED_SNAPSHOT_CANDIDATES = scans.DetectionRepository.list_snapshot_candidates
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("automatic", [False, True])
@@ -214,6 +217,32 @@ async def test_scan_refuses_cropped_or_removed_scene(scene, change):
     candidate.update(change)
     result = await service.get_status("scan-event", "scan-scene")
     assert result["available"] is False
+    with pytest.raises(scans.BirdScanUnavailable):
+        await service.enqueue("scan-event", "scan-scene")
+
+
+@pytest.mark.asyncio
+async def test_a_whole_frame_removed_beside_the_saved_crop_can_no_longer_be_scanned(scene, monkeypatch):
+    # Removing a frame's whole-scene choice while its crop stays the photograph (#1107) takes the
+    # scene out of the finder too: the owner said that picture is not to be used.
+    service, database, candidate = scene
+    monkeypatch.setattr(scans.DetectionRepository, "list_snapshot_candidates", STORED_SNAPSHOT_CANDIDATES)
+    saved_crop = {
+        **candidate,
+        "candidate_id": "scan-crop",
+        "image_ref": "scan-crop-image",
+        "source_mode": "model_crop",
+        "snapshot_source": "hq_candidate_model_crop",
+        "crop_box": [5, 5, 30, 40],
+        "selected": True,
+    }
+    async with database() as db:
+        repository = scans.DetectionRepository(db)
+        await repository.replace_snapshot_candidates("scan-event", [saved_crop, {**candidate, "selected": False}])
+        assert (await service.get_status("scan-event", "scan-scene"))["available"] is True
+        assert await repository.set_snapshot_candidate_dismissals("scan-event", ["scan-scene"], True)
+    result = await service.get_status("scan-event", "scan-scene")
+    assert result["available"] is False and result["unavailable_reason"] == "full_scene_unavailable"
     with pytest.raises(scans.BirdScanUnavailable):
         await service.enqueue("scan-event", "scan-scene")
 

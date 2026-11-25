@@ -66,7 +66,17 @@ function candidateUrl(capture: string, id: string, kind: 'image' | 'thumbnail'):
 
 interface Plan {
     dismissed: Set<string>;
-    photoMutations: Array<{ capture: string; candidateId: string; dismissed: boolean }>;
+    photoMutations: Array<{
+        capture: string;
+        candidateId: string;
+        dismissed: boolean;
+        companions?: string[];
+        expected?: Record<string, string>;
+    }>;
+    /** More framings for a capture, beside its standing ones. */
+    extraCandidates?: Partial<Record<Capture, CandidateSpec[]>>;
+    /** Whether the record offers to regenerate snapshots, which keeps the strip on screen. */
+    cropFeatureOff?: boolean;
     birdMutations: Array<{ capture: string; birdId: number; body: Record<string, unknown> }>;
     dismissFailure?: boolean;
     heldDismissals: Map<string, Promise<void>>;
@@ -101,7 +111,8 @@ function gate(): { promise: Promise<void>; release: () => void } {
 
 function candidateList(capture: Capture, plan: Plan) {
     const chosen = plan.selection[capture];
-    const candidates: Record<string, unknown>[] = CANDIDATES[capture].map((spec) => ({
+    const specs = [...CANDIDATES[capture], ...(plan.extraCandidates?.[capture] ?? [])];
+    const candidates: Record<string, unknown>[] = specs.map((spec) => ({
         candidate_id: `${capture}__${spec.id}`,
         frame_index: spec.frame,
         frame_offset_seconds: spec.offset ?? null,
@@ -140,7 +151,7 @@ function candidateList(capture: Capture, plan: Plan) {
             thumbnail_url: candidateUrl(capture, id, 'thumbnail')
         });
     }
-    const chosenSpec = CANDIDATES[capture].find((spec) => spec.id === chosen);
+    const chosenSpec = specs.find((spec) => spec.id === chosen);
     const birds = capture === 'tit'
         ? [{
             id: 474, bird_index: 0, candidate_id: 'tit__model', clip_variant: 'frigate_snapshot', frame_index: 0,
@@ -231,8 +242,19 @@ async function serve(page: Page, plan: Plan): Promise<void> {
         if (dismiss && request.method() === 'PATCH') {
             const capture = dismiss[1] as Capture;
             const candidateId = decodeURIComponent(dismiss[2]);
-            const body = request.postDataJSON() as { dismissed: boolean };
-            plan.photoMutations.push({ capture, candidateId, dismissed: body.dismissed });
+            const body = request.postDataJSON() as {
+                dismissed: boolean;
+                companion_candidate_ids?: string[];
+                expected_content_identities?: Record<string, string>;
+            };
+            const companions = body.companion_candidate_ids ?? [];
+            plan.photoMutations.push({
+                capture,
+                candidateId,
+                dismissed: body.dismissed,
+                ...(companions.length ? { companions } : {}),
+                ...(body.expected_content_identities ? { expected: body.expected_content_identities } : {})
+            });
             const waiting = plan.heldDismissals.get(capture);
             if (waiting) await waiting;
             if (plan.dismissFailure) {
@@ -240,15 +262,24 @@ async function serve(page: Page, plan: Plan): Promise<void> {
                 return route.fulfill({ status: 503, json: { detail: 'Photo choices unavailable' } });
             }
             const asRecordedSelected = plan.currentSource === 'frigate_snapshot' || plan.currentSource === 'frigate_snapshot_unverified' || plan.currentSource === 'manual_upload';
+            const members = [candidateId, ...companions];
             if (body.dismissed && (
                 (candidateId === 'as-recorded' && asRecordedSelected)
-                || (candidateId === `${capture}__${plan.selection[capture]}` && !asRecordedSelected)
+                || (members.includes(`${capture}__${plan.selection[capture]}`) && !asRecordedSelected)
             )) {
                 return route.fulfill({ status: 409, json: { detail: 'Choose another photograph before removing this one' } });
             }
-            if (body.dismissed) plan.dismissed.add(candidateId);
-            else plan.dismissed.delete(candidateId);
-            return route.fulfill({ json: candidateList(capture, plan) });
+            // As the server does: only removals this request made, or undid, are reported, each
+            // with the pixels it is bound to; a framing already removed is left as it was.
+            const changed = members.filter((id) => plan.dismissed.has(id) !== body.dismissed);
+            for (const id of changed) {
+                if (body.dismissed) plan.dismissed.add(id);
+                else plan.dismissed.delete(id);
+            }
+            return route.fulfill({ json: {
+                ...candidateList(capture, plan),
+                changed_dismissals: changed.map((id) => ({ candidate_id: id, content_identity: `pixels-of-${id}` }))
+            } });
         }
         if (path.endsWith('.jpg') || path.endsWith('.svg')) {
             const heldKey = [...plan.held.keys()].find((key) => path.includes(key));
@@ -262,7 +293,7 @@ async function serve(page: Page, plan: Plan): Promise<void> {
             return route.fulfill({
                 json: {
                     available: true,
-                    high_quality_bird_crop_enabled: true,
+                    high_quality_bird_crop_enabled: !plan.cropFeatureOff,
                     source: plan.currentSource ?? 'hq_candidate_model_crop',
                     original_frigate_snapshot_available: plan.originalFrigateSnapshotAvailable ?? false
                 }
@@ -318,7 +349,12 @@ for (const surface of ['record'] as const) {
         await page.getByRole('button', { name: 'Undo', exact: true }).click();
         await expect(triggers).toHaveCount(4);
         await expect(page.getByRole('button', { name: 'Undo', exact: true })).toHaveCount(0);
-        expect(plan.photoMutations[1]).toEqual({ capture: 'wren', candidateId: 'wren__retained_snapshot__a1b2c3d4e5f6', dismissed: false });
+        expect(plan.photoMutations[1]).toEqual({
+            capture: 'wren',
+            candidateId: 'wren__retained_snapshot__a1b2c3d4e5f6',
+            dismissed: false,
+            expected: { 'wren__retained_snapshot__a1b2c3d4e5f6': 'pixels-of-wren__retained_snapshot__a1b2c3d4e5f6' }
+        });
         expect(plan.dismissed.size).toBe(0);
         if (await page.locator('[data-frame-strip-panel]').count()) await page.keyboard.press('Escape');
         await page.locator('[data-frame-strip] button[aria-pressed="true"]').click();
@@ -344,7 +380,9 @@ for (const surface of ['record'] as const) {
         expect(plan.photoMutations).toEqual([{ capture: 'wren', candidateId: 'as-recorded', dismissed: true }]);
         await page.getByRole('button', { name: 'Undo', exact: true }).click();
         await expect(triggers).toHaveCount(3);
-        expect(plan.photoMutations[1]).toEqual({ capture: 'wren', candidateId: 'as-recorded', dismissed: false });
+        expect(plan.photoMutations[1]).toEqual({
+            capture: 'wren', candidateId: 'as-recorded', dismissed: false, expected: { 'as-recorded': 'pixels-of-as-recorded' }
+        });
         expect(plan.errors).toEqual([]);
 
         const selectedPlan = newPlan();
@@ -403,6 +441,87 @@ for (const surface of ['record'] as const) {
         expect(plan.errors).toEqual([]);
     });
 }
+
+test('record: removing a folded photo removes all its framings at once and Undo brings that photo back (#1107)', async ({ page }) => {
+    const plan = newPlan();
+    plan.extraCandidates = {
+        wren: [{ id: 'f10-hint', mode: 'frigate_hint_crop', frame: 10, clip: 'event', box: [380, 280, 720, 580], label: 'Troglodytes troglodytes', score: 0.5, offset: 0.4 }]
+    };
+    await openRecord(page, plan, '&queue=wren,robin');
+    const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+    await expect(triggers).toHaveCount(2);
+    const firstThumbnail = triggers.nth(0).locator('img');
+    await expect(firstThumbnail).toHaveAttribute('src', /wren__f10-model\/thumbnail\.jpg/);
+
+    await triggers.nth(0).click();
+    await page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' }).click();
+
+    await expect(triggers).toHaveCount(1);
+    await expect(page.locator('[data-frame-strip] img[src*="wren__f10-"]')).toHaveCount(0);
+    await expect(page.locator('[data-frame-strip-status]')).toContainText('1 frame from this visit');
+    expect(plan.photoMutations).toEqual([{
+        capture: 'wren', candidateId: 'wren__f10-model', dismissed: true, companions: ['wren__f10-full', 'wren__f10-hint']
+    }]);
+    expect([...plan.dismissed].sort()).toEqual(['wren__f10-full', 'wren__f10-hint', 'wren__f10-model']);
+
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+
+    await expect(triggers).toHaveCount(2);
+    await expect(firstThumbnail).toHaveAttribute('src', /wren__f10-model\/thumbnail\.jpg/);
+    expect(plan.photoMutations[1]).toEqual({
+        capture: 'wren',
+        candidateId: 'wren__f10-model',
+        dismissed: false,
+        companions: ['wren__f10-full', 'wren__f10-hint'],
+        expected: {
+            'wren__f10-model': 'pixels-of-wren__f10-model',
+            'wren__f10-full': 'pixels-of-wren__f10-full',
+            'wren__f10-hint': 'pixels-of-wren__f10-hint'
+        }
+    });
+    expect(plan.dismissed.size).toBe(0);
+    expect(plan.errors).toEqual([]);
+});
+
+test('record: Undo restores only what the removal hid, leaving an earlier removal of the same frame (#1107)', async ({ page }) => {
+    const plan = newPlan();
+    plan.dismissed.add('wren__f10-full');
+    await openRecord(page, plan, '&queue=wren,robin');
+    const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+    await expect(triggers).toHaveCount(2);
+    await triggers.nth(0).click();
+    await page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' }).click();
+    await expect(triggers).toHaveCount(1);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(triggers).toHaveCount(2);
+    expect(plan.photoMutations.map(({ candidateId, dismissed, companions }) => ({ candidateId, dismissed, companions }))).toEqual([
+        { candidateId: 'wren__f10-model', dismissed: true, companions: undefined },
+        { candidateId: 'wren__f10-model', dismissed: false, companions: undefined }
+    ]);
+    expect([...plan.dismissed]).toEqual(['wren__f10-full']);
+    expect(plan.errors).toEqual([]);
+});
+
+test('record: Undo stays on screen when the removal leaves the strip empty (#1107)', async ({ page }) => {
+    const plan = newPlan();
+    plan.cropFeatureOff = true;
+    // The record keeps the camera's snapshot, which Frigate no longer has: no strip choice is the photograph.
+    plan.currentSource = 'frigate_snapshot';
+    await openRecord(page, plan, '&queue=wren,robin');
+    const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+    await expect(triggers).toHaveCount(2);
+    for (const remaining of [1, 0]) {
+        await triggers.nth(0).click();
+        await page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' }).click();
+        await expect(triggers).toHaveCount(remaining);
+    }
+    const undo = page.getByRole('button', { name: 'Undo', exact: true });
+    await expect(undo).toBeVisible();
+    await undo.click();
+    await expect(triggers).toHaveCount(1);
+    expect(plan.dismissed.has('wren__f40-model')).toBe(false);
+    expect(plan.errors).toEqual([]);
+});
 
 test('queue: strip thumbnails inspect frames in the main viewer without offering photo removal or replacement', async ({ page }) => {
     const plan = newPlan();

@@ -2980,7 +2980,23 @@ export interface components {
     thumbnail_url?: string | null;
 };
     SnapshotDismissRequest: {
+    companion_candidate_ids?: Array<string> | null;
     dismissed: boolean;
+    expected_content_identities?: Record<string, string> | null;
+};
+    SnapshotDismissResponse: {
+    as_recorded_dismissed?: boolean;
+    birds?: Array<components['schemas']['BirdObservationResponse']>;
+    candidates: Array<components['schemas']['SnapshotCandidateResponse']>;
+    changed_dismissals?: Array<components['schemas']['SnapshotDismissalTarget']>;
+    current_candidate_id?: string | null;
+    current_source?: string | null;
+    event_id: string;
+    model_crop_miss_reason?: string | null;
+};
+    SnapshotDismissalTarget: {
+    candidate_id: string;
+    content_identity: string;
 };
     SnapshotGenerateResponse: {
     already_hq_bird_crop: boolean;
@@ -4787,7 +4803,7 @@ export interface paths {
 };
       query: never;
       requestBody: components['schemas']['SnapshotDismissRequest'];
-      response: components['schemas']['SnapshotCandidateListResponse'];
+      response: components['schemas']['SnapshotDismissResponse'];
     };
   };
   "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg": {

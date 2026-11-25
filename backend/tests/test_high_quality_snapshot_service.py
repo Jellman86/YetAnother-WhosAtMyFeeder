@@ -97,7 +97,7 @@ async def _removed_photo_choices(monkeypatch, event_id, *, changed=False, remain
                 for choice in choices
             ],
         )
-        assert await repo.dismiss_snapshot_candidate(event_id, "removed-photo", True)
+        assert await repo.set_snapshot_candidate_dismissals(event_id, ["removed-photo"], True) is not None
     monkeypatch.setattr(service, "_score_snapshot_candidate", AsyncMock(side_effect=lambda candidate: dict(candidate)))
     monkeypatch.setattr(service, "_load_expected_species_labels", AsyncMock(return_value={"House Finch"}))
     monkeypatch.setattr(service, "_detect_count_candidates", AsyncMock(return_value=[]))
@@ -116,7 +116,10 @@ async def test_regeneration_respects_removed_photo_content_without_losing_count_
     service, choices, _ = await _removed_photo_choices(monkeypatch, event, changed=changed)
     if restored:
         async with get_db() as db:
-            assert await DetectionRepository(db).dismiss_snapshot_candidate(event, "removed-photo", False)
+            assert (
+                await DetectionRepository(db).set_snapshot_candidate_dismissals(event, ["removed-photo"], False)
+                is not None
+            )
     bundle = await service._score_and_select_snapshot_candidates(event, choices)
     assert bundle["selected_candidate"]["candidate_id"] == ("removed-photo" if changed or restored else "chosen-photo")
     assert {row["candidate_id"] for row in bundle["candidates"]} == {
@@ -213,6 +216,43 @@ async def test_legacy_photo_removal_survives_identical_persistence_and_next_resc
         assert removed["content_sha256"] == hashlib.sha256(choices[0]["image_bytes"]).hexdigest()
     again = await service._score_and_select_snapshot_candidates(event, choices)
     assert again["selected_candidate"]["candidate_id"] == ("removed-photo" if changed else "chosen-photo")
+
+
+@pytest.mark.asyncio
+async def test_legacy_photo_dismissed_with_verified_digest_can_undo_after_identical_regeneration(tmp_path, monkeypatch):
+    event = "dismissed-legacy-undo-identical"
+    cache = _make_cache_service(tmp_path, monkeypatch)
+    service, choices, removed_bytes = await _removed_photo_choices(monkeypatch, event, legacy=True, changed=False)
+    digest = hashlib.sha256(removed_bytes).hexdigest()
+    await cache.cache_snapshot(choices[0]["image_ref"], removed_bytes, source="snapshot_candidate")
+    # Re-create the removal as the PATCH route does once the legacy pixels are on disk: the verified
+    # digest is bound at removal time, so identical regeneration preserves Undo with the original response.
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        await repo.set_snapshot_candidate_dismissals(event, ["removed-photo"], False)
+        changed = await repo.set_snapshot_candidate_dismissals(
+            event, ["removed-photo"], True, verified_digests={"removed-photo": digest}
+        )
+    assert changed == [{"candidate_id": "removed-photo", "content_identity": digest}]
+
+    bundle = await service._score_and_select_snapshot_candidates(event, choices)
+    await service._persist_snapshot_candidates(event, bundle["candidates"])
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        stored = await repo.list_snapshot_candidates(event)
+        removed = next(row for row in stored if row["candidate_id"] == "removed-photo")
+        assert removed["photo_hidden"] is True
+        assert removed["content_sha256"] == digest
+
+        undone = await repo.set_snapshot_candidate_dismissals(
+            event,
+            ["removed-photo"],
+            False,
+            expected_content_identities={"removed-photo": changed[0]["content_identity"]},
+        )
+        assert undone == changed
+        after_undo = await repo.list_snapshot_candidates(event)
+        assert next(row for row in after_undo if row["candidate_id"] == "removed-photo")["photo_hidden"] is False
 
 
 def test_job_snapshot_keeps_timestamp_stable_between_polls():
