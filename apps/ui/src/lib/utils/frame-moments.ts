@@ -224,7 +224,13 @@ export function momentImageUrl(moment: FrameMoment): string | null {
     return candidate?.image_url ?? candidate?.thumbnail_url ?? null;
 }
 
-const AS_RECORDED_SOURCES = new Set(['frigate_snapshot', 'frigate_snapshot_unverified', 'manual_upload']);
+const AS_RECORDED_SOURCES = new Set([
+    'frigate_snapshot',
+    'frigate_snapshot_cropped',
+    'frigate_snapshot_uncropped',
+    'frigate_snapshot_unverified',
+    'manual_upload'
+]);
 
 /** Which moment the record currently uses as its photograph, or null when none matches. */
 export function currentMoment(

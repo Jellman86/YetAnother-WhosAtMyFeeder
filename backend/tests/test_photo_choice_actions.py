@@ -350,7 +350,17 @@ async def test_dismissing_as_recorded_photo_option_is_reversible_and_blocks_reve
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("current_source", ["frigate_snapshot", "frigate_snapshot_unverified", "manual_upload", None])
+@pytest.mark.parametrize(
+    "current_source",
+    [
+        "frigate_snapshot",
+        "frigate_snapshot_cropped",
+        "frigate_snapshot_uncropped",
+        "frigate_snapshot_unverified",
+        "manual_upload",
+        None,
+    ],
+)
 async def test_dismissing_as_recorded_photo_option_is_rejected_while_it_is_the_current_photo(
     photos, monkeypatch, current_source
 ):

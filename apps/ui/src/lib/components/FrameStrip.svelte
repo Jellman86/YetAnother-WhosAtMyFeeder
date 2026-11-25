@@ -94,7 +94,9 @@
     }
 
     function isSelectedChoice(moment: FrameMoment): boolean {
-        if (moment.asRecorded) return isCurrent(moment);
+        if (moment.asRecorded) {
+            return isCurrent(moment) || (!current && !moments.some((item) => Boolean(preferredCandidate(item)?.selected)));
+        }
         return Boolean(preferredCandidate(moment)?.selected) || isCurrent(moment);
     }
 

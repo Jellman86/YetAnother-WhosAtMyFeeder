@@ -155,6 +155,8 @@ describe('currentMoment', () => {
 
     it('resolves the camera snapshot by source rather than by candidate id', () => {
         expect(currentMoment(moments, null, 'frigate_snapshot')?.asRecorded).toBe(true);
+        expect(currentMoment(moments, null, 'frigate_snapshot_cropped')?.asRecorded).toBe(true);
+        expect(currentMoment(moments, null, 'frigate_snapshot_uncropped')?.asRecorded).toBe(true);
         expect(currentMoment(moments, null, 'frigate_snapshot_unverified')?.asRecorded).toBe(true);
         expect(currentMoment(moments, null, 'manual_upload')?.asRecorded).toBe(true);
     });

@@ -361,7 +361,15 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
     )
 
 
-_AS_RECORDED_SOURCES = frozenset({"frigate_snapshot", "frigate_snapshot_unverified", "manual_upload"})
+_AS_RECORDED_SOURCES = frozenset(
+    {
+        "frigate_snapshot",
+        "frigate_snapshot_cropped",
+        "frigate_snapshot_uncropped",
+        "frigate_snapshot_unverified",
+        "manual_upload",
+    }
+)
 
 
 def _is_as_recorded_current(current_source: str | None, candidates: list[dict]) -> bool:
