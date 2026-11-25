@@ -30485,6 +30485,44 @@
             }
           },
           {
+            "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
+              "title": "End Time"
+            }
+          },
+          {
             "description": "Filter by species name",
             "in": "query",
             "name": "species",
@@ -30872,6 +30910,44 @@
               ],
               "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
               "title": "End Date"
+            }
+          },
+          {
+            "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
+              "title": "End Time"
             }
           },
           {
@@ -39959,7 +40035,7 @@
             }
           },
           {
-            "description": "Exact start instant; overrides start_date",
+            "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
             "in": "query",
             "name": "start_time",
             "required": false,
@@ -39973,12 +40049,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Exact start instant; overrides start_date",
+              "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
               "title": "Start Time"
             }
           },
           {
-            "description": "Exact end instant; overrides end_date",
+            "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
             "in": "query",
             "name": "end_time",
             "required": false,
@@ -39992,7 +40068,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Exact end instant; overrides end_date",
+              "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
               "title": "End Time"
             }
           },
@@ -40221,7 +40297,7 @@
             }
           },
           {
-            "description": "Exact start instant; overrides start_date",
+            "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
             "in": "query",
             "name": "start_time",
             "required": false,
@@ -40235,12 +40311,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Exact start instant; overrides start_date",
+              "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
               "title": "Start Time"
             }
           },
           {
-            "description": "Exact end instant; overrides end_date",
+            "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
             "in": "query",
             "name": "end_time",
             "required": false,
@@ -40254,7 +40330,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Exact end instant; overrides end_date",
+              "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
               "title": "End Time"
             }
           },

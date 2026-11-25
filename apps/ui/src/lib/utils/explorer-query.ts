@@ -9,7 +9,7 @@ import type { ExplorerSubjects, GardenReview } from './garden-explorer';
  * Explorer does not own (a shared clip's `event`, `share` and `video`) are left as they are.
  */
 
-export type ExplorerDatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
+export type ExplorerDatePreset = 'all' | '24h' | 'today' | 'week' | 'month' | 'custom';
 
 export interface ExplorerQuery {
     /** Null when the link does not say, so this device's own choice applies. */
@@ -41,7 +41,7 @@ const OWNED_KEYS = ['visitors', 'review', 'date', 'start', 'end', 'species', 'ta
 const GARDEN_KEYS = new Set<string>(['visitors', 'review']);
 const SUBJECTS: readonly ExplorerSubjects[] = ['birds', 'garden', 'all'];
 const REVIEWS: readonly GardenReview[] = ['pending', 'confirmed', 'dismissed'];
-const DATE_PRESETS: readonly ExplorerDatePreset[] = ['all', 'today', 'week', 'month', 'custom'];
+const DATE_PRESETS: readonly ExplorerDatePreset[] = ['all', '24h', 'today', 'week', 'month', 'custom'];
 // The API refuses longer camera names, and no species value comes near this.
 const MAX_NAME_LENGTH = 128;
 const MAX_SPECIES_LENGTH = 256;
@@ -167,4 +167,38 @@ export function writeExplorerQuery(current: string | URLSearchParams, query: Exp
     if (!query.groupVisits) params.set('show', 'captures');
     if (query.page > 1) params.set('page', String(query.page));
     return params.toString();
+}
+
+const ROLLING_DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The window one Explorer read covers, as the history reads ask for it and as two instants. */
+export interface ExplorerWindow {
+    /** Calendar days for the day presets; exact instants for the last 24 hours, which no day can state. */
+    request: { startDate?: string; endDate?: string; startTime?: string; endTime?: string };
+    /** The same window as instants, for the Garden, heard-call and timeline reads; null where open. */
+    start: Date | null;
+    end: Date | null;
+}
+
+/** Local midnight of a day, or its last instant, as a date input's YYYY-MM-DD names it. */
+function localDayBound(day: string | undefined, end: boolean): Date | null {
+    if (!day) return null;
+    const bound = new Date(`${day}T${end ? '23:59:59.999' : '00:00:00'}`);
+    return Number.isNaN(bound.getTime()) ? null : bound;
+}
+
+/**
+ * The window for a preset at `now`. The caller fixes `now` once per read, so the visits, the
+ * captures, their count, Garden and the heard calls all share one last 24 hours.
+ */
+export function explorerWindow(preset: ExplorerDatePreset, days: { start?: string; end?: string }, now: Date): ExplorerWindow {
+    if (preset === '24h') {
+        const start = new Date(now.getTime() - ROLLING_DAY_MS);
+        const end = new Date(now.getTime());
+        return { request: { startTime: start.toISOString(), endTime: end.toISOString() }, start, end };
+    }
+    const request: ExplorerWindow['request'] = {};
+    if (days.start) request.startDate = days.start;
+    if (days.end) request.endDate = days.end;
+    return { request, start: localDayBound(days.start, false), end: localDayBound(days.end, true) };
 }

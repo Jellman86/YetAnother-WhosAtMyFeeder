@@ -63,9 +63,11 @@ interface Opening {
     summaryOverrides?: Record<string, unknown>;
     summaryFail?: boolean;
     queueTotal?: number;
+    /** Garden animals switched on, with a quiet garden, so the log holds birds and Garden. */
+    garden?: boolean;
 }
 
-async function openDashboard(page: Page, { status, readingDelayMs = 0, summaryOverrides, summaryFail = false, queueTotal = 0 }: Opening): Promise<void> {
+async function openDashboard(page: Page, { status, readingDelayMs = 0, summaryOverrides, summaryFail = false, queueTotal = 0, garden = false }: Opening): Promise<void> {
     const data = readings();
     if (summaryOverrides) Object.assign(data.summary, summaryOverrides);
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
@@ -91,7 +93,8 @@ async function openDashboard(page: Page, { status, readingDelayMs = 0, summaryOv
         }
         const responses: Record<string, unknown> = {
             '/api/auth/status': status,
-            '/api/settings': { birdnet_enabled: true, classification_threshold: 0.6, cameras: ['birdcam'], media_cache_high_quality_event_snapshots: true, clips_enabled: true },
+            '/api/settings': { birdnet_enabled: true, classification_threshold: 0.6, cameras: ['birdcam'], media_cache_high_quality_event_snapshots: true, clips_enabled: true, beta_garden_animals: garden },
+            '/api/garden/visits': { visits: [], total: 0, capture_total: 0, limit: 24, offset: 0 },
             '/api/settings/public': { classification_threshold: 0.6, ebird_default_days_back: 7, clips_enabled: true, recording_clip_enabled: false, bird_counting_enabled: true },
             '/api/events': data.events,
             '/api/events/count': { count: data.events.length },
@@ -207,15 +210,43 @@ for (const { device, viewport, budget } of [
     }
 }
 
-test('the field log names the desk window and says that its earlier visits open in the Explorer', async ({ page }) => {
+for (const { scope, garden, visitors } of [
+    { scope: 'birds only', garden: false, visitors: 'birds' },
+    { scope: 'birds and Garden', garden: true, visitors: 'all' }
+]) {
+    test(`the field log's earlier visits open the Explorer on the last 24 hours with ${scope}, whatever the device last chose`, async ({ page }) => {
+        await page.setViewportSize({ width: 1280, height: 800 });
+        // This device last left the Explorer on Garden alone; the link must not inherit that.
+        await page.addInitScript(() => localStorage.setItem('yawamf:explorer-subjects', 'garden'));
+        await openDashboard(page, { status: owner, garden });
+        await settled(page);
+        await expect(page.getByRole('heading', { level: 1 })).toHaveText('Last 24 hours');
+        const more = page.locator('[data-field-log-more]');
+        await expect(more).toHaveText('9 earlier visits in the last 24 hours, open in Explorer');
+        // The Explorer's page of 24 visits, not the Dashboard's own read of 12.
+        const visitsRead = page.waitForRequest(request => {
+            const url = new URL(request.url());
+            return url.pathname === '/api/visits' && url.searchParams.get('limit') === '24';
+        });
+        await more.click();
+        await expect.poll(() => new URL(page.url()).pathname).toBe('/events');
+        await expect.poll(() => new URL(page.url()).searchParams.get('date')).toBe('24h');
+        await expect.poll(() => new URL(page.url()).searchParams.get('visitors')).toBe(visitors);
+        // The Explorer reads exactly the last 24 hours, not whole days.
+        const read = new URL((await visitsRead).url()).searchParams;
+        const span = Date.parse(read.get('end_time') ?? '') - Date.parse(read.get('start_time') ?? '');
+        expect(span).toBe(24 * 60 * 60 * 1000);
+        expect(read.has('start_date')).toBe(false);
+    });
+}
+
+test('the field log header still opens the whole history', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await openDashboard(page, { status: owner });
     await settled(page);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Last 24 hours');
-    const more = page.locator('[data-field-log-more]');
-    await expect(more).toHaveText('9 earlier visits in the last 24 hours, open in Explorer');
-    await more.click();
+    await page.locator('[data-dashboard-field-log]').getByRole('button', { name: 'See full history' }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe('/events');
+    expect(new URL(page.url()).searchParams.get('date')).toBeNull();
 });
 
 test('on a phone Needs your call comes before the field log; on a desktop it heads the rail beside the log', async ({ page }) => {

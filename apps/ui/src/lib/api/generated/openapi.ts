@@ -4303,6 +4303,7 @@ export interface paths {
     audio_confirmed_only?: boolean;
     camera?: string | null;
     end_date?: string | "today" | null;
+    end_time?: string | null;
     event_id?: string | null;
     favorites?: boolean;
     fields?: string | null;
@@ -4314,6 +4315,7 @@ export interface paths {
     sort?: "newest" | "oldest" | "confidence";
     species?: string | null;
     start_date?: string | "today" | null;
+    start_time?: string | null;
     taxon?: number | null;
 };
       requestBody: unknown;
@@ -4346,12 +4348,14 @@ export interface paths {
     audio_confirmed_only?: boolean;
     camera?: string | null;
     end_date?: string | "today" | null;
+    end_time?: string | null;
     favorites?: boolean;
     include_hidden?: boolean;
     multiple_species_only?: boolean;
     only_hidden?: boolean;
     species?: string | null;
     start_date?: string | "today" | null;
+    start_time?: string | null;
     taxon?: number | null;
 };
       requestBody: unknown;

@@ -7,6 +7,9 @@ export interface FetchEventsOptions {
     offset?: number;
     startDate?: string;
     endDate?: string;
+    /** An exact UTC instant; outranks `startDate`, for a window no calendar day states. */
+    startTime?: string;
+    endTime?: string;
     species?: string;
     camera?: string;
     sort?: 'newest' | 'oldest' | 'confidence';
@@ -24,12 +27,14 @@ export interface FetchEventsOptions {
 }
 
 export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
-    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, taxon, eventId, fields, requestKey, signal } = options;
+    const { limit = 50, offset = 0, startDate, endDate, startTime, endTime, species, camera, sort, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, taxon, eventId, fields, requestKey, signal } = options;
     const params = new URLSearchParams();
     params.set('limit', limit.toString());
     params.set('offset', offset.toString());
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
+    if (startTime) params.set('start_time', startTime);
+    if (endTime) params.set('end_time', endTime);
     if (species) params.set('species', species);
     if (camera) params.set('camera', camera);
     if (sort) params.set('sort', sort);
@@ -56,6 +61,8 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
         fields || 'full',
         startDate || 'none',
         endDate || 'none',
+        startTime || 'none',
+        endTime || 'none',
         String(limit),
         String(offset)
     ].join('-');
@@ -92,6 +99,8 @@ export async function fetchEventFilters(options: FetchEventFiltersOptions = {}):
 export interface EventsCountOptions {
     startDate?: string;
     endDate?: string;
+    startTime?: string;
+    endTime?: string;
     species?: string;
     camera?: string;
     includeHidden?: boolean;
@@ -106,10 +115,12 @@ export interface EventsCountOptions {
 export type EventsCountResponse = paths['/api/events/count']['get']['response'];
 
 export async function fetchEventsCount(options: EventsCountOptions = {}): Promise<EventsCountResponse> {
-    const { startDate, endDate, species, camera, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, taxon, requestKey } = options;
+    const { startDate, endDate, startTime, endTime, species, camera, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, taxon, requestKey } = options;
     const params = new URLSearchParams();
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
+    if (startTime) params.set('start_time', startTime);
+    if (endTime) params.set('end_time', endTime);
     if (species) params.set('species', species);
     if (camera) params.set('camera', camera);
     if (includeHidden) params.set('include_hidden', 'true');
@@ -129,7 +140,9 @@ export async function fetchEventsCount(options: EventsCountOptions = {}): Promis
         multipleSpeciesOnly ? 'multi-species' : 'all',
         taxon ? `taxon-${taxon}` : 'all-taxa',
         startDate || 'none',
-        endDate || 'none'
+        endDate || 'none',
+        startTime || 'none',
+        endTime || 'none'
     ].join('-');
     return fetchWithAbort<EventsCountResponse>(
         requestKey === undefined ? filterKey : requestKey,

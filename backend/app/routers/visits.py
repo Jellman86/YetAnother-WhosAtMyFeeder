@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.auth import AuthContext, get_auth_context_with_legacy
@@ -9,15 +7,15 @@ from app.models import DetectionVisitResponse, DetectionVisitsResponse, VisitCap
 from app.repositories.visit_repository import VisitRepository
 from app.routers.events import (
     CALENDAR_DAY_HELP,
+    EXACT_END_HELP,
+    EXACT_START_HELP,
     parse_species_filter,
     present_events,
-    requested_calendar_window,
     resolve_species_display_filter_aliases,
-    visible_history_window,
+    visible_request_window,
 )
-from app.utils.api_datetime import utc_naive_datetime
+from app.utils.api_datetime import ExactInstant
 from app.utils.calendar_day import CalendarDay
-from app.utils.timezone import calendar_timezone
 from app.ratelimit import guest_rate_limit
 from app.services.explorer_search import bird_taxon_members
 
@@ -28,22 +26,6 @@ router = APIRouter(tags=["visits"])
 MAX_VISITS_PAGE = 500
 
 
-def visible_visit_window(
-    request: Request,
-    auth: AuthContext,
-    start_day: CalendarDay | None,
-    end_day: CalendarDay | None,
-    start_time: datetime | None,
-    end_time: datetime | None,
-) -> tuple[datetime | None, datetime | None]:
-    """Exact instants win over calendar days; the viewer's allowance narrows either."""
-    zone = calendar_timezone(request)
-    day_start, day_end = requested_calendar_window(start_day, end_day, zone)
-    start = utc_naive_datetime(start_time) if start_time else day_start
-    end = utc_naive_datetime(end_time) if end_time else day_end
-    return visible_history_window(auth, start, end, zone)
-
-
 @router.get("/visits", response_model=DetectionVisitsResponse)
 @guest_rate_limit()
 async def get_visits(
@@ -52,8 +34,8 @@ async def get_visits(
     offset: int = Query(0, ge=0, description="Visits to skip; `total` counts every matching visit"),
     start_date: CalendarDay | None = Query(None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
     end_date: CalendarDay | None = Query(None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
-    start_time: datetime | None = Query(None, description="Exact start instant; overrides start_date"),
-    end_time: datetime | None = Query(None, description="Exact end instant; overrides end_date"),
+    start_time: ExactInstant | None = Query(None, description=EXACT_START_HELP),
+    end_time: ExactInstant | None = Query(None, description=EXACT_END_HELP),
     species: str | None = None,
     camera: str | None = None,
     multiple_species_only: bool = False,
@@ -64,7 +46,7 @@ async def get_visits(
     taxon: int | None = Query(None, ge=1, description="Catalogue taxon: only species at or beneath it"),
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ) -> DetectionVisitsResponse:
-    start, end = visible_visit_window(request, auth, start_date, end_date, start_time, end_time)
+    start, end = visible_request_window(request, auth, start_date, end_date, start_time, end_time)
     if not auth.is_owner:
         only_hidden = False
         limit = min(limit, 50)
@@ -153,12 +135,12 @@ async def get_visit_captures(
     offset: int = Query(0, ge=0),
     start_date: CalendarDay | None = Query(None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
     end_date: CalendarDay | None = Query(None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
-    start_time: datetime | None = Query(None, description="Exact start instant; overrides start_date"),
-    end_time: datetime | None = Query(None, description="Exact end instant; overrides end_date"),
+    start_time: ExactInstant | None = Query(None, description=EXACT_START_HELP),
+    end_time: ExactInstant | None = Query(None, description=EXACT_END_HELP),
     only_hidden: bool = False,
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ) -> VisitCapturesResponse:
-    start, end = visible_visit_window(request, auth, start_date, end_date, start_time, end_time)
+    start, end = visible_request_window(request, auth, start_date, end_date, start_time, end_time)
     async with get_db() as db:
         captures, total = await VisitRepository(db).visit_captures(
             visit_id,

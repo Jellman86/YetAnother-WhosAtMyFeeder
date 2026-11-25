@@ -73,7 +73,8 @@
     import { speciesPickerNames } from '../utils/species-picker';
     import { explanation } from '../utils/explanation';
     import { explorerPane } from '../utils/explorer-results';
-    import { parseExplorerQuery, writeExplorerQuery, type ExplorerQuery } from '../utils/explorer-query';
+    import { explorerWindow, parseExplorerQuery, writeExplorerQuery, type ExplorerQuery, type ExplorerWindow } from '../utils/explorer-query';
+    import { ShownExplorerWindow } from '../utils/explorer-shown-window.svelte';
     import { explorerCameraOptions, seenGardenCameras } from '../utils/explorer-cameras';
     import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
 
@@ -153,6 +154,11 @@
     // Camera candidates held back until their automatic check decides; only the owner is told.
     let gardenAwaitingCheck = $state(0);
     let openedGardenGroup = $state.raw<GardenVisit | null>(null);
+    /**
+     * The scope the open Garden record was opened in. Its group is an id in that window, so its pages
+     * are read there too, even after a Garden refresh moves the rows on screen to a newer window.
+     */
+    let openedGardenScope = $state.raw<OpenedGardenScope | null>(null);
     let gardenGroupOffset = $state(0);
     let gardenGroupLoading = $state(false);
     let gardenGroupError = $state<string | null>(null);
@@ -269,6 +275,13 @@
         if (datePreset === 'custom') return { start: customStartDate || undefined, end: customEndDate || undefined };
         return { start: undefined, end: undefined };
     });
+    /** The window of the bird results on screen; each read fixes its own and publishes it with them. */
+    const shownWindow = new ShownExplorerWindow();
+    /**
+     * The window of the Garden rows on screen. A mixed refresh shows its bird visits before its
+     * Garden read lands, so the Garden rows keep their own window until theirs are replaced.
+     */
+    const shownGardenWindow = new ShownExplorerWindow();
 
     async function loadEvents() {
         const load = eventsLoad.begin();
@@ -291,7 +304,8 @@
         }
         writeAddress();
         try {
-            const range = dateRange;
+            // One pair of instants for the whole read, so its visits, captures, count, Garden and calls agree.
+            const range = explorerWindow(datePreset, dateRange, new Date());
             let newEvents: Detection[];
             let nextTotal: number;
             let nextVisits: DetectionVisit[] = [];
@@ -300,8 +314,8 @@
                 // Garden pages complete groups; no bird history is read.
                 const gardenGeneration = ++gardenLoadGeneration;
                 const page = await fetchGardenVisits({
-                    start: localDayBound(range.start, false)?.toISOString() ?? null,
-                    end: localDayBound(range.end, true)?.toISOString(),
+                    start: range.start?.toISOString() ?? null,
+                    end: range.end?.toISOString(),
                     camera: cameraFilter || undefined,
                     taxon: taxonFilter ?? undefined,
                     order: sortOrder === 'oldest' ? 'oldest' : 'newest',
@@ -310,6 +324,8 @@
                     offset: (currentPage - 1) * effectivePageSize
                 });
                 if (!load.isCurrent() || gardenGeneration !== gardenLoadGeneration) return;
+                shownWindow.publish(range);
+                shownGardenWindow.publish(range);
                 events = [];
                 pageVisits = [];
                 previousVisit = null;
@@ -332,7 +348,7 @@
                 const padded = (heardWanted || gardenInTimeline) && offset > 0 ? 1 : 0;
                 const result = await fetchVisits({
                     limit: pageSize + padded, offset: offset - padded,
-                    startDate: range.start, endDate: range.end,
+                    ...range.request,
                     species: speciesFilter || undefined, camera: cameraFilter || undefined, taxon: taxonFilter ?? undefined,
                     sort: sortOrder, onlyHidden: showHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly,
                     requestKey: EVENTS_PAGE_REQUEST_KEYS.visits
@@ -346,8 +362,7 @@
                 fetchEvents({
                     limit: pageSize,
                     offset: (currentPage - 1) * pageSize,
-                    startDate: range.start,
-                    endDate: range.end,
+                    ...range.request,
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
                     taxon: taxonFilter ?? undefined,
@@ -360,8 +375,7 @@
                     requestKey: EVENTS_PAGE_REQUEST_KEYS.list
                 }),
                 fetchEventsCount({
-                    startDate: range.start,
-                    endDate: range.end,
+                    ...range.request,
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
                     taxon: taxonFilter ?? undefined,
@@ -383,7 +397,7 @@
             // that are already here.
             const firstPage = events.length === 0;
             if (firstPage) {
-                const gardenRead = readGarden({ visits: nextVisits, previous: nextPrevious, total: nextTotal });
+                const gardenRead = readGarden({ visits: nextVisits, previous: nextPrevious, total: nextTotal, window: range });
                 const inTime = await Promise.race([
                     gardenRead,
                     new Promise<null>((resolve) => setTimeout(() => resolve(null), GARDEN_FIRST_PAINT_WAIT_MS))
@@ -398,6 +412,7 @@
                     });
                 }
             }
+            shownWindow.publish(range);
             events = newEvents;
             pageVisits = nextVisits;
             previousVisit = nextPrevious;
@@ -814,7 +829,9 @@
                 if (selectedGarden && !gardenFailed) {
                     const refreshed = findRefreshedGardenVisit(serverGardenVisits, openedGardenGroup);
                     if (refreshed && openedGardenGroup) {
+                        // The refreshed id belongs to the Garden read just applied, so its window comes with it.
                         openedGardenGroup = { ...openedGardenGroup, id: refreshed.id, captureCount: refreshed.capture_count };
+                        openedGardenScope = gardenCaptureScope();
                         await loadGardenCapturePage(gardenGroupOffset, false);
                     } else {
                         // A species correction can change the visit ID. Re-read this
@@ -826,6 +843,7 @@
                             if (generation !== gardenGroupGeneration || selectedGarden?.id !== selected.id) return;
                             selectedGarden = current;
                             openedGardenGroup = current ? { id: current.id, kind: 'visit', captureCount: 1, items: [current] } : null;
+                            openedGardenScope = current ? gardenCaptureScope() : null;
                             gardenGroupOffset = 0;
                         } catch (failure) {
                             if (generation === gardenGroupGeneration) gardenGroupError = failure instanceof Error ? failure.message : $_('garden.save_error');
@@ -1114,7 +1132,7 @@
     );
 
     const visitsByEvent = $derived(new Map(pageVisits.map((visit) => [visit.representative.frigate_event, visit])));
-    const captureWindow = $derived({ startDate: dateRange.start, endDate: dateRange.end, onlyHidden: showHidden });
+    const captureWindow = $derived({ ...shownWindow.current.request, onlyHidden: showHidden });
 
     let visibleEvents = $derived.by(() => {
         if (selectedTimelineBucket === 'all') return events;
@@ -1287,6 +1305,7 @@
         gardenGroupGeneration++;
         selectedGarden = null;
         openedGardenGroup = null;
+        openedGardenScope = null;
     }
 
     /**
@@ -1504,12 +1523,6 @@
     });
     const heardActive = $derived(heardWanted && heardBlocker === null);
 
-    function localDayBound(day: string | undefined, end: boolean): Date | null {
-        if (!day) return null;
-        const bound = new Date(`${day}T${end ? '23:59:59.999' : '00:00:00'}`);
-        return Number.isNaN(bound.getTime()) ? null : bound;
-    }
-
     const HEARD_MAX_SPAN_MS = 93 * 24 * 60 * 60 * 1000;
 
     async function loadHeard(): Promise<void> {
@@ -1524,8 +1537,8 @@
             sort: sortOrder === 'oldest' ? 'oldest' : 'newest',
             previous: previousVisit,
             hasNextPage: currentPage * pageSize < totalCount,
-            rangeStart: localDayBound(dateRange.start, false),
-            rangeEnd: localDayBound(dateRange.end, true),
+            rangeStart: shownWindow.current.start,
+            rangeEnd: shownWindow.current.end,
             now: new Date()
         });
         if (!span) {
@@ -1594,8 +1607,8 @@
     const gardenInTimeline = $derived(subjects === 'all' && gardenNotice === null);
     const GARDEN_WINDOW_LIMIT = 200;
 
-    /** The bird page the Garden captures are read around; the page on screen unless one is given. */
-    interface GardenAnchorPage { visits: DetectionVisit[]; previous: DetectionVisit | null; total: number }
+    /** The bird page the Garden captures are read around, and its window; the page on screen unless one is given. */
+    interface GardenAnchorPage { visits: DetectionVisit[]; previous: DetectionVisit | null; total: number; window: ExplorerWindow }
 
     type GardenTimelinePage = Awaited<ReturnType<typeof fetchGardenVisits>>;
     /** What one Garden read found. Nothing is drawn until it is applied. */
@@ -1603,7 +1616,7 @@
         | { kind: 'superseded' }
         | { kind: 'off' }
         | { kind: 'none' }
-        | { kind: 'page'; page: GardenTimelinePage }
+        | { kind: 'page'; page: GardenTimelinePage; window: ExplorerWindow }
         | { kind: 'failed' };
 
     /**
@@ -1637,15 +1650,15 @@
             previous: page.previous,
             hasNextPage: currentPage * pageSize < page.total,
             birdTotal: page.total,
-            rangeStart: localDayBound(dateRange.start, false),
-            rangeEnd: localDayBound(dateRange.end, true),
+            rangeStart: page.window.start,
+            rangeEnd: page.window.end,
             now: new Date()
         });
         if (!span) return { kind: 'none' };
         try {
             const timeline = await fetchGardenVisits({
-                start: localDayBound(dateRange.start, false)?.toISOString() ?? null,
-                end: localDayBound(dateRange.end, true)?.toISOString(),
+                start: page.window.start?.toISOString() ?? null,
+                end: page.window.end?.toISOString(),
                 pageStart: span.start?.toISOString(),
                 pageEnd: span.end.toISOString(),
                 camera: cameraFilter || undefined,
@@ -1653,7 +1666,7 @@
                 order: sort,
                 limit: GARDEN_WINDOW_LIMIT
             });
-            return generation === gardenLoadGeneration ? { kind: 'page', page: timeline } : { kind: 'superseded' };
+            return generation === gardenLoadGeneration ? { kind: 'page', page: timeline, window: page.window } : { kind: 'superseded' };
         } catch (e) {
             if (generation !== gardenLoadGeneration) return { kind: 'superseded' };
             if (e instanceof Error && e.name === 'AbortError') return { kind: 'superseded' };
@@ -1674,6 +1687,7 @@
             gardenItems = null;
             gardenFailed = true;
         } else {
+            shownGardenWindow.publish(read.window);
             serverGardenVisits = read.page.visits;
             gardenItems = read.page.visits.map((visit) => visit.representative);
             gardenCamerasSeen = seenGardenCameras(gardenCamerasSeen, gardenItems);
@@ -1706,7 +1720,7 @@
         lateGarden = null;
     }
 
-    async function loadGarden(page: GardenAnchorPage = { visits: pageVisits, previous: previousVisit, total: totalCount }): Promise<void> {
+    async function loadGarden(page: GardenAnchorPage = { visits: pageVisits, previous: previousVisit, total: totalCount, window: shownWindow.current }): Promise<void> {
         const read = await readGarden(page);
         // Once the visits have been shown without their captures, later reads feed the held row too.
         if (lateGarden) holdGarden(read);
@@ -1718,22 +1732,25 @@
         await loadGarden();
     }
 
-    function gardenCaptureScope(): { start: string | null; end?: string; camera?: string; taxon?: number; status: GardenReview } {
-        return { start: localDayBound(dateRange.start, false)?.toISOString() ?? null,
-            end: localDayBound(dateRange.end, true)?.toISOString(), camera: cameraFilter || undefined,
+    type OpenedGardenScope = { start: string | null; end?: string; camera?: string; taxon?: number; status: GardenReview };
+
+    function gardenCaptureScope(): OpenedGardenScope {
+        return { start: shownGardenWindow.current.start?.toISOString() ?? null,
+            end: shownGardenWindow.current.end?.toISOString(), camera: cameraFilter || undefined,
             taxon: taxonFilter ?? undefined, status: gardenOnly ? gardenReview : 'reviewable' };
     }
 
     async function loadGardenCapturePage(index: number, selectCapture = true): Promise<void> {
         const group = openedGardenGroup;
         if (!group) return;
+        const scope = openedGardenScope ?? gardenCaptureScope();
         const generation = ++gardenGroupGeneration;
         const selectedId = selectedGarden?.id;
         gardenGroupLoading = true;
         gardenGroupError = null;
         const offset = Math.floor(index / 128) * 128;
         try {
-            const page = await fetchGardenVisitCaptures(group.id, gardenCaptureScope(), offset);
+            const page = await fetchGardenVisitCaptures(group.id, scope, offset);
             if (generation !== gardenGroupGeneration || !selectedGarden || selectedGarden.id !== selectedId) return;
             openedGardenGroup = { ...group, captureCount: page.total, items: page.items };
             gardenGroupOffset = offset;
@@ -1751,6 +1768,7 @@
         gardenGroupGeneration++;
         selectedGarden = capture;
         openedGardenGroup = visit ? { ...visit, items: [capture] } : gardenGroups.find((group) => group.items[0].id === capture.id) ?? null;
+        openedGardenScope = openedGardenGroup ? gardenCaptureScope() : null;
         gardenGroupOffset = Math.floor(index / 128) * 128;
         gardenGroupError = null;
         if (openedGardenGroup) void loadGardenCapturePage(index, false);
@@ -1904,6 +1922,7 @@
         gardenUndo = ids.length ? { ids, skipped, returnToReview: restoreMode === 'review' } : null;
         selectedGarden = null;
         openedGardenGroup = null;
+        openedGardenScope = null;
         void (gardenOnly ? loadEvents() : loadGarden());
         const message = $_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: ids.length } });
         if (skipped > 0) {

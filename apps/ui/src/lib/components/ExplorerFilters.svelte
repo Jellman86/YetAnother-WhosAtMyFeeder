@@ -142,7 +142,19 @@
     });
     const totals = $derived(filters?.totals ?? null);
 
-    const datePresets: DatePreset[] = ['all', 'today', 'week', 'month', 'custom'];
+    const datePresets: DatePreset[] = ['all', '24h', 'today', 'week', 'month', 'custom'];
+    const DATE_PRESET_LABELS: Record<DatePreset, { key: string; fallback: string }> = {
+        all: { key: 'all_time', fallback: 'All time' },
+        '24h': { key: 'last_24_hours', fallback: 'Last 24 hours' },
+        today: { key: 'today', fallback: 'Today' },
+        week: { key: 'week', fallback: 'Week' },
+        month: { key: 'month', fallback: 'Month' },
+        custom: { key: 'custom', fallback: 'Custom' }
+    };
+    function datePresetLabel(preset: DatePreset): string {
+        const { key, fallback } = DATE_PRESET_LABELS[preset];
+        return $_(`events.filters.${key}`, { default: fallback });
+    }
 
     const speciesLabel = $derived(
         species.find((item) => item.value === speciesFilter)?.display_name ?? speciesFilter
@@ -197,7 +209,7 @@
         if (datePreset !== 'all') {
             applied.push({
                 key: 'date',
-                label: datePreset === 'custom' ? customRangeLabel : $_(`events.filters.${datePreset}`, { default: datePreset }),
+                label: datePreset === 'custom' ? customRangeLabel : datePresetLabel(datePreset),
                 clear: () => onchange({ datePreset: 'all' })
             });
         }
@@ -417,7 +429,7 @@
                 <p id="explorer-when-heading" class="eyebrow">{$_('events.filters.when', { default: 'When' })}</p>
                 <Segmented
                     value={datePreset}
-                    options={datePresets.map((preset) => ({ value: preset, label: $_(`events.filters.${preset === 'all' ? 'all_time' : preset}`, { default: preset }) }))}
+                    options={datePresets.map((preset) => ({ value: preset, label: datePresetLabel(preset) }))}
                     onchange={(next) => onchange({ datePreset: next })}
                     labelledBy="explorer-when-heading"
                     layout="wrap"

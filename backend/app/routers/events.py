@@ -48,7 +48,7 @@ from app.utils.public_access import (
 )
 from app.utils.calendar_day import CalendarDay, calendar_window, clamp_window, local_date
 from app.utils.timezone import calendar_timezone
-from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
+from app.utils.api_datetime import ExactInstant, serialize_api_datetime, utc_naive_datetime, utc_naive_now
 from app.utils.canonical_species import (
     hidden_species_exact_labels,
     UNKNOWN_BIRD_DISPLAY_LABEL as CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL,
@@ -125,6 +125,25 @@ UNKNOWN_BIRD_DISPLAY_LABEL = CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL
 MAX_FILTER_DATE_RANGE_DAYS = 365
 
 
+MAX_EXACT_WINDOW = timedelta(days=MAX_FILTER_DATE_RANGE_DAYS)
+
+
+def _enforce_exact_window(start: Optional[datetime], end: Optional[datetime]) -> None:
+    """Check the caller's own exact window, before any guest allowance narrows it.
+
+    Its length is elapsed time, so the viewer's zone cannot turn one request into two answers.
+    """
+    if start is None or end is None:
+        return
+    if end < start:
+        raise HTTPException(status_code=400, detail="The end time is before the start time")
+    if end - start > MAX_EXACT_WINDOW:
+        raise HTTPException(
+            status_code=400,
+            detail=f"The end time must be at most {MAX_FILTER_DATE_RANGE_DAYS} days after the start time",
+        )
+
+
 def _enforce_max_date_range(start_date: Optional[date], end_date: Optional[date]) -> None:
     if start_date is None or end_date is None:
         return
@@ -139,6 +158,12 @@ _LAST_INSTANT = timedelta(microseconds=1)
 CALENDAR_DAY_HELP = (
     "an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC"
 )
+EXACT_START_HELP = (
+    "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `±HH:MM` offset; overrides start_date"
+)
+EXACT_END_HELP = (
+    "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `±HH:MM` offset; overrides end_date"
+)
 NEXT_OFFSET_HEADER = "X-Next-Offset"
 
 
@@ -149,13 +174,12 @@ def requested_calendar_window(
     return calendar_window(start_day, end_day, now=utc_naive_now().replace(tzinfo=timezone.utc), zone=zone)
 
 
-def visible_history_window(
-    auth: AuthContext, start: Optional[datetime], end: Optional[datetime], zone: tzinfo
+def guest_history_window(
+    auth: AuthContext, start: Optional[datetime], end: Optional[datetime]
 ) -> tuple[Optional[datetime], Optional[datetime]]:
-    """Narrow a naive-UTC window to what this viewer may see, then bound its length.
+    """Intersect a naive-UTC window with a guest's allowance; an owner's is unchanged.
 
-    A guest's allowance is intersected with the request after the zone is resolved, so no
-    date, keyword or ``X-Timezone`` can widen it.
+    A window wholly outside the allowance stays inverted, so it reads nothing rather than failing.
     """
     if not auth.is_owner and settings.public_access.enabled:
         floor, ceiling = public_events_window()
@@ -165,8 +189,46 @@ def visible_history_window(
             floor=floor.replace(tzinfo=None),
             ceiling=None if ceiling is None else ceiling.replace(tzinfo=None) - _LAST_INSTANT,
         )
+    return start, end
+
+
+def visible_history_window(
+    auth: AuthContext, start: Optional[datetime], end: Optional[datetime], zone: tzinfo
+) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Narrow a naive-UTC window to what this viewer may see, then bound its length.
+
+    A guest's allowance is intersected with the request after the zone is resolved, so no
+    date, keyword or ``X-Timezone`` can widen it.
+    """
+    start, end = guest_history_window(auth, start, end)
     _enforce_max_date_range(local_date(start, zone=zone), local_date(end, zone=zone))
     return start, end
+
+
+def visible_request_window(
+    request: Request,
+    auth: AuthContext,
+    start_day: CalendarDay | None,
+    end_day: CalendarDay | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
+) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Exact instants win over calendar days; the viewer's allowance narrows either.
+
+    Days keep their calendar rule. A window with an exact bound is checked as the caller sent it,
+    then narrowed, so a well-formed window outside a guest's allowance reads nothing.
+    """
+    zone = calendar_timezone(request)
+    # A day an instant replaces is never resolved: a calendar edge has no local midnight in UTC.
+    day_start, day_end = requested_calendar_window(
+        start_day if start_time is None else None, end_day if end_time is None else None, zone
+    )
+    if start_time is None and end_time is None:
+        return visible_history_window(auth, day_start, day_end, zone)
+    start = utc_naive_datetime(start_time) if start_time else day_start
+    end = utc_naive_datetime(end_time) if end_time else day_end
+    _enforce_exact_window(start, end)
+    return guest_history_window(auth, start, end)
 
 
 def parse_species_filter(species: Optional[str]) -> tuple[Optional[str], Optional[int]]:
@@ -700,6 +762,8 @@ async def get_events(
     ),
     start_date: Optional[CalendarDay] = Query(default=None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
     end_date: Optional[CalendarDay] = Query(default=None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
+    start_time: Optional[ExactInstant] = Query(default=None, description=EXACT_START_HELP),
+    end_time: Optional[ExactInstant] = Query(default=None, description=EXACT_END_HELP),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     event_id: Optional[str] = Query(default=None, max_length=255, description="Filter by exact Frigate event ID"),
@@ -728,10 +792,7 @@ async def get_events(
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
 
-    zone = calendar_timezone(request)
-    start_datetime, end_datetime = visible_history_window(
-        auth, *requested_calendar_window(start_date, end_date, zone), zone
-    )
+    start_datetime, end_datetime = visible_request_window(request, auth, start_date, end_date, start_time, end_time)
 
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
@@ -1000,6 +1061,8 @@ async def get_events_count(
     request: Request,
     start_date: Optional[CalendarDay] = Query(default=None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
     end_date: Optional[CalendarDay] = Query(default=None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
+    start_time: Optional[ExactInstant] = Query(default=None, description=EXACT_START_HELP),
+    end_time: Optional[ExactInstant] = Query(default=None, description=EXACT_END_HELP),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     favorites: bool = Query(default=False, description="Only count favorited detections"),
@@ -1018,10 +1081,7 @@ async def get_events_count(
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
-    zone = calendar_timezone(request)
-    start_datetime, end_datetime = visible_history_window(
-        auth, *requested_calendar_window(start_date, end_date, zone), zone
-    )
+    start_datetime, end_datetime = visible_request_window(request, auth, start_date, end_date, start_time, end_time)
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
         include_hidden = False
@@ -1056,7 +1116,20 @@ async def get_events_count(
         )
 
         # Determine if any filters are applied
-        filtered = any([start_date, end_date, species, camera, favorites, audio_confirmed_only, only_hidden, taxon])
+        filtered = any(
+            [
+                start_date,
+                end_date,
+                start_time,
+                end_time,
+                species,
+                camera,
+                favorites,
+                audio_confirmed_only,
+                only_hidden,
+                taxon,
+            ]
+        )
 
         return EventsCountResponse(count=count, filtered=filtered)
 
