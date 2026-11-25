@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { LEADERBOARD_SPANS, shortenedWindowStart, trendGap, type WindowReading } from './period';
+import { LEADERBOARD_SPANS, shortenedWindowStart, trendGap, windowsAgree, type WindowReading } from './period';
 
-const whole: WindowReading = { start: '2034-03-10T23:00:00+00:00', shortened: false, complete: true, comparable: true };
-const cut: WindowReading = { start: '2034-03-11T00:00:00+00:00', shortened: true, complete: false, comparable: false };
+const whole: WindowReading = { start: '2034-03-10T23:00:00+00:00', shortened: false, complete: true, mismatch: null };
+const cut: WindowReading = { start: '2034-03-11T00:00:00+00:00', shortened: true, complete: false, mismatch: 'shared_window' };
 
 describe('the leaderboard periods', () => {
     it('runs from Today to All time, keeping day for the last 24 hours', () => {
@@ -41,13 +41,34 @@ describe('trendGap', () => {
         expect(trendGap('heard', whole, young)).toBe('history');
     });
 
-    it('says the windows differ when they could not be compared, whatever the history', () => {
-        expect(trendGap('seen', cut, whole)).toBe('not_comparable');
-        expect(trendGap('both', whole, cut)).toBe('not_comparable');
+    it('gives the reason the server measured, whatever the history', () => {
+        expect(trendGap('seen', cut, whole)).toBe('shared_window');
+        expect(trendGap('both', whole, cut)).toBe('shared_window');
         expect(trendGap('heard', cut, whole)).toBeNull();
+    });
+
+    it('tells a guest on a clock-change day about the clocks, not the shared window', () => {
+        const clocks = { ...whole, complete: false, mismatch: 'clock_change' as const };
+        expect(trendGap('seen', clocks, whole)).toBe('clock_change');
+        expect(trendGap('both', whole, clocks)).toBe('clock_change');
+    });
+
+    it('names cleanup when it removed captures from a compared window', () => {
+        expect(trendGap('seen', { ...whole, complete: false, mismatch: 'cleanup' }, whole)).toBe('cleanup');
     });
 
     it('treats a source that did not load as unmeasured, not as a reason', () => {
         expect(trendGap('heard', whole, null)).toBe('history');
+    });
+});
+
+describe('windowsAgree', () => {
+    it('accepts one start written either way, and answers that named none', () => {
+        expect(windowsAgree(['2034-03-10T23:00:00+00:00', '2034-03-10T23:00:00Z', null, undefined])).toBe(true);
+        expect(windowsAgree([])).toBe(true);
+    });
+
+    it('refuses answers from either side of midnight', () => {
+        expect(windowsAgree(['2034-03-10T23:00:00Z', '2034-03-11T23:00:00Z'])).toBe(false);
     });
 });

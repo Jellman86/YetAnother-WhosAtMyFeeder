@@ -1391,15 +1391,26 @@
             ],
             "title": "History Start"
           },
-          "previous_window_comparable": {
-            "default": true,
-            "title": "Previous Window Comparable",
-            "type": "boolean"
-          },
           "previous_window_complete": {
             "default": false,
             "title": "Previous Window Complete",
             "type": "boolean"
+          },
+          "previous_window_mismatch": {
+            "anyOf": [
+              {
+                "enum": [
+                  "clock_change",
+                  "shared_window",
+                  "cleanup"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Window Mismatch"
           },
           "span": {
             "enum": [
@@ -12950,15 +12961,26 @@
             ],
             "title": "Nearby Radius Km"
           },
-          "previous_window_comparable": {
-            "default": true,
-            "title": "Previous Window Comparable",
-            "type": "boolean"
-          },
           "previous_window_complete": {
             "default": false,
             "title": "Previous Window Complete",
             "type": "boolean"
+          },
+          "previous_window_mismatch": {
+            "anyOf": [
+              {
+                "enum": [
+                  "clock_change",
+                  "shared_window",
+                  "cleanup"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Window Mismatch"
           },
           "span": {
             "enum": [

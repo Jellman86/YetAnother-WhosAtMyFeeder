@@ -49,7 +49,7 @@ test.beforeEach(async ({ page }) => {
             await route.fulfill({ json: { span: 'month', portraits: [] } });
         } else if (path === '/api/stats/detections/timeline') {
             await route.fulfill({ json: {
-                span: 'month', bucket: 'day', points, total_count: 54,
+                span: url.searchParams.get('span') ?? 'month', bucket: 'day', points, total_count: 54,
                 window_start: start, window_end: end,
                 compare_series: species.map(({ species }, speciesIndex) => ({
                     species,
@@ -493,24 +493,93 @@ test('the hour and weekday heatmap says sealed days have no time of day rather t
     );
 });
 
-test('Today asks every source and chart for today, says an early day is empty and states a cut start', async ({ page }) => {
-    const charted = ['/api/leaderboard/species', '/api/leaderboard/portraits', '/api/stats/detections/timeline', '/api/stats/detections/activity-heatmap'];
+const todayRanking = (species: unknown[], extra: Record<string, unknown> = {}) => ({
+    span: 'today', species, window_start: start, window_end: end,
+    previous_window_complete: false, previous_window_mismatch: null, nearby_check: 'off', ...extra,
+});
+
+test('Today asks Seen, Heard, the portraits and every chart, the one-species heatmap too, for today', async ({ page }) => {
+    const charted = ['/api/leaderboard/species', '/api/audio/species', '/api/leaderboard/portraits', '/api/stats/detections/timeline', '/api/stats/detections/activity-heatmap'];
     const asked = new Map<string, string[]>();
     await page.route(url => charted.includes(url.pathname), async route => {
         const url = new URL(route.request().url());
-        asked.set(url.pathname, [...(asked.get(url.pathname) ?? []), url.searchParams.get('span') ?? '']);
-        if (url.pathname === '/api/leaderboard/species' && url.searchParams.get('span') === 'today') {
-            return route.fulfill({ json: {
-                span: 'today', species: [], window_start: '2026-09-08T00:00:00Z', window_end: '2026-09-08T05:00:00Z',
-                window_shortened: true, previous_window_complete: false, previous_window_comparable: false, nearby_check: 'off',
-            } });
+        const key = url.searchParams.get('species') ? `${url.pathname}?species` : url.pathname;
+        asked.set(key, [...(asked.get(key) ?? []), url.searchParams.get('span') ?? '']);
+        if (url.pathname === '/api/audio/species') {
+            return route.fulfill({ json: { span: url.searchParams.get('span'), species: [], window_start: start, window_end: end, previous_window_complete: false } });
         }
         return route.fallback();
     });
+    await page.goto('/browser-tests/species-charts.html?birdnet');
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Today');
+    await page.locator('[data-leaderboard-heatmap-species]').getByRole('button', { name: 'Robin', exact: true }).click();
+    for (const path of [...charted, '/api/stats/detections/activity-heatmap?species']) {
+        await expect.poll(() => asked.get(path) ?? [], { message: path }).toContain('today');
+    }
+});
+
+test('an early Today says no visits have arrived yet and states a cut start', async ({ page }) => {
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ json: todayRanking([], { window_shortened: true, previous_window_mismatch: 'shared_window' }) }));
     await page.getByRole('button', { name: 'Today', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Today', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('heading', { name: 'No visits yet today' })).toBeVisible();
     await expect(page.getByText('Today counts from midnight, so it starts empty each morning.')).toBeVisible();
     await expect(page.locator('[data-leaderboard-window-shortened]')).toContainText('Counted from');
-    for (const path of charted) await expect.poll(() => asked.get(path) ?? []).toContain('today');
+});
+
+test('a Today that failed to load shows its error, never an empty day', async ({ page }) => {
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ status: 400, json: { detail: 'Bad span' } }));
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'No visits yet today' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'No birds recorded yet' })).toHaveCount(0);
+});
+
+test('a Today of Unknown bird alone says the filter hides it, not that nothing came', async ({ page }) => {
+    const unknown = { ...species[0], species: 'Unknown Bird', common_name: null, scientific_name: null };
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ json: todayRanking([unknown]) }));
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.getByText('Only Unknown bird visits are available right now.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'No visits yet today' })).toHaveCount(0);
+});
+
+test('while Today loads, the rows and charts on screen keep the name of the period they counted', async ({ page }) => {
+    let answer: () => void = () => undefined;
+    const held = new Promise<void>(resolve => { answer = resolve; });
+    await page.route('**/api/leaderboard/species?span=today', async route => {
+        await held;
+        await route.fulfill({ json: todayRanking(species) });
+    });
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Last 30 days');
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Today', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Last 30 days');
+    await expect(page.locator('[data-leaderboard-rankings-window]')).not.toContainText('Today');
+    await expect(page.locator('[data-leaderboard-analytics-window]')).not.toContainText('Today');
+    answer();
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Today');
+    await expect(page.locator('[data-leaderboard-analytics-window]')).toContainText('Today');
+});
+
+test('a Today load answered either side of midnight is asked again, not shown as one day', async ({ page }) => {
+    const yesterday = '2026-09-07T23:00:00Z';
+    const today = '2026-09-08T23:00:00Z';
+    let rankings = 0;
+    await page.route('**/api/leaderboard/species?span=today', route => {
+        rankings += 1;
+        // The first ranking was read a moment before midnight; the charts after it.
+        return route.fulfill({ json: todayRanking(species, { window_start: rankings === 1 ? yesterday : today, window_end: '2026-09-09T00:10:00Z' }) });
+    });
+    await page.route(url => url.pathname === '/api/stats/detections/timeline' && url.searchParams.get('span') === 'today', route => route.fulfill({ json: {
+        span: 'today', bucket: 'hour', points: [], total_count: 0, window_start: today, window_end: '2026-09-09T00:10:00Z',
+    } }));
+    await page.route(url => url.pathname === '/api/stats/detections/activity-heatmap' && url.searchParams.get('span') === 'today', route => route.fulfill({ json: {
+        span: 'today', window_start: today, window_end: '2026-09-09T00:10:00Z', total_count: 0, max_cell_count: 0, cells: [],
+    } }));
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Today');
+    await expect.poll(() => rankings).toBe(2);
+    await page.waitForTimeout(500);
+    expect(rankings).toBe(2);
 });

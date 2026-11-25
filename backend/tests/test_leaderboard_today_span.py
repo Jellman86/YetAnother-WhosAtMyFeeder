@@ -1,6 +1,7 @@
 """The leaderboard's Today: local midnight to now on every source, compared with yesterday so far (#1097)."""
 
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -14,6 +15,7 @@ from app.routers import audio as audio_router
 from app.routers import species as species_router
 from app.routers import stats as stats_router
 from app.routers.species import clear_portraits_cache
+from app.services import media_cache as media_cache_module
 from app.utils import public_access
 
 pytestmark = pytest.mark.usefixtures("history_pool")
@@ -124,7 +126,7 @@ async def test_seen_today_counts_from_the_viewers_midnight_and_compares_with_yes
     assert robin["window_count"] == 2
     assert robin["window_prev_count"] == 1
     assert payload["previous_window_complete"] is True
-    assert payload["previous_window_comparable"] is True
+    assert payload["previous_window_mismatch"] is None
     assert payload["window_shortened"] is False
 
 
@@ -178,10 +180,27 @@ async def test_timeline_and_heatmaps_chart_today_by_the_hour_from_the_same_midni
 
 
 @pytest.mark.asyncio
-async def test_portraits_accept_today(client):
-    payload = await _get(client, "/api/leaderboard/portraits?span=today", BERLIN)
+async def test_today_never_shows_yesterdays_crop_or_yesterdays_cached_portraits(client, monkeypatch):
+    # The only crop is from 23:50 Berlin time yesterday; today's Robin captures have none.
+    crops = {"lbt-crop-yesterday": {"source": "hq_candidate_model_crop"}}
+    monkeypatch.setattr(media_cache_module.media_cache, "_available", True)
+    monkeypatch.setattr(
+        media_cache_module.media_cache,
+        "get_snapshot_metadata",
+        AsyncMock(side_effect=lambda event_id: crops.get(event_id)),
+    )
+    await _insert({"lbt-crop-yesterday": ("2034-03-10 22:50:00", ROBIN)})
 
-    assert payload["span"] == "today"
+    # Five minutes before Berlin midnight the crop is today's.
+    monkeypatch.setattr(Clock, "now", datetime(2034, 3, 10, 22, 55))
+    before = await _get(client, "/api/leaderboard/portraits?span=today", BERLIN)
+    assert [portrait["frigate_event"] for portrait in before["portraits"]] == ["lbt-crop-yesterday"]
+
+    # After midnight the same request is a new window, inside the cache's five minutes.
+    monkeypatch.setattr(Clock, "now", BERLIN_EVENING)
+    after = await _get(client, "/api/leaderboard/portraits?span=today", BERLIN)
+    assert after["span"] == "today"
+    assert after["portraits"] == []
 
 
 @pytest.mark.asyncio
@@ -197,9 +216,9 @@ async def test_today_has_no_trend_on_the_morning_the_clocks_go_forward(client, m
 
     assert _instant(seen["window_start"]) == datetime(2034, 3, 25, 23, 0, tzinfo=timezone.utc)
     assert seen["previous_window_complete"] is False
-    assert seen["previous_window_comparable"] is False
+    assert seen["previous_window_mismatch"] == "clock_change"
     assert heard["previous_window_complete"] is False
-    assert heard["previous_window_comparable"] is False
+    assert heard["previous_window_mismatch"] == "clock_change"
 
 
 @pytest.mark.asyncio
@@ -218,7 +237,7 @@ async def test_a_guest_today_is_cut_to_the_shared_utc_day_and_says_so(client, mo
     assert _instant(seen["window_start"]) == shared_day
     assert seen["window_shortened"] is True
     assert seen["previous_window_complete"] is False
-    assert seen["previous_window_comparable"] is False
+    assert seen["previous_window_mismatch"] == "shared_window"
     # The 23:30 and 23:40 UTC captures were today in New York but are outside what a guest may see.
     assert _seen(seen, ROBIN)["window_count"] == 1
     assert _instant(heard["window_start"]) == shared_day
@@ -243,3 +262,58 @@ async def test_an_unknown_span_is_rejected(client):
     response = await client.get("/api/leaderboard/species?span=yesterday")
 
     assert response.status_code == 422
+
+
+KOLKATA = {"X-Timezone": "Asia/Kolkata"}
+# 20:00 UTC on 10 March 2034 is 01:30 on Saturday 11 March in Kolkata (UTC+5:30), whose today began
+# at 18:30 UTC. Each capture sits a few minutes from a local hour or midnight.
+KOLKATA_ROWS = {
+    "lbt-in-before-midnight": ("2034-03-10 18:20:00", TIT),  # 23:50 on Friday the 10th
+    "lbt-in-after-midnight": ("2034-03-10 18:40:00", TIT),  # 00:10 on Saturday the 11th
+    "lbt-in-before-one": ("2034-03-10 19:25:00", TIT),  # 00:55 on the 11th
+    "lbt-in-after-one": ("2034-03-10 19:35:00", TIT),  # 01:05 on the 11th
+}
+FRIDAY, SATURDAY = 5, 6
+
+
+def _cell(heatmap: dict, day_of_week: int, hour: int) -> int:
+    return next(
+        cell["count"] for cell in heatmap["cells"] if (cell["day_of_week"], cell["hour"]) == (day_of_week, hour)
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_half_hour_zone_puts_each_capture_in_its_own_local_hour_on_the_heatmaps(client, monkeypatch):
+    monkeypatch.setattr(Clock, "now", datetime(2034, 3, 10, 20, 0))
+    await _insert(KOLKATA_ROWS)
+
+    today = await _get(client, "/api/stats/detections/activity-heatmap?span=today", KOLKATA)
+    tit_today = await _get(client, f"/api/stats/detections/activity-heatmap?span=today&species={TIT}", KOLKATA)
+    last_day = await _get(client, "/api/stats/detections/activity-heatmap?span=day", KOLKATA)
+
+    for heatmap in (today, tit_today):
+        assert _cell(heatmap, SATURDAY, 0) == 2
+        assert _cell(heatmap, SATURDAY, 1) == 1
+        assert _cell(heatmap, FRIDAY, 23) == 0
+    assert _cell(last_day, FRIDAY, 23) == 1
+    assert _cell(last_day, SATURDAY, 0) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_half_hour_zone_keys_the_timeline_by_its_own_local_hours(client, monkeypatch):
+    monkeypatch.setattr(Clock, "now", datetime(2034, 3, 10, 20, 0))
+    await _insert(KOLKATA_ROWS)
+
+    today = await _get(client, f"/api/stats/detections/timeline?span=today&compare_species={TIT}", KOLKATA)
+    last_day = await _get(client, "/api/stats/detections/timeline?span=day", KOLKATA)
+
+    assert [(point["bucket_start"], point["label"], point["count"]) for point in today["points"]] == [
+        ("2034-03-10T18:30:00Z", "00:00", 2),
+        ("2034-03-10T19:30:00Z", "01:00", 1),
+    ]
+    compare = {point["bucket_start"]: point["count"] for point in today["compare_series"][0]["points"]}
+    assert compare == {"2034-03-10T18:30:00Z": 2, "2034-03-10T19:30:00Z": 1}
+    by_key = {point["bucket_start"]: point["count"] for point in last_day["points"]}
+    assert by_key["2034-03-10T17:30:00Z"] == 1
+    assert by_key["2034-03-10T18:30:00Z"] == 2
+    assert all(key.endswith(":30:00Z") for key in by_key)

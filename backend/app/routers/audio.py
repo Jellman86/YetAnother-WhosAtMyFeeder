@@ -19,6 +19,7 @@ from app.repositories.visit_repository import VisitRepository
 from app.services.broadcaster import broadcaster
 from app.services.leaderboard_window import (
     LEADERBOARD_SPAN_DESCRIPTION,
+    WindowMismatch,
     LeaderboardWindows,
     leaderboard_windows,
     previous_window_is_complete,
@@ -207,9 +208,10 @@ class AudioSpeciesLeaderboardResponse(BaseModel):
     window_shortened: bool = False
     history_start: str | None = None
     previous_window_complete: bool = False
-    # Whether the previous window covers the same stretch of the clock; false across a clock change
-    # in today or when a guest's allowance cuts either window, whatever the history holds.
-    previous_window_comparable: bool = True
+    # Why the previous window is no fair comparison whatever the history holds, or null when it is:
+    # a clock change in today, a guest's allowance cutting either window, or cleanup having removed
+    # captures from part of one.
+    previous_window_mismatch: WindowMismatch | None = None
     species: list[AudioSpeciesLeaderboardItemResponse]
 
 
@@ -694,7 +696,7 @@ def _audio_leaderboard_windows(
     end = now.astimezone(timezone.utc).replace(tzinfo=None)
     start = max(epoch, floor) if floor is not None else epoch
     end = min(end, ceiling) if ceiling is not None else end
-    return LeaderboardWindows(start, end, start, start, comparable=False, shortened=False)
+    return LeaderboardWindows(start, end, start, start, mismatch=None, shortened=False)
 
 
 @router.get("/species", response_model=AudioSpeciesLeaderboardResponse)
@@ -768,7 +770,7 @@ async def get_audio_species_leaderboard(
         "window_start": window_start.replace(tzinfo=timezone.utc).isoformat(),
         "window_end": window_end.replace(tzinfo=timezone.utc).isoformat(),
         "window_shortened": windows.shortened,
-        "previous_window_comparable": windows.comparable,
+        "previous_window_mismatch": windows.mismatch,
         "history_start": serialize_api_datetime(history_start) if history_start else None,
         "previous_window_complete": windows.comparable
         and prev_start < prev_end

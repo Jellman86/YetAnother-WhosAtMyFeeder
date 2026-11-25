@@ -78,7 +78,7 @@
     import type { TemperatureUnit } from '../utils/temperature';
     import { evidenceFor, isCorroborated, trendMeasured, type SpeciesEvidence } from '../leaderboard/evidence';
     import { heardFor, heardLookup, needsSpeciesCheck, parseSpeciesPageLink } from '../leaderboard/species-checks';
-    import { shortenedWindowStart, trendGap, type WindowReading } from '../leaderboard/period';
+    import { shortenedWindowStart, trendGap, windowsAgree, type WindowMismatch, type WindowReading } from '../leaderboard/period';
     import { HEATMAP_SPECIES_CHOICES, busiestHourOfDay, keptHeatmapChoice, weekdayHourTable } from '../leaderboard/heatmap';
     import ActivityHeatmap from '../components/ActivityHeatmap.svelte';
     import HeatmapSpeciesChips from '../components/HeatmapSpeciesChips.svelte';
@@ -133,6 +133,10 @@
     // A link can ask for a window and for the checks card, as the Dashboard's "Needs your call" does.
     const pageLink = parseSpeciesPageLink(window.location.search, window.location.hash);
     let span = $state<LeaderboardSpan>(pageLink.span ?? 'month');
+    // The period the rows on screen were counted over. Until a newly chosen period answers, the old
+    // rows keep the name they were counted under rather than borrowing the new one.
+    let loadedSpan = $state<LeaderboardSpan | null>(null);
+    let shownSpan = $derived(loadedSpan ?? span);
     let leaderboardWindow = $state<{ start: string; end: string } | null>(null);
     let historyStart = $state<string | null>(null);
     let countsAreVisits = $state(false);
@@ -140,8 +144,8 @@
     let audioPreviousWindowComplete = $state(false);
     let audioHistoryStart = $state<string | null>(null);
     // Whether a guest's allowance cut each source's window, and whether its previous window is like for like.
-    let seenWindowCut = $state.raw({ shortened: false, comparable: true });
-    let audioWindow = $state.raw<{ start: string; shortened: boolean; comparable: boolean } | null>(null);
+    let seenWindowCut = $state.raw<{ shortened: boolean; mismatch: WindowMismatch | null }>({ shortened: false, mismatch: null });
+    let audioWindow = $state.raw<{ start: string; shortened: boolean; mismatch: WindowMismatch | null } | null>(null);
     let seenWindowReading = $derived<WindowReading | null>(
         leaderboardWindow
             ? { start: leaderboardWindow.start, ...seenWindowCut, complete: previousWindowComplete }
@@ -150,8 +154,13 @@
     let heardWindowReading = $derived<WindowReading | null>(
         audioWindow ? { ...audioWindow, complete: audioPreviousWindowComplete } : null
     );
-    let shortenedFrom = $derived(span === 'all' ? null : shortenedWindowStart(sourceMode, seenWindowReading, heardWindowReading));
-    let currentTrendGap = $derived(span === 'all' ? null : trendGap(sourceMode, seenWindowReading, heardWindowReading));
+    let shortenedFrom = $derived(shownSpan === 'all' ? null : shortenedWindowStart(sourceMode, seenWindowReading, heardWindowReading));
+    // "No visits yet today" only for a Today that answered with nothing at all: a failed load says
+    // so in its alert, and a board of Unknown bird alone is empty only because of the filter.
+    let todayMeasuredEmpty = $derived(
+        !error && !loading && loadedSpan === 'today' && sourceMode !== 'heard' && species.length === 0
+    );
+    let currentTrendGap = $derived(shownSpan === 'all' ? null : trendGap(sourceMode, seenWindowReading, heardWindowReading));
     // The history the current trend would need: the camera's, BirdNET's, or the later of the two.
     let trendHistoryStart = $derived(
         sourceMode === 'seen'
@@ -164,7 +173,7 @@
     // A window whose predecessor began before the first detection has nothing to be compared
     // with; every species would read as rising. The trend is only claimed when it was measured.
     let trendAvailable = $derived(
-        span !== 'all'
+        shownSpan !== 'all'
             && trendMeasured(sourceMode, { seen: previousWindowComplete, heard: audioPreviousWindowComplete })
     );
     let hiddenTimelineSeries = $state<string[]>([]);
@@ -194,6 +203,8 @@
     /** The flagged species the owner opened the check sheet on, or null when it is closed. */
     let checkStart = $state<string | null>(null);
     let timeline = $state.raw<DetectionsTimelineSpanResponse | null>(null);
+    // The charts answer after the rankings, so they are named by the period they were counted over.
+    let timelineSpan = $derived<string | undefined>(timeline?.span ?? shownSpan);
     let activityHeatmap = $state.raw<DetectionsActivityHeatmapResponse | null>(null);
     let speciesInfoCache = $state<Record<string, SpeciesInfo>>({});
     let speciesInfoPending = $state<Record<string, boolean>>({});
@@ -657,7 +668,7 @@
             audioHistoryStart = null;
             previousWindowComplete = false;
             audioPreviousWindowComplete = false;
-            seenWindowCut = { shortened: false, comparable: true };
+            seenWindowCut = { shortened: false, mismatch: null };
             audioWindow = null;
             activityHeatmap = null;
             speciesHeatmap = null;
@@ -745,7 +756,15 @@
             .slice(0, SPECIES_SERIES_SLOTS);
     }
 
-    async function loadLeaderboard() {
+    // A Today load sent either side of midnight can be answered for two different days; it is asked
+    // again, at most this many times, rather than summing or charting the two as one.
+    const MAX_TODAY_RELOADS = 2;
+
+    function loadLeaderboard(): Promise<void> {
+        return loadLeaderboardAttempt(0);
+    }
+
+    async function loadLeaderboardAttempt(attempt: number): Promise<void> {
         leaderboardAbortController?.abort();
         const controller = new AbortController();
         leaderboardAbortController = controller;
@@ -769,6 +788,7 @@
                 if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
                 species = mapAllTimeSpecies(allSpecies);
                 countsAreVisits = false;
+                loadedSpan = requestedSpan;
                 domesticOffers.measured();
                 leaderboardWindow = null;
                 historyStart = null;
@@ -779,6 +799,7 @@
                 if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
                 countsAreVisits = windowCountsAreVisits(response);
                 species = mapWindowSpecies(response, countsAreVisits);
+                loadedSpan = requestedSpan;
                 domesticOffers.measured();
                 leaderboardWindow = {
                     start: response.window_start,
@@ -788,7 +809,7 @@
                 previousWindowComplete = response.previous_window_complete ?? false;
                 seenWindowCut = {
                     shortened: response.window_shortened ?? false,
-                    comparable: response.previous_window_comparable ?? true
+                    mismatch: response.previous_window_mismatch ?? null
                 };
                 nearbyCheck = response.nearby_radius_km && response.nearby_days_back
                     ? { radiusKm: response.nearby_radius_km, daysBack: response.nearby_days_back }
@@ -798,6 +819,7 @@
             if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
             error = $_('leaderboard.load_failed');
             species = [];
+            loadedSpan = requestedSpan;
             leaderboardWindow = null;
             if (isTransientRequestError(e)) {
                 logger.warn('Leaderboard species fetch failed (transient)', {
@@ -821,6 +843,15 @@
             birdnetEnabled ? fetchAudioSpeciesLeaderboard(requestedSpan, controller.signal) : Promise.resolve(null),
         ]);
         if (loadGeneration !== leaderboardLoadGeneration) return;
+        const answeredStarts = [
+            leaderboardWindow?.start,
+            audioResult.status === 'fulfilled' ? audioResult.value?.window_start : null,
+            timelineResult.status === 'fulfilled' ? timelineResult.value.window_start : null,
+            heatmapResult.status === 'fulfilled' ? heatmapResult.value.window_start : null
+        ];
+        if (requestedSpan === 'today' && attempt < MAX_TODAY_RELOADS && !windowsAgree(answeredStarts)) {
+            return loadLeaderboardAttempt(attempt + 1);
+        }
 
         // Audio "heard" data is supplementary — a failure here must not disturb the
         // visual leaderboard, so it is handled independently and degrades to empty.
@@ -832,7 +863,7 @@
                 ? {
                       start: audioResult.value.window_start,
                       shortened: audioResult.value.window_shortened ?? false,
-                      comparable: audioResult.value.previous_window_comparable ?? true
+                      mismatch: audioResult.value.previous_window_mismatch ?? null
                   }
                 : null;
             audioLoadState = birdnetEnabled ? 'ready' : 'disabled';
@@ -942,11 +973,12 @@
         return formatDateTime(value);
     }
 
-    function spanLabel(): string {
-        if (span === 'today') return $_('leaderboard.sort_by_today', { default: 'Today' });
-        if (span === 'day') return $_('leaderboard.sort_by_day');
-        if (span === 'week') return $_('leaderboard.sort_by_week');
-        if (span === 'month') return $_('leaderboard.sort_by_month');
+    /** A period's name; by default the one the rows on screen were counted over. */
+    function spanLabel(period: string | undefined = shownSpan): string {
+        if (period === 'today') return $_('leaderboard.sort_by_today', { default: 'Today' });
+        if (period === 'day') return $_('leaderboard.sort_by_day');
+        if (period === 'week') return $_('leaderboard.sort_by_week');
+        if (period === 'month') return $_('leaderboard.sort_by_month');
         return $_('leaderboard.sort_by_total');
     }
 
@@ -962,7 +994,7 @@
      * the rankings and the composition all count over it, so none of them names it differently.
      */
     function selectedCountLabel(): string {
-        if (span === 'all') return $_('leaderboard.total_sightings');
+        if (shownSpan === 'all') return $_('leaderboard.total_sightings');
         return `${spanLabel()} · ${formatRangeCompact(leaderboardWindow?.start, leaderboardWindow?.end)}`;
     }
 
@@ -1608,7 +1640,7 @@
             total_count: timeline?.total_count ?? 0,
             points: timeline?.points?.length ?? 0,
             ...buildLeaderboardAnalysisPromptConfig({
-                timeframe: `${spanLabel()} (${formatRangeCompact(timeline?.window_start, timeline?.window_end)})`,
+                timeframe: `${spanLabel(timelineSpan)} (${formatRangeCompact(timeline?.window_start, timeline?.window_end)})`,
                 metricLabel: metricLabel(),
                 bucketLabel: bucketLabel(timeline?.bucket),
                 trendMode,
@@ -1821,9 +1853,11 @@
                 {$_('common.retry')}
             </button>
         </div>
+    {:else if error && leaderboardRows.length === 0}
+        <!-- The alert above says the rankings did not load; an empty board would claim they were measured. -->
     {:else if leaderboardRows.length === 0}
         <div class="border-y border-line py-14 text-center">
-            {#if sourceMode !== 'heard' && span === 'today'}
+            {#if todayMeasuredEmpty}
                 <h2 class="text-lg font-semibold text-strong mb-2">{$_('leaderboard.today_empty_title', { default: 'No visits yet today' })}</h2>
             {:else}
                 <h2 class="text-lg font-semibold text-strong mb-2">{$_('leaderboard.no_species')}</h2>
@@ -1833,7 +1867,7 @@
                     ? $_('leaderboard.no_audio_species', { default: 'No calls were heard in this window.' })
                     : species.length > 0 && !includeUnknownBird
                     ? $_('leaderboard.only_unknown_desc')
-                    : span === 'today'
+                    : todayMeasuredEmpty
                     ? $_('leaderboard.today_empty_desc', { default: 'Today counts from midnight, so it starts empty each morning. Visits appear here as they arrive. Choose Last 24 hours to include yesterday evening.' })
                     : $_('leaderboard.no_species_desc')}
             </p>
@@ -1921,7 +1955,7 @@
                     <dd class="text-xs tabular-nums text-status-ok">{trendForMode(topByTrend, sourceMode)}</dd>
                 {:else}
                     <dd class="mt-1 text-base font-semibold text-muted">—</dd>
-                    <dd class="text-xs text-muted">{span === 'all' ? $_('leaderboard.rising_all_time', { default: 'No earlier window for all time' }) : !trendAvailable ? $_('leaderboard.rising_no_history', { default: 'Needs a full earlier window' }) : $_('leaderboard.rising_none', { default: 'Nothing up on the window before' })}</dd>
+                    <dd class="text-xs text-muted">{shownSpan === 'all' ? $_('leaderboard.rising_all_time', { default: 'No earlier window for all time' }) : !trendAvailable ? $_('leaderboard.rising_no_history', { default: 'Needs a full earlier window' }) : $_('leaderboard.rising_none', { default: 'Nothing up on the window before' })}</dd>
                 {/if}
             </div>
             <div class="min-w-0">
@@ -1947,17 +1981,23 @@
                 <div class="flex items-center gap-3">
                     <div>
                         <h2 class="text-xl font-bold text-strong">{$_('leaderboard.full_rankings', { default: 'Full rankings' })}</h2>
-                        <p class="text-sm text-muted" data-leaderboard-rankings-window>{spanLabel()} · {span === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(leaderboardWindow?.start, leaderboardWindow?.end)}</p>
+                        <p class="text-sm text-muted" data-leaderboard-rankings-window>{spanLabel()} · {shownSpan === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(leaderboardWindow?.start, leaderboardWindow?.end)}</p>
                     </div>
                 </div>
             </div>
-            {#if !trendAvailable && currentTrendGap === 'not_comparable'}
+            {#if !trendAvailable && currentTrendGap === 'clock_change'}
                 <p class="text-sm text-muted" data-leaderboard-trend-note>
-                    {authStore.isGuest
-                        ? $_('leaderboard.trend_not_comparable_shared', { default: 'No trend here. The history shared with guests does not cover the whole earlier window.' })
-                        : $_('leaderboard.trend_not_comparable_clock', { default: 'No trend today. The clocks changed, so today so far and yesterday up to this time are not the same length.' })}
+                    {$_('leaderboard.trend_not_comparable_clock', { default: 'No trend today. The clocks changed, so today so far and yesterday up to this time are not the same length.' })}
                 </p>
-            {:else if span !== 'all' && !trendAvailable && currentTrendGap === 'history' && trendHistoryStart}
+            {:else if !trendAvailable && currentTrendGap === 'shared_window'}
+                <p class="text-sm text-muted" data-leaderboard-trend-note>
+                    {$_('leaderboard.trend_not_comparable_shared', { default: 'No trend here. The history shared with guests does not cover the whole earlier window.' })}
+                </p>
+            {:else if !trendAvailable && currentTrendGap === 'cleanup'}
+                <p class="text-sm text-muted" data-leaderboard-trend-note>
+                    {$_('leaderboard.trend_not_comparable_cleanup', { default: 'No trend here. Cleanup removed captures from part of the earlier window, so its count would be too low.' })}
+                </p>
+            {:else if shownSpan !== 'all' && !trendAvailable && currentTrendGap === 'history' && trendHistoryStart}
                 <p class="text-sm text-muted" data-leaderboard-trend-note>
                     {$_('leaderboard.trend_needs_history', { values: { date: formatShortDate(trendHistoryStart) }, default: 'No trend yet. Records start {date}, so there is no complete earlier window to compare with.' })}
                 </p>
@@ -2067,7 +2107,7 @@
             <header class="flex flex-wrap items-end justify-between gap-3">
                 <div>
                     <h2 id="leaderboard-analytics-title" class="text-xl font-bold text-strong">{$_('leaderboard.analytics_section', { default: 'Analytics' })}</h2>
-                    <p class="text-sm text-muted" data-leaderboard-analytics-window>{spanLabel()} · {span === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(timeline?.window_start, timeline?.window_end)}</p>
+                    <p class="text-sm text-muted" data-leaderboard-analytics-window>{spanLabel(timelineSpan)} · {timelineSpan === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(timeline?.window_start, timeline?.window_end)}</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                             {#if canUseLeaderboardAnalysis}
@@ -2321,7 +2361,7 @@
 {#if selectedSpecies}
     <LazyModal loader={loadSpeciesDetailModal} onclose={() => (selectedSpecies = null)}>
         {#snippet children(SpeciesDetailModal)}
-            {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} openedFrom={rowFigureFor(leaderboardRows, selectedSpecies, { countsAreVisits, span })} onclose={() => (selectedSpecies = null)} />{/if}
+            {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} openedFrom={rowFigureFor(leaderboardRows, selectedSpecies, { countsAreVisits, span: shownSpan })} onclose={() => (selectedSpecies = null)} />{/if}
         {/snippet}
     </LazyModal>
 {/if}

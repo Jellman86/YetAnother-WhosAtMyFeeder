@@ -3,7 +3,7 @@ from pydantic import Field
 import os
 import asyncio
 from datetime import datetime, timedelta, timezone, tzinfo
-from typing import List, Optional, Literal
+from typing import Awaitable, Callable, List, Optional, Literal
 from collections import Counter
 from app.database import get_db
 from app.repositories.audio_history_repository import AudioHistoryRepository
@@ -36,6 +36,7 @@ from app.utils.public_access import (
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.timezone import calendar_timezone
 from app.utils.calendar_day import instance_timezone, local_date, today_so_far
+from app.utils.local_hour_buckets import hour_alignment_segments
 from app.services.leaderboard_window import LEADERBOARD_SPAN_DESCRIPTION, BoundedSpan, leaderboard_windows
 from app.services.daily_history import (
     coverage,
@@ -482,7 +483,8 @@ def _localized_bucket_key_and_label(
     else:
         local_start = local_dt.replace(minute=0, second=0, microsecond=0)
         label = local_start.strftime("%b %d %H:00") if detailed_hour_label else local_start.strftime("%H:00")
-    key = local_start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
+    # Minutes are kept: a local hour in Kolkata (UTC+5:30) begins at half past a UTC hour.
+    key = local_start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:00Z")
     return key, label
 
 
@@ -495,11 +497,17 @@ def _build_local_timeline_points(
     detailed_hour_label: bool = False,
 ) -> list[DetectionsTimelinePoint]:
     points_by_key: dict[str, DetectionsTimelinePoint] = {}
-    cursor = window_start.replace(minute=0, second=0, microsecond=0)
-    end_hour = window_end.replace(minute=0, second=0, microsecond=0)
-    while cursor <= end_hour:
+    # An hour from the window's own start meets every local hour once, wherever local hours begin;
+    # flooring to the UTC hour first would add the local hour before the window in Kolkata.
+    instants = []
+    cursor = window_start
+    while cursor < window_end:
+        instants.append(cursor)
+        cursor = cursor + timedelta(hours=1)
+    instants.append(window_end)
+    for instant in instants:
         key, label = _localized_bucket_key_and_label(
-            cursor,
+            instant,
             bucket,
             user_tz,
             detailed_hour_label=detailed_hour_label,
@@ -510,8 +518,29 @@ def _build_local_timeline_points(
                 label=label,
                 count=0,
             )
-        cursor = cursor + timedelta(hours=1)
     return list(points_by_key.values())
+
+
+async def _by_local_hour(
+    read: Callable[..., Awaitable[dict]],
+    start: datetime,
+    end: datetime,
+    zone: tzinfo,
+    merge: Callable[[dict, dict], None] | None = None,
+) -> dict:
+    """``read`` over ``[start, end)`` in hour buckets that begin where the viewer's local hours do.
+
+    Counts are summed per bucket; ``merge`` folds values that are not counts.
+    """
+    found: dict = {}
+    for piece_start, piece_end, alignment in hour_alignment_segments(start, end, zone):
+        part = await read(piece_start, piece_end, align_minutes=alignment)
+        if merge is not None:
+            merge(found, part)
+            continue
+        for key, value in part.items():
+            found[key] = found.get(key, 0) + value
+    return found
 
 
 @router.get("/stats/daily-summary", response_model=DailySummaryResponse)
@@ -967,23 +996,31 @@ async def get_detection_timeline_span(
         async def in_ranges(read) -> dict:
             found: dict = {}
             for range_start, range_end in ranges:
-                for key, value in (await read(range_start, range_end)).items():
+                for key, value in (await _by_local_hour(read, range_start, range_end, user_tz)).items():
                     found[key] = found.get(key, 0) + value
             return found
 
         hourly_counts = subtract_counts(
-            await repo.get_timebucket_counts_hourly(window_start, window_end),
+            await _by_local_hour(repo.get_timebucket_counts_hourly, window_start, window_end, user_tz),
             await in_ranges(repo.get_timebucket_counts_hourly),
         )
         # A capture Frigate lost still counts on its live day.
         lost_buckets: set[str] = set()
-        for key, count in (await totals_repo.lost_hourly_counts(window_start, window_end)).items():
+        for key, count in (
+            await _by_local_hour(totals_repo.lost_hourly_counts, window_start, window_end, user_tz)
+        ).items():
             hourly_counts[key] = hourly_counts.get(key, 0) + count
             lost_key, _label = _localized_bucket_key_and_label(
                 _parse_utc_bucket_key(key), bucket, user_tz, detailed_hour_label=(bucket == "hour" and span == "all")
             )
             lost_buckets.add(lost_key)
-        hourly_metrics = await repo.get_timebucket_metrics(window_start, window_end, "hour")
+        hourly_metrics = await _by_local_hour(
+            lambda start, end, **aligned: repo.get_timebucket_metrics(start, end, "hour", **aligned),
+            window_start,
+            window_end,
+            user_tz,
+            merge=lambda found, part: found.update(part),
+        )
         metric_rollups: dict[str, dict[str, float | int]] = {}
 
         for bucket_key, count in hourly_counts.items():
@@ -1055,18 +1092,20 @@ async def get_detection_timeline_span(
 
             if sanitized_compare:
 
-                async def compare_counts_between(range_start: datetime, range_end: datetime) -> dict:
+                async def compare_counts_between(range_start: datetime, range_end: datetime, **aligned) -> dict:
                     found = await repo.get_timebucket_species_counts_for_names(
                         start=range_start,
                         end=range_end,
                         bucket="hour",
                         species_names=sanitized_compare,
                         language=lang,
+                        **aligned,
                     )
                     return {(key, name): count for key, row in found.items() for name, count in row.items()}
 
                 live_compare = subtract_counts(
-                    await compare_counts_between(window_start, window_end), await in_ranges(compare_counts_between)
+                    await _by_local_hour(compare_counts_between, window_start, window_end, user_tz),
+                    await in_ranges(compare_counts_between),
                 )
                 localized_compare_counts: dict[str, dict[str, int]] = {}
 
@@ -1084,7 +1123,14 @@ async def get_detection_timeline_span(
                     add_compare(_parse_utc_bucket_key(bucket_key), selected, count)
                 for selected in sanitized_compare:
                     keys = await species_history_keys(db, selected)
-                    lost = await totals_repo.lost_hourly_counts(window_start, window_end, species_keys=keys)
+                    lost = await _by_local_hour(
+                        lambda start, end, keys=keys, **aligned: totals_repo.lost_hourly_counts(
+                            start, end, species_keys=keys, **aligned
+                        ),
+                        window_start,
+                        window_end,
+                        user_tz,
+                    )
                     for bucket_key, count in lost.items():
                         add_compare(_parse_utc_bucket_key(bucket_key), selected, count)
                     for total in (
@@ -1339,9 +1385,13 @@ async def get_detection_activity_heatmap(
                 window_start = now
             window_end = now
 
-        utc_hourly_counts = await repo.get_activity_heatmap_utc_hourly_counts(
-            window_start, window_end, species_name=species_name
-        )
+        utc_hourly_counts = [
+            bucket
+            for piece_start, piece_end, alignment in hour_alignment_segments(window_start, window_end, user_tz)
+            for bucket in await repo.get_activity_heatmap_utc_hourly_counts(
+                piece_start, piece_end, species_name=species_name, align_minutes=alignment
+            )
+        ]
         grid = weekday_hour_grid(utc_hourly_counts, user_tz)
 
         return DetectionsActivityHeatmapResponse(

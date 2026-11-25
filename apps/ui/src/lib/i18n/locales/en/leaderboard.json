@@ -226,5 +226,6 @@
   "today_empty_desc": "Today counts from midnight, so it starts empty each morning. Visits appear here as they arrive. Choose Last 24 hours to include yesterday evening.",
   "window_shortened_note": "Counted from {time}, when the history shared with guests begins.",
   "trend_not_comparable_clock": "No trend today. The clocks changed, so today so far and yesterday up to this time are not the same length.",
-  "trend_not_comparable_shared": "No trend here. The history shared with guests does not cover the whole earlier window."
+  "trend_not_comparable_shared": "No trend here. The history shared with guests does not cover the whole earlier window.",
+  "trend_not_comparable_cleanup": "No trend here. Cleanup removed some captures from the windows being compared, so one count would be too low."
 }

@@ -226,5 +226,6 @@
   "today_empty_desc": "„Heute“ zählt ab Mitternacht und beginnt daher jeden Morgen leer. Besuche erscheinen hier, sobald sie eintreffen. Wählen Sie „Letzte 24 Stunden“, um auch den gestrigen Abend zu sehen.",
   "window_shortened_note": "Gezählt ab {time}, dem Beginn des Verlaufs, der für Gäste freigegeben ist.",
   "trend_not_comparable_clock": "Heute kein Trend. Die Uhren wurden umgestellt, daher sind heute bis jetzt und gestern bis zu dieser Uhrzeit nicht gleich lang.",
-  "trend_not_comparable_shared": "Hier kein Trend. Der für Gäste freigegebene Verlauf deckt den früheren Zeitraum nicht vollständig ab."
+  "trend_not_comparable_shared": "Hier kein Trend. Der für Gäste freigegebene Verlauf deckt den früheren Zeitraum nicht vollständig ab.",
+  "trend_not_comparable_cleanup": "Hier kein Trend. Die Bereinigung hat Aufnahmen aus den verglichenen Zeiträumen entfernt, daher wäre eine Zählung zu niedrig."
 }

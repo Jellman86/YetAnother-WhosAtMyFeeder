@@ -16,7 +16,13 @@ from app.repositories.daily_totals_repository import DailyTotalsRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.services.daily_history import DayCoverage, coverage, first_whole_day, local_midnight_utc, sealed_ranges
 from app.services.daily_totals_lookup import species_history_keys
-from app.services.sealed_species_counts import CountWindow, SealedSpecies, sealed_species_counts, with_sealed_species
+from app.services.sealed_species_counts import (
+    CountWindow,
+    SealedSpecies,
+    SealedSpeciesCounts,
+    sealed_species_counts,
+    with_sealed_species,
+)
 from app.utils.calendar_day import instance_timezone, local_date
 from app.repositories.species_repository import SpeciesRepository
 from app.models import (
@@ -45,9 +51,11 @@ from app.services.reference_identity import (
 from app.services.species_catalog_resolver import species_catalog_resolver
 from app.services.leaderboard_window import (
     LEADERBOARD_SPAN_DESCRIPTION,
+    WindowMismatch,
     BoundedSpan,
     leaderboard_windows,
     previous_window_is_complete,
+    sealed_history_cuts,
 )
 from app.services.nearby_species_service import nearby_species_service, reported_nearby
 from app.utils.classifier_labels import collapse_classifier_label
@@ -136,9 +144,10 @@ class LeaderboardSpeciesResponse(BaseModel):
     window_shortened: bool = False
     history_start: str | None = None
     previous_window_complete: bool = False
-    # Whether the previous window covers the same stretch of the clock; false across a clock change
-    # in today or when a guest's allowance cuts either window, whatever the history holds.
-    previous_window_comparable: bool = True
+    # Why the previous window is no fair comparison whatever the history holds, or null when it is:
+    # a clock change in today, a guest's allowance cutting either window, or cleanup having removed
+    # captures from part of one.
+    previous_window_mismatch: WindowMismatch | None = None
     # The eBird check behind reported_nearby, or null when it did not run.
     nearby_radius_km: int | None = None
     nearby_days_back: int | None = None
@@ -1150,11 +1159,18 @@ async def get_leaderboard_species(
         guest_start = None if auth.is_owner else bounds["start_date"].replace(tzinfo=None)
         # A guest sees no sealed day that began before their window, not even its boundary day.
         history_floor = first_whole_day(guest_start, zone) if guest_start else None
-        sealed = await sealed_species_counts(
-            db,
-            [CountWindow(window_start, window_end), CountWindow(prev_start, prev_end)],
-            zone=zone,
-            floor=history_floor,
+        # Today counts stored captures alone, as its hourly chart does: a local day lengthened by a
+        # clock change can hold a whole sealed instance day whose total the chart would not show.
+        totals_count = span != "today"
+        sealed = (
+            await sealed_species_counts(
+                db,
+                [CountWindow(window_start, window_end), CountWindow(prev_start, prev_end)],
+                zone=zone,
+                floor=history_floor,
+            )
+            if totals_count
+            else SealedSpeciesCounts()
         )
         sealed_unknown = sealed.pop_unknown()
         rows = await repo.get_species_leaderboard_window(
@@ -1184,6 +1200,17 @@ async def get_leaderboard_species(
                 unknown["prev_visit_count"] += species.visits[1]
         oldest_stored, _ = await repo.get_detection_time_bounds(**bounds)
         totals_repo = DailyTotalsRepository(db)
+        # A compared window that takes in a sealed day its total cannot stand for counts only the
+        # captures cleanup kept, so the trend would compare a part with a whole.
+        sealed_nearby = await totals_repo.sealed_days(
+            local_date(min(window_start, prev_start), zone=zone), local_date(window_end, zone=zone)
+        )
+        cleanup_cut = any(
+            sealed_history_cuts(start, end, sealed_nearby, zone, totals_count=totals_count)
+            for start, end in ((window_start, window_end), (prev_start, prev_end))
+            if start < end
+        )
+        mismatch = windows.mismatch or ("cleanup" if cleanup_cut else None)
         first_sealed = await totals_repo.first_sealed_day(history_floor)
         # History reaches back to the first sealed day or the oldest capture Frigate lost, if either
         # is older than every stored capture, as the timeline's does.
@@ -1294,9 +1321,9 @@ async def get_leaderboard_species(
         "window_start": window_start.replace(tzinfo=timezone.utc).isoformat(),
         "window_end": window_end.replace(tzinfo=timezone.utc).isoformat(),
         "window_shortened": windows.shortened,
-        "previous_window_comparable": windows.comparable,
+        "previous_window_mismatch": mismatch,
         "history_start": serialize_api_datetime(history_start) if history_start else None,
-        "previous_window_complete": windows.comparable
+        "previous_window_complete": mismatch is None
         and prev_start < prev_end
         and previous_window_is_complete(history_start=history_start, prev_start=prev_start),
         "nearby_radius_km": nearby.radius_km if nearby else None,
@@ -2872,17 +2899,17 @@ async def get_leaderboard_portraits(
     is_guest = not auth.is_owner and settings.public_access.enabled
     if is_guest and not settings.public_access.show_snapshots:
         return LeaderboardPortraitsResponse(span=span, portraits=[])
-    zone = calendar_timezone(request)
-    # Today begins at the viewer's midnight, so viewers in different zones ask for different windows.
-    cache_key = (span, limit, is_guest, str(zone) if span == "today" else "")
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    window_start, window_end = _portraits_window(span, now, calendar_timezone(request))
+    # Today begins at the viewer's own midnight, so its cache is keyed by the start that resolved:
+    # another zone, or the same one after midnight, is a different window.
+    cache_key = (span, limit, is_guest, window_start.isoformat() if span == "today" else "")
     cached = _portraits_cache.get(cache_key)
     if not is_guest and cached and (asyncio.get_running_loop().time() - cached[0]) < PORTRAITS_CACHE_SECONDS:
         return LeaderboardPortraitsResponse(
             span=span, portraits=await _portrait_responses(cached[1], films_allowed=True)
         )
 
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    window_start, window_end = _portraits_window(span, now, zone)
     guest_cutoff: datetime | None = None
     if is_guest:
         media_start, media_end = public_media_window(now.replace(tzinfo=timezone.utc))
@@ -2916,8 +2943,9 @@ async def get_leaderboard_portraits(
             r["species"]: await repo.get_recent_by_species(
                 r["species"],
                 limit=PORTRAIT_CANDIDATES_PER_SPECIES,
-                start_date=window_start if is_guest else None,
-                end_date=window_end if is_guest else None,
+                # Today's photograph is one of today's captures, never yesterday's crop.
+                start_date=window_start if is_guest or span == "today" else None,
+                end_date=window_end if is_guest or span == "today" else None,
             )
             for r in ranked
         }

@@ -226,5 +226,6 @@
   "today_empty_desc": "Aujourd’hui compte à partir de minuit et commence donc vide chaque matin. Les visites apparaissent ici dès leur arrivée. Choisissez Dernières 24 heures pour inclure la soirée d’hier.",
   "window_shortened_note": "Compté à partir de {time}, début de l’historique partagé avec les invités.",
   "trend_not_comparable_clock": "Pas de tendance aujourd’hui. L’heure a changé, donc aujourd’hui jusqu’à maintenant et hier jusqu’à cette heure n’ont pas la même durée.",
-  "trend_not_comparable_shared": "Pas de tendance ici. L’historique partagé avec les invités ne couvre pas toute la période précédente."
+  "trend_not_comparable_shared": "Pas de tendance ici. L’historique partagé avec les invités ne couvre pas toute la période précédente.",
+  "trend_not_comparable_cleanup": "Pas de tendance ici. Le nettoyage a supprimé des détections des périodes comparées, donc un des décomptes serait trop bas."
 }

@@ -208,8 +208,8 @@ export interface components {
 };
     AudioSpeciesLeaderboardResponse: {
     history_start?: string | null;
-    previous_window_comparable?: boolean;
     previous_window_complete?: boolean;
+    previous_window_mismatch?: "clock_change" | "shared_window" | "cleanup" | null;
     span: "today" | "day" | "week" | "month" | "all";
     species: Array<components['schemas']['AudioSpeciesLeaderboardItemResponse']>;
     window_end: string;
@@ -1839,8 +1839,8 @@ export interface components {
     nearby_check: "checked" | "off" | "unavailable";
     nearby_days_back?: number | null;
     nearby_radius_km?: number | null;
-    previous_window_comparable?: boolean;
     previous_window_complete?: boolean;
+    previous_window_mismatch?: "clock_change" | "shared_window" | "cleanup" | null;
     span: "today" | "day" | "week" | "month";
     species: Array<components['schemas']['LeaderboardSpeciesItemResponse']>;
     window_end: string;

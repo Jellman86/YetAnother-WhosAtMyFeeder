@@ -317,7 +317,10 @@ A header or `TZ` that does not name a real zone is ignored (and logged once), ne
 Every other day, hour and weekday the API buckets by uses the same zone: `daily-summary`'s
 `window=today` and its hour buckets, the leaderboard's `span=today`, the timeline's buckets, both activity heatmaps, the
 species stats distributions, custom backfill dates and the local time an AI analysis is given.
-So a client with no header gets hours in the instance's zone that agree with its day. A guest's
+So a client with no header gets hours in the instance's zone that agree with its day. In a zone
+whose offset is not a whole hour (Asia/Kolkata, UTC+5:30), the Leaderboard's timeline and heatmap
+group each capture into its own local hour, and the timeline's hour `bucket_start` keeps its
+minutes (`2034-03-10T18:30:00Z` is midnight in Kolkata). A guest's
 shared window is applied after the zone is resolved, so no header can widen it. A day runs from local midnight
 to the last instant before the next local midnight, so a capture at 23:30 local time belongs to
 that day even when it is already the next day in UTC, and a day that changes the clock is 23 or
@@ -1145,15 +1148,20 @@ Notes:
   days) and, except on `/api/leaderboard/species`, `all`. Seen and heard counts for one `span` and
   one zone cover the same window. `today` is compared with yesterday from local midnight up to the
   same local time; the rolling spans with the same length before them. The timeline buckets
-  `today` by the hour, and a sealed day is counted from its daily totals only when the whole day
-  lies inside the window, so `today` always counts stored captures. A guest's window is the
-  requested one intersected with the shared window (in today-only sharing, the UTC day, ending
-  before the next UTC midnight). On the two rankings, `window_start` is the start actually counted,
-  `window_shortened` is true when the shared window moved it later than the span asks for, and
-  `previous_window_comparable` is false when the two windows do not cover the same stretch of
-  the clock: today so far and yesterday so far differ in length on the day the clocks change,
-  or the shared window cuts either one. `previous_window_complete` is false in both cases, as it
-  is when the history does not reach back over the whole previous window, so no trend is claimed.
+  `today` by the hour. `today` never counts a sealed day from its daily total, even one that lies
+  wholly inside a day lengthened by a clock change, so its rankings agree with its hourly chart;
+  the other spans count a sealed day from its total only when the whole day lies inside the
+  window. Today's portraits come from today's captures only. A guest's window is the requested
+  one intersected with the shared window (in today-only sharing, the UTC day, ending before the
+  next UTC midnight). On the two rankings, `window_start` is the start actually counted and
+  `window_shortened` is true when the shared window moved it later than the span asks for.
+  `previous_window_mismatch` says why the two windows are no fair comparison, whatever the
+  history holds: `clock_change` (today so far and yesterday so far differ in length, or the same
+  time yesterday was skipped or repeated by a clock change), `shared_window` (the shared window
+  cuts either one) or, on `/api/leaderboard/species`, `cleanup` (a compared window takes in part of
+  a sealed day, or for `today` any of one, so it counts only the captures cleanup kept). It is
+  null when they are comparable. `previous_window_complete` is false whenever it is set, as it is
+  when the history does not reach back over the whole previous window, so no trend is claimed.
 
 ### Taxonomy
 
