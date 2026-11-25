@@ -105,10 +105,24 @@
         }
     }
 
+    let rememberedCustomRules: { insert: boolean; update: boolean; video: boolean } | null = null;
+
     function setMode(mode: typeof notifyMode) {
+        if (notifyMode === 'custom' && mode !== 'custom') {
+            rememberedCustomRules = {
+                insert: notifyOnInsert,
+                update: notifyOnUpdate,
+                video: notifyDelayUntilVideo
+            };
+        }
         notifyMode = mode;
         if (mode !== 'custom') {
             applyPreset(mode);
+        } else if (rememberedCustomRules) {
+            notifyOnInsert = rememberedCustomRules.insert;
+            notifyOnUpdate = rememberedCustomRules.update;
+            notifyDelayUntilVideo = rememberedCustomRules.video;
+            rememberedCustomRules = null;
         }
     }
 
@@ -244,7 +258,7 @@
             <p id="notifications-custom-rules-why" class="max-w-prose text-sm leading-relaxed text-muted" data-custom-rules-note={customRules ? 'active' : 'inactive'}>
                 {customRules
                     ? $_('settings.notifications.custom_rules.active', { default: 'Your own triggers. A visit sends at most one alert, so these cannot repeat an alert as a visit changes: choose every update in the sentence above for that.' })
-                    : $_('settings.notifications.custom_rules.desc', { default: 'These switches take effect only with custom rules. The other choices in the sentence above set their own triggers and ignore them. Choose custom rules there to use these.' })}
+                    : $_('settings.notifications.custom_rules.desc', { default: 'These switches can be changed only with custom rules. The other choices in the sentence above set their own start and update triggers and match the video wait to the choice. Choose custom rules there to edit these.' })}
             </p>
             <SettingsRow
                 labelId="setting-notify-on-insert"

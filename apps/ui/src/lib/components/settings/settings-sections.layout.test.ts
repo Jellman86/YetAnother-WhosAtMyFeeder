@@ -139,7 +139,8 @@ describe('custom notification rules', () => {
         const copy = enSettings.notifications.custom_rules;
         expect(copy.active).toContain('at most one alert');
         expect(copy.on_update_desc).toContain('It never sends a second alert.');
-        expect(copy.desc).toContain('take effect only with custom rules');
+        expect(copy.desc).toContain('can be changed only with custom rules');
+        expect(copy.desc).toContain('match the video wait to the choice');
         expect(`${copy.on_update} ${copy.on_update_desc}`).not.toMatch(/another alert|each time/i);
         expect(enSettings.notifications.sentence.custom_hint).toContain('At most one alert per visit.');
     });

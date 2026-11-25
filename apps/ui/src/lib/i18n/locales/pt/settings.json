@@ -1045,7 +1045,7 @@
     "custom_rules": {
       "title": "Regras personalizadas",
       "active": "Os seus próprios gatilhos. Uma visita envia no máximo um alerta, por isso não podem repeti-lo quando a visita muda: para isso, escolha cada atualização na frase acima.",
-      "desc": "Estes interruptores só têm efeito com regras personalizadas. As outras opções da frase acima definem seus próprios gatilhos e os ignoram. Escolha ali regras personalizadas para usá-los.",
+      "desc": "Estes interruptores só podem ser alterados com regras personalizadas. As outras opções da frase acima definem seus próprios gatilhos de início e atualização e ajustam a espera pelo vídeo à opção escolhida. Escolha ali regras personalizadas para editá-los.",
       "on_insert": "Quando uma visita começa",
       "on_insert_desc": "Envia o alerta quando o Frigate informa a visita pela primeira vez, se o nome já for seguro o bastante.",
       "on_update": "Mais tarde, se nenhum alerta foi enviado",
@@ -1396,7 +1396,6 @@
     "api_key_label": "Chave API LLM",
     "test_button": "Testar conexão de IA",
     "test_loading": "Testando…",
-    "enabled": "Insights de IA",
     "test_connection": "Testar conexão de IA",
     "recommended_model": "Recomendado: {model}",
     "get_gemini_key": "Obter chave do Google Gemini →",

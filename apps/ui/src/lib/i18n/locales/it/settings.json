@@ -1045,7 +1045,7 @@
     "custom_rules": {
       "title": "Regole personalizzate",
       "active": "I tuoi trigger. Una visita invia al massimo un avviso, quindi non possono ripeterlo quando la visita cambia: per questo scegli ogni aggiornamento nella frase qui sopra.",
-      "desc": "Questi interruttori hanno effetto solo con le regole personalizzate. Le altre scelte nella frase qui sopra impostano i propri trigger e li ignorano. Scegli lì le regole personalizzate per usarli.",
+      "desc": "Questi interruttori possono essere modificati solo con le regole personalizzate. Le altre scelte nella frase qui sopra impostano i propri trigger di avvio e aggiornamento e adattano l’attesa del video alla scelta. Scegli lì le regole personalizzate per modificarli.",
       "on_insert": "Quando inizia una visita",
       "on_insert_desc": "Invia l’avviso quando Frigate segnala la visita per la prima volta, se il nome è già abbastanza sicuro.",
       "on_update": "Più tardi, se non è partito alcun avviso",
@@ -1396,7 +1396,6 @@
     "api_key_label": "Chiave API LLM",
     "test_button": "Testa connessione IA",
     "test_loading": "Test in corso…",
-    "enabled": "Approfondimenti IA",
     "test_connection": "Testa connessione IA",
     "recommended_model": "Consigliato: {model}",
     "get_gemini_key": "Ottieni una chiave Google Gemini →",

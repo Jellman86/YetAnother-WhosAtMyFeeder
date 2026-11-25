@@ -1045,7 +1045,7 @@
     "custom_rules": {
       "title": "Eigene Regeln",
       "active": "Ihre eigenen Auslöser. Ein Besuch sendet höchstens eine Benachrichtigung; wiederholen lässt sie sich damit nicht, wenn sich ein Besuch ändert. Wählen Sie dafür im Satz oben „jede Aktualisierung“.",
-      "desc": "Diese Schalter wirken nur mit eigenen Regeln. Die anderen Auswahlen im Satz oben setzen ihre eigenen Auslöser und beachten sie nicht. Wählen Sie dort „eigene Regeln“, um sie zu nutzen.",
+      "desc": "Diese Schalter lassen sich nur mit eigenen Regeln ändern. Die anderen Auswahlen im Satz oben legen ihre eigenen Start- und Aktualisierungsauslöser fest und passen das Warten auf die Videoprüfung an die Auswahl an. Wählen Sie dort „eigene Regeln“, um sie zu bearbeiten.",
       "on_insert": "Wenn ein Besuch beginnt",
       "on_insert_desc": "Sendet die Benachrichtigung, wenn Frigate den Besuch erstmals meldet, sofern der Name dann schon sicher genug ist.",
       "on_update": "Später, falls noch keine gesendet wurde",
@@ -1396,7 +1396,6 @@
     "api_key_label": "KI-API-Schlüssel",
     "test_button": "KI-Verbindung testen",
     "test_loading": "Wird getestet…",
-    "enabled": "KI-Einblicke",
     "test_connection": "KI-Verbindung testen",
     "recommended_model": "Empfohlen: {model}",
     "get_gemini_key": "Google-Gemini-Schlüssel anfordern →",
