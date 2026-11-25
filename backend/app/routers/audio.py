@@ -440,6 +440,7 @@ async def get_audio_summary(
             only_hidden=only_hidden,
             search=search,
             search_include_source=not hide_sensor,
+            calendar_zone=calendar_timezone(request),
         )
     # The scientific name stays: `species` is translated, so it is the only name the activity grid
     # can be asked for exactly.

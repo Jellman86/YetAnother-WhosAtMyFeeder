@@ -496,10 +496,11 @@
 
     /**
      * The window the server counted, which for a guest is the shared one, not the one chosen. Today's
-     * is in hours, decided by the reading on screen, never by a window still being read.
+     * is in hours. Only a reading on screen has a range: while another window, or the next day, is
+     * read the dates stay hidden, so a period's name never stands beside another period's dates.
      */
     function windowRange(): string {
-        if (!summary?.window_start || !summary.window_end) return '';
+        if (!measured || !summary?.window_start || !summary.window_end) return '';
         const format = shownRequest?.aggregate.start_date ? formatTime : formatShortDay;
         return `${format(summary.window_start)}-${format(summary.window_end)}`;
     }
@@ -1053,8 +1054,10 @@
             <div class="border-y border-dashed border-line px-4 py-12 text-center text-sm font-semibold text-muted">
                 {#if showHidden}
                     {$_('audio.history.empty_hidden', { default: 'No hidden calls match these filters.' })}
+                {:else if applied.window === 'today' && nothingNarrows && sharedFrom}
+                    <span data-audio-history-empty-today>{$_('audio.history.empty_today_shared', { values: { time: formatTime(sharedFrom) }, default: 'No calls heard since {time}, when the shared history starts. Select Refresh to check for new calls.' })}</span>
                 {:else if applied.window === 'today' && nothingNarrows}
-                    <span data-audio-history-empty-today>{$_('audio.history.empty_today', { default: 'No calls heard yet today. Calls appear here as BirdNET-Go hears them.' })}</span>
+                    <span data-audio-history-empty-today>{$_('audio.history.empty_today', { default: 'No calls heard yet today. Select Refresh to check for new calls.' })}</span>
                 {:else}
                     {$_('audio.history.empty', { default: 'No calls match these filters.' })}
                 {/if}

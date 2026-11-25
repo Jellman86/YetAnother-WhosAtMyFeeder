@@ -8,7 +8,7 @@ before.
 import asyncio
 import json
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import TYPE_CHECKING, Any, Optional
 
 import aiosqlite
@@ -88,6 +88,19 @@ class _AudioContextWindow:
     target: datetime
     start: str
     end: str
+
+
+def _calendar_day(stored: object, zone: tzinfo) -> date | None:
+    """The day a stored UTC timestamp falls on in ``zone``, or None for one that cannot be read."""
+    if not isinstance(stored, str):
+        return None
+    try:
+        instant = datetime.fromisoformat(stored)
+    except ValueError:
+        return None
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=timezone.utc)
+    return instant.astimezone(zone).date()
 
 
 def rank_audio_context(
@@ -616,8 +629,9 @@ class AudioHistoryRepository:
         only_hidden: bool = False,
         search: Optional[str] = None,
         search_include_source: bool = True,
+        calendar_zone: tzinfo = timezone.utc,
     ) -> dict:
-        """Return rollups over persisted BirdNET detections."""
+        """Return rollups over persisted BirdNET detections, with calls per day on ``calendar_zone``'s calendar."""
         where_sql, params = self._build_audio_history_filter(
             start_date=start_date,
             end_date=end_date,
@@ -650,16 +664,6 @@ class AudioHistoryRepository:
             top_species_rows = await cursor.fetchall()
 
         async with self.db.execute(
-            f"""SELECT DATE(timestamp), COUNT(*)
-                FROM audio_detections
-                {where_sql}
-                GROUP BY DATE(timestamp)
-                ORDER BY DATE(timestamp) ASC""",
-            params,
-        ) as cursor:
-            daily_rows = await cursor.fetchall()
-
-        async with self.db.execute(
             f"""SELECT CAST(strftime('%H', timestamp) AS INTEGER), COUNT(*)
                 FROM audio_detections
                 {where_sql}
@@ -670,6 +674,9 @@ class AudioHistoryRepository:
             hourly_rows = await cursor.fetchall()
 
         source_totals: dict[str, dict] = {}
+        # Days are the viewer's, not UTC's: SQLite knows no zones, so each call's day is read here, in
+        # the same pass that totals the sources, which also stays exact for half-hour offsets and DST.
+        daily_totals: dict[date, int] = {}
         async with self.db.execute(
             f"""SELECT timestamp, sensor_id, raw_data
                 FROM audio_detections
@@ -679,6 +686,9 @@ class AudioHistoryRepository:
         ) as cursor:
             while source_rows := await cursor.fetchmany(512):
                 for row in source_rows:
+                    day = _calendar_day(row[0], calendar_zone)
+                    if day is not None:
+                        daily_totals[day] = daily_totals.get(day, 0) + 1
                     source_name = extract_birdnet_source_name(row[1], row[2])
                     if not source_name:
                         source_name = "Unknown source"
@@ -713,7 +723,7 @@ class AudioHistoryRepository:
             "species_count": int(totals[1] or 0) if totals else 0,
             "source_count": len(sources),
             "top_species": top_species,
-            "daily_counts": [{"date": row[0], "count": int(row[1] or 0)} for row in daily_rows],
+            "daily_counts": [{"date": day.isoformat(), "count": count} for day, count in sorted(daily_totals.items())],
             "hourly_counts": [{"hour": int(row[0] or 0), "count": int(row[1] or 0)} for row in hourly_rows],
             "sources": sources,
         }

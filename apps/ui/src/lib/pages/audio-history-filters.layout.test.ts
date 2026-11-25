@@ -45,7 +45,15 @@ describe('audio history filters', () => {
     });
 
     it('say plainly that nothing has been heard yet today, and when a guest sees less of the day', () => {
-        expect(audioHistorySource).toContain("default: 'No calls heard yet today. Calls appear here as BirdNET-Go hears them.'");
+        expect(audioHistorySource).toContain("default: 'No calls heard yet today. Select Refresh to check for new calls.'");
+        // The page does not follow live calls, so it never promises they appear on their own.
+        expect(audioHistorySource).not.toContain('Calls appear here as BirdNET-Go hears them');
+        // A guest whose shared day starts after their midnight is told where it starts, not "today".
+        expect(audioHistorySource).toContain("default: 'No calls heard since {time}, when the shared history starts. Select Refresh to check for new calls.'");
+    });
+
+    it('show the counted dates only beside a reading of the window named', () => {
+        expect(audioHistorySource).toContain("if (!measured || !summary?.window_start || !summary.window_end) return '';");
         expect(audioHistorySource).toContain('data-audio-window-narrowed');
         expect(audioHistorySource).toContain("default: 'Shared history starts at {time}, so calls heard earlier today are not shown.'");
     });

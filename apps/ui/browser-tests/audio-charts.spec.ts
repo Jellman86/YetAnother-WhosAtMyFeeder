@@ -229,8 +229,63 @@ test('Today asks the list, the summary and the grid for one pair of instants, an
         expect(params?.get('end_date')).toBe(end);
     }
     expect(history?.get('offset')).toBe('0');
-    await expect(page.locator('[data-audio-history-empty-today]')).toHaveText('No calls heard yet today. Calls appear here as BirdNET-Go hears them.');
+    await expect(page.locator('[data-audio-history-empty-today]')).toHaveText('No calls heard yet today. Select Refresh to check for new calls.');
     await expect(page.locator('[data-audio-analytics-window]')).toHaveText(/^Today · .+-.+$/);
+});
+
+/** Holds the list, summary and grid reads until released, so a test can look at the page while they load. */
+async function holdAudioReads(page: Page): Promise<{ held: () => number; release: () => void }> {
+    let opened = false;
+    let open: () => void = () => undefined;
+    const gate = new Promise<void>(resolve => { open = resolve; });
+    let held = 0;
+    await page.route(/\/api\/audio\/(history|summary|activity-heatmap)\?/, async route => {
+        if (!opened) {
+            held += 1;
+            await gate;
+        }
+        await route.fallback();
+    });
+    return { held: () => held, release: () => { opened = true; open(); } };
+}
+
+test('choosing Today shows no dates beside its name until Today has been read', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'drives the window bar, which is the desktop control');
+    const windowLine = page.locator('[data-audio-analytics-window]');
+    await expect(windowLine).toHaveText(/^Last 30 days · .+-.+$/);
+
+    const reads = await holdAudioReads(page);
+    await page.locator('[data-audio-window-bar] [data-segment="today"]').click();
+    await expect.poll(reads.held).toBeGreaterThanOrEqual(3);
+    // The 30 days' dates never stand beside Today's name.
+    await expect(windowLine).toHaveText('Today');
+
+    reads.release();
+    await expect(windowLine).toHaveText(/^Today · .+-.+$/);
+});
+
+test('at midnight Today reads the new day and hides the old day\'s range until it lands', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'drives the window bar, which is the desktop control');
+    await page.clock.install({ time: new Date('2026-11-25T23:59:30') });
+    await page.reload();
+    const windowLine = page.locator('[data-audio-analytics-window]');
+    await page.locator('[data-audio-window-bar] [data-segment="today"]').click();
+    await expect(windowLine).toHaveText(/^Today · .+-.+$/);
+
+    const asked: string[] = [];
+    page.on('request', request => {
+        const url = new URL(request.url());
+        if (url.pathname === '/api/audio/summary') asked.push(url.searchParams.get('start_date') ?? '');
+    });
+    const reads = await holdAudioReads(page);
+    await page.clock.fastForward('01:00');
+    await expect.poll(reads.held).toBeGreaterThanOrEqual(3);
+    await expect(windowLine).toHaveText('Today');
+    // The new day starts at the next local midnight (the fixture's zone is London, at UTC in November).
+    expect(asked.at(-1)).toBe('2026-11-26T00:00:00.000Z');
+
+    reads.release();
+    await expect(windowLine).toHaveText(/^Today · .+-.+$/);
 });
 
 test('a window with no calls says so in the grid, not as an empty grid', async ({ page }) => {
