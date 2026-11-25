@@ -319,3 +319,84 @@ async def test_a_rename_that_is_not_a_declared_kept_bird_stays_in_bird_history(l
     assert await garden_domestic_service.move_renamed_detection(event_id) is None
     assert await hidden(event_id) == 0
     assert await garden_capture() is None
+
+
+def _route(detection_id):
+    from app.models.garden import GardenDomesticRoute
+
+    return GardenDomesticRoute(
+        domestic_bird="chicken",
+        origin="moved_from_birds",
+        source_label="Gallus gallus",
+        detection_id=detection_id,
+        routed_at="2026-10-31T09:00:00Z",
+    )
+
+
+async def _move_directly(event_id, *, require_unconfirmed):
+    async with get_db() as db:
+        (detection_id,) = await (
+            await db.execute("SELECT id FROM detections WHERE frigate_event=?", (event_id,))
+        ).fetchone()
+        return await GardenRepository(db).move_detection_to_garden(
+            detection_id,
+            event_id,
+            "feeder",
+            "2026-10-31T09:00:00",
+            True,
+            _route(detection_id),
+            require_unconfirmed=require_unconfirmed,
+        )
+
+
+@pytest.mark.asyncio
+async def test_an_automatic_move_writes_nothing_when_the_owner_has_confirmed_the_name():
+    event_id = await renamed_record("domestic-route-confirmed-write", manual_tagged=True)
+
+    assert await _move_directly(event_id, require_unconfirmed=True) is None
+
+    # The Garden capture is rolled back with the refused hide, so nothing is half moved.
+    assert await hidden(event_id) == 0
+    assert await garden_capture() is None
+
+
+@pytest.mark.asyncio
+async def test_the_owner_can_still_move_a_record_whose_name_they_confirmed():
+    event_id = await renamed_record("domestic-route-confirmed-owner", manual_tagged=True)
+
+    assert await _move_directly(event_id, require_unconfirmed=False) is not None
+
+    assert await hidden(event_id) == 1
+    assert await garden_capture() is not None
+
+
+@pytest.mark.asyncio
+async def test_an_owner_confirmation_during_an_automatic_move_keeps_the_record_in_bird_history():
+    from app.services.garden_domestic_service import garden_domestic_service
+
+    event_id = await renamed_record("domestic-route-confirm-race")
+    move = GardenRepository.move_detection_to_garden
+
+    async def confirm_then_move(repository, *args, **kwargs):
+        # The owner confirms the name after the service read the record and before it writes.
+        async with get_db() as db:
+            await db.execute("UPDATE detections SET manual_tagged=1 WHERE frigate_event=?", (event_id,))
+            await db.commit()
+        return await move(repository, *args, **kwargs)
+
+    with patch.object(GardenRepository, "move_detection_to_garden", confirm_then_move):
+        assert await garden_domestic_service.move_renamed_detection(event_id) is None
+
+    assert await hidden(event_id) == 0
+    assert await garden_capture() is None
+
+
+@pytest.mark.asyncio
+async def test_move_to_garden_moves_a_record_whose_name_the_owner_confirmed():
+    event_id = await renamed_record("domestic-route-confirmed-endpoint", manual_tagged=True)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(f"/api/events/{event_id}/move-to-garden")
+    assert response.status_code == 200, response.text
+    assert await hidden(event_id) == 1
+    capture = await garden_capture()
+    assert capture is not None and capture.id == response.json()["capture_id"]
