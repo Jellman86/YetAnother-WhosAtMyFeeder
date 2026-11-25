@@ -3,7 +3,10 @@
   "live_feed": "Transmisión en vivo",
   "showing_last_3_days": "Mostrando los últimos 3 días",
   "no_detections": "No hay visitas en las últimas 24 horas.",
+  "no_detections_today": "Todavía no hay visitas hoy.",
   "waiting_first_visitor": "No hay visitas en las últimas 24 horas. Las nuevas visitas aparecerán aquí en cuanto lleguen.",
+  "waiting_first_visitor_today": "Todavía no hay visitas hoy. Las nuevas visitas aparecerán aquí en cuanto lleguen.",
+  "waiting_first_visitor_shared": "No hay visitas desde las {time}, cuando empieza el historial compartido. Las nuevas visitas aparecerán aquí en cuanto lleguen.",
   "discovery_feed": "Feed de descubrimiento",
   "see_full_history": "Ver historial completo",
   "audio_confirmations": "Confirmaciones de audio",
@@ -25,9 +28,11 @@
   "histogram": {
     "title": "Actividad",
     "visits_per_hour": "Visitas por hora, últimas 24 horas",
+    "visits_per_hour_today": "Visitas por hora, hoy",
     "peak": "Mayor actividad a las {time}, {count, plural, one {# visita} other {# visitas}}",
     "now": "ahora",
     "aria": "Visitas por hora en las últimas 24 horas: {count, plural, one {# visita} other {# visitas}} en total, mayor actividad a las {time}",
+    "aria_today": "Visitas por hora hoy: {count, plural, one {# visita} other {# visitas}} en total, mayor actividad a las {time}",
     "tooltip_visits": "{count, plural, one {# visita} other {# visitas}} a las {time}"
   },
   "audio_feed": {
@@ -45,6 +50,7 @@
     "preview_trigger": "Vista previa de {species}",
     "preview_alt": "{species} en {camera}",
     "earlier": "{count, plural, one {# visita anterior en las últimas 24 horas, abrir en Explorador} other {# visitas anteriores en las últimas 24 horas, abrir en Explorador}}",
+    "earlier_today": "{count, plural, one {# visita anterior de hoy, abrir en Explorador} other {# visitas anteriores de hoy, abrir en Explorador}}",
     "preview_frame_position": "Fotograma {position} de {count} de esta visita",
     "birds_in_capture": "{count, plural, one {# ave en una captura} other {# aves en una captura}}",
     "birds_unknown": "{count} desconocidas",
@@ -80,6 +86,9 @@
     "cross_confirmed": "Confirmados por ambos",
     "reconnecting": "Reconectando…",
     "window": "Últimas 24 horas",
+    "shared_from": "El historial compartido empieza a las {time}, así que no se muestran las visitas anteriores de hoy.",
+    "window_choice": "Periodo mostrado",
+    "window_today": "Hoy",
     "loading": "aún cargando",
     "unavailable": "no disponible",
     "birds_scope_short": "de {count, plural, one {# captura analizada} other {# capturas analizadas}}",
@@ -97,6 +106,7 @@
     "most_heard": "Lo más escuchado",
     "latest_call": "Último canto: {species} a las {time}",
     "heard_empty": "No se escuchó ningún canto en las últimas 24 horas.",
+    "heard_empty_today": "Todavía no se ha escuchado ningún canto hoy.",
     "cameras_loading": "Cargando visitas por cámara…",
     "camera_visits_unavailable": "No se pudieron cargar los recuentos de visitas.",
     "camera_visits_unit": "{count, plural, one {visita} other {visitas}}",
@@ -105,6 +115,7 @@
   "review_queue": {
     "title": "Necesita tu decisión",
     "empty": "Todas las visitas de las últimas 24 horas tienen especie. No hay nada pendiente.",
+    "empty_today": "Todas las visitas de hoy tienen especie. No hay nada pendiente.",
     "remaining": "{count} más en espera",
     "work_through": "Revisar la cola",
     "new_species_tag": "Especie nueva · {count, plural, one {# avistamiento} other {# avistamientos}}",
@@ -113,6 +124,7 @@
     "reason_unknown_species": "Especie desconocida",
     "reason_low_score": "Por debajo del umbral de identificación",
     "visits_clear": "Todas las visitas de las últimas 24 horas tienen especie.",
+    "visits_clear_today": "Todas las visitas de hoy tienen especie.",
     "checks_summary": "{count, plural, one {# especie puede tener un nombre erróneo: {species}.} other {# especies pueden tener un nombre erróneo: {species}.}}",
     "checks_body": "{count, plural, one {Solo la cámara la respalda y ningún observador la ha registrado a menos de {distance}.} other {Solo la cámara las respalda y ningún observador las ha registrado a menos de {distance}.}}",
     "checks_body_plain": "{count, plural, one {Solo la cámara la respalda.} other {Solo la cámara las respalda.}}",
@@ -169,5 +181,6 @@
   "provider_fallback": "El proveedor de inferencia seleccionado no está en ejecución",
   "provider_checking_detail": "Esta comprobación se ejecuta una vez. Si el acelerador la supera, el clasificador se recarga automáticamente.",
   "provider_review": "Revisar modelo y proveedor",
-  "top_visitors_empty_window": "No hubo visitas en las últimas 24 horas."
+  "top_visitors_empty_window": "No hubo visitas en las últimas 24 horas.",
+  "top_visitors_empty_today": "Todavía no hay visitas hoy."
 }

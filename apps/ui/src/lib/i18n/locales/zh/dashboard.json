@@ -3,7 +3,10 @@
   "live_feed": "实时画面",
   "showing_last_3_days": "显示最近3天",
   "no_detections": "过去 24 小时内没有到访。",
+  "no_detections_today": "今天还没有到访。",
   "waiting_first_visitor": "过去24小时内没有到访。新的到访一出现就会显示在这里。",
+  "waiting_first_visitor_today": "今天还没有到访。新的到访一出现就会显示在这里。",
+  "waiting_first_visitor_shared": "自共享历史记录开始的 {time} 以来没有到访。新的到访一出现就会显示在这里。",
   "discovery_feed": "发现动态",
   "see_full_history": "查看完整历史",
   "audio_confirmations": "音频确认",
@@ -25,9 +28,11 @@
   "histogram": {
     "title": "活动",
     "visits_per_hour": "每小时到访次数（过去24小时）",
+    "visits_per_hour_today": "每小时到访次数（今天）",
     "peak": "{count, plural, other {{time} 最繁忙，# 次到访}}",
     "now": "现在",
     "aria": "{count, plural, other {过去24小时每小时到访次数：共 # 次，最繁忙为 {time}}}",
+    "aria_today": "{count, plural, other {今天每小时到访次数：共 # 次，最繁忙为 {time}}}",
     "tooltip_visits": "{count, plural, other {{time}：# 次到访}}"
   },
   "audio_feed": {
@@ -45,6 +50,7 @@
     "preview_trigger": "预览 {species}",
     "preview_alt": "{camera} 上的 {species}",
     "earlier": "{count, plural, other {过去24小时内更早的 # 次到访，在探索中打开}}",
+    "earlier_today": "{count, plural, other {今天更早的 # 次到访，在探索中打开}}",
     "preview_frame_position": "本次到访的第 {position} 帧，共 {count} 帧",
     "birds_in_capture": "{count, plural, other {一次拍摄中有 # 只鸟}}",
     "birds_unknown": "{count} 只未知",
@@ -80,6 +86,9 @@
     "cross_confirmed": "次交叉确认",
     "reconnecting": "正在重新连接…",
     "window": "过去24小时",
+    "shared_from": "共享的历史记录从 {time} 开始，因此不显示今天更早的到访。",
+    "window_choice": "显示的时段",
+    "window_today": "今天",
     "loading": "仍在加载",
     "unavailable": "不可用",
     "birds_scope_short": "{count, plural, other {来自 # 个已分析的捕获}}",
@@ -97,6 +106,7 @@
     "most_heard": "最常听到",
     "latest_call": "最近的叫声：{time} 的 {species}",
     "heard_empty": "过去24小时内没有听到叫声。",
+    "heard_empty_today": "今天还没有听到叫声。",
     "cameras_loading": "正在加载各摄像头的到访…",
     "camera_visits_unavailable": "无法加载到访次数。",
     "camera_visits_unit": "{count, plural, other {次}}",
@@ -105,6 +115,7 @@
   "review_queue": {
     "title": "需要你确认",
     "empty": "过去24小时内的每次到访都有物种，没有待处理项。",
+    "empty_today": "今天的每次到访都有物种，没有待处理项。",
     "remaining": "还有 {count} 项待处理",
     "work_through": "处理待办队列",
     "new_species_tag": "新物种 · {count, plural, other {# 次目击}}",
@@ -113,6 +124,7 @@
     "reason_unknown_species": "物种未知",
     "reason_low_score": "低于命名阈值",
     "visits_clear": "过去24小时内的每次到访都有物种。",
+    "visits_clear_today": "今天的每次到访都有物种。",
     "checks_summary": "{count, plural, other {# 个物种可能命名有误：{species}。}}",
     "checks_body": "{count, plural, other {仅有摄像头的识别支持，且 {distance}内没有观鸟者报告过。}}",
     "checks_body_plain": "{count, plural, other {仅有摄像头的识别支持。}}",
@@ -169,5 +181,6 @@
   "provider_fallback": "所选推理提供程序未运行",
   "provider_checking_detail": "此检查仅运行一次。如果加速器通过检查，分类器将自动重新加载。",
   "provider_review": "检查模型和提供程序",
-  "top_visitors_empty_window": "过去24小时内没有到访。"
+  "top_visitors_empty_window": "过去24小时内没有到访。",
+  "top_visitors_empty_today": "今天还没有到访。"
 }

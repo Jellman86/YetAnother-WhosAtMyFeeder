@@ -46,7 +46,7 @@ from app.utils.public_access import (
     public_events_cutoff,
     public_events_window,
 )
-from app.utils.calendar_day import CalendarDay, calendar_window, clamp_window, local_date
+from app.utils.calendar_day import CalendarDay, calendar_window, clamp_window, local_date, today_so_far
 from app.utils.timezone import calendar_timezone
 from app.utils.api_datetime import ExactInstant, serialize_api_datetime, utc_naive_datetime, utc_naive_now
 from app.utils.canonical_species import (
@@ -1016,7 +1016,16 @@ REVIEW_QUEUE_NEW_SPECIES_LIMIT = 20_000
 async def get_review_queue(
     request: Request,
     limit: int = Query(default=12, ge=1, le=500, description="How many to list, oldest first"),
-    window_hours: int = Query(default=24, ge=1, le=168, description="How far back a detection can still be waiting"),
+    window: Literal["rolling", "today"] = Query(
+        default="rolling",
+        description=(
+            "`rolling`: the last `window_hours`. `today`: from local midnight to now, in the zone `X-Timezone` "
+            "names, else the instance's `TZ`, else UTC, as `GET /api/stats/daily-summary?window=today` counts it."
+        ),
+    ),
+    window_hours: int = Query(
+        default=24, ge=1, le=168, description="How far back a detection can still be waiting, for the rolling window"
+    ),
     max_sightings: int = Query(default=3, ge=1, le=50, description="A species with more sightings is established"),
     window_days: int = Query(default=14, ge=1, le=365, description="Only species first seen this recently"),
     auth: AuthContext = Depends(require_owner),
@@ -1024,10 +1033,15 @@ async def get_review_queue(
     """Everything waiting on a person: the source of Needs your call (#917).
 
     Counted here rather than from a recent page of detections, so a visit stays
-    queued however many others arrive after it. Owner only.
+    queued however many others arrive after it. Owner only. The window bounds the captures that
+    wait for a species, so the queue agrees with the day summary's ``unresolved_count`` for the same
+    window; a new species waits whenever it was first seen in the last ``window_days``.
     """
     window_end = utc_naive_now()
-    window_start = window_end - timedelta(hours=window_hours)
+    if window == "today":
+        window_start, _ = today_so_far(now=window_end.replace(tzinfo=timezone.utc), zone=calendar_timezone(request))
+    else:
+        window_start = window_end - timedelta(hours=window_hours)
     async with get_db() as db:
         repo = DetectionRepository(db)
         new_species = await repo.get_new_species_candidates(

@@ -92,8 +92,8 @@ describe('the field log links to the whole history and to its own window separat
         expect(dashboardSource).toContain("onseeall={() => onnavigate?.(gardenVisits.length > 0 ? '/events?visitors=all' : '/events')}");
     });
 
-    it('opens the truncation line on the last 24 hours with the visitors named', () => {
+    it('opens the truncation line on the Dashboard\'s window with the visitors named', () => {
         expect(tagWith(fieldLogSource, 'data-field-log-more')).toContain('onclick={() => onseewindow?.()}');
-        expect(dashboardSource).toContain('onseewindow={() => onnavigate?.(fieldLogWindowLink(gardenAvailable))}');
+        expect(dashboardSource).toContain('onseewindow={() => onnavigate?.(fieldLogWindowLink(gardenAvailable, deskKind))}');
     });
 });

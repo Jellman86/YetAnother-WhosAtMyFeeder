@@ -17,7 +17,7 @@ describe('Garden visits on the dashboard field log', () => {
         expect(dashboardSource).toContain('mergeFieldLog(allVisits, gardenVisits, VISIT_ROW_LIMIT)');
         expect(dashboardSource).toContain('rows={fieldLogRows}');
         // The day bar and context cards still count bird visits only.
-        expect(dashboardSource).toContain('let last24hCount = $derived(summary?.visit_count ?? allVisits.length);');
+        expect(dashboardSource).toContain('let windowVisitCount = $derived(summary?.visit_count ?? allVisits.length);');
         expect(dashboardSource).toContain('visits={allVisits}');
     });
 

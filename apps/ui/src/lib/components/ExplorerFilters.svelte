@@ -151,8 +151,8 @@
         all: { key: 'all_time', fallback: 'All time' },
         '24h': { key: 'last_24_hours', fallback: 'Last 24 hours' },
         today: { key: 'today', fallback: 'Today' },
-        week: { key: 'week', fallback: 'Week' },
-        month: { key: 'month', fallback: 'Month' },
+        week: { key: 'week', fallback: 'Last 7 days' },
+        month: { key: 'month', fallback: 'Last 30 days' },
         custom: { key: 'custom', fallback: 'Custom' }
     };
     function datePresetLabel(preset: DatePreset): string {

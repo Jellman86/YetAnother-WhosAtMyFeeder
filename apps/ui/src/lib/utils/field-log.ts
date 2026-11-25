@@ -1,4 +1,5 @@
 import type { GardenServerVisit } from '../api/garden';
+import type { DeskWindowKind } from './desk-window';
 import type { HealthTimelineRow } from './health-timeline';
 import type { DetectionVisit } from './visit-grouping';
 
@@ -44,12 +45,12 @@ export function namesCameras(visits: readonly { camera: string }[]): boolean {
 }
 
 /**
- * Where the log's "earlier visits in the last 24 hours" line opens the Explorer: the same rolling
- * window and the same visitors. The visitors are named, not left to the device, so an Explorer last
- * left on Garden alone cannot hide the bird visits the line counted.
+ * Where the log's "earlier visits" line opens the Explorer: the window the Dashboard shows (Today,
+ * or the last 24 hours) and the same visitors. The visitors are named, not left to the device, so
+ * an Explorer last left on Garden alone cannot hide the bird visits the line counted.
  */
-export function fieldLogWindowLink(includesGarden: boolean): string {
-    return `/events?date=24h&visitors=${includesGarden ? 'all' : 'birds'}`;
+export function fieldLogWindowLink(includesGarden: boolean, window: DeskWindowKind = 'rolling'): string {
+    return `/events?date=${window === 'today' ? 'today' : '24h'}&visitors=${includesGarden ? 'all' : 'birds'}`;
 }
 
 /**

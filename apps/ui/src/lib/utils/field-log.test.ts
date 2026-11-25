@@ -88,4 +88,12 @@ describe('fieldLogWindowLink', () => {
             expect(query.subjects).toBe(includesGarden ? 'all' : 'birds');
         }
     });
+
+    it('opens the Explorer on Today when the Dashboard shows Today', () => {
+        expect(fieldLogWindowLink(true, 'today')).toBe('/events?date=today&visitors=all');
+        expect(fieldLogWindowLink(false, 'today')).toBe('/events?date=today&visitors=birds');
+        expect(fieldLogWindowLink(false, 'rolling')).toBe('/events?date=24h&visitors=birds');
+        const query = parseExplorerQuery(fieldLogWindowLink(false, 'today').split('?')[1], { owner: true });
+        expect(query.datePreset).toBe('today');
+    });
 });

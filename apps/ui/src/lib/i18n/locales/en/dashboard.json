@@ -3,7 +3,10 @@
   "live_feed": "Live feed",
   "showing_last_3_days": "Showing last 3 days",
   "no_detections": "No visits in the last 24 hours.",
+  "no_detections_today": "No visits yet today.",
   "waiting_first_visitor": "No visits in the last 24 hours. New visits appear here as they arrive.",
+  "waiting_first_visitor_today": "No visits yet today. New visits appear here as they arrive.",
+  "waiting_first_visitor_shared": "No visits since {time}, when the shared history starts. New visits appear here as they arrive.",
   "discovery_feed": "Discovery feed",
   "see_full_history": "See full history",
   "audio_confirmations": "Audio confirmations",
@@ -25,9 +28,11 @@
   "histogram": {
     "title": "Activity",
     "visits_per_hour": "Visits per hour, last 24 hours",
+    "visits_per_hour_today": "Visits per hour, today",
     "peak": "Busiest at {time}, {count, plural, one {# visit} other {# visits}}",
     "now": "now",
     "aria": "Visits per hour over the last 24 hours: {count, plural, one {# visit} other {# visits}} in all, busiest at {time}",
+    "aria_today": "Visits per hour today: {count, plural, one {# visit} other {# visits}} in all, busiest at {time}",
     "tooltip_visits": "{count, plural, one {# visit} other {# visits}} at {time}"
   },
   "audio_feed": {
@@ -45,6 +50,7 @@
     "preview_trigger": "Preview {species}",
     "preview_alt": "{species} on {camera}",
     "earlier": "{count, plural, one {# earlier visit in the last 24 hours, open in Explorer} other {# earlier visits in the last 24 hours, open in Explorer}}",
+    "earlier_today": "{count, plural, one {# earlier visit today, open in Explorer} other {# earlier visits today, open in Explorer}}",
     "preview_frame_position": "Frame {position} of {count} in this visit",
     "birds_in_capture": "{count, plural, one {# bird in one capture} other {# birds in one capture}}",
     "birds_unknown": "{count} unknown",
@@ -80,6 +86,9 @@
     "cross_confirmed": "Cross-confirmed",
     "reconnecting": "Reconnecting…",
     "window": "Last 24 hours",
+    "shared_from": "Shared history starts at {time}, so visits earlier today are not shown.",
+    "window_choice": "Period shown",
+    "window_today": "Today",
     "loading": "still loading",
     "unavailable": "not available",
     "birds_scope_short": "from {count, plural, one {# analysed capture} other {# analysed captures}}",
@@ -97,6 +106,7 @@
     "most_heard": "Heard most",
     "latest_call": "Latest call: {species} at {time}",
     "heard_empty": "No calls heard in the last 24 hours.",
+    "heard_empty_today": "No calls heard yet today.",
     "cameras_loading": "Loading camera visits…",
     "camera_visits_unavailable": "Visit counts could not be loaded.",
     "camera_visits_unit": "{count, plural, one {visit} other {visits}}",
@@ -105,6 +115,7 @@
   "review_queue": {
     "title": "Needs your call",
     "empty": "Every visit in the last 24 hours has a species. Nothing waiting on you.",
+    "empty_today": "Every visit today has a species. Nothing waiting on you.",
     "remaining": "{count} more waiting",
     "work_through": "Work through the queue",
     "new_species_tag": "New species · {count, plural, one {seen once} other {seen # times}}",
@@ -113,6 +124,7 @@
     "reason_unknown_species": "No species reached the naming threshold",
     "reason_low_score": "Below the naming threshold",
     "visits_clear": "Every visit in the last 24 hours has a species.",
+    "visits_clear_today": "Every visit today has a species.",
     "checks_summary": "{count, plural, one {# species may be misnamed: {species}.} other {# species may be misnamed: {species}.}}",
     "checks_body": "{count, plural, one {Only the camera backs it and no birder has reported it within {distance}.} other {Only the camera backs them and no birder has reported them within {distance}.}}",
     "checks_body_plain": "{count, plural, one {Only the camera backs it.} other {Only the camera backs them.}}",
@@ -169,5 +181,6 @@
   "provider_fallback": "Your selected inference provider is not running",
   "provider_checking_detail": "This check runs once. The model reloads by itself if the device passes.",
   "provider_review": "Review model and provider",
-  "top_visitors_empty_window": "No visits in the last 24 hours."
+  "top_visitors_empty_window": "No visits in the last 24 hours.",
+  "top_visitors_empty_today": "No visits yet today."
 }

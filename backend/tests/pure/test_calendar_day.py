@@ -13,6 +13,7 @@ from app.utils.calendar_day import (
     resolve_calendar_day,
     resolve_zone,
     today_so_far,
+    yesterday_until_now,
 )
 
 BERLIN = ZoneInfo("Europe/Berlin")  # UTC+1 in November
@@ -146,3 +147,20 @@ def test_an_unresolvable_zone_is_reported_once_per_source(monkeypatch) -> None:
         ("timezone_unresolved", "TZ"),
         ("timezone_unresolved", "X-Timezone"),
     ]
+
+
+def test_yesterday_until_now_runs_from_yesterdays_midnight_to_the_same_clock_time() -> None:
+    # Noon UTC is 13:00 in Berlin; yesterday at the same clock time is 12:00 UTC on the 16th.
+    start, end = yesterday_until_now(now=NOW, zone=BERLIN)
+    assert start == datetime(2026, 11, 15, 23, 0)
+    assert end == datetime(2026, 11, 16, 12, 0)
+
+
+def test_yesterday_until_now_ends_by_todays_midnight_after_a_short_night() -> None:
+    # The spring change in London: 29 March 2026 is 23 hours long, so 30 March at 00:30 BST is
+    # 25 elapsed hours after the 29th began. Yesterday's comparison stops at today's midnight.
+    now = datetime(2026, 3, 29, 23, 30, tzinfo=timezone.utc)
+    today_start, _ = today_so_far(now=now, zone=LONDON)
+    start, end = yesterday_until_now(now=now, zone=LONDON)
+    assert start == datetime(2026, 3, 29, 0, 0)
+    assert end <= today_start

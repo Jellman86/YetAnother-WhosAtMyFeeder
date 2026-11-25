@@ -50,6 +50,17 @@
     import { selectReclassificationStrategy } from '../utils/reclassification';
 
     import { fromServerVisit, withinDeskWindow } from '../utils/visit-grouping';
+    import {
+        deskWindow,
+        deskWindowStart,
+        readDeskWindowChoice,
+        saveDeskWindowChoice,
+        sharedHistoryStart,
+        type DeskWindow,
+        type DeskWindowKind
+    } from '../utils/desk-window';
+    import { msUntilNextLocalMidnight } from './audio-history-window';
+    import { formatTime } from '../utils/datetime';
     import { buildReviewQueue, EMPTY_REVIEW_QUEUE_READING, readingFromResponse, withoutEvent, type ReviewQueueReading } from '../utils/review-queue';
     import { dayBarSlots } from '../utils/day-bar';
     import { liveFeedState } from '../utils/live-feed-state';
@@ -81,8 +92,16 @@
         () => $_('garden.save_error', { default: 'Could not save your review. Try again.' })
     );
 
+    // The window this device chose, and the window the figures on screen were read for. A new choice
+    // clears every reading, so nothing read for one window is ever shown under the other's name.
+    let windowChoice = $state<DeskWindowKind>(readDeskWindowChoice(() => localStorage));
+    let shownWindow = $state.raw<DeskWindow | null>(null);
+    const deskKind = $derived<DeskWindowKind>(shownWindow?.kind ?? windowChoice);
+    // Advanced at local midnight while Today is chosen, so the live captures move to the new day too.
+    let dayTurn = $state(0);
+
     let summary = $state<DailySummary | null>(null);
-    // The clock hour the summary's rolling window ended in, so the activity chart ends where its data does.
+    // The clock hour the summary's window ended in, so the activity chart ends where its data does.
     let summaryHour = $state(new Date().getHours());
     let summaryLoading = $state(true);
     let selectedEvent = $state<Detection | null>(null);
@@ -117,8 +136,13 @@
         selectedEvent = detection;
     }
 
-    // One window for the whole desk, so the day bar, the log and the context cards agree.
-    let deskDetections = $derived(withinDeskWindow(detectionsStore.detections));
+    // One window for the whole desk, so the day bar, the log and the context cards agree. A capture
+    // the live stream adds is kept only if it falls inside it: never yesterday's in Today.
+    let deskDetections = $derived.by(() => {
+        void dayTurn;
+        const now = new Date();
+        return withinDeskWindow(detectionsStore.detections, now.getTime(), deskWindowStart(deskKind, now));
+    });
     let reviewThreshold = $derived(settingsStore.settings?.classification_threshold ?? null);
 
     // The day reads as visits, not frames: repeat frames of one bird fold into one row, and a
@@ -232,7 +256,8 @@
     }
 
     const reviewQueueLoader = createObservationProjectionLoader({
-        fetch: (signal) => fetchReviewQueue({ limit: REVIEW_QUEUE_READ_LIMIT, signal }),
+        // Needs your call waits on the captures of the desk's window, as the Unresolved figure counts them.
+        fetch: (signal) => fetchReviewQueue({ limit: REVIEW_QUEUE_READ_LIMIT, window: windowChoice, signal }),
         apply: (response) => {
             reviewReading = readingFromResponse(response);
             reviewReadingStatus = 'ready';
@@ -280,7 +305,7 @@
         reviewSessionOpening = true;
         const request = ++reviewSessionRequest;
         try {
-            const response = await fetchReviewQueue({ limit: REVIEW_SESSION_READ_LIMIT });
+            const response = await fetchReviewQueue({ limit: REVIEW_SESSION_READ_LIMIT, window: windowChoice });
             if (request !== reviewSessionRequest) return;
             reviewSessionReading = readingFromResponse(response);
             reviewSessionOpen = true;
@@ -291,20 +316,21 @@
         }
     }
 
-    // The range check over the desk's 24 hours: the Species page's day window, flagged the same way,
-    // so the desk never says nothing is waiting while a species check is.
+    // The range check over the desk's window (the Species page's day window, or Today), flagged the
+    // same way, so the desk never says nothing is waiting while a species check is.
     const UNREAD_RANGE_CHECK: RangeCheckReading = { status: 'loading', checks: [], nearbyRadiusKm: null };
     let rangeCheck = $state.raw<RangeCheckReading>(UNREAD_RANGE_CHECK);
     const speciesChecksLoader = createObservationProjectionLoader({
         fetch: async (signal) => {
+            const span = windowChoice === 'today' ? 'today' : 'day';
             // BirdNET silence only means "not heard" when its rollup for the same window loaded.
             const heard = birdnetEnabled
-                ? fetchAudioSpeciesLeaderboard('day', signal).then((response) => response.species, (error: unknown) => {
+                ? fetchAudioSpeciesLeaderboard(span, signal).then((response) => response.species, (error: unknown) => {
                     if (signal.aborted) throw error;
                     return null;
                 })
                 : Promise.resolve(null);
-            const [leaderboard, audio] = await Promise.all([fetchLeaderboardSpecies('day', signal), heard]);
+            const [leaderboard, audio] = await Promise.all([fetchLeaderboardSpecies(span, signal), heard]);
             return { leaderboard, audio };
         },
         apply: ({ leaderboard, audio }) => {
@@ -410,8 +436,8 @@
 
     // Visits, as the log counts them. The summary counts the whole window; until it arrives the
     // loaded visits stand in, never the frame count, which is a different unit.
-    let last24hCount = $derived(summary?.visit_count ?? allVisits.length);
-    let last24hSpecies = $derived(summary?.top_species.length ?? 0);
+    let windowVisitCount = $derived(summary?.visit_count ?? allVisits.length);
+    let windowSpeciesCount = $derived(summary?.top_species.length ?? 0);
     let audioConfirmations = $derived(summary?.audio_confirmations ?? 0);
     // Configuration decides which figures the day bar holds, so loading fills cells rather than adding them.
     let daySlots = $derived(dayBarSlots({
@@ -440,8 +466,9 @@
         fetch: async (signal) => {
             await settleGardenSwitch(signal);
             readGardenAvailable = gardenAvailable;
-            const now = new Date();
-            const window = { startTime: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), endTime: now.toISOString() };
+            // One pair of instants for this load: the summary's window, the visits and Garden all read it.
+            const desk = deskWindow(windowChoice, new Date());
+            const window = { startTime: desk.start.toISOString(), endTime: desk.end.toISOString() };
             // A Garden failure is stated beside the birds rather than taking the whole log down.
             const gardenRead = gardenAvailable
                 ? fetchGardenVisits({ start: window.startTime, end: window.endTime, order: 'newest', limit: VISIT_ROW_LIMIT }, signal)
@@ -452,14 +479,14 @@
                     })
                 : Promise.resolve(null);
             const [summaryRes, visitsRes, gardenRes] = await Promise.all([
-                fetchDailySummary(),
+                fetchDailySummary(desk.kind, signal),
                 fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' }),
                 gardenRead
             ]);
-            return { summaryRes, visitsRes, gardenRes, window };
+            return { summaryRes, visitsRes, gardenRes, window, desk };
         },
-        apply: ({ summaryRes, visitsRes, gardenRes, window }) => {
-            summary = summaryRes; summaryHour = new Date().getHours();
+        apply: ({ summaryRes, visitsRes, gardenRes, window, desk }) => {
+            summary = summaryRes; summaryHour = desk.end.getHours(); shownWindow = desk;
             dayReadFailed.summary = false;
             serverVisits = visitsRes.visits.map((visit) => fromServerVisit(visit, window)); totalVisits = visitsRes.total;
             gardenWindow = { start: window.startTime, end: window.endTime };
@@ -467,10 +494,10 @@
             if (gardenRes === null) { gardenVisits = []; gardenTotal = 0; }
             else if (gardenRes.page) { gardenVisits = gardenRes.page.visits; gardenTotal = gardenRes.page.total; }
         },
-        clear: () => { summary = null; serverVisits = []; totalVisits = 0; gardenVisits = []; gardenTotal = 0; gardenUnavailable = false; },
+        clear: () => { summary = null; shownWindow = null; serverVisits = []; totalVisits = 0; gardenVisits = []; gardenTotal = 0; gardenUnavailable = false; },
         fail: (e) => {
             dayReadFailed.summary = true;
-            if (authStore.isGuest) summary = null;
+            if (authStore.isGuest) { summary = null; shownWindow = null; }
             if (isTransientRequestError(e)) {
                 logger.warn('Dashboard summary fetch failed (transient)', { message: getErrorMessage(e) });
             } else {
@@ -494,6 +521,66 @@
     let unresolvedCount = $derived<number | null>(
         typeof summary?.unresolved_count === 'number' ? summary.unresolved_count : null
     );
+
+    // A guest's Today starts where the owner's shared history does when that is after their midnight.
+    let sharedFrom = $derived(authStore.isGuest && shownWindow ? sharedHistoryStart(shownWindow, summary?.window_start) : null);
+    // "Yet today" is said only of a Today that was read and is empty; a failed read says so instead.
+    let fieldLogEmpty = $derived(
+        sharedFrom
+            ? $_('dashboard.waiting_first_visitor_shared', {
+                values: { time: formatTime(sharedFrom) },
+                default: 'No visits since {time}, when the shared history starts. New visits appear here as they arrive.'
+            })
+            : deskKind === 'today'
+              ? $_('dashboard.waiting_first_visitor_today', { default: 'No visits yet today. New visits appear here as they arrive.' })
+              : null
+    );
+    let fieldLogEarlier = $derived(
+        deskKind === 'today'
+            ? $_('dashboard.field_log.earlier_today', {
+                values: { count: hiddenVisitCount },
+                default: '{count, plural, one {# earlier visit today, open in Explorer} other {# earlier visits today, open in Explorer}}'
+            })
+            : null
+    );
+
+    /** This device's choice of window, remembered here, read again from the start. */
+    function chooseWindow(next: DeskWindowKind): void {
+        if (next === windowChoice) return;
+        windowChoice = next;
+        saveDeskWindowChoice(() => localStorage, next);
+        rereadDesk();
+    }
+
+    /**
+     * Every reading the desk shows, read again for the chosen window. Each is cleared first and its
+     * read in flight is dropped, so a slower answer for the window just left can never land under
+     * the new name.
+     */
+    function rereadDesk(): void {
+        summaryLoading = true;
+        audioSummaryLoading = true;
+        summaryLoader.invalidate();
+        audioSummaryLoader.invalidate();
+        reviewQueueLoader.invalidate();
+        speciesChecksLoader.invalidate();
+        reviewSessionRequest += 1;
+        void loadSummary();
+        if (birdnetEnabled) void audioSummaryLoader.load();
+        loadReviewQueue();
+        loadSpeciesChecks();
+    }
+
+    // Today becomes another day at local midnight; the open page reads the new one.
+    $effect(() => {
+        if (windowChoice !== 'today') return;
+        void dayTurn;
+        const timer = setTimeout(() => {
+            dayTurn += 1;
+            untrack(rereadDesk);
+        }, msUntilNextLocalMidnight(new Date()) + 1000);
+        return () => clearTimeout(timer);
+    });
 
     let needsCall = $derived(needsYourCall({
         canReview,
@@ -616,7 +703,11 @@
     let audioSummaryLoading = $state(true);
 
     const audioSummaryLoader = createObservationProjectionLoader({
-        fetch: (signal) => fetchAudioSummary({ days: 1 }, signal),
+        fetch: (signal) => {
+            // The Heard figures count the desk's own instants, so they agree with the day bar's window.
+            const desk = deskWindow(windowChoice, new Date());
+            return fetchAudioSummary({ start_date: desk.start.toISOString(), end_date: desk.end.toISOString() }, signal);
+        },
         apply: (value) => { audioSummary = value; },
         clear: () => { audioSummary = null; },
         fail: (e) => {
@@ -723,9 +814,10 @@
     }
 
     function handleSpeciesSummaryClick(speciesFilter: string) {
-        // Top Visitors is last-24h data; avoid forcing "today" which can hide valid events
-        // around midnight boundaries. Filter by species/taxa only.
-        onnavigate?.(`/events?species=${encodeURIComponent(speciesFilter)}`);
+        // Over the last 24 hours Today would hide the visits before midnight, so the species alone
+        // filters; Today's list opens on Today.
+        const day = deskKind === 'today' ? '&date=today' : '';
+        onnavigate?.(`/events?species=${encodeURIComponent(speciesFilter)}${day}`);
     }
 
     /** A bird correction, exclusion or recount changes the day's total and the log's summaries. */
@@ -738,10 +830,10 @@
 
 <div class="space-y-6">
     <DayBar
-        visitCount={summary ? last24hCount : null}
+        visitCount={summary ? windowVisitCount : null}
         countedBirds={summary ? (summary.counted_birds ?? 0) : null}
         countedCaptures={summary ? (summary.counted_captures ?? 0) : null}
-        speciesCount={summary ? last24hSpecies : null}
+        speciesCount={summary ? windowSpeciesCount : null}
         unresolvedCount={unresolvedCount}
         othersAwaitReview={canReview && ((needsCall.checks !== 'clear' && needsCall.checks !== 'off') || needsCall.visits !== 'clear')}
         audioCalls={audioSummary?.total ?? null}
@@ -750,6 +842,10 @@
         loading={summaryPending}
         audioLoading={audioSummaryLoading}
         feed={liveFeedState(detectionsStore.connected, serviceConnectionsStore.connections)}
+        windowKind={deskKind}
+        choice={windowChoice}
+        onwindowchange={chooseWindow}
+        {sharedFrom}
     />
 
     <ProviderWarning {onnavigate} />
@@ -775,6 +871,7 @@
                     onopenchecks={() => onnavigate?.(SPECIES_CHECKS_LINK)}
                     onretrychecks={() => loadSpeciesChecks({ retry: true })}
                     onkept={speciesKept}
+                    windowKind={deskKind}
                 />
             </div>
         {/if}
@@ -783,6 +880,8 @@
             <FieldLog
                 rows={fieldLogRows}
                 hiddenCount={hiddenVisitCount}
+                emptyMessage={fieldLogEmpty}
+                hiddenLabel={fieldLogEarlier}
                 placeholderRows={VISIT_ROW_LIMIT}
                 loading={summaryPending}
                 unavailable={summaryUnavailable}
@@ -796,7 +895,7 @@
                 onidentify={openRecord}
                 onplay={(detection) => { videoEventId = detection.frigate_event; videoHeading = videoHeadingFor(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames); showVideo = true; }}
                 onseeall={() => onnavigate?.(gardenVisits.length > 0 ? '/events?visitors=all' : '/events')}
-                onseewindow={() => onnavigate?.(fieldLogWindowLink(gardenAvailable))}
+                onseewindow={() => onnavigate?.(fieldLogWindowLink(gardenAvailable, deskKind))}
             />
         </div>
 
@@ -812,6 +911,7 @@
                     cameraVisits={summary?.camera_visits ?? null}
                     loading={summaryPending}
                     unavailable={summaryUnavailable}
+                    windowKind={deskKind}
                 />
 
                 {#if birdnetEnabled}
@@ -820,6 +920,7 @@
                         summary={audioSummary}
                         summaryLoading={audioSummaryLoading}
                         matchedCalls={summary ? audioConfirmations : null}
+                        windowKind={deskKind}
                     />
                 {/if}
             </div>
@@ -827,7 +928,7 @@
             <!-- Reference: the shape of the day, the area around the feeder, who comes most. -->
             <div class="flex min-w-0 flex-col gap-6" data-dashboard-rail-reference>
                 {#if summary}
-                    <DailyHistogram data={summary.hourly_visits ?? []} currentHour={summaryHour} />
+                    <DailyHistogram data={summary.hourly_visits ?? []} currentHour={summaryHour} windowKind={deskKind} />
                 {:else if summaryLoading}
                     <div class="h-40 animate-pulse rounded-2xl bg-surface-raised motion-reduce:animate-none"></div>
                 {/if}
@@ -844,6 +945,7 @@
                         <TopVisitors
                             species={summary.top_species}
                             onSpeciesClick={handleSpeciesSummaryClick}
+                            windowKind={deskKind}
                         />
                     {:else if summaryLoading}
                         <div class="h-40 animate-pulse rounded-2xl bg-surface-raised motion-reduce:animate-none"></div>

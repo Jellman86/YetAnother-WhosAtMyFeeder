@@ -3,7 +3,10 @@
   "live_feed": "Feed live",
   "showing_last_3_days": "Visualizzazione ultimi 3 giorni",
   "no_detections": "Nessuna visita nelle ultime 24 ore.",
+  "no_detections_today": "Ancora nessuna visita oggi.",
   "waiting_first_visitor": "Nessuna visita nelle ultime 24 ore. Le nuove visite compaiono qui appena arrivano.",
+  "waiting_first_visitor_today": "Ancora nessuna visita oggi. Le nuove visite compaiono qui appena arrivano.",
+  "waiting_first_visitor_shared": "Nessuna visita dalle {time}, quando inizia la cronologia condivisa. Le nuove visite compaiono qui appena arrivano.",
   "discovery_feed": "Feed scoperte",
   "see_full_history": "Vedi cronologia completa",
   "audio_confirmations": "Conferme audio",
@@ -25,9 +28,11 @@
   "histogram": {
     "title": "Attività",
     "visits_per_hour": "Visite all'ora, ultime 24 ore",
+    "visits_per_hour_today": "Visite all'ora, oggi",
     "peak": "Più attività alle {time}, {count, plural, one {# visita} other {# visite}}",
     "now": "adesso",
     "aria": "Visite all'ora nelle ultime 24 ore: {count, plural, one {# visita} other {# visite}} in tutto, più attività alle {time}",
+    "aria_today": "Visite all'ora oggi: {count, plural, one {# visita} other {# visite}} in tutto, più attività alle {time}",
     "tooltip_visits": "{count, plural, one {# visita} other {# visite}} alle {time}"
   },
   "audio_feed": {
@@ -45,6 +50,7 @@
     "preview_trigger": "Anteprima di {species}",
     "preview_alt": "{species} su {camera}",
     "earlier": "{count, plural, one {# visita precedente nelle ultime 24 ore, apri in Esplora} other {# visite precedenti nelle ultime 24 ore, apri in Esplora}}",
+    "earlier_today": "{count, plural, one {# visita precedente di oggi, apri in Esplora} other {# visite precedenti di oggi, apri in Esplora}}",
     "preview_frame_position": "Fotogramma {position} di {count} di questa visita",
     "birds_in_capture": "{count, plural, one {# uccello in un’acquisizione} other {# uccelli in un’acquisizione}}",
     "birds_unknown": "{count} sconosciuti",
@@ -80,6 +86,9 @@
     "cross_confirmed": "Confermati da entrambi",
     "reconnecting": "Riconnessione…",
     "window": "Ultime 24 ore",
+    "shared_from": "La cronologia condivisa inizia alle {time}, quindi le visite precedenti di oggi non vengono mostrate.",
+    "window_choice": "Periodo mostrato",
+    "window_today": "Oggi",
     "loading": "ancora in caricamento",
     "unavailable": "non disponibile",
     "birds_scope_short": "da {count, plural, one {# cattura analizzata} other {# catture analizzate}}",
@@ -97,6 +106,7 @@
     "most_heard": "I più ascoltati",
     "latest_call": "Ultimo richiamo: {species} alle {time}",
     "heard_empty": "Nessun richiamo ascoltato nelle ultime 24 ore.",
+    "heard_empty_today": "Ancora nessun richiamo ascoltato oggi.",
     "cameras_loading": "Caricamento delle visite per telecamera…",
     "camera_visits_unavailable": "Impossibile caricare il numero di visite.",
     "camera_visits_unit": "{count, plural, one {visita} other {visite}}",
@@ -105,6 +115,7 @@
   "review_queue": {
     "title": "Richiede una tua decisione",
     "empty": "Ogni visita delle ultime 24 ore ha una specie. Non c’è nulla in sospeso.",
+    "empty_today": "Ogni visita di oggi ha una specie. Non c’è nulla in sospeso.",
     "remaining": "Altri {count} in attesa",
     "work_through": "Smaltisci la coda",
     "new_species_tag": "Nuova specie · {count, plural, one {# avvistamento} other {# avvistamenti}}",
@@ -113,6 +124,7 @@
     "reason_unknown_species": "Specie sconosciuta",
     "reason_low_score": "Sotto la soglia di identificazione",
     "visits_clear": "Ogni visita delle ultime 24 ore ha una specie.",
+    "visits_clear_today": "Ogni visita di oggi ha una specie.",
     "checks_summary": "{count, plural, one {# specie potrebbe avere un nome errato: {species}.} other {# specie potrebbero avere un nome errato: {species}.}}",
     "checks_body": "{count, plural, one {Solo la fotocamera la conferma e nessun birdwatcher l’ha segnalata entro {distance}.} other {Solo la fotocamera le conferma e nessun birdwatcher le ha segnalate entro {distance}.}}",
     "checks_body_plain": "{count, plural, one {Solo la fotocamera la conferma.} other {Solo la fotocamera le conferma.}}",
@@ -169,5 +181,6 @@
   "provider_fallback": "Il provider di inferenza selezionato non è in esecuzione",
   "provider_checking_detail": "Questa verifica viene eseguita una volta. Se riesce, il classificatore viene ricaricato automaticamente.",
   "provider_review": "Controlla modello e provider",
-  "top_visitors_empty_window": "Nessuna visita nelle ultime 24 ore."
+  "top_visitors_empty_window": "Nessuna visita nelle ultime 24 ore.",
+  "top_visitors_empty_today": "Ancora nessuna visita oggi."
 }

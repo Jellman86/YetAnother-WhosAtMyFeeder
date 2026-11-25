@@ -1,4 +1,5 @@
 <script lang="ts">
+    import type { DeskWindowKind } from '../utils/desk-window';
     import { onMount, onDestroy, untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fetchRecentAudio, type AudioDetection, type AudioSummaryResponse } from '../api';
@@ -24,12 +25,15 @@
         onNavigate,
         summary,
         summaryLoading,
-        matchedCalls = null
+        matchedCalls = null,
+        windowKind = 'rolling'
     }: {
         onNavigate?: (path: string) => void;
         summary: AudioSummaryResponse | null;
         summaryLoading: boolean;
         matchedCalls?: number | null;
+        /** The Dashboard's window, which the summary was read for. */
+        windowKind?: DeskWindowKind;
     } = $props();
 
     const RECENT_AUDIO_LIMIT = 1;
@@ -133,13 +137,13 @@
             </svg>
             {$_('dashboard.desk.heard_title', { default: 'Heard' })}
         </h2>
-        <p class="mt-0.5 text-sm text-muted">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
+        <p class="mt-0.5 text-sm text-muted">{windowKind === 'today' ? $_('dashboard.day_bar.window_today', { default: 'Today' }) : $_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
     </div>
 
     {#if (loading || summaryLoading) && !summary}
         <div class="h-24 animate-pulse rounded-lg bg-surface-raised"></div>
     {:else if !summary || summary.total === 0}
-        <p class="text-xs text-muted">{$_('dashboard.desk.heard_empty', { default: 'No calls heard in the last 24 hours.' })}</p>
+        <p class="text-xs text-muted">{windowKind === 'today' ? $_('dashboard.desk.heard_empty_today', { default: 'No calls heard yet today.' }) : $_('dashboard.desk.heard_empty', { default: 'No calls heard in the last 24 hours.' })}</p>
     {:else}
         <!-- The day bar already carries calls heard and cross-confirmed; this card says what was heard. -->
         <p class="font-display text-lg font-bold text-strong" data-dashboard-species-heard>

@@ -589,12 +589,10 @@ async def get_daily_summary(
     async with get_db() as db:
         repo = DetectionRepository(db)
 
-        # 1. Hourly distribution
+        # 1. Hourly distribution, each capture in the local hour it was made in
         hourly = [0] * 24
-        hourly_counts = await repo.get_timebucket_counts_hourly(start_dt, end_dt)
-        for bucket_key, count in hourly_counts.items():
-            local_dt = _parse_utc_bucket_key(bucket_key).replace(tzinfo=timezone.utc).astimezone(user_tz)
-            hourly[local_dt.hour] += int(count)
+        for bucket_start, count in await repo.get_utc_quarter_hour_counts(start_dt, end_dt):
+            hourly[bucket_start.replace(tzinfo=timezone.utc).astimezone(user_tz).hour] += count
 
         # 2. Species counts
         species_raw = await repo.get_daily_species_counts(start_dt, end_dt)

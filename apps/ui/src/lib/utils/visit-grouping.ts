@@ -46,7 +46,7 @@ export function visitGapMs(seconds: number | null | undefined): number {
     return seconds * 1000;
 }
 
-/** The dashboard is a "today" surface; Explorer holds the longer history. */
+/** The dashboard's default window, the last 24 hours; Explorer holds the longer history. */
 const DESK_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const UNRESOLVED_LABEL = 'unknown bird';
@@ -143,18 +143,19 @@ function toVisit(frames: Detection[], reviewThreshold: number | null): Detection
 /**
  * The slice of a detection list the desk describes. Everything on the dashboard (the log,
  * the queue, the camera counts, the sensor comparison) must agree on one window, or the
- * numbers contradict each other.
+ * numbers contradict each other. `startsAt` is the window's first instant: the last 24 hours
+ * by default, or Today's local midnight.
  */
 export function withinDeskWindow(
     detections: readonly Detection[],
     now: number = Date.now(),
-    windowMs: number = DESK_WINDOW_MS
+    startsAt: number = now - DESK_WINDOW_MS
 ): Detection[] {
     return detections.filter((detection) => {
         const at = timestamp(detection);
         // Keep anything we cannot place rather than silently dropping a real detection.
         if (Number.isNaN(at)) return true;
-        return now - at <= windowMs;
+        return at >= startsAt;
     });
 }
 

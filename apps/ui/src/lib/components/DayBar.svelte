@@ -1,6 +1,9 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import Segmented from './ui/Segmented.svelte';
     import type { DayBarSlots } from '../utils/day-bar';
+    import type { DeskWindowKind } from '../utils/desk-window';
+    import { formatTime } from '../utils/datetime';
     import type { LiveFeedState } from '../utils/live-feed-state';
 
     /** A null figure has not been measured: it is never shown as zero. */
@@ -22,6 +25,14 @@
         loading?: boolean;
         /** The same for the microphone's reading, which arrives on its own. */
         audioLoading?: boolean;
+        /** The window the figures on screen describe, which names the bar. */
+        windowKind?: DeskWindowKind;
+        /** The window this device chose; it differs from `windowKind` only while the choice is read. */
+        choice?: DeskWindowKind;
+        /** Without it the bar names its window and offers no choice. */
+        onwindowchange?: (next: DeskWindowKind) => void;
+        /** A guest's Today when the owner's shared history begins after the viewer's midnight. */
+        sharedFrom?: string | null;
     }
 
     let {
@@ -36,8 +47,23 @@
         slots,
         feed,
         loading = false,
-        audioLoading = false
+        audioLoading = false,
+        windowKind = 'rolling',
+        choice = windowKind,
+        onwindowchange,
+        sharedFrom = null
     }: Props = $props();
+
+    const windowName = $derived(
+        windowKind === 'today'
+            ? $_('dashboard.day_bar.window_today', { default: 'Today' })
+            : $_('dashboard.day_bar.window', { default: 'Last 24 hours' })
+    );
+    // Today first, as every period list names it; the last 24 hours stays the default.
+    const windowOptions = $derived<{ value: DeskWindowKind; label: string }[]>([
+        { value: 'today', label: $_('dashboard.day_bar.window_today', { default: 'Today' }) },
+        { value: 'rolling', label: $_('dashboard.day_bar.window', { default: 'Last 24 hours' }) }
+    ]);
 
     const feedTone = $derived(feed === 'live' ? 'live' : feed === 'broker_down' || feed === 'frigate_down' ? 'attention' : 'neutral');
     const feedLabel = $derived.by(() => {
@@ -76,9 +102,30 @@
     <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div class="min-w-0 space-y-1">
             <p class="eyebrow">{$_('nav.dashboard')}</p>
-            <h1 class="day-bar-window font-display text-3xl font-bold leading-tight text-strong sm:text-4xl sm:leading-10">
-                {$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}
-            </h1>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <h1 class="day-bar-window font-display text-3xl font-bold leading-tight text-strong sm:text-4xl sm:leading-10">
+                    {windowName}
+                </h1>
+                {#if onwindowchange}
+                    <Segmented
+                        value={choice}
+                        options={windowOptions}
+                        onchange={(next) => { if (next !== choice) onwindowchange?.(next); }}
+                        label={$_('dashboard.day_bar.window_choice', { default: 'Period shown' })}
+                        width="content"
+                        size="sm"
+                        optionAttribute="data-day-bar-window"
+                    />
+                {/if}
+            </div>
+            {#if sharedFrom}
+                <p class="text-sm text-muted" data-day-bar-shared-from>
+                    {$_('dashboard.day_bar.shared_from', {
+                        values: { time: formatTime(sharedFrom) },
+                        default: 'Shared history starts at {time}, so visits earlier today are not shown.'
+                    })}
+                </p>
+            {/if}
         </div>
 
         <!-- On a phone the line has a row of its own, two lines tall, from the first paint: its

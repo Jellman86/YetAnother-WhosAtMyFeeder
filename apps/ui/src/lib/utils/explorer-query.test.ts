@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultExplorerQuery, explorerWindow, parseExplorerQuery, rereadsAfterRecordChange, writeExplorerQuery, type ExplorerQuery } from './explorer-query';
+import { defaultExplorerQuery, explorerPresetDays, explorerWindow, parseExplorerQuery, rereadsAfterRecordChange, writeExplorerQuery, type ExplorerQuery } from './explorer-query';
 
 const owner = { owner: true, gardenAvailable: true };
 const guest = { owner: false, gardenAvailable: true };
@@ -243,5 +243,44 @@ describe('rereadsAfterRecordChange', () => {
         expect(rereadsAfterRecordChange(captures)).toBe(false);
         expect(rereadsAfterRecordChange({ ...captures, ownerConfirmedOnly: true, selectionMode: true })).toBe(false);
         expect(rereadsAfterRecordChange({ ...captures, groupVisits: true, selectionMode: true })).toBe(false);
+    });
+});
+
+describe('explorerPresetDays', () => {
+    const custom = { start: '2026-10-01', end: '2026-10-05' };
+
+    function calendarDaysIn(range: { start?: string; end?: string }): number {
+        const start = new Date(`${range.start}T00:00:00Z`).getTime();
+        const end = new Date(`${range.end}T00:00:00Z`).getTime();
+        return Math.round((end - start) / (24 * 60 * 60 * 1000)) + 1;
+    }
+
+    it('reads Today as the one calendar day', () => {
+        expect(explorerPresetDays('today', custom, new Date(2026, 10, 25, 9, 0))).toEqual({ start: '2026-11-25', end: '2026-11-25' });
+    });
+
+    it('reads the last 7 days as seven calendar days ending today', () => {
+        const range = explorerPresetDays('week', custom, new Date(2026, 10, 25, 9, 0));
+        expect(range).toEqual({ start: '2026-11-19', end: '2026-11-25' });
+        expect(calendarDaysIn(range)).toBe(7);
+    });
+
+    it('reads the last 30 days as thirty calendar days ending today', () => {
+        const range = explorerPresetDays('month', custom, new Date(2026, 10, 25, 9, 0));
+        expect(range).toEqual({ start: '2026-10-27', end: '2026-11-25' });
+        expect(calendarDaysIn(range)).toBe(30);
+    });
+
+    it('counts calendar days across a month end and a clock change', () => {
+        // 25 October 2026 is the night most of Europe moves its clocks back.
+        expect(explorerPresetDays('week', custom, new Date(2026, 10, 1, 0, 30))).toEqual({ start: '2026-10-26', end: '2026-11-01' });
+        expect(explorerPresetDays('month', custom, new Date(2026, 2, 1, 23, 30))).toEqual({ start: '2026-01-31', end: '2026-03-01' });
+    });
+
+    it('keeps a custom range as chosen and leaves the open ones open', () => {
+        expect(explorerPresetDays('custom', custom, new Date())).toEqual(custom);
+        expect(explorerPresetDays('custom', { start: '', end: '2026-10-05' }, new Date())).toEqual({ start: undefined, end: '2026-10-05' });
+        expect(explorerPresetDays('all', custom, new Date())).toEqual({ start: undefined, end: undefined });
+        expect(explorerPresetDays('24h', custom, new Date())).toEqual({ start: undefined, end: undefined });
     });
 });

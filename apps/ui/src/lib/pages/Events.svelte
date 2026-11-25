@@ -73,7 +73,7 @@
     import { speciesPickerNames } from '../utils/species-picker';
     import { explanation } from '../utils/explanation';
     import { explorerPane } from '../utils/explorer-results';
-    import { explorerWindow, parseExplorerQuery, rereadsAfterRecordChange, writeExplorerQuery, type ExplorerQuery, type ExplorerWindow } from '../utils/explorer-query';
+    import { explorerPresetDays, explorerWindow, parseExplorerQuery, rereadsAfterRecordChange, writeExplorerQuery, type ExplorerQuery, type ExplorerWindow } from '../utils/explorer-query';
     import { ShownExplorerWindow } from '../utils/explorer-shown-window.svelte';
     import { explorerCameraOptions, seenGardenCameras } from '../utils/explorer-cameras';
     import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
@@ -271,15 +271,7 @@
         })
     );
 
-    let dateRange = $derived.by(() => {
-        const today = new Date();
-        const fmt = (d: Date) => toLocalYMD(d);
-        if (datePreset === 'today') return { start: fmt(today), end: fmt(today) };
-        if (datePreset === 'week') { const d = new Date(today); d.setDate(d.getDate() - 7); return { start: fmt(d), end: fmt(today) }; }
-        if (datePreset === 'month') { const d = new Date(today); d.setDate(d.getDate() - 30); return { start: fmt(d), end: fmt(today) }; }
-        if (datePreset === 'custom') return { start: customStartDate || undefined, end: customEndDate || undefined };
-        return { start: undefined, end: undefined };
-    });
+    let dateRange = $derived(explorerPresetDays(datePreset, { start: customStartDate, end: customEndDate }, new Date()));
     /** The window of the bird results on screen; each read fixes its own and publishes it with them. */
     const shownWindow = new ShownExplorerWindow();
     /**

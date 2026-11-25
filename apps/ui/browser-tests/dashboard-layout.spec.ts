@@ -65,17 +65,43 @@ interface Opening {
     queueTotal?: number;
     /** Garden animals switched on, with a quiet garden, so the log holds birds and Garden. */
     garden?: boolean;
+    /** What Today reads, when it differs from the last 24 hours. */
+    today?: { summary?: Record<string, unknown>; visits?: unknown[]; visitTotal?: number; delayMs?: number; fail?: boolean };
+    /** How long the last 24 hours' day summary takes, apart from Today's. */
+    rollingSummaryDelayMs?: number;
+    /** Every request the page sends to the API, for checking which window each one read. */
+    requests?: URL[];
 }
 
-async function openDashboard(page: Page, { status, readingDelayMs = 0, summaryOverrides, summaryFail = false, queueTotal = 0, garden = false }: Opening): Promise<void> {
+/** A read of Today runs from local midnight, so it is shorter than the last 24 hours' exact day. */
+function readsToday(url: URL): boolean {
+    if (url.searchParams.get('window') === 'today' || url.searchParams.get('span') === 'today') return true;
+    const start = Date.parse(url.searchParams.get('start_time') ?? url.searchParams.get('start_date') ?? url.searchParams.get('start') ?? '');
+    const end = Date.parse(url.searchParams.get('end_time') ?? url.searchParams.get('end_date') ?? url.searchParams.get('end') ?? '');
+    return Number.isFinite(start) && Number.isFinite(end) && end - start !== 24 * 60 * 60 * 1000;
+}
+
+async function openDashboard(page: Page, { status, readingDelayMs = 0, summaryOverrides, summaryFail = false, queueTotal = 0, garden = false, today, rollingSummaryDelayMs = 0, requests }: Opening): Promise<void> {
     const data = readings();
     if (summaryOverrides) Object.assign(data.summary, summaryOverrides);
+    const todaySummary = { ...data.summary, ...today?.summary, window: 'today' };
+    const todayVisits = { ...data.visits, visits: today?.visits ?? data.visits.visits, total: today?.visitTotal ?? data.visits.total };
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
     await page.route('https://fonts.gstatic.com/**', route => route.abort());
     await page.route('**/health', route => route.fulfill({ json: { status: 'healthy' } }));
     await page.route(url => url.pathname.startsWith('/api/'), async route => {
-        const path = new URL(route.request().url()).pathname;
+        const url = new URL(route.request().url());
+        const path = url.pathname;
+        requests?.push(url);
         if (path === '/api/sse') return route.abort();
+        if (today && readsToday(url) && (path === '/api/stats/daily-summary' || path === '/api/visits')) {
+            if (today.delayMs) await new Promise(resolve => setTimeout(resolve, today.delayMs));
+            if (today.fail) return route.fulfill({ status: 503, json: { detail: 'Summary unavailable' } });
+            return route.fulfill({ json: path === '/api/visits' ? todayVisits : todaySummary });
+        }
+        if (path === '/api/stats/daily-summary' && rollingSummaryDelayMs > 0) {
+            await new Promise(resolve => setTimeout(resolve, rollingSummaryDelayMs));
+        }
         if (path.endsWith('.jpg') || path.endsWith('/snapshot') || path.endsWith('/thumbnail')) {
             return route.fulfill({ contentType: 'image/svg+xml', body: image });
         }
@@ -331,4 +357,92 @@ test('DayBar shows not available when daily-summary fails and measured 0 when cl
     await settled(page);
     await expect(figure.locator('.figure')).toHaveText('0');
     await expect(figure).toContainText('nothing needs your call');
+});
+
+function localMidnight(): string {
+    const midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
+    return midnight.toISOString();
+}
+
+test('Today reads one window everywhere, names it only once it is read and is remembered on this device', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const requests: URL[] = [];
+    await openDashboard(page, {
+        status: owner,
+        requests,
+        today: { summary: { visit_count: 14, unresolved_count: 0 }, visitTotal: 14, delayMs: 700 }
+    });
+    await settled(page);
+    const heading = page.getByRole('heading', { level: 1 });
+    const visits = page.locator('[data-day-bar-figure="visits"] .figure');
+    await expect(heading).toHaveText('Last 24 hours');
+    await expect(visits).toHaveText('21');
+    await expect(page.locator('[data-day-bar-window="rolling"]')).toHaveAttribute('aria-pressed', 'true');
+
+    requests.length = 0;
+    await page.locator('[data-day-bar-window="today"]').click();
+    await expect(page.locator('[data-day-bar-window="today"]')).toHaveAttribute('aria-pressed', 'true');
+    // While Today is read, nothing read for the last 24 hours stands under its name.
+    await expect(heading).toHaveText('Today');
+    await expect(visits).not.toHaveText('21');
+    await expect(visits).toHaveText('14');
+
+    const midnight = localMidnight();
+    const read = (path: string) => requests.filter(url => url.pathname === path);
+    expect(read('/api/stats/daily-summary').every(url => url.searchParams.get('window') === 'today')).toBe(true);
+    const visitReads = read('/api/visits');
+    expect(visitReads.length).toBeGreaterThan(0);
+    for (const url of visitReads) expect(url.searchParams.get('start_time')).toBe(midnight);
+    for (const url of read('/api/audio/summary')) expect(url.searchParams.get('start_date')).toBe(midnight);
+    for (const url of read('/api/events/review-queue')) expect(url.searchParams.get('window')).toBe('today');
+    for (const url of read('/api/leaderboard/species')) expect(url.searchParams.get('span')).toBe('today');
+    expect(read('/api/events/review-queue').length).toBeGreaterThan(0);
+
+    const more = page.locator('[data-field-log-more]');
+    await expect(more).toHaveText('2 earlier visits today, open in Explorer');
+
+    await page.reload();
+    await expect(page.locator('[data-day-bar-window="today"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(heading).toHaveText('Today');
+    await expect(visits).toHaveText('14');
+
+    await more.click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/events');
+    await expect.poll(() => new URL(page.url()).searchParams.get('date')).toBe('today');
+    await expect.poll(() => new URL(page.url()).searchParams.get('visitors')).toBe('birds');
+});
+
+test('a slower answer for the last 24 hours never lands under Today', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await openDashboard(page, { status: owner, rollingSummaryDelayMs: 1500, today: { summary: { visit_count: 14 }, visitTotal: 14 } });
+    const visits = page.locator('[data-day-bar-figure="visits"] .figure');
+    // Chosen before the last 24 hours have answered.
+    await page.locator('[data-day-bar-window="today"]').click();
+    await expect(visits).toHaveText('14');
+    await page.waitForTimeout(2000);
+    await expect(visits).toHaveText('14');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Today');
+});
+
+test('an empty Today says no visits yet today, and a Today that failed does not', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.addInitScript(() => localStorage.setItem('yawamf.dashboard.window', 'today'));
+    await openDashboard(page, { status: owner, today: { summary: { visit_count: 0, top_species: [], unresolved_count: 0 }, visits: [], visitTotal: 0 } });
+    const log = page.locator('[data-dashboard-field-log]');
+    await expect(log).toContainText('No visits yet today. New visits appear here as they arrive.');
+
+    await openDashboard(page, { status: owner, today: { fail: true } });
+    await expect(log).toContainText('Visits could not be loaded.');
+    await expect(log).not.toContainText('yet today');
+});
+
+test('a guest whose shared history starts after their midnight is told from when Today is shown', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const sharedFrom = new Date(Date.now() - 60_000);
+    test.skip(sharedFrom.getTime() <= Date.parse(localMidnight()), 'Shared history cannot start after a midnight a minute away');
+    await page.addInitScript(() => localStorage.setItem('yawamf.dashboard.window', 'today'));
+    await openDashboard(page, { status: guest, today: { summary: { window_start: sharedFrom.toISOString() } } });
+    await expect(page.locator('[data-day-bar-shared-from]')).toContainText('Shared history starts at');
+    await expect(page.locator('[data-day-bar-shared-from]')).toContainText('so visits earlier today are not shown.');
 });
