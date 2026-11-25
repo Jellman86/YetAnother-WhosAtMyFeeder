@@ -856,12 +856,17 @@ class GardenRepository:
         observed_at: str,
         has_snapshot: bool,
         route: GardenDomesticRoute,
+        *,
+        require_unconfirmed: bool = False,
     ) -> str | None:
         """Record a bird detection as the domestic bird it is, and hide the bird record together.
 
         This is the one write that touches bird history from Garden, so both happen in a
         single transaction or not at all. The bird row is hidden, not deleted, so showing
-        it again restores it. None means Garden already holds this Frigate event.
+        it again restores it. None means nothing moved: Garden already holds this Frigate
+        event, the record is already hidden, or ``require_unconfirmed`` is set and the owner
+        has confirmed the name. An automatic move checks that confirmation in the hide itself,
+        so one the owner makes after the caller read the record still keeps it in bird history.
         """
         capture_id = uuid.uuid4().hex
         inserted = await self.db.execute(
@@ -873,8 +878,10 @@ class GardenRepository:
             await self.db.rollback()
             return None
         await self._insert_domestic_route(capture_id, route)
+        unconfirmed = " AND COALESCE(manual_tagged,0)=0" if require_unconfirmed else ""
         hidden = await self.db.execute(
-            "UPDATE detections SET is_hidden=1 WHERE id=? AND frigate_event=? AND COALESCE(is_hidden,0)=0",
+            "UPDATE detections SET is_hidden=1 WHERE id=? AND frigate_event=? AND COALESCE(is_hidden,0)=0"
+            + unconfirmed,
             (detection_id, event_id),
         )
         if not hidden.rowcount:

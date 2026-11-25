@@ -116,7 +116,7 @@
     "weather_backfill_filling": "Wetter wird ergänzt…",
     "weather_backfill_button": "Wetterfelder füllen",
     "batch_analysis_title": "Batch-Analyse",
-    "batch_analysis_long_desc": "Führen Sie dies nach einem Modellwechsel aus. Es analysiert den Clip jedes Besuchs „Unbekannter Vogel“ im Hintergrund erneut; Besuche ohne Clip werden übersprungen.",
+    "batch_analysis_long_desc": "Führen Sie dies nach einem Modellwechsel aus. Es analysiert den Clip jedes Besuchs „Unbekannter Vogel“ im Hintergrund erneut; Besuche ohne Clip werden übersprungen. Eine Aufnahme, die einen Namen erhält, kann in einem benachbarten Besuch derselben Art an derselben Kamera aufgehen. Die Zahl der Besuche kann dadurch sinken; keine Aufnahme wird entfernt.",
     "batch_analysis_queueing": "Wird eingereiht…",
     "batch_analysis_button": "Alle Unbekannten analysieren",
     "batch_analysis_processing": "Wird verarbeitet…",

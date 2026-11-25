@@ -2372,7 +2372,8 @@ class AutoVideoClassifierService:
             )
             await self._update_status(frigate_event, "failed", error="video_exception", broadcast=True)
             self._record_failure(frigate_event, "video_exception", source=source)
-            await self._auto_delete_if_missing(frigate_event, "video_exception")
+            # A fault inside YA-WAMF says nothing about Frigate's media, so the
+            # missing-media policy is never applied here (#1096).
             await self._broadcast_reclassification_completed(
                 frigate_event,
                 [],
@@ -2920,7 +2921,12 @@ class AutoVideoClassifierService:
         )
 
     async def _auto_delete_if_missing(self, frigate_event: str, error: str):
-        """Apply the configured missing-upstream policy when clip/event is missing."""
+        """Apply the configured missing-upstream policy when clip/event is missing.
+
+        Only an error that affirms Frigate no longer has the event or a usable clip
+        counts. The policy can delete the record, so an unexpected failure in YA-WAMF
+        itself must never reach it (#1096).
+        """
         if not settings.maintenance.auto_delete_missing_clips:
             return
 
@@ -2930,7 +2936,6 @@ class AutoVideoClassifierService:
             "clip_not_retained",
             "clip_invalid",
             "clip_decode_failed",
-            "video_exception",
         }
         if error not in missing_errors:
             return

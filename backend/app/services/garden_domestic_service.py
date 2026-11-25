@@ -249,6 +249,7 @@ class GardenDomesticService:
                 observed.isoformat(),
                 detection.frigate_status == "present",
                 route,
+                require_unconfirmed=automatic,
             )
         if capture_id is None:
             raise HTTPException(409, "Garden already has a record for this Frigate event")

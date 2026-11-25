@@ -116,7 +116,7 @@
     "weather_backfill_filling": "Remplissage météo…",
     "weather_backfill_button": "Remplir les champs météo",
     "batch_analysis_title": "Analyse par lots",
-    "batch_analysis_long_desc": "À lancer après un changement de modèle. Analyse à nouveau en arrière-plan le clip de chaque visite d’Oiseau inconnu ; les visites sans clip sont ignorées.",
+    "batch_analysis_long_desc": "À lancer après un changement de modèle. Analyse à nouveau en arrière-plan le clip de chaque visite d’Oiseau inconnu ; les visites sans clip sont ignorées. Une capture qui reçoit un nom peut rejoindre une visite voisine de la même espèce sur la même caméra, donc le nombre de visites peut baisser ; aucune capture n’est supprimée.",
     "batch_analysis_queueing": "Mise en file d’attente…",
     "batch_analysis_button": "Analyser tous les inconnus",
     "batch_analysis_processing": "Traitement…",

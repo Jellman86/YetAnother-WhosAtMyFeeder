@@ -116,7 +116,7 @@
     "weather_backfill_filling": "A preencher meteorologia…",
     "weather_backfill_button": "Preencher campos meteorológicos",
     "batch_analysis_title": "Análise em lote",
-    "batch_analysis_long_desc": "Execute após mudar de modelo. Analisa de novo em segundo plano o clipe de cada visita de Ave desconhecida; as visitas sem clipe são ignoradas.",
+    "batch_analysis_long_desc": "Execute após mudar de modelo. Analisa de novo em segundo plano o clipe de cada visita de Ave desconhecida; as visitas sem clipe são ignoradas. Uma captura que recebe nome pode juntar-se a uma visita vizinha da mesma espécie na mesma câmara, por isso o número de visitas pode descer; nenhuma captura é removida.",
     "batch_analysis_queueing": "A colocar em fila…",
     "batch_analysis_button": "Analisar todos os desconhecidos",
     "batch_analysis_processing": "Processando…",
