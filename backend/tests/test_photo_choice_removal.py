@@ -275,3 +275,105 @@ async def test_restore_targets_must_belong_to_the_choice_being_restored(capture)
 
     assert refused.status_code == 400
     assert [row[0] for row in await dismissals(event)] == [ident(event, "crop")]
+
+
+@pytest.mark.asyncio
+async def test_partial_or_empty_expected_identities_map_is_refused_and_preserves_dismissals(capture):
+    event, client, _ = capture
+    removed = await patch(client, event, "crop", dismissed=True, companion_candidate_ids=[ident(event, "scene")])
+    assert removed.status_code == 200, removed.text
+    targets = {target["candidate_id"]: target["content_identity"] for target in removed.json()["changed_dismissals"]}
+
+    # Simulate replacement pixels dismissed later on the scene companion.
+    async with get_db() as db:
+        await db.execute(
+            "UPDATE snapshot_candidates SET content_sha256 = ? WHERE frigate_event = ? AND candidate_id = ?",
+            ("replacement-scene-sha", event, ident(event, "scene")),
+        )
+        await db.execute(
+            "UPDATE snapshot_candidate_dismissals SET content_identity = ? WHERE frigate_event = ? AND candidate_id = ?",
+            ("replacement-scene-sha", event, ident(event, "scene")),
+        )
+        await db.commit()
+
+    # Partial map (missing companion) and empty map must be refused on restore, and empty map refused on dismiss.
+    partial = await patch(
+        client,
+        event,
+        "crop",
+        dismissed=False,
+        companion_candidate_ids=[ident(event, "scene")],
+        expected_content_identities={ident(event, "crop"): targets[ident(event, "crop")]},
+    )
+    empty_restore = await patch(
+        client,
+        event,
+        "crop",
+        dismissed=False,
+        companion_candidate_ids=[ident(event, "scene")],
+        expected_content_identities={},
+    )
+    empty_dismiss = await patch(client, event, "hint", dismissed=True, expected_content_identities={})
+
+    assert partial.status_code == 400
+    assert empty_restore.status_code == 400
+    assert empty_dismiss.status_code == 400
+    assert dict(await dismissals(event)) == {
+        ident(event, "crop"): targets[ident(event, "crop")],
+        ident(event, "scene"): "replacement-scene-sha",
+    }
+
+    # Defense in depth at the repository boundary: a partial map never clears an unnamed companion.
+    async with get_db() as db:
+        repo_changed = await DetectionRepository(db).set_snapshot_candidate_dismissals(
+            event,
+            [ident(event, "crop"), ident(event, "scene")],
+            False,
+            expected_content_identities={ident(event, "crop"): targets[ident(event, "crop")]},
+        )
+    assert repo_changed == [{"candidate_id": ident(event, "crop"), "content_identity": targets[ident(event, "crop")]}]
+    assert dict(await dismissals(event)) == {ident(event, "scene"): "replacement-scene-sha"}
+
+
+@pytest.mark.asyncio
+async def test_removing_legacy_cached_photo_binds_verified_digest_at_dismissal(capture, tmp_path, monkeypatch):
+    import hashlib
+    from app.services.media_cache import MediaCacheService
+
+    event, client, _ = capture
+    cache = MediaCacheService()
+    cache.cache_dir = tmp_path
+    cache.snapshots_dir = tmp_path / "snapshots"
+    cache.thumbnails_dir = tmp_path / "thumbnails"
+    cache.clips_dir = tmp_path / "clips"
+    cache.snapshots_dir.mkdir(parents=True, exist_ok=True)
+    cache.thumbnails_dir.mkdir(parents=True, exist_ok=True)
+    cache.clips_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("app.services.media_cache.media_cache", cache)
+
+    legacy_bytes = b"\xff\xd8\xfflegacy-jpeg-bytes"
+    expected_digest = hashlib.sha256(legacy_bytes).hexdigest()
+    crop_id = ident(event, "crop")
+    await cache.cache_snapshot(f"{crop_id}__image", legacy_bytes, source="snapshot_candidate")
+    async with get_db() as db:
+        await db.execute(
+            "UPDATE snapshot_candidates SET content_sha256 = NULL WHERE frigate_event = ? AND candidate_id = ?",
+            (event, crop_id),
+        )
+        await db.commit()
+
+    removed = await patch(client, event, "crop", dismissed=True)
+    assert removed.status_code == 200, removed.text
+    assert removed.json()["changed_dismissals"] == [{"candidate_id": crop_id, "content_identity": expected_digest}]
+    assert dict(await dismissals(event)) == {crop_id: expected_digest}
+
+    restored = await patch(
+        client,
+        event,
+        "crop",
+        dismissed=False,
+        expected_content_identities={crop_id: expected_digest},
+    )
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["changed_dismissals"] == [{"candidate_id": crop_id, "content_identity": expected_digest}]
+    assert await dismissals(event) == []

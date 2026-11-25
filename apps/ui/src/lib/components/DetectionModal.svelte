@@ -322,10 +322,12 @@
                 fetchSnapshotCandidates(eventId)
             ]);
             if (!isCurrent()) return;
-            snapshotStatus = status;
             if (listIsFresh()) {
                 snapshotCandidates = candidateList.candidates ?? [];
                 asRecordedDismissed = Boolean(candidateList.as_recorded_dismissed);
+                snapshotStatus = status;
+                currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
+                currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
             }
             if (parentIdentity === countedParentIdentity) {
                 countedBirds = candidateList.birds ?? [];
@@ -333,23 +335,21 @@
                 countedBirdsError = false;
                 countedBirdsLoading = false;
             }
-            currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
-            currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
         } catch {
             if (!isCurrent()) return;
-            snapshotStatus = null;
             if (listIsFresh()) {
+                snapshotStatus = null;
                 snapshotCandidates = [];
                 asRecordedDismissed = false;
+                snapshotCandidatesError = true;
+                currentSnapshotCandidateId = null;
+                currentSnapshotSource = null;
             }
             if (parentIdentity === countedParentIdentity) {
                 countedBirds = [];
                 countedBirdsGeneration += 1;
                 countedBirdsLoading = false;
             }
-            snapshotCandidatesError = true;
-            currentSnapshotCandidateId = null;
-            currentSnapshotSource = null;
         } finally {
             if (isCurrent()) {
                 snapshotCandidatesLoading = false;
@@ -1430,6 +1430,9 @@
                 candidateListRevision += 1;
                 snapshotCandidates = response.candidates;
                 asRecordedDismissed = Boolean(response.as_recorded_dismissed);
+                currentSnapshotCandidateId = response.current_candidate_id ?? null;
+                currentSnapshotSource = response.current_source ?? currentSnapshotSource;
+                snapshotCandidatesError = false;
                 undoablePhotoRemoval = dismissed ? eventId : null;
             }
             return response.changed_dismissals ?? [];

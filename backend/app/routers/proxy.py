@@ -1964,11 +1964,13 @@ async def dismiss_snapshot_candidate(
 async def _dismiss_snapshot_candidate(
     request: Request, body: SnapshotDismissRequest, event_id: str, candidate_id: str
 ) -> SnapshotDismissResponse:
-    expected = body.expected_content_identities or {}
-    if expected and body.dismissed:
-        raise HTTPException(400, "Expected photographs apply to restoring a photo choice")
-    if set(expected) - {candidate_id, *(body.companion_candidate_ids or [])}:
-        raise HTTPException(400, "Restore only the photo choice named in this request")
+    expected = body.expected_content_identities
+    if expected is not None:
+        if body.dismissed:
+            raise HTTPException(400, "Expected photographs apply to restoring a photo choice")
+        named = {candidate_id, *(body.companion_candidate_ids or [])}
+        if not expected or set(expected) != named:
+            raise HTTPException(400, "Restore only the exact photo choices named in this request")
     status = await _build_snapshot_status(event_id, check_original_frigate_snapshot=False)
     candidates = await _list_snapshot_candidates(event_id)
     try:
@@ -1977,6 +1979,18 @@ async def _dismiss_snapshot_candidate(
         raise HTTPException(400, str(error)) from error
     except PhotoChoiceNotFound as error:
         raise HTTPException(404, str(error)) from error
+    verified_digests: dict[str, str] = {}
+    if body.dismissed and candidate_id != AS_RECORDED_CANDIDATE_ID:
+        from app.services.media_cache import media_cache
+
+        for member in members:
+            member_id = str(member["candidate_id"])
+            if not member.get("content_sha256") and not member.get("photo_hidden"):
+                image_ref = str(member.get("image_ref") or "").strip()
+                if image_ref:
+                    image_bytes = await media_cache.get_snapshot(image_ref)
+                    if image_bytes:
+                        verified_digests[member_id] = hashlib.sha256(image_bytes).hexdigest()
     async with get_db() as db:
         repository = DetectionRepository(db)
         try:
@@ -1985,7 +1999,7 @@ async def _dismiss_snapshot_candidate(
                     event_id,
                     body.dismissed,
                     is_current=_is_as_recorded_current(status.source, candidates),
-                    expected_content_identity=expected.get(candidate_id),
+                    expected_content_identity=expected.get(candidate_id) if expected is not None else None,
                 )
             else:
                 current_candidate_id = _current_candidate_id(status.source, candidates)
@@ -1996,6 +2010,7 @@ async def _dismiss_snapshot_candidate(
                     [str(member["candidate_id"]) for member in members],
                     body.dismissed,
                     expected_content_identities=expected,
+                    verified_digests=verified_digests or None,
                 )
         except ValueError as error:
             raise HTTPException(409, str(error)) from error

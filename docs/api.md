@@ -1001,16 +1001,21 @@ other identifications for `needs_review`, and are excluded from personalization 
   unchanged removed image excluded while a genuinely changed image can become a new choice.
   - Optional `companion_candidate_ids` (up to 16) names the other framings behind the same
     displayed choice, for example a frame's detector crop, camera crop and whole scene. They are
-    removed or restored with `candidate_id` in one transaction: if any of them is the saved
-    photograph (marked `selected`, or the candidate the current photograph's source names), the
-    request returns 409 and nothing changes. Every named candidate must be a photo choice of the
-    same frame (`clip_variant` and `frame_index`) of this capture. A repeated or blank ID, a
-    candidate of another frame, an evidence-only `model_observation` candidate, and companions for
-    `"as-recorded"` or an earlier photograph (`retained_photo`) return 400; a candidate of another
-    capture returns 404. Omitting the field behaves as before.
-  - Optional `expected_content_identities` (restore only, keys among the named candidates) maps a
-    candidate ID to the `content_identity` its removal was bound to. Restoring then clears only a
-    removal of those pixels, so an Undo never clears a later removal of replacement pixels.
+    removed or restored with `candidate_id` in one transaction: when `dismissed` is `true` and any
+    of them is the saved photograph (marked `selected`, or the candidate the current photograph's
+    source names), the request returns 409 and nothing changes. Every named candidate must be a
+    photo choice of the same frame (`clip_variant` and `frame_index`) of this capture. Empty
+    strings in `companion_candidate_ids` and lists of more than 16 companions return 422; a
+    whitespace-only or repeated ID, a candidate of another frame, an evidence-only
+    `model_observation` candidate, and companions for `"as-recorded"` or an earlier photograph
+    (`retained_photo`) return 400; a candidate of another capture returns 404. Omitting the field
+    behaves as before.
+  - Optional `expected_content_identities` (restore only; up to 17 entries) maps every candidate ID
+    named in the request (`candidate_id` plus any `companion_candidate_ids`) to the
+    `content_identity` its removal was bound to. Restoring then clears only a removal of those
+    pixels, so an Undo never clears a later removal of replacement pixels. Empty strings or more
+    than 17 entries return 422; sending the field with `dismissed: true`, or sending an empty,
+    partial, or extra-key map, returns 400. Omitting the field performs an unconditional restore.
     Restoring a candidate that is not removed succeeds and changes nothing.
   - The response adds `changed_dismissals`: the `{candidate_id, content_identity}` removals this
     request created, or cleared when restoring. A removal that already stood is not listed, so

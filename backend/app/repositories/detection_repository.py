@@ -737,14 +737,18 @@ class DetectionRepository:
         dismissed: bool,
         *,
         expected_content_identities: Mapping[str, str] | None = None,
+        verified_digests: Mapping[str, str] | None = None,
     ) -> list[dict[str, str]] | None:
         """Remove or restore the candidates of one photo choice together, in one transaction.
 
         Returns the dismissals this call created or cleared, each with the pixels it is bound
         to, so an Undo can restore exactly those. A removal that already stood is left alone and
-        not reported. Restoring with an expected identity leaves a dismissal bound to other
-        pixels in place: that is a later removal of a replacement photograph. Returns None when a
-        candidate is gone or its pixels changed while the removal was written.
+        not reported. When ``verified_digests`` supplies a SHA-256 for a legacy candidate that has
+        no stored digest yet, the digest is bound to the candidate and its dismissal in the same
+        transaction so a later identical regeneration keeps Undo working. Restoring with an
+        expected identity map leaves a dismissal bound to other pixels — or any member missing
+        from a supplied map — in place. Returns None when a candidate is gone or its pixels
+        changed while the removal was written.
         """
         by_id = {item["candidate_id"]: item for item in await self.list_snapshot_candidates(event_id)}
         members = [by_id.get(candidate_id) for candidate_id in candidate_ids]
@@ -760,7 +764,17 @@ class DetectionRepository:
                 if dismissed:
                     if member["photo_hidden"]:
                         continue
-                    identity = member.get("content_sha256") or candidate_id
+                    legacy_digest = (verified_digests or {}).get(candidate_id)
+                    if not member.get("content_sha256") and legacy_digest:
+                        await self.db.execute(
+                            """UPDATE snapshot_candidates SET content_sha256 = ?
+                            WHERE frigate_event = ? AND candidate_id = ?
+                              AND content_sha256 IS NULL AND selected = 0""",
+                            (legacy_digest, event_id, candidate_id),
+                        )
+                        identity = legacy_digest
+                    else:
+                        identity = member.get("content_sha256") or candidate_id
                     await self.db.execute(
                         """INSERT INTO snapshot_candidate_dismissals (frigate_event, candidate_id, content_identity)
                         SELECT frigate_event, candidate_id, COALESCE(content_sha256, candidate_id)
@@ -782,7 +796,12 @@ class DetectionRepository:
                         return None
                     changed.append({"candidate_id": candidate_id, "content_identity": identity})
                 else:
-                    expected = (expected_content_identities or {}).get(candidate_id)
+                    if expected_content_identities is not None:
+                        expected = expected_content_identities.get(candidate_id)
+                        if not expected:
+                            continue
+                    else:
+                        expected = None
                     async with self.db.execute(
                         """DELETE FROM snapshot_candidate_dismissals
                         WHERE frigate_event = ? AND candidate_id = ? AND (? IS NULL OR content_identity = ?)

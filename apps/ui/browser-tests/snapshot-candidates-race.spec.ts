@@ -22,7 +22,13 @@ function candidateResponse(eventId: string, stale: boolean, other: OtherChoice =
 }
 
 interface CandidateFixture {
-    held: Route | null; heldRefresh: Route | null; holdRefresh: boolean; requestsA: number; errors: string[]; other: OtherChoice;
+    held: Route | null;
+    heldRefresh: Route | null;
+    holdRefresh: boolean;
+    requestsA: number;
+    errors: string[];
+    other: OtherChoice;
+    originalAvailable: boolean;
 }
 
 test('regenerate snapshots announces recounting and refreshes the counted frame', async ({ page }) => {
@@ -80,8 +86,16 @@ test('progress ticks and another record finishing do not reread the open record 
     expect(fixture.errors).toEqual([]);
 });
 
-async function open(page: Page, other: OtherChoice = 'absent'): Promise<CandidateFixture> {
-    const fixture: CandidateFixture = { held: null, heldRefresh: null, holdRefresh: false, requestsA: 0, errors: [], other };
+async function open(page: Page, other: OtherChoice = 'absent', originalAvailable = false): Promise<CandidateFixture> {
+    const fixture: CandidateFixture = {
+        held: null,
+        heldRefresh: null,
+        holdRefresh: false,
+        requestsA: 0,
+        errors: [],
+        other,
+        originalAvailable
+    };
     page.on('pageerror', error => fixture.errors.push(error.message));
     // Isolate the HTTP/prop race from a late external stylesheet applying after the modal
     // mounts. The actual application fonts are checked separately against Quark.
@@ -108,7 +122,10 @@ async function open(page: Page, other: OtherChoice = 'absent'): Promise<Candidat
             } });
         }
         if (path.endsWith('/snapshot/status')) return route.fulfill({ json: {
-            available: true, high_quality_bird_crop_enabled: true, source: 'hq_candidate_full_frame'
+            available: true,
+            high_quality_bird_crop_enabled: true,
+            source: 'hq_candidate_full_frame',
+            ...(fixture.originalAvailable ? { original_frigate_snapshot_available: true } : {})
         } });
         if (path.endsWith('.jpg') || path.endsWith('.svg')) return route.fulfill({ contentType: 'image/svg+xml', body:
             '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="600"><rect width="1000" height="600" fill="#64748b"/></svg>' });
@@ -188,26 +205,41 @@ test('a fresh summary reloads an open capture without discarding its focused bir
     await page.screenshot({ path: testInfo.outputPath('summary-refresh-focus.png'), fullPage: true });
 });
 
-test('a candidate read sent before a photo removal cannot bring the removed photo back (#1107)', async ({ page }) => {
-    const fixture = await open(page, 'shown');
-    await release(fixture, false);
-    const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
-    await expect(triggers).toHaveCount(2);
-    fixture.holdRefresh = true;
-    await page.evaluate(() => window.snapshotRace?.setSummary(2));
-    await expect.poll(() => fixture.heldRefresh !== null).toBe(true);
+for (const refreshFailed of [false, true]) {
+    test(`a candidate read sent before a photo removal (${refreshFailed ? '503 failure' : '200 success'}) preserves removed and chosen photo state (#1107)`, async ({ page }) => {
+        const fixture = await open(page, 'shown', true);
+        await release(fixture, false);
+        const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+        // Camera snapshot + removable crop + chosen scene.
+        await expect(triggers).toHaveCount(3);
+        await expect(triggers.nth(2)).toHaveAttribute('aria-pressed', 'true');
+        fixture.holdRefresh = true;
+        await page.evaluate(() => window.snapshotRace?.setSummary(2));
+        await expect.poll(() => fixture.heldRefresh !== null).toBe(true);
 
-    await triggers.nth(0).click();
-    await page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' }).click();
-    await expect(triggers).toHaveCount(1);
-    const refresh = fixture.heldRefresh;
-    if (!refresh) throw new Error('Refresh read was not captured');
-    // The read left before the removal, so it still lists the photo as a choice.
-    await refresh.fulfill({ json: candidateResponse('A', false, 'shown') });
+        // Remove the middle choice (the removable crop).
+        await triggers.nth(1).click();
+        await page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' }).click();
+        await expect(triggers).toHaveCount(2);
+        await expect(triggers.nth(1)).toHaveAttribute('aria-pressed', 'true');
+        const refresh = fixture.heldRefresh;
+        if (!refresh) throw new Error('Refresh read was not captured');
+        if (refreshFailed) {
+            await refresh.fulfill({ status: 503, json: { detail: 'Stale refresh failed' } });
+        } else {
+            // The read left before the removal, so it still lists the removed photo and an older current candidate.
+            await refresh.fulfill({ json: { ...candidateResponse('A', false, 'shown'), current_candidate_id: null, current_source: 'frigate_snapshot' } });
+        }
 
-    await expect(page.locator('[data-counted-birds-total]')).toHaveText('2');
-    await page.waitForTimeout(150);
-    await expect(triggers).toHaveCount(1);
-    await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
-    expect(fixture.errors).toEqual([]);
-});
+        if (!refreshFailed) {
+            await expect(page.locator('[data-counted-birds-total]')).toHaveText('2');
+        }
+        await page.waitForTimeout(150);
+        // Camera snapshot and chosen scene stay intact; removed crop stays gone; Undo and chosen mark survive.
+        await expect(triggers).toHaveCount(2);
+        await expect(triggers.nth(1)).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Regenerate snapshots and recount birds', exact: true })).toBeEnabled();
+        expect(fixture.errors).toEqual([]);
+    });
+}
