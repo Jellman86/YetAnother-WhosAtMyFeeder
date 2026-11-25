@@ -60,6 +60,7 @@
   "metric_avg": "Moy.",
   "load_failed": "Le classement n’a pas pu être chargé. Vérifiez que YA-WAMF est joignable, puis réessayez.",
   "today_changed": "Le jour a changé pendant le chargement du classement, donc rien de nouveau n’est affiché. Choisissez Réessayer pour compter le nouveau jour.",
+  "charts_day_changed": "Le jour a changé pendant le chargement des graphiques, donc ils ne sont pas affichés. Choisissez Réessayer pour tracer le nouveau jour.",
   "ai_analyze": "Analyser le graphique",
   "ai_analyzing": "Analyse en cours…",
   "ai_rerun": "Relancer l’analyse",

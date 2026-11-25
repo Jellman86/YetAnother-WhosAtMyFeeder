@@ -205,6 +205,8 @@
     /** The flagged species the owner opened the check sheet on, or null when it is closed. */
     let checkStart = $state<string | null>(null);
     let timeline = $state.raw<DetectionsTimelineSpanResponse | null>(null);
+    // Every try at Today's charts answered for a different day than its rankings.
+    let chartsDayChanged = $state(false);
     // The charts answer after the rankings, so they are named by the period they were counted over.
     let timelineSpan = $derived<string | undefined>(timeline?.span ?? shownSpan);
     let activityHeatmap = $state.raw<DetectionsActivityHeatmapResponse | null>(null);
@@ -527,10 +529,16 @@
     let speciesHeatmap = $state.raw<DetectionsActivityHeatmapResponse | null>(null);
     let speciesHeatmapLoading = $state(false);
     let speciesHeatmapFailed = $state(false);
+    // The period (and for Today the day) the rankings on screen count, and the one the species grid
+    // was drawn for: a grid of another period is never shown, not even dimmed, under this one.
+    let heatmapPeriod = $derived(`${loadedSpan ?? ''}|${acceptedTodayStart ?? ''}`);
+    let speciesHeatmapPeriod = $state<string | null>(null);
+    let currentSpeciesHeatmap = $derived(speciesHeatmapPeriod === heatmapPeriod ? speciesHeatmap : null);
     $effect(() => {
         const requested = heatmapSpecies;
         const requestedSpan = loadedSpan;
         const todayStart = acceptedTodayStart;
+        const period = heatmapPeriod;
         if (!requested || requestedSpan === null) {
             speciesHeatmapLoading = false;
             speciesHeatmapFailed = false;
@@ -545,10 +553,12 @@
                 speciesHeatmapLoading = false;
                 // A grid for another day is not this day's: it is reported unavailable, not shown.
                 if (todayStart && !windowsAgree([todayStart, response.window_start])) {
+                    speciesHeatmap = null;
                     speciesHeatmapFailed = true;
                     return;
                 }
                 speciesHeatmap = response;
+                speciesHeatmapPeriod = period;
             })
             .catch((error) => {
                 if (controller.signal.aborted) return;
@@ -560,7 +570,7 @@
     });
     // While another species loads, the previous grid stays (dimmed) under its own name, so the
     // label never describes data that is not on screen.
-    let shownHeatmap = $derived(heatmapSpecies ? speciesHeatmap : activityHeatmap);
+    let shownHeatmap = $derived(heatmapSpecies ? currentSpeciesHeatmap : activityHeatmap);
     let heatmapSubject = $derived(
         shownHeatmap?.species
             ? (heatmapSpeciesOptions.find((row) => row.heatmapKey === shownHeatmap?.species)?.displayName ?? shownHeatmap.species)
@@ -892,13 +902,17 @@
         ];
         if (requestedSpan === 'today' && !windowsAgree(chartStarts)) {
             if (attempt < MAX_TODAY_RELOADS) return loadLeaderboardAttempt(attempt + 1);
-            // The charts on screen keep the period they were drawn for, under their own name.
+            // Charts of another period or day are taken down, not left beside today's rankings.
+            timeline = null;
+            activityHeatmap = null;
+            chartsDayChanged = true;
             logger.warn('Leaderboard charts answered for another day', { attempts: attempt + 1 });
         } else {
             commitCharts(timelineResult, heatmapResult);
         }
 
-        if (!error) leaderboardStale.touch();
+        // A board whose charts could not be read for its day is not up to date.
+        if (!error && !chartsDayChanged) leaderboardStale.touch();
         if (loadGeneration === leaderboardLoadGeneration) {
             loading = false;
             leaderboardAbortController = null;
@@ -923,6 +937,7 @@
     ): void {
         hiddenDonutState = { theme: '', indices: [] };
         hiddenTimelineSeries = [];
+        chartsDayChanged = false;
         if (timelineResult.status === 'fulfilled') {
             timeline = timelineResult.value;
         } else {
@@ -2144,6 +2159,12 @@
                 <div>
                     <h2 id="leaderboard-analytics-title" class="text-xl font-bold text-strong">{$_('leaderboard.analytics_section', { default: 'Analytics' })}</h2>
                     <p class="text-sm text-muted" data-leaderboard-analytics-window>{spanLabel(timelineSpan)} · {timelineSpan === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(timeline?.window_start, timeline?.window_end)}</p>
+                    {#if chartsDayChanged}
+                        <div class="mt-3 rounded-lg border border-status-fail-line bg-status-fail-soft p-3 text-sm text-status-fail" role="alert" data-leaderboard-charts-day-changed>
+                            {$_('leaderboard.charts_day_changed', { default: 'The day changed while the charts were loading, so they are not shown. Retry to draw the new day.' })}
+                            <button type="button" onclick={loadLeaderboard} class="btn btn-secondary ml-2 min-h-11 px-3 text-xs">{$_('common.retry')}</button>
+                        </div>
+                    {/if}
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                             {#if canUseLeaderboardAnalysis}

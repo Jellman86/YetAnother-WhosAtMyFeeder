@@ -60,6 +60,7 @@
   "metric_avg": "平均",
   "load_failed": "无法加载排行榜。请确认 YA-WAMF 可以访问，然后重试。",
   "today_changed": "加载排行榜时日期已变更，因此没有显示新内容。选择“重试”以统计新的一天。",
+  "charts_day_changed": "加载图表时日期已变更，因此不显示图表。选择“重试”以绘制新的一天。",
   "ai_analyze": "分析图表",
   "ai_analyzing": "分析中…",
   "ai_rerun": "重新分析",

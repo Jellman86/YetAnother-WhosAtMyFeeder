@@ -60,6 +60,7 @@
   "metric_avg": "Media",
   "load_failed": "Impossibile caricare la classifica. Verifica che YA-WAMF sia raggiungibile, poi riprova.",
   "today_changed": "Il giorno è cambiato mentre la classifica si caricava, quindi non viene mostrato nulla di nuovo. Scegli Riprova per contare il nuovo giorno.",
+  "charts_day_changed": "Il giorno è cambiato mentre i grafici si caricavano, quindi non vengono mostrati. Scegli Riprova per disegnare il nuovo giorno.",
   "ai_analyze": "Analizza grafico",
   "ai_analyzing": "Analisi in corso…",
   "ai_rerun": "Riesegui analisi",

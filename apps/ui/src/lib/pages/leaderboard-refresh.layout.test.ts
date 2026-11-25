@@ -164,7 +164,7 @@ describe('leaderboard field-journal layout', () => {
     it('can show one species\' weekly pattern, and never labels data it is not showing', () => {
         expect(leaderboardSource).toContain('data-leaderboard-heatmap-species');
         expect(leaderboardSource).toContain('fetchDetectionsActivityHeatmapSpan(requestedSpan, controller.signal, requested)');
-        expect(leaderboardSource).toContain('let shownHeatmap = $derived(heatmapSpecies ? speciesHeatmap : activityHeatmap)');
+        expect(leaderboardSource).toContain('let shownHeatmap = $derived(heatmapSpecies ? currentSpeciesHeatmap : activityHeatmap)');
         expect(leaderboardSource).toContain('shownHeatmap?.species');
     });
 

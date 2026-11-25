@@ -60,6 +60,7 @@
   "metric_avg": "Ø",
   "load_failed": "Die Bestenliste konnte nicht geladen werden. Prüfen Sie, ob YA-WAMF erreichbar ist, und versuchen Sie es erneut.",
   "today_changed": "Der Tag hat gewechselt, während die Bestenliste geladen wurde, daher wird nichts Neues angezeigt. Wählen Sie Wiederholen, um den neuen Tag zu zählen.",
+  "charts_day_changed": "Der Tag hat gewechselt, während die Diagramme geladen wurden, daher werden sie nicht angezeigt. Wählen Sie Wiederholen, um den neuen Tag darzustellen.",
   "ai_analyze": "Diagramm analysieren",
   "ai_analyzing": "Analysiere…",
   "ai_rerun": "Analyse erneut ausführen",

@@ -646,3 +646,37 @@ test('switching to Today keeps the last period whole until Seen and Heard have b
 function url_span(route: { request(): { url(): string } }): string | null {
     return new URL(route.request().url()).searchParams.get('span');
 }
+
+test('a one-species grid answered for another day replaces the old period\'s grid with an honest gap', async ({ page }) => {
+    await page.locator('[data-leaderboard-heatmap-species]').getByRole('button', { name: 'Robin', exact: true }).click();
+    const grid = page.getByRole('grid', { name: /Activity by weekday and hour/ });
+    await expect(grid).toBeVisible();
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ json: todayRanking(species) }));
+    await page.route(url => url.pathname === '/api/stats/detections/activity-heatmap' && url.searchParams.get('span') === 'today' && url.searchParams.has('species'), route => route.fulfill({ json: {
+        span: 'today', species: 'Robin', window_start: '2026-08-31T23:00:00Z', window_end: end, total_count: 9, max_cell_count: 9,
+        cells: [{ day_of_week: 1, hour: 8, count: 9 }],
+    } }));
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Today');
+    await expect(page.getByText('That species’ activity could not be loaded.')).toBeVisible();
+    await expect(grid).toHaveCount(0);
+});
+
+test('Today charts that answer for another day on every try are taken down with a retry', async ({ page }) => {
+    let charts = 0;
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ json: todayRanking(species) }));
+    await page.route(url => url.pathname === '/api/stats/detections/timeline' && url.searchParams.get('span') === 'today', route => {
+        charts += 1;
+        return route.fulfill({ json: { span: 'today', bucket: 'hour', points, total_count: 54, window_start: '2026-09-02T00:00:00Z', window_end: end } });
+    });
+    await expect(page.locator('canvas[aria-label^="Captures over time"]')).toBeVisible();
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    const notice = page.locator('[data-leaderboard-charts-day-changed]');
+    await expect(notice).toContainText('The day changed while the charts were loading');
+    await expect(notice.getByRole('button', { name: 'Retry' })).toBeVisible();
+    expect(charts).toBe(3);
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Today');
+    // Neither the last period's charts nor the other day's are left on screen.
+    await expect(page.locator('canvas[aria-label^="Captures over time"]')).toHaveCount(0);
+    await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ })).toHaveCount(0);
+});

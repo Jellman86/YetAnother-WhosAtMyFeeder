@@ -516,17 +516,17 @@ def _build_local_timeline_points(
     return list(points_by_key.values())
 
 
-def _bucket_from(key, piece_start: datetime):
-    """A bucket key moved up to the clock change its piece starts at, when the bucket began before it.
+def _bucket_from(key, piece_start: datetime, zone: tzinfo):
+    """A bucket key as the start of the local hour it counts, never earlier than its piece.
 
-    After a half-hour clock change the first local hour is short: 02:40 on Lord Howe Island is in
-    the hour that began at the change, not in the UTC-aligned hour that began half an hour before.
+    SQL cuts a piece into UTC-aligned buckets, but a piece's first bucket can begin before it: after
+    a half-hour clock change on Lord Howe Island, 02:40 is in the hour that began at the change, not
+    in the aligned bucket that began half an hour before, even when the window itself opens later.
     """
     if isinstance(key, tuple):
-        return (_bucket_from(key[0], piece_start), *key[1:])
-    if _parse_utc_bucket_key(key) < piece_start:
-        return piece_start.strftime("%Y-%m-%dT%H:%M:00Z")
-    return key
+        return (_bucket_from(key[0], piece_start, zone), *key[1:])
+    counted_from = max(_parse_utc_bucket_key(key), piece_start)
+    return local_hour_start(counted_from, zone).strftime("%Y-%m-%dT%H:%M:00Z")
 
 
 async def _by_local_hour(
@@ -541,10 +541,16 @@ async def _by_local_hour(
     Counts are summed per bucket; ``merge`` folds values that are not counts.
     """
     found: dict = {}
-    for index, (piece_start, piece_end, alignment) in enumerate(hour_alignment_segments(start, end, zone)):
+    for piece_start, piece_end, alignment in hour_alignment_segments(start, end, zone):
         part = await read(piece_start, piece_end, align_minutes=alignment)
-        if index > 0:
-            part = {_bucket_from(key, piece_start): value for key, value in part.items()}
+        if merge is None:
+            moved: dict = {}
+            for key, value in part.items():
+                local_key = _bucket_from(key, piece_start, zone)
+                moved[local_key] = moved.get(local_key, 0) + value
+            part = moved
+        else:
+            part = {_bucket_from(key, piece_start, zone): value for key, value in part.items()}
         if merge is not None:
             merge(found, part)
             continue
@@ -1396,10 +1402,9 @@ async def get_detection_activity_heatmap(
             window_end = now
 
         utc_hourly_counts = [
-            (max(bucket_start, piece_start) if index > 0 else bucket_start, count)
-            for index, (piece_start, piece_end, alignment) in enumerate(
-                hour_alignment_segments(window_start, window_end, user_tz)
-            )
+            # A piece's first bucket can begin before the piece: it counts in the hour the piece opens in.
+            (local_hour_start(max(bucket_start, piece_start), user_tz), count)
+            for piece_start, piece_end, alignment in hour_alignment_segments(window_start, window_end, user_tz)
             for bucket_start, count in await repo.get_activity_heatmap_utc_hourly_counts(
                 piece_start, piece_end, species_name=species_name, align_minutes=alignment
             )

@@ -60,6 +60,7 @@
   "metric_avg": "Prom.",
   "load_failed": "No se pudo cargar la clasificación. Comprueba que YA-WAMF está accesible y vuelve a intentarlo.",
   "today_changed": "El día cambió mientras se cargaba la clasificación, así que no se muestra nada nuevo. Pulsa Reintentar para contar el nuevo día.",
+  "charts_day_changed": "El día cambió mientras se cargaban los gráficos, así que no se muestran. Pulsa Reintentar para dibujar el nuevo día.",
   "ai_analyze": "Analizar gráfico",
   "ai_analyzing": "Analizando…",
   "ai_rerun": "Repetir análisis",

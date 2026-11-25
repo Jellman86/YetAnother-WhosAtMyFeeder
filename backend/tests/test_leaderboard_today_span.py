@@ -382,3 +382,20 @@ async def test_a_half_hour_clock_fold_keeps_both_halves_in_the_same_local_hour(c
         ("2034-04-01T15:00:00Z", "01:00", 1),
         ("2034-04-01T15:30:00Z", "02:00", 0),
     ]
+
+
+@pytest.mark.asyncio
+async def test_a_window_opening_just_after_a_half_hour_jump_counts_its_first_capture_in_the_short_hour(
+    client, monkeypatch
+):
+    # The last 24 hours open at 15:35 UTC on 3 October 2026, five minutes after Lord Howe Island
+    # jumped from 02:00 to 02:30; the capture at 15:40 UTC is 02:40 on Sunday 4 October.
+    monkeypatch.setattr(Clock, "now", datetime(2026, 10, 4, 15, 35))
+    await _insert({"lbt-lh-first-piece": ("2026-10-03 15:40:00", TIT)})
+
+    heatmap = await _get(client, "/api/stats/detections/activity-heatmap?span=day", LORD_HOWE)
+    timeline = await _get(client, "/api/stats/detections/timeline?span=day", LORD_HOWE)
+
+    assert (_cell(heatmap, SUNDAY, 1), _cell(heatmap, SUNDAY, 2)) == (0, 1)
+    assert _points(timeline)[0] == ("2026-10-03T15:30:00Z", "02:00", 1)
+    assert sum(point["count"] for point in timeline["points"]) == 1

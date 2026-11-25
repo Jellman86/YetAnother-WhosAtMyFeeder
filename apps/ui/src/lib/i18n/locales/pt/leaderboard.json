@@ -60,6 +60,7 @@
   "metric_avg": "Média",
   "load_failed": "Não foi possível carregar o ranking. Verifique se o YA-WAMF está acessível e tente novamente.",
   "today_changed": "O dia mudou enquanto o ranking carregava, por isso nada de novo é mostrado. Escolha Tentar novamente para contar o novo dia.",
+  "charts_day_changed": "O dia mudou enquanto os gráficos carregavam, por isso não são mostrados. Escolha Tentar novamente para desenhar o novo dia.",
   "ai_analyze": "Analisar gráfico",
   "ai_analyzing": "Analisando…",
   "ai_rerun": "Reanalisar",

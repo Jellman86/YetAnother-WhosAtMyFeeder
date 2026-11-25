@@ -92,4 +92,12 @@ describe('the Leaderboard Today period', () => {
         expect(speciesSource).not.toContain("authStore.isGuest\n                        ? $_('leaderboard.trend_not_comparable");
         expect(speciesSource).toMatch(/currentTrendGap === 'history' && trendHistoryStart/);
     });
+    it('never shows a species grid or charts of another period or day under this one', () => {
+        expect(speciesSource).toContain('let currentSpeciesHeatmap = $derived(speciesHeatmapPeriod === heatmapPeriod ? speciesHeatmap : null);');
+        expect(speciesSource).toMatch(/speciesHeatmap = null;\s*speciesHeatmapFailed = true;\s*return;/);
+        // Out of tries, the charts are taken down with a retry, and the board is not marked fresh.
+        expect(speciesSource).toMatch(/timeline = null;\s*activityHeatmap = null;\s*chartsDayChanged = true;/);
+        expect(speciesSource).toContain('if (!error && !chartsDayChanged) leaderboardStale.touch();');
+        expect(speciesSource).toContain('data-leaderboard-charts-day-changed');
+    });
 });
