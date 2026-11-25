@@ -43,7 +43,7 @@ test('on a phone the Leaderboard controls are one compact row, with the rarer ch
     await page.locator('[data-leaderboard-more-controls] summary').click();
     await expect(controls.getByRole('checkbox', { name: 'Include Unknown bird' })).toBeVisible();
     await page.locator('[data-leaderboard-span-select]').selectOption('week');
-    await expect(page.locator('[data-leaderboard-analytics-window]')).toContainText('Week');
+    await expect(page.locator('[data-leaderboard-analytics-window]')).toContainText('Last 7 days');
 });
 
 test('at 1440 px the standing figures sit beside the wall, and the rankings table and charts take the full width', async ({ page }) => {
@@ -180,7 +180,9 @@ test('the Leaderboard names one window: the wall says the same span and dates as
     expect(rankings).toMatch(/·/);
     const eyebrow = (await page.locator('[data-capture-wall] header p').first().textContent())?.trim() ?? '';
     expect(eyebrow).toContain(rankings);
-    await expect(page.locator('main')).not.toContainText(/Last (?:7|30) days/);
+    expect(rankings).toMatch(/^Last 30 days · /);
+    // The period has one name: the old "Month" label must not sit beside "Last 30 days".
+    await expect(page.locator('main')).not.toContainText(/\bMonth\b/);
 });
 
 test('Audio history offers icon hide/restore, hidden view, multi-select bulk actions, and search', async ({ page }) => {

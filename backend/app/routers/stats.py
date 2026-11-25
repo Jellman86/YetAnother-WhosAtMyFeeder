@@ -2,8 +2,8 @@ from fastapi import APIRouter, Request, Response, Depends, Query
 from pydantic import Field
 import os
 import asyncio
-from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Literal
+from datetime import datetime, timedelta, timezone, tzinfo
+from typing import Awaitable, Callable, List, Optional, Literal
 from collections import Counter
 from app.database import get_db
 from app.repositories.audio_history_repository import AudioHistoryRepository
@@ -36,6 +36,8 @@ from app.utils.public_access import (
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.timezone import calendar_timezone
 from app.utils.calendar_day import instance_timezone, local_date, today_so_far
+from app.utils.local_hour_buckets import hour_alignment_segments, local_hour_start, local_hour_starts
+from app.services.leaderboard_window import LEADERBOARD_SPAN_DESCRIPTION, BoundedSpan, leaderboard_windows
 from app.services.daily_history import (
     coverage,
     first_whole_day,
@@ -479,9 +481,11 @@ def _localized_bucket_key_and_label(
         local_start = local_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         label = local_start.strftime("%b %d")
     else:
-        local_start = local_dt.replace(minute=0, second=0, microsecond=0)
-        label = local_start.strftime("%b %d %H:00") if detailed_hour_label else local_start.strftime("%H:00")
-    key = local_start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:00:00Z")
+        label = local_dt.strftime("%b %d %H:00") if detailed_hour_label else local_dt.strftime("%H:00")
+        # Minutes are kept: a local hour in Kolkata (UTC+5:30) begins at half past a UTC hour, and
+        # one cut short by a half-hour clock change begins at the change.
+        return local_hour_start(utc_bucket_start, user_tz).strftime("%Y-%m-%dT%H:%M:00Z"), label
+    key = local_start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:00Z")
     return key, label
 
 
@@ -494,11 +498,11 @@ def _build_local_timeline_points(
     detailed_hour_label: bool = False,
 ) -> list[DetectionsTimelinePoint]:
     points_by_key: dict[str, DetectionsTimelinePoint] = {}
-    cursor = window_start.replace(minute=0, second=0, microsecond=0)
-    end_hour = window_end.replace(minute=0, second=0, microsecond=0)
-    while cursor <= end_hour:
+    # One instant in every local hour of the window, the half hour a clock change leaves included;
+    # flooring to the UTC hour first would add the local hour before the window in Kolkata.
+    for instant in local_hour_starts(window_start, window_end, user_tz):
         key, label = _localized_bucket_key_and_label(
-            cursor,
+            instant,
             bucket,
             user_tz,
             detailed_hour_label=detailed_hour_label,
@@ -509,8 +513,50 @@ def _build_local_timeline_points(
                 label=label,
                 count=0,
             )
-        cursor = cursor + timedelta(hours=1)
     return list(points_by_key.values())
+
+
+def _bucket_from(key, piece_start: datetime, zone: tzinfo):
+    """A bucket key as the start of the local hour it counts, never earlier than its piece.
+
+    SQL cuts a piece into UTC-aligned buckets, but a piece's first bucket can begin before it: after
+    a half-hour clock change on Lord Howe Island, 02:40 is in the hour that began at the change, not
+    in the aligned bucket that began half an hour before, even when the window itself opens later.
+    """
+    if isinstance(key, tuple):
+        return (_bucket_from(key[0], piece_start, zone), *key[1:])
+    counted_from = max(_parse_utc_bucket_key(key), piece_start)
+    return local_hour_start(counted_from, zone).strftime("%Y-%m-%dT%H:%M:00Z")
+
+
+async def _by_local_hour(
+    read: Callable[..., Awaitable[dict]],
+    start: datetime,
+    end: datetime,
+    zone: tzinfo,
+    merge: Callable[[dict, dict], None] | None = None,
+) -> dict:
+    """``read`` over ``[start, end)`` in hour buckets that begin where the viewer's local hours do.
+
+    Counts are summed per bucket; ``merge`` folds values that are not counts.
+    """
+    found: dict = {}
+    for piece_start, piece_end, alignment in hour_alignment_segments(start, end, zone):
+        part = await read(piece_start, piece_end, align_minutes=alignment)
+        if merge is None:
+            moved: dict = {}
+            for key, value in part.items():
+                local_key = _bucket_from(key, piece_start, zone)
+                moved[local_key] = moved.get(local_key, 0) + value
+            part = moved
+        else:
+            part = {_bucket_from(key, piece_start, zone): value for key, value in part.items()}
+        if merge is not None:
+            merge(found, part)
+            continue
+        for key, value in part.items():
+            found[key] = found.get(key, 0) + value
+    return found
 
 
 @router.get("/stats/daily-summary", response_model=DailySummaryResponse)
@@ -811,12 +857,29 @@ async def get_detection_timeline(
     )
 
 
+def _bounded_span_window(
+    span: BoundedSpan, now: datetime, zone: tzinfo, bounds: dict[str, datetime | None]
+) -> tuple[datetime, datetime]:
+    """The leaderboard's window for ``span``, so its charts count what its rankings count."""
+    start_date, end_date = bounds.get("start_date"), bounds.get("end_date")
+    windows = leaderboard_windows(
+        span,
+        now=now.replace(tzinfo=timezone.utc),
+        zone=zone,
+        floor=start_date.replace(tzinfo=None) if start_date is not None else None,
+        ceiling=end_date.replace(tzinfo=None) if end_date is not None else None,
+    )
+    return windows.start, windows.end
+
+
 @router.get("/stats/detections/timeline", response_model=DetectionsTimelineSpanResponse)
 @guest_rate_limit()
 async def get_detection_timeline_span(
     request: Request,
     auth: AuthContext = Depends(get_auth_context_with_legacy),
-    span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the timeline"),
+    span: Literal["all", "today", "day", "week", "month"] = Query(
+        "week", description=f"Time span for the timeline. {LEADERBOARD_SPAN_DESCRIPTION} `all`: every stored capture."
+    ),
     include_weather: bool = Query(False, description="Include weather overlays (best-effort)"),
     compare_species: Optional[List[str]] = Query(
         None, description="Optional species names to include as compare lines"
@@ -825,6 +888,7 @@ async def get_detection_timeline_span(
     """Get detections over time for a rolling span aligned to the current time.
 
     Span definitions (UI semantics):
+    - today: local midnight to now, bucketed hourly
     - day: last 24 hours, bucketed hourly
     - week: last 7 days, bucketed daily
     - month: last 30 days, bucketed daily
@@ -845,11 +909,10 @@ async def get_detection_timeline_span(
         # A guest sees no sealed day that began before their window, not even its boundary day.
         history_floor = None if auth.is_owner else first_whole_day(bounds["start_date"].replace(tzinfo=None), zone)
 
-        if span == "day":
-            window_start = now - timedelta(hours=24)
-            if not auth.is_owner:
-                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
-            window_end = now
+        if span != "all":
+            window_start, window_end = _bounded_span_window(span, now, user_tz, bounds)
+
+        if span in ("today", "day"):
             bucket = "hour"
             points = _build_local_timeline_points(
                 window_start,
@@ -860,11 +923,6 @@ async def get_detection_timeline_span(
             )
 
         elif span in ("week", "month"):
-            days = 7 if span == "week" else 30
-            window_start = now - timedelta(days=days)
-            if not auth.is_owner:
-                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
-            window_end = now
             bucket = "day"
             points = _build_local_timeline_points(
                 window_start,
@@ -954,23 +1012,31 @@ async def get_detection_timeline_span(
         async def in_ranges(read) -> dict:
             found: dict = {}
             for range_start, range_end in ranges:
-                for key, value in (await read(range_start, range_end)).items():
+                for key, value in (await _by_local_hour(read, range_start, range_end, user_tz)).items():
                     found[key] = found.get(key, 0) + value
             return found
 
         hourly_counts = subtract_counts(
-            await repo.get_timebucket_counts_hourly(window_start, window_end),
+            await _by_local_hour(repo.get_timebucket_counts_hourly, window_start, window_end, user_tz),
             await in_ranges(repo.get_timebucket_counts_hourly),
         )
         # A capture Frigate lost still counts on its live day.
         lost_buckets: set[str] = set()
-        for key, count in (await totals_repo.lost_hourly_counts(window_start, window_end)).items():
+        for key, count in (
+            await _by_local_hour(totals_repo.lost_hourly_counts, window_start, window_end, user_tz)
+        ).items():
             hourly_counts[key] = hourly_counts.get(key, 0) + count
             lost_key, _label = _localized_bucket_key_and_label(
                 _parse_utc_bucket_key(key), bucket, user_tz, detailed_hour_label=(bucket == "hour" and span == "all")
             )
             lost_buckets.add(lost_key)
-        hourly_metrics = await repo.get_timebucket_metrics(window_start, window_end, "hour")
+        hourly_metrics = await _by_local_hour(
+            lambda start, end, **aligned: repo.get_timebucket_metrics(start, end, "hour", **aligned),
+            window_start,
+            window_end,
+            user_tz,
+            merge=lambda found, part: found.update(part),
+        )
         metric_rollups: dict[str, dict[str, float | int]] = {}
 
         for bucket_key, count in hourly_counts.items():
@@ -1042,18 +1108,20 @@ async def get_detection_timeline_span(
 
             if sanitized_compare:
 
-                async def compare_counts_between(range_start: datetime, range_end: datetime) -> dict:
+                async def compare_counts_between(range_start: datetime, range_end: datetime, **aligned) -> dict:
                     found = await repo.get_timebucket_species_counts_for_names(
                         start=range_start,
                         end=range_end,
                         bucket="hour",
                         species_names=sanitized_compare,
                         language=lang,
+                        **aligned,
                     )
                     return {(key, name): count for key, row in found.items() for name, count in row.items()}
 
                 live_compare = subtract_counts(
-                    await compare_counts_between(window_start, window_end), await in_ranges(compare_counts_between)
+                    await _by_local_hour(compare_counts_between, window_start, window_end, user_tz),
+                    await in_ranges(compare_counts_between),
                 )
                 localized_compare_counts: dict[str, dict[str, int]] = {}
 
@@ -1071,7 +1139,14 @@ async def get_detection_timeline_span(
                     add_compare(_parse_utc_bucket_key(bucket_key), selected, count)
                 for selected in sanitized_compare:
                     keys = await species_history_keys(db, selected)
-                    lost = await totals_repo.lost_hourly_counts(window_start, window_end, species_keys=keys)
+                    lost = await _by_local_hour(
+                        lambda start, end, keys=keys, **aligned: totals_repo.lost_hourly_counts(
+                            start, end, species_keys=keys, **aligned
+                        ),
+                        window_start,
+                        window_end,
+                        user_tz,
+                    )
                     for bucket_key, count in lost.items():
                         add_compare(_parse_utc_bucket_key(bucket_key), selected, count)
                     for total in (
@@ -1302,32 +1377,22 @@ async def get_uptime(
 async def get_detection_activity_heatmap(
     request: Request,
     auth: AuthContext = Depends(get_auth_context_with_legacy),
-    span: Literal["all", "day", "week", "month"] = Query("week", description="Time span for the heatmap"),
+    span: Literal["all", "today", "day", "week", "month"] = Query(
+        "week", description=f"Time span for the heatmap. {LEADERBOARD_SPAN_DESCRIPTION} `all`: every stored capture."
+    ),
     species: Optional[str] = Query(None, max_length=200, description="Limit the grid to one species"),
 ):
-    """Get detection activity grouped by weekday and hour for a rolling span."""
+    """Get detection activity grouped by weekday and hour for the leaderboard's span."""
     species_name = species.strip() if species and species.strip() else None
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+    user_tz = calendar_timezone(request)
 
     async with get_db() as db:
         repo = DetectionRepository(db)
         bounds = {} if auth.is_owner else public_event_query_bounds(now.replace(tzinfo=timezone.utc))
 
-        if span == "day":
-            window_start = now - timedelta(hours=24)
-            if not auth.is_owner:
-                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
-            window_end = now
-        elif span == "week":
-            window_start = now - timedelta(days=7)
-            if not auth.is_owner:
-                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
-            window_end = now
-        elif span == "month":
-            window_start = now - timedelta(days=30)
-            if not auth.is_owner:
-                window_start = max(window_start, bounds["start_date"].replace(tzinfo=None))
-            window_end = now
+        if span != "all":
+            window_start, window_end = _bounded_span_window(span, now, user_tz, bounds)
         else:
             oldest, _newest = await repo.get_detection_time_bounds(**bounds)
             if oldest:
@@ -1336,10 +1401,14 @@ async def get_detection_activity_heatmap(
                 window_start = now
             window_end = now
 
-        user_tz = calendar_timezone(request)
-        utc_hourly_counts = await repo.get_activity_heatmap_utc_hourly_counts(
-            window_start, window_end, species_name=species_name
-        )
+        utc_hourly_counts = [
+            # A piece's first bucket can begin before the piece: it counts in the hour the piece opens in.
+            (local_hour_start(max(bucket_start, piece_start), user_tz), count)
+            for piece_start, piece_end, alignment in hour_alignment_segments(window_start, window_end, user_tz)
+            for bucket_start, count in await repo.get_activity_heatmap_utc_hourly_counts(
+                piece_start, piece_end, species_name=species_name, align_minutes=alignment
+            )
+        ]
         grid = weekday_hour_grid(utc_hourly_counts, user_tz)
 
         return DetectionsActivityHeatmapResponse(

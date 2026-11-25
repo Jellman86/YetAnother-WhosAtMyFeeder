@@ -315,9 +315,13 @@ and `GET /api/visits/{visit_id}/captures` take an ISO date (`2026-11-17`) or the
 
 A header or `TZ` that does not name a real zone is ignored (and logged once), never an error.
 Every other day, hour and weekday the API buckets by uses the same zone: `daily-summary`'s
-`window=today` and its hour buckets, the timeline's buckets, both activity heatmaps, the
+`window=today` and its hour buckets, the leaderboard's `span=today`, the timeline's buckets, both activity heatmaps, the
 species stats distributions, custom backfill dates and the local time an AI analysis is given.
-So a client with no header gets hours in the instance's zone that agree with its day. A guest's
+So a client with no header gets hours in the instance's zone that agree with its day. In a zone
+whose offset is not a whole hour (Asia/Kolkata, UTC+5:30), the Leaderboard's timeline and heatmap
+group each capture into its own local hour, and the timeline's hour `bucket_start` keeps its
+minutes (`2034-03-10T18:30:00Z` is midnight in Kolkata). A half-hour clock change (Lord Howe
+Island) leaves a short local hour that starts at the change. A guest's
 shared window is applied after the zone is resolved, so no header can widen it. A day runs from local midnight
 to the last instant before the next local midnight, so a capture at 23:30 local time belongs to
 that day even when it is already the next day in UTC, and a day that changes the clock is 23 or
@@ -1137,6 +1141,29 @@ Notes:
   reaches back to the first sealed day or the oldest lost capture when either is older than every
   stored capture. A capture corrected or added after its day was sealed does not change that day's
   counts, here or in `GET /api/species`.
+- Leaderboard periods. `GET /api/leaderboard/species`, `GET /api/audio/species`,
+  `GET /api/leaderboard/portraits`, `GET /api/stats/detections/timeline` and
+  `GET /api/stats/detections/activity-heatmap` take the same `span`: `today` (local midnight to
+  now, in the zone of [Calendar days and `today`](#calendar-days-and-today)), `day` (the last 24
+  hours, kept under that name for existing links), `week` (the last 7 days), `month` (the last 30
+  days) and, except on `/api/leaderboard/species`, `all`. Seen and heard counts for one `span` and
+  one zone cover the same window. `today` is compared with yesterday from local midnight up to the
+  same local time; the rolling spans with the same length before them. The timeline buckets
+  `today` by the hour. `today` never counts a sealed day from its daily total, even one that lies
+  wholly inside a day lengthened by a clock change, so its rankings agree with its hourly chart;
+  captures Frigate lost still count on their live day in both. The other spans count a sealed day
+  from its total only when the whole day lies inside the window. Today's portraits come from
+  today's captures only, and their `window_start` names the midnight they were chosen for. A guest's window is the requested
+  one intersected with the shared window (in today-only sharing, the UTC day, ending before the
+  next UTC midnight). On the two rankings, `window_start` is the start actually counted and
+  `window_shortened` is true when the shared window moved it later than the span asks for.
+  `previous_window_mismatch` says why the two windows are no fair comparison, whatever the
+  history holds: `clock_change` (today so far and yesterday so far differ in length, or the same
+  time yesterday was skipped or repeated by a clock change), `shared_window` (the shared window
+  cuts either one) or, on `/api/leaderboard/species`, `cleanup` (a compared window takes in part of
+  a sealed day, or for `today` any of one, so it counts only the captures cleanup kept). It is
+  null when they are comparable. `previous_window_complete` is false whenever it is set, as it is
+  when the history does not reach back over the whole previous window, so no trend is claimed.
 
 ### Taxonomy
 

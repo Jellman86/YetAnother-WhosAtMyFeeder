@@ -21,6 +21,7 @@ from app.utils.canonical_species import (
 from app.repositories.audio_history_repository import public_audio_evidence_sql
 from app.repositories.catalogue_identity import species_ids_condition
 from app.utils.owner_confirmation import owner_confirmed_sql
+from app.utils.local_hour_buckets import utc_hour_bucket_sql
 from app.utils.api_datetime import (
     parse_storage_datetime as _parse_datetime,
     serialize_storage_datetime,
@@ -3912,10 +3913,12 @@ class DetectionRepository:
             rows = await cursor.fetchall()
         return {str(row[0]): int(row[1]) for row in rows if row[0]}
 
-    async def get_timebucket_counts_hourly(self, start: datetime, end: datetime) -> dict[str, int]:
-        """Counts grouped by UTC hour bucket within [start, end)."""
-        query = """
-            SELECT strftime('%Y-%m-%dT%H:00:00Z', detection_time) as bucket, COUNT(*) as c
+    async def get_timebucket_counts_hourly(
+        self, start: datetime, end: datetime, *, align_minutes: int = 0
+    ) -> dict[str, int]:
+        """Counts grouped by UTC hour bucket within [start, end), each starting ``align_minutes`` past the hour."""
+        query = f"""
+            SELECT {utc_hour_bucket_sql("detection_time", align_minutes)} as bucket, COUNT(*) as c
             FROM detections
             WHERE detection_time >= ? AND detection_time < ?
               AND (is_hidden = 0 OR is_hidden IS NULL)
@@ -3983,7 +3986,9 @@ class DetectionRepository:
             rows = await cursor.fetchall()
         return {row[0]: int(row[1] or 0) for row in rows if row and row[0]}
 
-    async def get_timebucket_metrics(self, start: datetime, end: datetime, bucket: str) -> dict[str, dict]:
+    async def get_timebucket_metrics(
+        self, start: datetime, end: datetime, bucket: str, *, align_minutes: int = 0
+    ) -> dict[str, dict]:
         """Bucketed aggregate metrics for timeline charts.
 
         Returns per-bucket totals:
@@ -3992,9 +3997,9 @@ class DetectionRepository:
         - avg_confidence
         """
         if bucket == "hour":
-            query = """
+            query = f"""
                 SELECT
-                    strftime('%Y-%m-%dT%H:00:00Z', d.detection_time) as bucket,
+                    {utc_hour_bucket_sql("d.detection_time", align_minutes)} as bucket,
                     COUNT(*) as c,
                     COUNT(DISTINCT COALESCE(
                         CAST(d.taxa_id AS TEXT),
@@ -4287,6 +4292,7 @@ class DetectionRepository:
         species_names: list[str],
         *,
         language: str | None = None,
+        align_minutes: int = 0,
     ) -> dict[str, dict[str, int]]:
         """Counts by timeline bucket for canonical species selections.
 
@@ -4311,7 +4317,7 @@ class DetectionRepository:
             if bucket == "hour":
                 query = f"""
                     SELECT
-                        strftime('%Y-%m-%dT%H:00:00Z', d.detection_time) as bucket_key,
+                        {utc_hour_bucket_sql("d.detection_time", align_minutes)} as bucket_key,
                         COUNT(*) as c
                     FROM detections d
                     {join_sql}
@@ -4403,8 +4409,12 @@ class DetectionRepository:
         start: datetime,
         end: datetime,
         species_name: str | None = None,
+        *,
+        align_minutes: int = 0,
     ) -> list[tuple[datetime, int]]:
         """Return visible detection counts grouped by UTC hour buckets, optionally for one species.
+
+        Each bucket starts ``align_minutes`` past the UTC hour, where the viewer's local hours start.
 
         The species filter is the same canonical selection a species' own page uses, so a
         renamed or folded taxon shows the same detections here as everywhere else.
@@ -4417,7 +4427,7 @@ class DetectionRepository:
             )
         query = f"""
             SELECT
-                strftime('%Y-%m-%d %H:00:00', d.detection_time) as bucket_start,
+                {utc_hour_bucket_sql("d.detection_time", align_minutes)} as bucket_start,
                 COUNT(*) as c
             FROM detections d
             {join_sql}
@@ -4432,7 +4442,7 @@ class DetectionRepository:
 
         out: list[tuple[datetime, int]] = []
         for row in rows:
-            bucket_start = _parse_datetime(row[0])
+            bucket_start = utc_naive_datetime(_parse_datetime(row[0]))
             count = int(row[1] or 0)
             if count <= 0:
                 continue

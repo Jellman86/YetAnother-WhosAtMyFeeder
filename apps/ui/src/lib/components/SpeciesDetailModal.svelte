@@ -48,6 +48,7 @@
 
     const statLead = $derived(speciesStatLead(openedFrom));
     const rowVisitsLabel = $derived.by(() => {
+        if (openedFrom?.span === 'today') return $_('species_detail.visits_today', { default: 'Visits, today' });
         if (openedFrom?.span === 'day') return $_('species_detail.visits_day', { default: 'Visits, last 24 hours' });
         if (openedFrom?.span === 'week') return $_('species_detail.visits_week', { default: 'Visits, last 7 days' });
         return $_('species_detail.visits_month', { default: 'Visits, last 30 days' });

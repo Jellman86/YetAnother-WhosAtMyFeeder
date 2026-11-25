@@ -209,9 +209,11 @@ export interface components {
     AudioSpeciesLeaderboardResponse: {
     history_start?: string | null;
     previous_window_complete?: boolean;
-    span: "day" | "week" | "month" | "all";
+    previous_window_mismatch?: "clock_change" | "shared_window" | "cleanup" | null;
+    span: "today" | "day" | "week" | "month" | "all";
     species: Array<components['schemas']['AudioSpeciesLeaderboardItemResponse']>;
     window_end: string;
+    window_shortened?: boolean;
     window_start: string;
 };
     AudioSpeciesSummaryResponse: {
@@ -1811,7 +1813,8 @@ export interface components {
 };
     LeaderboardPortraitsResponse: {
     portraits: Array<components['schemas']['LeaderboardPortraitResponse']>;
-    span: "day" | "week" | "month" | "all";
+    span: "today" | "day" | "week" | "month" | "all";
+    window_start?: string | null;
 };
     LeaderboardSpeciesItemResponse: {
     common_name?: string | null;
@@ -1838,9 +1841,11 @@ export interface components {
     nearby_days_back?: number | null;
     nearby_radius_km?: number | null;
     previous_window_complete?: boolean;
-    span: "day" | "week" | "month";
+    previous_window_mismatch?: "clock_change" | "shared_window" | "cleanup" | null;
+    span: "today" | "day" | "week" | "month";
     species: Array<components['schemas']['LeaderboardSpeciesItemResponse']>;
     window_end: string;
+    window_shortened?: boolean;
     window_start: string;
 };
     LlmTestRequest: {
@@ -3630,7 +3635,7 @@ export interface paths {
       operationId: "get_audio_species_leaderboard_api_audio_species_get";
       path: never;
       query: {
-    span?: "day" | "week" | "month" | "all";
+    span?: "today" | "day" | "week" | "month" | "all";
 };
       requestBody: unknown;
       response: components['schemas']['AudioSpeciesLeaderboardResponse'];
@@ -5260,7 +5265,7 @@ export interface paths {
       path: never;
       query: {
     limit?: number;
-    span?: "day" | "week" | "month" | "all";
+    span?: "today" | "day" | "week" | "month" | "all";
 };
       requestBody: unknown;
       response: components['schemas']['LeaderboardPortraitsResponse'];
@@ -5271,7 +5276,7 @@ export interface paths {
       operationId: "get_leaderboard_species_api_leaderboard_species_get";
       path: never;
       query: {
-    span?: "day" | "week" | "month";
+    span?: "today" | "day" | "week" | "month";
 };
       requestBody: unknown;
       response: components['schemas']['LeaderboardSpeciesResponse'];
@@ -5911,7 +5916,7 @@ export interface paths {
       operationId: "get_detection_activity_heatmap_api_stats_detections_activity_heatmap_get";
       path: never;
       query: {
-    span?: "all" | "day" | "week" | "month";
+    span?: "all" | "today" | "day" | "week" | "month";
     species?: string | null;
 };
       requestBody: unknown;
@@ -5936,7 +5941,7 @@ export interface paths {
       query: {
     compare_species?: Array<string> | null;
     include_weather?: boolean;
-    span?: "all" | "day" | "week" | "month";
+    span?: "all" | "today" | "day" | "week" | "month";
 };
       requestBody: unknown;
       response: components['schemas']['DetectionsTimelineSpanResponse'];

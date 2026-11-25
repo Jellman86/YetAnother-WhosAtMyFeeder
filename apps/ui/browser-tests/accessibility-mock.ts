@@ -48,6 +48,12 @@ function recordedFor(url: URL): Recorded | undefined {
         for (const [name, value] of url.searchParams) if (recorded.searchParams.get(name) === value) score += 1;
         if (score > bestScore) [best, bestScore] = [response, score];
     }
+    // A nearer window stands in for one never recorded; it answers under the span asked for, as the
+    // server's own answer would, so the page names the period it requested.
+    const span = url.searchParams.get('span');
+    if (best && span && best.json && typeof best.json === 'object' && 'span' in best.json) {
+        return { ...best, json: { ...(best.json as Record<string, unknown>), span } };
+    }
     return best;
 }
 

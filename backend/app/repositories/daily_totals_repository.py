@@ -31,6 +31,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.services.daily_history import local_midnight_utc
 from app.utils.api_datetime import utc_naive_datetime
 from app.utils.calendar_day import local_date
+from app.utils.local_hour_buckets import utc_hour_bucket_sql
 
 log = structlog.get_logger()
 
@@ -40,7 +41,6 @@ _VISIT_LOOKBACK = timedelta(days=1)
 # Days sealed per transaction, so a first cleanup over a long history does not hold the write
 # lock, and with it ingest, for the whole run. Each day is still written whole.
 SEAL_BATCH_DAYS = 7
-_HOUR_BUCKET = "strftime('%Y-%m-%dT%H:00:00Z', detection_time)"
 _NOT_STORED_AGAIN = "NOT EXISTS (SELECT 1 FROM detections d WHERE d.frigate_event = lost_captures.frigate_event)"
 
 
@@ -271,14 +271,20 @@ class DailyTotalsRepository(DetectionRepository):
         return datetime.fromisoformat(str(row[0])) if row and row[0] else None
 
     async def lost_hourly_counts(
-        self, start: datetime | None = None, end: datetime | None = None, *, species_keys: Collection[str] | None = None
+        self,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        *,
+        species_keys: Collection[str] | None = None,
+        align_minutes: int = 0,
     ) -> dict[str, int]:
         """Captures Frigate lost from live days, by the same UTC hour buckets as stored captures."""
         where, params = self._lost_filter(start, end, species_keys)
         if where is None:
             return {}
+        bucket = utc_hour_bucket_sql("detection_time", align_minutes)
         async with self.db.execute(
-            f"SELECT {_HOUR_BUCKET} AS bucket, COUNT(*) FROM lost_captures WHERE {where} GROUP BY bucket", params
+            f"SELECT {bucket} AS bucket, COUNT(*) FROM lost_captures WHERE {where} GROUP BY bucket", params
         ) as cursor:
             return {str(bucket): int(count) for bucket, count in await cursor.fetchall()}
 

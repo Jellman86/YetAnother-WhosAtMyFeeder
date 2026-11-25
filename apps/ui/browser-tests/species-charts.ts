@@ -19,10 +19,12 @@ if (new URLSearchParams(location.search).has('guest')) {
     authStore.authRequired = true;
     authStore.publicAccessEnabled = true;
 }
-// `?garden` is an owner with Garden on, so a flagged domestic bird is offered as a kept one.
+// `?garden` is an owner with Garden on, so a flagged domestic bird is offered as a kept one;
+// `?birdnet` has BirdNET-Go on, so the page also asks what was heard.
 settingsStore.settings = {
     llm_ready: true,
-    beta_garden_animals: new URLSearchParams(location.search).has('garden')
+    beta_garden_animals: new URLSearchParams(location.search).has('garden'),
+    birdnet_enabled: new URLSearchParams(location.search).has('birdnet')
 } as NonNullable<typeof settingsStore.settings>;
 
 document.getElementById('toggle-theme')?.addEventListener('click', () => themeStore.toggle());

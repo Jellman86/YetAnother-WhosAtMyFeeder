@@ -141,8 +141,8 @@ test('Leaderboard span tabs clear the touch floor and run from day to total', as
     const spans = page.getByRole('group', { name: 'Time span' });
     await expect(spans).toBeVisible({ timeout: 15000 });
     const tabs = spans.getByRole('button');
-    await expect(tabs).toHaveText(['Day', 'Week', 'Month', 'Total'].map(name => new RegExp(name)));
-    await expect(spans.getByRole('button', { name: /Month/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(tabs).toHaveText(['Today', 'Last 24 hours', 'Last 7 days', 'Last 30 days', 'All time'].map(name => new RegExp(name)));
+    await expect(spans.getByRole('button', { name: /Last 30 days/ })).toHaveAttribute('aria-pressed', 'true');
     await targetSizes(tabs);
 });
 

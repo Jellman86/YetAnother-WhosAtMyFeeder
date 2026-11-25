@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request, Query, HTTPException, Path as ApiPath
 from fastapi.responses import Response
 import httpx
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 import json
 import structlog
 from pydantic import BaseModel, Field
@@ -17,7 +17,13 @@ from app.services.audio.heard_groups import (
 )
 from app.repositories.visit_repository import VisitRepository
 from app.services.broadcaster import broadcaster
-from app.services.leaderboard_window import previous_window_is_complete
+from app.services.leaderboard_window import (
+    LEADERBOARD_SPAN_DESCRIPTION,
+    WindowMismatch,
+    LeaderboardWindows,
+    leaderboard_windows,
+    previous_window_is_complete,
+)
 from app.services.weekday_hour_grid import weekday_hour_grid
 from app.config import settings
 from app.auth import AuthContext, require_owner
@@ -195,11 +201,17 @@ class AudioSpeciesLeaderboardItemResponse(BaseModel):
 
 
 class AudioSpeciesLeaderboardResponse(BaseModel):
-    span: Literal["day", "week", "month", "all"]
+    span: Literal["today", "day", "week", "month", "all"]
     window_start: str
     window_end: str
+    # Whether a guest's allowance moved window_start later than the span asks for.
+    window_shortened: bool = False
     history_start: str | None = None
     previous_window_complete: bool = False
+    # Why the previous window is no fair comparison whatever the history holds, or null when it is:
+    # a clock change in today, a guest's allowance cutting either window, or cleanup having removed
+    # captures from part of one.
+    previous_window_mismatch: WindowMismatch | None = None
     species: list[AudioSpeciesLeaderboardItemResponse]
 
 
@@ -671,30 +683,29 @@ async def get_heard_groups(
     )
 
 
-def _leaderboard_window(span: str) -> tuple[datetime, datetime, datetime, datetime]:
-    """Rolling window + prior window for the audio leaderboard, aligned to the
-    visual leaderboard spans in ``routers/species.py`` (day=24h, week=7d,
-    month=30d). ``all`` collapses the lower bound to the epoch so every stored
-    detection counts and the prior window contributes nothing."""
-    now = datetime.now(timezone.utc)
-    if span == "all":
-        window_start = datetime(1970, 1, 1, tzinfo=timezone.utc)
-        return window_start, now, window_start, window_start
-    if span == "day":
-        window = timedelta(hours=24)
-    elif span == "week":
-        window = timedelta(days=7)
-    else:
-        window = timedelta(days=30)
-    window_start = now - window
-    return window_start, now, window_start - window, window_start
+def _audio_leaderboard_windows(
+    span: str, *, now: datetime, zone: tzinfo, floor: datetime | None, ceiling: datetime | None
+) -> LeaderboardWindows:
+    """The visual leaderboard's windows for ``span``, so Seen, Heard and Both count the same stretch.
+
+    ``all`` reaches back to the epoch, so every stored call counts and the prior window holds nothing.
+    """
+    if span != "all":
+        return leaderboard_windows(span, now=now, zone=zone, floor=floor, ceiling=ceiling)
+    epoch = datetime(1970, 1, 1)
+    end = now.astimezone(timezone.utc).replace(tzinfo=None)
+    start = max(epoch, floor) if floor is not None else epoch
+    end = min(end, ceiling) if ceiling is not None else end
+    return LeaderboardWindows(start, end, start, start, mismatch=None, shortened=False)
 
 
 @router.get("/species", response_model=AudioSpeciesLeaderboardResponse)
 @guest_rate_limit()
 async def get_audio_species_leaderboard(
     request: Request,
-    span: Literal["day", "week", "month", "all"] = Query(default="week"),
+    span: Literal["today", "day", "week", "month", "all"] = Query(
+        default="week", description=f"{LEADERBOARD_SPAN_DESCRIPTION} `all`: every stored call."
+    ),
     auth: AuthContext = Depends(require_public_audio),
 ):
     """Heard-count leaderboard over persisted BirdNET-Go detections.
@@ -704,14 +715,17 @@ async def get_audio_species_leaderboard(
     merge these onto the camera "seen" leaderboard. Species names are localized through
     the same taxonomy path as the visual leaderboard so client-side matching lines up.
     """
-    window_start, window_end, prev_start, prev_end = _leaderboard_window(span)
-    public_cutoff, public_end = (None, None) if auth.is_owner else public_events_window(window_end)
-    if public_cutoff is not None:
-        window_start = max(window_start, public_cutoff)
-        prev_start = max(prev_start, public_cutoff)
-    if public_end is not None:
-        window_end = min(window_end, public_end)
-        prev_end = min(prev_end, public_end)
+    now = datetime.now(timezone.utc)
+    public_cutoff, public_end = (None, None) if auth.is_owner else public_events_window(now)
+    windows = _audio_leaderboard_windows(
+        span,
+        now=now,
+        zone=calendar_timezone(request),
+        floor=public_cutoff.replace(tzinfo=None) if public_cutoff is not None else None,
+        ceiling=public_end.replace(tzinfo=None) if public_end is not None else None,
+    )
+    window_start, window_end = windows.start, windows.end
+    prev_start, prev_end = windows.prev_start, windows.prev_end
     lang = get_user_language(request) or "en"
     unknown_labels = getattr(settings.classification, "unknown_bird_labels", None) or []
 
@@ -753,10 +767,12 @@ async def get_audio_species_leaderboard(
 
     return {
         "span": span,
-        "window_start": window_start.isoformat(),
-        "window_end": window_end.isoformat(),
+        "window_start": window_start.replace(tzinfo=timezone.utc).isoformat(),
+        "window_end": window_end.replace(tzinfo=timezone.utc).isoformat(),
+        "window_shortened": windows.shortened,
+        "previous_window_mismatch": windows.mismatch,
         "history_start": serialize_api_datetime(history_start) if history_start else None,
-        "previous_window_complete": span != "all"
+        "previous_window_complete": windows.comparable
         and prev_start < prev_end
         and previous_window_is_complete(history_start=history_start, prev_start=prev_start),
         "species": species,
