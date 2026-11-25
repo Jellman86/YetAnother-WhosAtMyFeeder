@@ -62,7 +62,9 @@ export function audioHeatmapReading(
     if (pageParams.search) filters.search = pageParams.search;
     if (pageParams.only_hidden) filters.only_hidden = pageParams.only_hidden;
     if (pageParams.min_confidence != null) filters.min_confidence = pageParams.min_confidence;
-    return { filters, key: JSON.stringify(filters) };
+    // The page only sends an end as "now", which moves with every reading of the same window, so a
+    // refresh of Today keeps its species grid; the grid itself is still asked for the exact end.
+    return { filters, key: JSON.stringify({ ...filters, end_date: undefined }) };
 }
 
 /**

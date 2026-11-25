@@ -10,13 +10,49 @@ describe('audio history filters', () => {
     it('apply the window as it is chosen, with the Leaderboard\'s control, and keep it through Clear', () => {
         expect(audioHistorySource).toContain('data-audio-window-bar');
         expect(audioHistorySource).toContain('data-audio-window-select');
-        expect(audioHistorySource).toContain('onchange={(next) => chooseWindow(Number(next))}');
-        expect(audioHistorySource).toContain('applied = { ...DEFAULT_AUDIO_HISTORY_FILTERS, days: applied.days };');
+        expect(audioHistorySource).toContain('onchange={(next) => chooseWindow(next)}');
+        expect(audioHistorySource).toContain('applied = { ...DEFAULT_AUDIO_HISTORY_FILTERS, window: applied.window };');
+    });
+
+    it('go back to the first page and drop the selection when another window is chosen', () => {
+        const chooseWindow = audioHistorySource.slice(audioHistorySource.indexOf('function chooseWindow('));
+        const body = chooseWindow.slice(0, chooseWindow.indexOf('\n    }\n'));
+        expect(body).toContain('if (!isAudioHistoryWindow(next) || next === applied.window) return;');
+        expect(body).toContain('offset = 0;');
+        expect(body).toContain('selectedIds = [];');
+    });
+
+    it('name the periods as the other pages do, with Today first', () => {
+        for (const [key, label] of [
+            ['today', 'Today'],
+            ['24h', 'Last 24 hours'],
+            ['7d', 'Last 7 days'],
+            ['30d', 'Last 30 days'],
+            ['90d', 'Last 90 days'],
+            ['1y', 'Last 365 days']
+        ]) {
+            expect(audioHistorySource).toContain(`$_('audio.filter.${key}', { default: '${label}' })`);
+        }
+    });
+
+    it('read every figure from one request per load, and read Today again after midnight', () => {
+        expect(audioHistorySource).toContain('resolveRequest: () => audioHistoryRequest(');
+        expect(audioHistorySource).toContain('fetchHistory: (request) => fetchAudioHistory(request.list)');
+        expect(audioHistorySource).toContain('fetchSummary: (request) => fetchAudioSummary(request.aggregate)');
+        expect(audioHistorySource).toContain('fetchHeatmap: (request) => fetchAudioActivityHeatmap(request.aggregate)');
+        expect(audioHistorySource).toContain('const reading = audioHeatmapReading(request.aggregate);');
+        expect(audioHistorySource).toContain('msUntilNextLocalMidnight(new Date()) + 1000');
+    });
+
+    it('say plainly that nothing has been heard yet today, and when a guest sees less of the day', () => {
+        expect(audioHistorySource).toContain("default: 'No calls heard yet today. Calls appear here as BirdNET-Go hears them.'");
+        expect(audioHistorySource).toContain('data-audio-window-narrowed');
+        expect(audioHistorySource).toContain("default: 'Shared history starts at {time}, so calls heard earlier today are not shown.'");
     });
 
     it('say when the form differs from the list on show', () => {
         expect(audioHistorySource).toContain("$_('audio.filter.changed', { default: 'Filters changed. Apply to update the list.' })");
-        expect(audioHistorySource).toContain('days: applied.days');
+        expect(audioHistorySource).toContain('window: applied.window');
     });
 });
 

@@ -231,6 +231,8 @@ export interface components {
     species_count: number;
     top_species: Array<components['schemas']['AudioSpeciesSummaryResponse']>;
     total: number;
+    window_end: string;
+    window_start: string;
 };
     AudioVisibilityRequest: {
     hidden: boolean;

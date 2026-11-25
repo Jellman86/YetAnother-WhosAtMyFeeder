@@ -171,6 +171,9 @@ class AudioSourceSummaryResponse(BaseModel):
 
 
 class AudioSummaryResponse(BaseModel):
+    # The window counted, which for a guest is the requested one narrowed to the shared history.
+    window_start: str
+    window_end: str
     total: int
     species_count: int
     source_count: int
@@ -211,10 +214,15 @@ def _normalized_species_aliases(*values: str | None) -> set[str]:
 
 
 class AudioHistoryQuery(BaseModel):
-    start_date: datetime | None
-    end_date: datetime | None
+    start_date: datetime
+    end_date: datetime
     public_start: datetime | None = None
     public_end: datetime | None = None
+
+    @property
+    def counted_end(self) -> datetime:
+        """The last instant counted: the requested end, or the exclusive end of a guest's shared day."""
+        return min(self.end_date, self.public_end) if self.public_end else self.end_date
 
 
 def _history_window(
@@ -439,6 +447,8 @@ async def get_audio_summary(
     if hide_sensor:
         result["sources"] = []
         result["source_count"] = 0
+    result["window_start"] = serialize_api_datetime(window.start_date)
+    result["window_end"] = serialize_api_datetime(window.counted_end)
 
     return result
 
@@ -499,10 +509,9 @@ async def get_audio_activity_heatmap(
             search_include_source=not hide_sensor,
         )
     grid = weekday_hour_grid(utc_hourly_counts, calendar_timezone(request))
-    window_end = min(window.end_date, window.public_end) if window.public_end else window.end_date
     return AudioActivityHeatmapResponse(
         window_start=serialize_api_datetime(window.start_date),
-        window_end=serialize_api_datetime(window_end),
+        window_end=serialize_api_datetime(window.counted_end),
         total_count=grid.total_count,
         max_cell_count=grid.max_cell_count,
         cells=[

@@ -70,7 +70,7 @@ it('reads the call grid in the same request as the list and summary', async () =
     const apply = vi.fn();
     const loader = createAudioHistoryLoader({ fetchHistory: async () => history('Robin'), fetchSummary: async () => summary('Robin'), fetchHeatmap: async () => grid(4), begin: vi.fn(), apply, clear: vi.fn(), fail: vi.fn(), finish: vi.fn() });
     await loader.load();
-    expect(apply).toHaveBeenCalledWith(history('Robin'), summary('Robin'), { heatmap: grid(4) });
+    expect(apply).toHaveBeenCalledWith(history('Robin'), summary('Robin'), { heatmap: grid(4) }, undefined);
 });
 
 it('keeps the list and summary when only the grid cannot be read, and says the grid failed', async () => {
@@ -78,7 +78,7 @@ it('keeps the list and summary when only the grid cannot be read, and says the g
     const apply = vi.fn(); const clear = vi.fn(); const fail = vi.fn();
     const loader = createAudioHistoryLoader({ requestKey: () => 'days=30', fetchHistory: async () => history('Robin'), fetchSummary: async () => summary('Robin'), fetchHeatmap: async () => { throw failure; }, begin: vi.fn(), apply, clear, fail, finish: vi.fn() });
     await loader.load();
-    expect(apply).toHaveBeenCalledWith(history('Robin'), summary('Robin'), { error: failure });
+    expect(apply).toHaveBeenCalledWith(history('Robin'), summary('Robin'), { error: failure }, undefined);
     expect(clear).not.toHaveBeenCalled();
     expect(fail).not.toHaveBeenCalled();
 });
@@ -95,7 +95,7 @@ it('ignores an older grid answer once a newer request has started', async () => 
     releaseOld(grid(1));
     await older;
     expect(apply).toHaveBeenCalledTimes(1);
-    expect(apply).toHaveBeenCalledWith(history('Robin'), summary('Robin'), { heatmap: grid(9) });
+    expect(apply).toHaveBeenCalledWith(history('Robin'), summary('Robin'), { heatmap: grid(9) }, undefined);
 });
 
 it('withdraws the grid with the list when the list itself cannot be read for a new request', async () => {

@@ -1685,7 +1685,13 @@ snapshot, not a destructive queue-control API.
     UI no longer reads it, and `GET /api/audio/activity-heatmap` gives calls by the viewer's local
     weekday and hour instead. It stays in the response so existing clients keep working. Each
     `top_species` row carries its `scientific_name` (null when the calls were stored without one):
-    `species` is translated, so the scientific name is what asks the activity grid for that species
+    `species` is translated, so the scientific name is what asks the activity grid for that species.
+    `window_start` and `window_end` state the window counted: a guest's window is the requested one
+    narrowed to the public history, so a client can tell when the start of its day was left out
+  - `GET /api/audio/history`, `GET /api/audio/summary` and `GET /api/audio/activity-heatmap` read an
+    explicit `start_date`/`end_date` pair in place of `days`, both ends inclusive. Audio history's
+    **Today** sends the viewer's local midnight and the moment of the load, both in UTC, the same pair
+    to all three
   - `GET /api/audio/activity-heatmap` — calls heard by weekday and hour, in the zone the
     `X-Timezone` header names, else the container's `TZ`, else UTC. It takes the summary's window
     (`days`, or `start_date`/`end_date`) and filters (`species`, `source`, `min_confidence`), so its

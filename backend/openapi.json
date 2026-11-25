@@ -1533,9 +1533,19 @@
           "total": {
             "title": "Total",
             "type": "integer"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
           }
         },
         "required": [
+          "window_start",
+          "window_end",
           "total",
           "species_count",
           "source_count",

@@ -47,7 +47,7 @@ describe('Audio history keeps loading, measured-empty, failed and stale apart', 
     });
 
     it('shows the hour of day as the weekday-by-hour grid of calls heard, read with the summary', () => {
-        expect(source).toContain('fetchHeatmap: () => fetchAudioActivityHeatmap(requestParams(false))');
+        expect(source).toContain('fetchHeatmap: (request) => fetchAudioActivityHeatmap(request.aggregate)');
         expect(source).toContain('<ActivityHeatmap cells={heatmap.cells}');
         expect(source).toContain('unit="calls"');
         // The busiest hour is the grid's, in the viewer's zone, not the summary's UTC hours.

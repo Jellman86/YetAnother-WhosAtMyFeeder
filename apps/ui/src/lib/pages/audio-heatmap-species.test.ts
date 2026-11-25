@@ -95,6 +95,16 @@ describe('audioHeatmapReading', () => {
         expect(audioHeatmapReading(page).key).not.toBe(audioHeatmapReading({ ...page, days: 7 }).key);
         expect(audioHeatmapReading(page).key).not.toBe(audioHeatmapReading({ ...page, source: undefined }).key);
     });
+
+    it('names a Today reading by its start, so a refresh keeps the species grid but asks for the new end', () => {
+        const morning = audioHeatmapReading({ start_date: '2026-11-25T00:00:00.000Z', end_date: '2026-11-25T08:00:00.000Z' });
+        const later = audioHeatmapReading({ start_date: '2026-11-25T00:00:00.000Z', end_date: '2026-11-25T08:05:00.000Z' });
+        const tomorrow = audioHeatmapReading({ start_date: '2026-11-26T00:00:00.000Z', end_date: '2026-11-26T08:00:00.000Z' });
+
+        expect(later.key).toBe(morning.key);
+        expect(later.filters.end_date).toBe('2026-11-25T08:05:00.000Z');
+        expect(tomorrow.key).not.toBe(morning.key);
+    });
 });
 
 describe('audioSpeciesHeatmapParams', () => {

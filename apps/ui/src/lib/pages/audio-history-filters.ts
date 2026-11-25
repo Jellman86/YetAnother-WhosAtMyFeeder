@@ -1,22 +1,24 @@
+import type { AudioHistoryWindow } from './audio-history-window';
+
 /** The audio history filter form. The list shows the last applied copy, not the form as typed. */
 export interface AudioHistoryFilters {
-    days: number;
+    window: AudioHistoryWindow;
     species: string;
     source: string;
     minConfidence: number;
 }
 
 export const DEFAULT_AUDIO_HISTORY_FILTERS: Readonly<AudioHistoryFilters> = Object.freeze({
-    days: 30,
+    window: '30d',
     species: '',
     source: '',
     minConfidence: 0
 });
 
-/** The filters as the request sends them: trimmed text and numeric window and confidence. */
+/** The filters as the request sends them: trimmed text and a numeric confidence. */
 export function settledAudioHistoryFilters(filters: AudioHistoryFilters): AudioHistoryFilters {
     return {
-        days: Number(filters.days),
+        window: filters.window,
         species: filters.species.trim(),
         source: filters.source.trim(),
         minConfidence: Number(filters.minConfidence)
@@ -28,7 +30,7 @@ export function audioHistoryFiltersDiffer(form: AudioHistoryFilters, applied: Au
     const next = settledAudioHistoryFilters(form);
     const current = settledAudioHistoryFilters(applied);
     return (
-        next.days !== current.days
+        next.window !== current.window
         || next.species !== current.species
         || next.source !== current.source
         || next.minConfidence !== current.minConfidence

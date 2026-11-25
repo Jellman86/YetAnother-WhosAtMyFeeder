@@ -16,6 +16,8 @@ const summary = {
     ],
     hourly_counts: Array.from({ length: 24 }, (_, hour) => ({ hour, count: hour === 8 ? 18 : hour % 5 })),
     sources: [{ source_name: 'BirdCam', count: 73, last_heard: '2026-09-26T12:00:00Z' }],
+    window_start: '2026-08-27T12:00:00Z',
+    window_end: '2026-09-26T12:00:00Z',
 };
 
 // The same 73 calls by weekday and hour: Monday 08:00 is the busiest slot.
@@ -184,10 +186,10 @@ test('the hour of day is a weekday-by-hour grid of calls heard, read with the sa
     await expect(page.locator('[data-audio-standing]')).toContainText('Busiest hour');
     await expect(page.locator('[data-audio-standing]')).toContainText('08:00');
     await expect(page.locator('[data-audio-standing]')).toContainText('27 calls heard');
-    await expect(page.locator('[data-audio-analytics-window]')).toHaveText(/^30 days · .+-.+$/);
+    await expect(page.locator('[data-audio-analytics-window]')).toHaveText(/^Last 30 days · .+-.+$/);
 
     // The grid follows the page: a new window and an applied species are both sent.
-    await page.locator('[data-audio-window-bar] [data-segment="7"]').click();
+    await page.locator('[data-audio-window-bar] [data-segment="7d"]').click();
     await expect.poll(() => requests.at(-1)?.get('days')).toBe('7');
     await page.getByRole('textbox', { name: 'Species' }).fill('Dunnock');
     await page.getByRole('textbox', { name: 'Species' }).press('Enter');
@@ -198,6 +200,37 @@ test('the hour of day is a weekday-by-hour grid of calls heard, read with the sa
     const figure = page.locator('[data-audio-history-analytics] figure').filter({ has: page.locator('[data-audio-heatmap]') });
     await figure.locator('summary').filter({ hasText: 'Show the data as a table' }).click();
     await expect(figure.locator('table tbody tr')).toHaveCount(7);
+});
+
+test('Today asks the list, the summary and the grid for one pair of instants, and says when nothing is heard yet', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'drives the window bar, which is the desktop control');
+    const asked: Record<string, URLSearchParams[]> = { history: [], summary: [], 'activity-heatmap': [] };
+    await page.route(/\/api\/audio\/(history|summary|activity-heatmap)\?/, route => {
+        const url = new URL(route.request().url());
+        const surface = url.pathname.split('/').at(-1) ?? '';
+        asked[surface].push(url.searchParams);
+        if (surface === 'history') return route.fulfill({ json: { items: [], total: 0, limit: 25, offset: 0 } });
+        if (surface === 'summary') return route.fulfill({ json: { ...summary, total: 0, top_species: [], daily_counts: [] } });
+        return route.fulfill({ json: { ...heatmap, total_count: 0, max_cell_count: 0, cells: heatmapCells.map(cell => ({ ...cell, count: 0 })) } });
+    });
+    await page.reload();
+
+    await page.locator('[data-audio-window-bar] [data-segment="today"]').click();
+    await expect.poll(() => asked['activity-heatmap'].at(-1)?.get('start_date')).toBeTruthy();
+
+    const [history, totals, grid] = [asked.history.at(-1), asked.summary.at(-1), asked['activity-heatmap'].at(-1)];
+    const start = history?.get('start_date') ?? '';
+    const end = history?.get('end_date') ?? '';
+    const localMidnight = await page.evaluate(() => { const midnight = new Date(); midnight.setHours(0, 0, 0, 0); return midnight.toISOString(); });
+    expect(start).toBe(localMidnight);
+    expect(Date.parse(end)).toBeGreaterThanOrEqual(Date.parse(start));
+    for (const params of [totals, grid]) {
+        expect(params?.get('start_date')).toBe(start);
+        expect(params?.get('end_date')).toBe(end);
+    }
+    expect(history?.get('offset')).toBe('0');
+    await expect(page.locator('[data-audio-history-empty-today]')).toHaveText('No calls heard yet today. Calls appear here as BirdNET-Go hears them.');
+    await expect(page.locator('[data-audio-analytics-window]')).toHaveText(/^Today · .+-.+$/);
 });
 
 test('a window with no calls says so in the grid, not as an empty grid', async ({ page }) => {
@@ -271,7 +304,7 @@ test('a species chip shows that species’ calls by hour and weekday, read under
     await expect(picker.getByRole('button')).toHaveText(['All species', 'Dunnock', 'Robin', 'Wren']);
     await expect(all).toHaveAttribute('aria-pressed', 'true');
 
-    await page.locator('[data-audio-window-bar] [data-segment="7"]').click();
+    await page.locator('[data-audio-window-bar] [data-segment="7d"]').click();
     await expect.poll(() => requests.at(-1)?.get('days')).toBe('7');
     await page.getByRole('textbox', { name: 'Source' }).fill('BirdCam');
     await page.getByRole('textbox', { name: 'Source' }).press('Enter');
@@ -372,7 +405,7 @@ test('a page species filter hides the chips, and a window without the chosen spe
 
     // The week heard no Wren, so the choice lapses rather than asking for a species not on offer.
     await page.route('**/api/audio/summary?*', route => route.fulfill({ json: { ...namedSummary, top_species: namedSummary.top_species.slice(0, 2) } }));
-    await page.locator('[data-audio-window-bar] [data-segment="7"]').click();
+    await page.locator('[data-audio-window-bar] [data-segment="7d"]').click();
     await expect(picker.getByRole('button')).toHaveText(['All species', 'Dunnock', 'Robin']);
     await expect(picker.getByRole('button', { name: 'All species', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('grid', { name: /Wren/ })).toHaveCount(0);
