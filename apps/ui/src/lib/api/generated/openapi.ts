@@ -1814,6 +1814,7 @@ export interface components {
     LeaderboardPortraitsResponse: {
     portraits: Array<components['schemas']['LeaderboardPortraitResponse']>;
     span: "today" | "day" | "week" | "month" | "all";
+    window_start?: string | null;
 };
     LeaderboardSpeciesItemResponse: {
     common_name?: string | null;

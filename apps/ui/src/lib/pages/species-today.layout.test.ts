@@ -39,8 +39,8 @@ describe('the Leaderboard Today period', () => {
     it('drops an answer for a period the reader has already left', () => {
         // Each loader aborts its request when the span changes and ignores what arrives after.
         expect(speciesSource.match(/return \(\) => controller\.abort\(\);/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
-        expect(speciesSource).toContain('if (wallFetched.span !== span) return [];');
-        expect(speciesSource).toContain('if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;');
+        expect(speciesSource).toContain('if (wallFetched.span !== loadedSpan) return [];');
+        expect(speciesSource).toContain('const superseded = () => loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted;');
     });
 
     it('says an early Today is empty only when it answered with nothing at all', () => {
@@ -61,8 +61,20 @@ describe('the Leaderboard Today period', () => {
     });
 
     it('asks a Today load again when its answers counted from different midnights', () => {
-        expect(speciesSource).toContain("if (requestedSpan === 'today' && attempt < MAX_TODAY_RELOADS && !windowsAgree(answeredStarts)) {");
         expect(speciesSource).toContain('const MAX_TODAY_RELOADS = 2;');
+        expect(speciesSource).toContain("if (requestedSpan === 'today' && !windowsAgree([rankingStart, audioStart])) {");
+        expect(speciesSource).toContain("if (requestedSpan === 'today' && !windowsAgree(chartStarts)) {");
+        // Out of tries, a straddled Today is refused rather than shown.
+        expect(speciesSource).toMatch(/if \(attempt < MAX_TODAY_RELOADS\) return loadLeaderboardAttempt\(attempt \+ 1\);\s*refuseStraddledToday\(loadGeneration\);/);
+    });
+
+    it('commits Seen and Heard together, and keeps the overlays on the accepted window', () => {
+        expect(speciesSource).toMatch(/const \[rankingResult, audioResult\] = await Promise\.allSettled\(\[/);
+        expect(speciesSource).not.toMatch(/loading = true;\s*error = null;\s*leaderboardWindow = null;/);
+        expect(speciesSource).toContain("let acceptedTodayStart = $derived(loadedSpan === 'today' ? (leaderboardWindow?.start ?? null) : null);");
+        expect(speciesSource).toContain('portraits = todayStart && !windowsAgree([todayStart, response.window_start]) ? [] : response.portraits;');
+        expect(speciesSource).toContain('if (todayStart && !windowsAgree([todayStart, response.window_start])) {');
+        expect(speciesSource).toContain('if (wallFetched.span !== loadedSpan) return [];');
     });
 
     it('states the start a guest window was cut to', () => {

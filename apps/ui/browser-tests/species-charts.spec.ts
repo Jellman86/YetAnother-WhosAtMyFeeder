@@ -562,24 +562,87 @@ test('while Today loads, the rows and charts on screen keep the name of the peri
     await expect(page.locator('[data-leaderboard-analytics-window]')).toContainText('Today');
 });
 
-test('a Today load answered either side of midnight is asked again, not shown as one day', async ({ page }) => {
+test('a Today load answered either side of midnight is asked again, and shows one day throughout', async ({ page }) => {
     const yesterday = '2026-09-07T23:00:00Z';
     const today = '2026-09-08T23:00:00Z';
+    const todayEnd = '2026-09-09T00:10:00Z';
     let rankings = 0;
     await page.route('**/api/leaderboard/species?span=today', route => {
         rankings += 1;
         // The first ranking was read a moment before midnight; the charts after it.
-        return route.fulfill({ json: todayRanking(species, { window_start: rankings === 1 ? yesterday : today, window_end: '2026-09-09T00:10:00Z' }) });
+        return route.fulfill({ json: todayRanking(species, { window_start: rankings === 1 ? yesterday : today, window_end: todayEnd }) });
     });
     await page.route(url => url.pathname === '/api/stats/detections/timeline' && url.searchParams.get('span') === 'today', route => route.fulfill({ json: {
-        span: 'today', bucket: 'hour', points: [], total_count: 0, window_start: today, window_end: '2026-09-09T00:10:00Z',
+        span: 'today', bucket: 'hour', points: [], total_count: 0, window_start: today, window_end: todayEnd,
     } }));
     await page.route(url => url.pathname === '/api/stats/detections/activity-heatmap' && url.searchParams.get('span') === 'today', route => route.fulfill({ json: {
-        span: 'today', window_start: today, window_end: '2026-09-09T00:10:00Z', total_count: 0, max_cell_count: 0, cells: [],
+        span: 'today', window_start: today, window_end: todayEnd, total_count: 0, max_cell_count: 0, cells: [],
     } }));
     await page.getByRole('button', { name: 'Today', exact: true }).click();
-    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Today');
+    const rankingsWindow = page.locator('[data-leaderboard-rankings-window]');
+    await expect(rankingsWindow).toContainText('Today');
     await expect.poll(() => rankings).toBe(2);
+    // The rankings, the wall and the charts all name the one day that was accepted.
+    const accepted = (await rankingsWindow.textContent())?.trim() ?? '';
+    await expect(page.locator('[data-leaderboard-analytics-window]')).toHaveText(accepted);
+    await expect(page.locator('[data-capture-wall] header p').first()).toContainText(accepted);
     await page.waitForTimeout(500);
     expect(rankings).toBe(2);
 });
+
+test('a Today that straddles midnight on every try is refused, and the last period stays whole', async ({ page }) => {
+    let heard = 0;
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ json: todayRanking(species, { window_start: '2026-09-07T23:00:00Z' }) }));
+    await page.route(url => url.pathname === '/api/audio/species', route => {
+        if (url_span(route) === 'today') heard += 1;
+        // Heard always answers for the next day, so no try ever agrees.
+        return route.fulfill({ json: { span: url_span(route), species: [], window_start: url_span(route) === 'today' ? '2026-09-08T23:00:00Z' : start, window_end: end, previous_window_complete: false } });
+    });
+    await page.goto('/browser-tests/species-charts.html?birdnet');
+    const rankingsWindow = page.locator('[data-leaderboard-rankings-window]');
+    await expect(rankingsWindow).toContainText('Last 30 days');
+    const before = await page.locator('[data-leaderboard-rankings]').textContent();
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('The day changed while the Leaderboard was loading');
+    expect(heard).toBe(3);
+    await expect(rankingsWindow).toContainText('Last 30 days');
+    expect(await page.locator('[data-leaderboard-rankings]').textContent()).toBe(before);
+});
+
+test('switching to Today keeps the last period whole until Seen and Heard have both answered', async ({ page }) => {
+    let answer: () => void = () => undefined;
+    const heardHeld = new Promise<void>(resolve => { answer = resolve; });
+    const calls = (span: string | null) => span === 'today'
+        ? [{ species: 'Robin', scientific_name: 'Robin', heard_count: 1, heard_prev_count: 0, heard_delta: 1, heard_percent: 0, avg_confidence: 0.8 }]
+        : [{ species: 'Robin', scientific_name: 'Robin', heard_count: 50, heard_prev_count: 40, heard_delta: 10, heard_percent: 25, avg_confidence: 0.8 }];
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ json: todayRanking([{ ...species[0], window_count: 2, window_prev_count: 0 }]) }));
+    await page.route(url => url.pathname === '/api/audio/species', async route => {
+        const span = url_span(route);
+        if (span === 'today') await heardHeld;
+        await route.fulfill({ json: { span, species: calls(span), window_start: start, window_end: end, previous_window_complete: false } });
+    });
+    await page.goto('/browser-tests/species-charts.html?birdnet');
+    await page.locator('[data-leaderboard-source="both"]').first().click();
+    const rankings = page.locator('[data-leaderboard-rankings]');
+    // Robin: 22 captures beside 50 calls over the last 30 days.
+    await expect(rankings).toContainText('Robin2250');
+    const before = await rankings.textContent();
+    const dates = await page.locator('[data-leaderboard-rankings-window]').textContent();
+
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Today', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    // Seen has answered for today; Heard has not, so nothing of either is shown yet.
+    await page.waitForTimeout(300);
+    expect(await rankings.textContent()).toBe(before);
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toHaveText(dates ?? '');
+
+    answer();
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Today');
+    // Today's 2 captures beside today's 1 call, never today's captures beside 30 days of calls.
+    await expect(rankings).toContainText('Robin21');
+    await expect(rankings).not.toContainText('Robin250');
+});
+
+function url_span(route: { request(): { url(): string } }): string | null {
+    return new URL(route.request().url()).searchParams.get('span');
+}

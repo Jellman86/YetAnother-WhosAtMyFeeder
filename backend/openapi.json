@@ -12773,6 +12773,17 @@
             ],
             "title": "Span",
             "type": "string"
+          },
+          "window_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Start"
           }
         },
         "required": [

@@ -138,6 +138,8 @@
     let loadedSpan = $state<LeaderboardSpan | null>(null);
     let shownSpan = $derived(loadedSpan ?? span);
     let leaderboardWindow = $state<{ start: string; end: string } | null>(null);
+    // Today's start as the rankings on screen counted it, which every overlay must share.
+    let acceptedTodayStart = $derived(loadedSpan === 'today' ? (leaderboardWindow?.start ?? null) : null);
     let historyStart = $state<string | null>(null);
     let countsAreVisits = $state(false);
     let previousWindowComplete = $state(false);
@@ -314,14 +316,19 @@
     // never blocking them; a species without one shows its reference image, labelled.
     let portraits = $state.raw<LeaderboardPortrait[]>([]);
     $effect(() => {
-        const requestedSpan = span;
+        // Asked for the period on screen, and for Today the midnight its rankings counted from.
+        const requestedSpan = loadedSpan;
+        const todayStart = acceptedTodayStart;
         const publicVersion = authStore.isGuest ? detectionsStore.publicHistoryVersion : 0;
         void publicVersion;
-        const controller = new AbortController();
         portraits = [];
+        if (requestedSpan === null) return;
+        const controller = new AbortController();
         void fetchLeaderboardPortraits(requestedSpan, controller.signal, RANKING_PORTRAITS)
             .then((response) => {
-                if (!controller.signal.aborted) portraits = response.portraits;
+                if (controller.signal.aborted) return;
+                // Photographs chosen for another day are left out rather than shown under this one.
+                portraits = todayStart && !windowsAgree([todayStart, response.window_start]) ? [] : response.portraits;
             })
             .catch((error) => {
                 if (controller.signal.aborted) return;
@@ -373,7 +380,7 @@
     let wallFetched = $state.raw<{ span: LeaderboardSpan | null; detections: Detection[] }>({ span: null, detections: [] });
     // Dates select whole days, so the captures are cut to the window's own start and end.
     let wallDetections = $derived.by(() => {
-        if (wallFetched.span !== span) return [];
+        if (wallFetched.span !== loadedSpan) return [];
         const start = leaderboardWindow ? Date.parse(leaderboardWindow.start) : Number.NaN;
         const end = leaderboardWindow ? Date.parse(leaderboardWindow.end) : Number.NaN;
         if (Number.isNaN(start) || Number.isNaN(end)) return wallFetched.detections;
@@ -386,13 +393,12 @@
     // too quiet for a wall must not push the page about with a placeholder.
     let wallLoading = $state(true);
     $effect(() => {
-        const requestedSpan = span;
+        // The wall shows the window the rankings beside it counted, and changes when they do.
+        const requestedSpan = loadedSpan;
         const range = leaderboardWindow;
         const publicVersion = authStore.isGuest ? detectionsStore.publicHistoryVersion : 0;
         void publicVersion;
-        // The captures shown must belong to what the page now asks about: a withdrawn window is cleared at
-        // once, as the portraits are, instead of staying on screen until the new answer arrives.
-        if (requestedSpan !== 'all' && range === null) {
+        if (requestedSpan === null || (requestedSpan !== 'all' && range === null)) {
             wallLoading = true;
             return;
         }
@@ -523,8 +529,9 @@
     let speciesHeatmapFailed = $state(false);
     $effect(() => {
         const requested = heatmapSpecies;
-        const requestedSpan = span;
-        if (!requested) {
+        const requestedSpan = loadedSpan;
+        const todayStart = acceptedTodayStart;
+        if (!requested || requestedSpan === null) {
             speciesHeatmapLoading = false;
             speciesHeatmapFailed = false;
             return;
@@ -535,8 +542,13 @@
         fetchDetectionsActivityHeatmapSpan(requestedSpan, controller.signal, requested)
             .then((response) => {
                 if (controller.signal.aborted) return;
-                speciesHeatmap = response;
                 speciesHeatmapLoading = false;
+                // A grid for another day is not this day's: it is reported unavailable, not shown.
+                if (todayStart && !windowsAgree([todayStart, response.window_start])) {
+                    speciesHeatmapFailed = true;
+                    return;
+                }
+                speciesHeatmap = response;
             })
             .catch((error) => {
                 if (controller.signal.aborted) return;
@@ -770,88 +782,67 @@
         leaderboardAbortController = controller;
         const loadGeneration = ++leaderboardLoadGeneration;
         const requestedSpan = span;
+        const superseded = () => loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted;
         loading = true;
         error = null;
-        leaderboardWindow = null;
-        hiddenDonutState = { theme: '', indices: [] };
-        hiddenTimelineSeries = [];
-        audioLoadState = birdnetEnabled ? 'loading' : 'disabled';
-        if (!birdnetEnabled) audioSpecies = [];
-        audioPreviousWindowComplete = false;
-        audioHistoryStart = null;
-        audioWindow = null;
-        // Fetch species and timeline independently so a chart/weather failure
-        // doesn't make the leaderboard table disappear.
-        try {
-            if (requestedSpan === 'all') {
-                const allSpecies = await fetchSpecies(controller.signal);
-                if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
-                species = mapAllTimeSpecies(allSpecies);
-                countsAreVisits = false;
-                loadedSpan = requestedSpan;
-                domesticOffers.measured();
-                leaderboardWindow = null;
-                historyStart = null;
-                previousWindowComplete = false;
-                nearbyCheck = null;
-            } else {
-                const response = await fetchLeaderboardSpecies(requestedSpan, controller.signal);
-                if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
-                countsAreVisits = windowCountsAreVisits(response);
-                species = mapWindowSpecies(response, countsAreVisits);
-                loadedSpan = requestedSpan;
-                domesticOffers.measured();
-                leaderboardWindow = {
-                    start: response.window_start,
-                    end: response.window_end
-                };
-                historyStart = response.history_start ?? null;
-                previousWindowComplete = response.previous_window_complete ?? false;
-                seenWindowCut = {
-                    shortened: response.window_shortened ?? false,
-                    mismatch: response.previous_window_mismatch ?? null
-                };
-                nearbyCheck = response.nearby_radius_km && response.nearby_days_back
-                    ? { radiusKm: response.nearby_radius_km, daysBack: response.nearby_days_back }
-                    : null;
-            }
-        } catch (e) {
-            if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
+        // The rows, calls, dates and period on screen stay as they are until Seen and Heard have both
+        // answered for one window, and are then replaced together: today's visits beside thirty days
+        // of calls, or old rows under new dates, would read as one count.
+        const [rankingResult, audioResult] = await Promise.allSettled([
+            requestedSpan === 'all'
+                ? fetchSpecies(controller.signal).then((list) => ({ kind: 'all' as const, list }))
+                : fetchLeaderboardSpecies(requestedSpan, controller.signal).then((response) => ({ kind: 'window' as const, response })),
+            birdnetEnabled ? fetchAudioSpeciesLeaderboard(requestedSpan, controller.signal) : Promise.resolve(null)
+        ]);
+        if (superseded()) return;
+        const rankingStart = rankingResult.status === 'fulfilled' && rankingResult.value.kind === 'window'
+            ? rankingResult.value.response.window_start
+            : null;
+        const audioStart = audioResult.status === 'fulfilled' ? audioResult.value?.window_start : null;
+        if (requestedSpan === 'today' && !windowsAgree([rankingStart, audioStart])) {
+            if (attempt < MAX_TODAY_RELOADS) return loadLeaderboardAttempt(attempt + 1);
+            refuseStraddledToday(loadGeneration);
+            return;
+        }
+
+        if (rankingResult.status === 'fulfilled' && rankingResult.value.kind === 'all') {
+            species = mapAllTimeSpecies(rankingResult.value.list);
+            countsAreVisits = false;
+            loadedSpan = requestedSpan;
+            leaderboardWindow = null;
+            historyStart = null;
+            previousWindowComplete = false;
+            seenWindowCut = { shortened: false, mismatch: null };
+            nearbyCheck = null;
+        } else if (rankingResult.status === 'fulfilled' && rankingResult.value.kind === 'window') {
+            const response = rankingResult.value.response;
+            countsAreVisits = windowCountsAreVisits(response);
+            species = mapWindowSpecies(response, countsAreVisits);
+            loadedSpan = requestedSpan;
+            leaderboardWindow = { start: response.window_start, end: response.window_end };
+            historyStart = response.history_start ?? null;
+            previousWindowComplete = response.previous_window_complete ?? false;
+            seenWindowCut = {
+                shortened: response.window_shortened ?? false,
+                mismatch: response.previous_window_mismatch ?? null
+            };
+            nearbyCheck = response.nearby_radius_km && response.nearby_days_back
+                ? { radiusKm: response.nearby_radius_km, daysBack: response.nearby_days_back }
+                : null;
+        } else if (rankingResult.status === 'rejected') {
             error = $_('leaderboard.load_failed');
             species = [];
             loadedSpan = requestedSpan;
             leaderboardWindow = null;
-            if (isTransientRequestError(e)) {
+            if (isTransientRequestError(rankingResult.reason)) {
                 logger.warn('Leaderboard species fetch failed (transient)', {
-                    message: getErrorMessage(e)
+                    message: getErrorMessage(rankingResult.reason)
                 });
             } else {
-                logger.error('Failed to load leaderboard species', e);
+                logger.error('Failed to load leaderboard species', rankingResult.reason);
             }
         }
-
-        if (loadGeneration !== leaderboardLoadGeneration) return;
-
-        const compareSpecies = selectCompareSpecies(species);
-        const [timelineResult, heatmapResult, audioResult] = await Promise.allSettled([
-            fetchDetectionsTimelineSpan(requestedSpan, {
-                includeWeather: true,
-                compareSpecies,
-                signal: controller.signal
-            }),
-            fetchDetectionsActivityHeatmapSpan(requestedSpan, controller.signal),
-            birdnetEnabled ? fetchAudioSpeciesLeaderboard(requestedSpan, controller.signal) : Promise.resolve(null),
-        ]);
-        if (loadGeneration !== leaderboardLoadGeneration) return;
-        const answeredStarts = [
-            leaderboardWindow?.start,
-            audioResult.status === 'fulfilled' ? audioResult.value?.window_start : null,
-            timelineResult.status === 'fulfilled' ? timelineResult.value.window_start : null,
-            heatmapResult.status === 'fulfilled' ? heatmapResult.value.window_start : null
-        ];
-        if (requestedSpan === 'today' && attempt < MAX_TODAY_RELOADS && !windowsAgree(answeredStarts)) {
-            return loadLeaderboardAttempt(attempt + 1);
-        }
+        domesticOffers.measured();
 
         // Audio "heard" data is supplementary — a failure here must not disturb the
         // visual leaderboard, so it is handled independently and degrades to empty.
@@ -869,6 +860,9 @@
             audioLoadState = birdnetEnabled ? 'ready' : 'disabled';
         } else {
             audioSpecies = [];
+            audioPreviousWindowComplete = false;
+            audioHistoryStart = null;
+            audioWindow = null;
             audioLoadState = 'error';
             if (isTransientRequestError(audioResult.reason)) {
                 logger.warn('Audio species leaderboard fetch failed (transient)', {
@@ -879,6 +873,56 @@
             }
         }
 
+        // Fetch the charts after the rankings and on their own, so a chart/weather failure doesn't
+        // make the leaderboard table disappear.
+        const compareSpecies = selectCompareSpecies(species);
+        const [timelineResult, heatmapResult] = await Promise.allSettled([
+            fetchDetectionsTimelineSpan(requestedSpan, {
+                includeWeather: true,
+                compareSpecies,
+                signal: controller.signal
+            }),
+            fetchDetectionsActivityHeatmapSpan(requestedSpan, controller.signal)
+        ]);
+        if (superseded()) return;
+        const chartStarts = [
+            leaderboardWindow?.start,
+            timelineResult.status === 'fulfilled' ? timelineResult.value.window_start : null,
+            heatmapResult.status === 'fulfilled' ? heatmapResult.value.window_start : null
+        ];
+        if (requestedSpan === 'today' && !windowsAgree(chartStarts)) {
+            if (attempt < MAX_TODAY_RELOADS) return loadLeaderboardAttempt(attempt + 1);
+            // The charts on screen keep the period they were drawn for, under their own name.
+            logger.warn('Leaderboard charts answered for another day', { attempts: attempt + 1 });
+        } else {
+            commitCharts(timelineResult, heatmapResult);
+        }
+
+        if (!error) leaderboardStale.touch();
+        if (loadGeneration === leaderboardLoadGeneration) {
+            loading = false;
+            leaderboardAbortController = null;
+            await tick();
+            if (loadGeneration === leaderboardLoadGeneration) refreshHeight = 0;
+        }
+    }
+
+    /** Midnight passed during every try: what was on screen stays, with a way to count the new day. */
+    function refuseStraddledToday(loadGeneration: number): void {
+        error = $_('leaderboard.today_changed', { default: 'The day changed while the Leaderboard was loading, so nothing new is shown. Retry to count the new day.' });
+        logger.warn('Leaderboard Today answered for two days', { attempts: MAX_TODAY_RELOADS + 1 });
+        if (loadGeneration === leaderboardLoadGeneration) {
+            loading = false;
+            leaderboardAbortController = null;
+        }
+    }
+
+    function commitCharts(
+        timelineResult: PromiseSettledResult<DetectionsTimelineSpanResponse>,
+        heatmapResult: PromiseSettledResult<DetectionsActivityHeatmapResponse>
+    ): void {
+        hiddenDonutState = { theme: '', indices: [] };
+        hiddenTimelineSeries = [];
         if (timelineResult.status === 'fulfilled') {
             timeline = timelineResult.value;
         } else {
@@ -903,14 +947,6 @@
             } else {
                 logger.error('Failed to load activity heatmap', heatmapResult.reason);
             }
-        }
-
-        if (!error) leaderboardStale.touch();
-        if (loadGeneration === leaderboardLoadGeneration) {
-            loading = false;
-            leaderboardAbortController = null;
-            await tick();
-            if (loadGeneration === leaderboardLoadGeneration) refreshHeight = 0;
         }
     }
 
@@ -1887,7 +1923,7 @@
                 countLabel={showcaseCountLabel}
                 colourFor={(key) => (key ? speciesSeriesColor(speciesSlot().get(key) ?? SPECIES_SERIES_SLOTS, isDark()) : otherSeriesColor(isDark()))}
                 otherColour={otherSeriesColor(isDark())}
-                loading={wallLoading && wallFetched.span !== span}
+                loading={wallLoading && wallFetched.span !== loadedSpan}
                 maxTiles={authStore.isGuest ? GUEST_WALL_TILES : undefined}
                 onopen={(key) => (selectedSpecies = key)}
                 onchecks={scrollToChecks}
@@ -1987,7 +2023,7 @@
             </div>
             {#if !trendAvailable && currentTrendGap === 'clock_change'}
                 <p class="text-sm text-muted" data-leaderboard-trend-note>
-                    {$_('leaderboard.trend_not_comparable_clock', { default: 'No trend today. The clocks changed, so today so far and yesterday up to this time are not the same length.' })}
+                    {$_('leaderboard.trend_not_comparable_clock', { default: 'No trend today. A clock change skipped or repeated this time yesterday, or made the two days different lengths.' })}
                 </p>
             {:else if !trendAvailable && currentTrendGap === 'shared_window'}
                 <p class="text-sm text-muted" data-leaderboard-trend-note>

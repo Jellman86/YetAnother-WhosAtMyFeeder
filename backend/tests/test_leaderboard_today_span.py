@@ -89,6 +89,7 @@ async def client(monkeypatch):
         clear_portraits_cache()
         async with get_db() as db:
             await db.execute("DELETE FROM detections WHERE frigate_event LIKE 'lbt-%'")
+            await db.execute("DELETE FROM lost_captures WHERE frigate_event LIKE 'lbt-%'")
             await db.execute("DELETE FROM audio_detections")
             await db.commit()
 
@@ -200,6 +201,8 @@ async def test_today_never_shows_yesterdays_crop_or_yesterdays_cached_portraits(
     monkeypatch.setattr(Clock, "now", BERLIN_EVENING)
     after = await _get(client, "/api/leaderboard/portraits?span=today", BERLIN)
     assert after["span"] == "today"
+    assert _instant(after["window_start"]) == datetime(2034, 3, 10, 23, 0, tzinfo=timezone.utc)
+    assert _instant(before["window_start"]) == datetime(2034, 3, 9, 23, 0, tzinfo=timezone.utc)
     assert after["portraits"] == []
 
 
@@ -317,3 +320,65 @@ async def test_a_half_hour_zone_keys_the_timeline_by_its_own_local_hours(client,
     assert by_key["2034-03-10T17:30:00Z"] == 1
     assert by_key["2034-03-10T18:30:00Z"] == 2
     assert all(key.endswith(":30:00Z") for key in by_key)
+
+
+@pytest.mark.asyncio
+async def test_today_counts_a_capture_frigate_lost_in_its_rankings_as_its_chart_does(client):
+    # Frigate lost a Robin capture at 00:35 Berlin time; it is kept as a record without a photograph.
+    async with get_db() as db:
+        await db.execute(
+            """INSERT INTO lost_captures (frigate_event, detection_time, species_key, scientific_name,
+                display_name, lost_at) VALUES ('lbt-lost', '2034-03-10 23:35:00', ?, ?, ?, '2034-03-10 23:40:00')""",
+            (f"name:{ROBIN.lower()}", ROBIN, ROBIN),
+        )
+        await db.commit()
+
+    board = await _get(client, "/api/leaderboard/species?span=today", BERLIN)
+    chart = await _get(client, "/api/stats/detections/timeline?span=today", BERLIN)
+
+    assert _seen(board, ROBIN)["window_count"] == 3
+    assert sum(point["count"] for point in chart["points"]) == 3
+
+
+LORD_HOWE = {"X-Timezone": "Australia/Lord_Howe"}
+SUNDAY = 0
+
+
+def _points(timeline: dict) -> list[tuple[str, str, int]]:
+    return [(point["bucket_start"], point["label"], point["count"]) for point in timeline["points"]]
+
+
+@pytest.mark.asyncio
+async def test_a_half_hour_clock_jump_starts_a_short_hour_at_the_change(client, monkeypatch):
+    # Lord Howe Island jumps from 02:00 to 02:30 at 15:30 UTC on 30 September 2034 (Sunday 1 October).
+    monkeypatch.setattr(Clock, "now", datetime(2034, 9, 30, 20, 0))
+    await _insert({"lbt-lh-before": ("2034-09-30 15:20:00", TIT), "lbt-lh-after": ("2034-09-30 15:40:00", TIT)})
+
+    heatmap = await _get(client, "/api/stats/detections/activity-heatmap?span=day", LORD_HOWE)
+    timeline = await _get(client, "/api/stats/detections/timeline?span=day", LORD_HOWE)
+
+    assert (_cell(heatmap, SUNDAY, 1), _cell(heatmap, SUNDAY, 2), _cell(heatmap, SUNDAY, 3)) == (1, 1, 0)
+    around = [point for point in _points(timeline) if "2034-09-30T14:30" <= point[0] <= "2034-09-30T16:00:00Z"]
+    assert around == [
+        ("2034-09-30T14:30:00Z", "01:00", 1),
+        ("2034-09-30T15:30:00Z", "02:00", 1),
+        ("2034-09-30T16:00:00Z", "03:00", 0),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_half_hour_clock_fold_keeps_both_halves_in_the_same_local_hour(client, monkeypatch):
+    # Lord Howe Island goes back from 02:00 to 01:30 at 15:00 UTC on 1 April 2034 (Sunday 2 April).
+    monkeypatch.setattr(Clock, "now", datetime(2034, 4, 1, 20, 0))
+    await _insert({"lbt-lh-first": ("2034-04-01 14:50:00", TIT), "lbt-lh-again": ("2034-04-01 15:10:00", TIT)})
+
+    heatmap = await _get(client, "/api/stats/detections/activity-heatmap?span=day", LORD_HOWE)
+    timeline = await _get(client, "/api/stats/detections/timeline?span=day", LORD_HOWE)
+
+    assert (_cell(heatmap, SUNDAY, 1), _cell(heatmap, SUNDAY, 2)) == (2, 0)
+    around = [point for point in _points(timeline) if "2034-04-01T14:00" <= point[0] <= "2034-04-01T15:30:00Z"]
+    assert around == [
+        ("2034-04-01T14:00:00Z", "01:00", 1),
+        ("2034-04-01T15:00:00Z", "01:00", 1),
+        ("2034-04-01T15:30:00Z", "02:00", 0),
+    ]

@@ -59,6 +59,7 @@
   "metric_peak": "峰值",
   "metric_avg": "平均",
   "load_failed": "无法加载排行榜。请确认 YA-WAMF 可以访问，然后重试。",
+  "today_changed": "加载排行榜时日期已变更，因此没有显示新内容。选择“重试”以统计新的一天。",
   "ai_analyze": "分析图表",
   "ai_analyzing": "分析中…",
   "ai_rerun": "重新分析",
@@ -225,7 +226,7 @@
   "today_empty_title": "今天还没有访问",
   "today_empty_desc": "“今天”从午夜开始计算，所以每天早上都是空的。访问到达后会显示在这里。选择“过去24小时”可包含昨天傍晚。",
   "window_shortened_note": "从 {time} 开始统计，这是向访客公开的历史记录的起点。",
-  "trend_not_comparable_clock": "今天没有趋势。时钟已调整，所以今天到目前为止与昨天到同一时间的时长不同。",
+  "trend_not_comparable_clock": "今天没有趋势。时钟调整使昨天的这个时间被跳过或重复，或使两天的时长不同。",
   "trend_not_comparable_shared": "这里没有趋势。向访客公开的历史记录没有覆盖完整的前一时段。",
   "trend_not_comparable_cleanup": "这里没有趋势。清理删除了所比较时段中的部分检测，因此其中一个计数会偏低。"
 }

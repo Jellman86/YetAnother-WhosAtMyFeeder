@@ -36,7 +36,7 @@ from app.utils.public_access import (
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.timezone import calendar_timezone
 from app.utils.calendar_day import instance_timezone, local_date, today_so_far
-from app.utils.local_hour_buckets import hour_alignment_segments
+from app.utils.local_hour_buckets import hour_alignment_segments, local_hour_start, local_hour_starts
 from app.services.leaderboard_window import LEADERBOARD_SPAN_DESCRIPTION, BoundedSpan, leaderboard_windows
 from app.services.daily_history import (
     coverage,
@@ -481,9 +481,10 @@ def _localized_bucket_key_and_label(
         local_start = local_dt.replace(hour=0, minute=0, second=0, microsecond=0)
         label = local_start.strftime("%b %d")
     else:
-        local_start = local_dt.replace(minute=0, second=0, microsecond=0)
-        label = local_start.strftime("%b %d %H:00") if detailed_hour_label else local_start.strftime("%H:00")
-    # Minutes are kept: a local hour in Kolkata (UTC+5:30) begins at half past a UTC hour.
+        label = local_dt.strftime("%b %d %H:00") if detailed_hour_label else local_dt.strftime("%H:00")
+        # Minutes are kept: a local hour in Kolkata (UTC+5:30) begins at half past a UTC hour, and
+        # one cut short by a half-hour clock change begins at the change.
+        return local_hour_start(utc_bucket_start, user_tz).strftime("%Y-%m-%dT%H:%M:00Z"), label
     key = local_start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:00Z")
     return key, label
 
@@ -497,15 +498,9 @@ def _build_local_timeline_points(
     detailed_hour_label: bool = False,
 ) -> list[DetectionsTimelinePoint]:
     points_by_key: dict[str, DetectionsTimelinePoint] = {}
-    # An hour from the window's own start meets every local hour once, wherever local hours begin;
+    # One instant in every local hour of the window, the half hour a clock change leaves included;
     # flooring to the UTC hour first would add the local hour before the window in Kolkata.
-    instants = []
-    cursor = window_start
-    while cursor < window_end:
-        instants.append(cursor)
-        cursor = cursor + timedelta(hours=1)
-    instants.append(window_end)
-    for instant in instants:
+    for instant in local_hour_starts(window_start, window_end, user_tz):
         key, label = _localized_bucket_key_and_label(
             instant,
             bucket,
@@ -521,6 +516,19 @@ def _build_local_timeline_points(
     return list(points_by_key.values())
 
 
+def _bucket_from(key, piece_start: datetime):
+    """A bucket key moved up to the clock change its piece starts at, when the bucket began before it.
+
+    After a half-hour clock change the first local hour is short: 02:40 on Lord Howe Island is in
+    the hour that began at the change, not in the UTC-aligned hour that began half an hour before.
+    """
+    if isinstance(key, tuple):
+        return (_bucket_from(key[0], piece_start), *key[1:])
+    if _parse_utc_bucket_key(key) < piece_start:
+        return piece_start.strftime("%Y-%m-%dT%H:%M:00Z")
+    return key
+
+
 async def _by_local_hour(
     read: Callable[..., Awaitable[dict]],
     start: datetime,
@@ -533,8 +541,10 @@ async def _by_local_hour(
     Counts are summed per bucket; ``merge`` folds values that are not counts.
     """
     found: dict = {}
-    for piece_start, piece_end, alignment in hour_alignment_segments(start, end, zone):
+    for index, (piece_start, piece_end, alignment) in enumerate(hour_alignment_segments(start, end, zone)):
         part = await read(piece_start, piece_end, align_minutes=alignment)
+        if index > 0:
+            part = {_bucket_from(key, piece_start): value for key, value in part.items()}
         if merge is not None:
             merge(found, part)
             continue
@@ -1386,9 +1396,11 @@ async def get_detection_activity_heatmap(
             window_end = now
 
         utc_hourly_counts = [
-            bucket
-            for piece_start, piece_end, alignment in hour_alignment_segments(window_start, window_end, user_tz)
-            for bucket in await repo.get_activity_heatmap_utc_hourly_counts(
+            (max(bucket_start, piece_start) if index > 0 else bucket_start, count)
+            for index, (piece_start, piece_end, alignment) in enumerate(
+                hour_alignment_segments(window_start, window_end, user_tz)
+            )
+            for bucket_start, count in await repo.get_activity_heatmap_utc_hourly_counts(
                 piece_start, piece_end, species_name=species_name, align_minutes=alignment
             )
         ]

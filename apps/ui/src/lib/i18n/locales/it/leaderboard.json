@@ -59,6 +59,7 @@
   "metric_peak": "Picco",
   "metric_avg": "Media",
   "load_failed": "Impossibile caricare la classifica. Verifica che YA-WAMF sia raggiungibile, poi riprova.",
+  "today_changed": "Il giorno è cambiato mentre la classifica si caricava, quindi non viene mostrato nulla di nuovo. Scegli Riprova per contare il nuovo giorno.",
   "ai_analyze": "Analizza grafico",
   "ai_analyzing": "Analisi in corso…",
   "ai_rerun": "Riesegui analisi",
@@ -225,7 +226,7 @@
   "today_empty_title": "Ancora nessuna visita oggi",
   "today_empty_desc": "Oggi conta dalla mezzanotte, quindi ogni mattina parte vuoto. Le visite compaiono qui appena arrivano. Scegli Ultime 24 ore per includere la sera di ieri.",
   "window_shortened_note": "Contato da {time}, quando inizia la cronologia condivisa con gli ospiti.",
-  "trend_not_comparable_clock": "Nessuna tendenza oggi. L’ora è cambiata, quindi oggi fino ad ora e ieri fino a quest’ora non hanno la stessa durata.",
+  "trend_not_comparable_clock": "Nessuna tendenza oggi. Un cambio d’ora ha saltato o ripetuto quest’ora ieri, o ha reso i due giorni di durata diversa.",
   "trend_not_comparable_shared": "Nessuna tendenza qui. La cronologia condivisa con gli ospiti non copre tutto il periodo precedente.",
   "trend_not_comparable_cleanup": "Nessuna tendenza qui. La pulizia ha rimosso rilevamenti dai periodi confrontati, quindi un conteggio sarebbe troppo basso."
 }

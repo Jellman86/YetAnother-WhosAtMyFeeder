@@ -56,6 +56,48 @@ def _first_change(low: datetime, high: datetime, zone: tzinfo, alignment: int) -
     return whole_minute if whole_minute > low else high
 
 
+def local_hour_start(instant: datetime, zone: tzinfo) -> datetime:
+    """Naive-UTC start of the local hour that holds the naive-UTC ``instant``.
+
+    A clock change part way through an hour starts a shorter one: on Lord Howe Island, where the
+    clocks go from 02:00 to 02:30, the hour that reads 02:30 to 03:00 begins at the change.
+    """
+    local = instant.replace(tzinfo=timezone.utc).astimezone(zone)
+    elapsed = timedelta(minutes=local.minute, seconds=local.second, microseconds=local.microsecond)
+    on_the_hour = instant - elapsed
+    if _offset(on_the_hour, zone) == _offset(instant, zone):
+        return on_the_hour
+    return _offset_change(on_the_hour, instant, zone)
+
+
+def local_hour_starts(start: datetime, end: datetime, zone: tzinfo) -> list[datetime]:
+    """An instant in every local hour that ``[start, end]`` touches, each hour at least once."""
+    instants: list[datetime] = []
+    for piece_start, piece_end, _alignment in hour_alignment_segments(start, end, zone):
+        cursor = piece_start
+        while cursor < piece_end:
+            instants.append(cursor)
+            cursor += timedelta(hours=1)
+    instants.append(end)
+    return instants
+
+
+def _offset(instant: datetime, zone: tzinfo) -> timedelta | None:
+    return instant.replace(tzinfo=timezone.utc).astimezone(zone).utcoffset()
+
+
+def _offset_change(low: datetime, high: datetime, zone: tzinfo) -> datetime:
+    # ``low`` has the old offset and ``high`` the new; the first instant on the new offset.
+    before = _offset(low, zone)
+    while high - low > timedelta(seconds=1):
+        middle = low + (high - low) / 2
+        if _offset(middle, zone) == before:
+            low = middle
+        else:
+            high = middle
+    return high.replace(microsecond=0)
+
+
 def utc_hour_bucket_sql(column: str, alignment: int) -> str:
     """SQL for the ISO-8601 UTC start (``…Z``) of the aligned hour bucket holding ``column``."""
     if alignment not in _ALIGNMENTS:

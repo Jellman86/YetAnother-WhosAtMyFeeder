@@ -320,7 +320,8 @@ species stats distributions, custom backfill dates and the local time an AI anal
 So a client with no header gets hours in the instance's zone that agree with its day. In a zone
 whose offset is not a whole hour (Asia/Kolkata, UTC+5:30), the Leaderboard's timeline and heatmap
 group each capture into its own local hour, and the timeline's hour `bucket_start` keeps its
-minutes (`2034-03-10T18:30:00Z` is midnight in Kolkata). A guest's
+minutes (`2034-03-10T18:30:00Z` is midnight in Kolkata). A half-hour clock change (Lord Howe
+Island) leaves a short local hour that starts at the change. A guest's
 shared window is applied after the zone is resolved, so no header can widen it. A day runs from local midnight
 to the last instant before the next local midnight, so a capture at 23:30 local time belongs to
 that day even when it is already the next day in UTC, and a day that changes the clock is 23 or
@@ -1150,8 +1151,9 @@ Notes:
   same local time; the rolling spans with the same length before them. The timeline buckets
   `today` by the hour. `today` never counts a sealed day from its daily total, even one that lies
   wholly inside a day lengthened by a clock change, so its rankings agree with its hourly chart;
-  the other spans count a sealed day from its total only when the whole day lies inside the
-  window. Today's portraits come from today's captures only. A guest's window is the requested
+  captures Frigate lost still count on their live day in both. The other spans count a sealed day
+  from its total only when the whole day lies inside the window. Today's portraits come from
+  today's captures only, and their `window_start` names the midnight they were chosen for. A guest's window is the requested
   one intersected with the shared window (in today-only sharing, the UTC day, ending before the
   next UTC midnight). On the two rankings, `window_start` is the start actually counted and
   `window_shortened` is true when the shared window moved it later than the span asks for.

@@ -19,7 +19,7 @@ it('clears visual/audio leaderboard rows, heatmaps and portraits before revalida
     expect(species).toContain('activityHeatmap = null;');
     expect(species).toContain('speciesHeatmap = null;');
     expect(species).toContain('portraits = [];');
-    expect(species).toContain('if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;');
+    expect(species).toContain('const superseded = () => loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted;');
 });
 
 it('revalidates local species records separately from reference/catalogue enrichment', () => {

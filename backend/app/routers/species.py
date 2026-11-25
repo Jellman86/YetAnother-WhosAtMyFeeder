@@ -19,7 +19,6 @@ from app.services.daily_totals_lookup import species_history_keys
 from app.services.sealed_species_counts import (
     CountWindow,
     SealedSpecies,
-    SealedSpeciesCounts,
     sealed_species_counts,
     with_sealed_species,
 )
@@ -1162,15 +1161,12 @@ async def get_leaderboard_species(
         # Today counts stored captures alone, as its hourly chart does: a local day lengthened by a
         # clock change can hold a whole sealed instance day whose total the chart would not show.
         totals_count = span != "today"
-        sealed = (
-            await sealed_species_counts(
-                db,
-                [CountWindow(window_start, window_end), CountWindow(prev_start, prev_end)],
-                zone=zone,
-                floor=history_floor,
-            )
-            if totals_count
-            else SealedSpeciesCounts()
+        sealed = await sealed_species_counts(
+            db,
+            [CountWindow(window_start, window_end), CountWindow(prev_start, prev_end)],
+            zone=zone,
+            floor=history_floor,
+            totals=totals_count,
         )
         sealed_unknown = sealed.pop_unknown()
         rows = await repo.get_species_leaderboard_window(
@@ -2866,6 +2862,9 @@ async def _portrait_responses(portraits: list[dict], *, films_allowed: bool) -> 
 
 class LeaderboardPortraitsResponse(BaseModel):
     span: Literal["today", "day", "week", "month", "all"]
+    # For today, the start of the window the photographs were chosen from, as the rankings count it,
+    # so a page loaded across midnight can compare it with theirs; null for the other spans.
+    window_start: str | None = None
     portraits: list[LeaderboardPortraitResponse]
 
 
@@ -2904,10 +2903,16 @@ async def get_leaderboard_portraits(
     # Today begins at the viewer's own midnight, so its cache is keyed by the start that resolved:
     # another zone, or the same one after midnight, is a different window.
     cache_key = (span, limit, is_guest, window_start.isoformat() if span == "today" else "")
+    counted_from = window_start if span == "today" else None
+    if is_guest and counted_from is not None:
+        counted_from = max(counted_from, public_events_window(now.replace(tzinfo=timezone.utc))[0].replace(tzinfo=None))
+    reported_start = serialize_api_datetime(counted_from) if counted_from is not None else None
     cached = _portraits_cache.get(cache_key)
     if not is_guest and cached and (asyncio.get_running_loop().time() - cached[0]) < PORTRAITS_CACHE_SECONDS:
         return LeaderboardPortraitsResponse(
-            span=span, portraits=await _portrait_responses(cached[1], films_allowed=True)
+            span=span,
+            window_start=reported_start,
+            portraits=await _portrait_responses(cached[1], films_allowed=True),
         )
 
     guest_cutoff: datetime | None = None
@@ -2973,7 +2978,9 @@ async def get_leaderboard_portraits(
         _portraits_cache[cache_key] = (asyncio.get_running_loop().time(), portraits)
     films_allowed = not is_guest or settings.public_access.show_clips
     return LeaderboardPortraitsResponse(
-        span=span, portraits=await _portrait_responses(portraits, films_allowed=films_allowed)
+        span=span,
+        window_start=reported_start,
+        portraits=await _portrait_responses(portraits, films_allowed=films_allowed),
     )
 
 

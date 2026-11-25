@@ -59,6 +59,7 @@
   "metric_peak": "Pico",
   "metric_avg": "Prom.",
   "load_failed": "No se pudo cargar la clasificación. Comprueba que YA-WAMF está accesible y vuelve a intentarlo.",
+  "today_changed": "El día cambió mientras se cargaba la clasificación, así que no se muestra nada nuevo. Pulsa Reintentar para contar el nuevo día.",
   "ai_analyze": "Analizar gráfico",
   "ai_analyzing": "Analizando…",
   "ai_rerun": "Repetir análisis",
@@ -225,7 +226,7 @@
   "today_empty_title": "Aún no hay visitas hoy",
   "today_empty_desc": "Hoy cuenta desde la medianoche, así que cada mañana empieza vacío. Las visitas aparecen aquí en cuanto llegan. Elige Últimas 24 horas para incluir la tarde de ayer.",
   "window_shortened_note": "Contado desde {time}, cuando empieza el historial compartido con invitados.",
-  "trend_not_comparable_clock": "Sin tendencia hoy. Se cambió la hora, así que hoy hasta ahora y ayer hasta esta hora no duran lo mismo.",
+  "trend_not_comparable_clock": "Sin tendencia hoy. Un cambio de hora saltó o repitió esta hora ayer, o hizo que los dos días duren distinto.",
   "trend_not_comparable_shared": "Sin tendencia aquí. El historial compartido con invitados no cubre todo el periodo anterior.",
   "trend_not_comparable_cleanup": "Sin tendencia aquí. La limpieza eliminó detecciones de los periodos comparados, así que un recuento sería demasiado bajo."
 }
