@@ -1345,7 +1345,13 @@ def build_health_payload(files: HealthFileReadings) -> dict[str, object]:
         "media_integrity_scan": get_media_integrity_scan_status(),
         # Photographs and visit media are always kept, so a folder that cannot be written is a
         # fault to report, not a setting someone chose (#622).
-        "media_storage": {"available": media_cache.available, "error": media_cache.unavailable_reason},
+        "media_storage": {
+            "available": media_cache.available,
+            "error": media_cache.unavailable_reason,
+            # Files an interrupted cleanup set aside that have not gone back yet; Health's incident
+            # for them is open while this is above zero and closes by itself at zero.
+            "set_aside_pending": media_cache.set_aside_pending_count,
+        },
         "mqtt": mqtt_health,
         "frigate_api": {"state": frigate_reachability.state, "last_failure": frigate_reachability.last_failure},
         "video_classifier": video_health,

@@ -32,13 +32,17 @@ async def test_health_reports_media_storage_and_degrades_when_it_cannot_be_writt
     from app import main as main_module
 
     healthy = await main_module.collect_health_payload()
-    assert healthy["media_storage"] == {"available": True, "error": None}
+    assert healthy["media_storage"] == {"available": True, "error": None, "set_aside_pending": 0}
 
     monkeypatch.setattr(media_cache_module.media_cache, "_available", False)
     monkeypatch.setattr(media_cache_module.media_cache, "_init_error", "Permission denied: '/config/media_cache'")
     broken = await main_module.collect_health_payload()
 
-    assert broken["media_storage"] == {"available": False, "error": "Permission denied: '/config/media_cache'"}
+    assert broken["media_storage"] == {
+        "available": False,
+        "error": "Permission denied: '/config/media_cache'",
+        "set_aside_pending": 0,
+    }
     assert broken["status"] == "degraded"
     # Never a startup warning: that would fail readiness and restart a container that otherwise works.
     assert broken["startup_warnings"] == healthy["startup_warnings"]
@@ -101,3 +105,21 @@ def test_telemetry_keeps_reporting_the_media_cache_as_on():
     )
 
     assert payload["configuration"]["media_cache_enabled"] is True
+
+
+@pytest.mark.asyncio
+async def test_health_and_the_incident_signals_count_media_still_set_aside(monkeypatch, tmp_path):
+    """The set-aside incident resolves itself: open while a file has not gone back, closed at zero."""
+    from app import main as main_module
+    from app.services.system_status import INCIDENT_SIGNAL_PATHS
+    from app.services.system_status_readings import incident_health_media_storage
+
+    assert "media_storage.set_aside_pending" in INCIDENT_SIGNAL_PATHS
+    media = media_cache_module.media_cache
+    monkeypatch.setattr(media, "_set_aside_pending", {tmp_path / "stuck.jpg"})
+    assert (await main_module.collect_health_payload())["media_storage"]["set_aside_pending"] == 1
+    assert incident_health_media_storage() == {"set_aside_pending": 1}
+
+    monkeypatch.setattr(media, "_set_aside_pending", set())
+    assert (await main_module.collect_health_payload())["media_storage"]["set_aside_pending"] == 0
+    assert incident_health_media_storage() == {"set_aside_pending": 0}
