@@ -530,6 +530,45 @@ async def test_a_left_over_file_that_cannot_be_returned_does_not_stop_the_storag
 
 
 @pytest.mark.asyncio
+async def test_a_confirmed_photo_age_cleanup_could_not_put_back_waits_for_the_next_return(
+    budget_visit_history, monkeypatch
+):
+    import app.database as db_module
+
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(db_module, "get_db", database)
+    monkeypatch.setattr(storage.settings.media_cache, "per_species_maximum", 0)
+    async with database() as db:
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    photo = await media.get_snapshot("budget-old")
+    await _age_cache_files(10)
+    original_settle = media._settle_staged_age_group
+    original_restore = media._restore_staged_deletion_sync
+
+    async def confirm_during_the_group(kind, event_id, owners, staged):
+        if event_id == "budget-old":
+            await asyncio.to_thread(_owner_acts, file_path, "confirm")
+        return await original_settle(kind, event_id, owners, staged)
+
+    def restore_hits_a_disk_error(staged):
+        if any(original.name == "budget-old.jpg" for original, _target in staged):
+            raise OSError(5, "Input/output error")
+        return original_restore(staged)
+
+    with monkeypatch.context() as disk:
+        disk.setattr(media, "_settle_staged_age_group", confirm_during_the_group)
+        disk.setattr(media, "_restore_staged_deletion_sync", restore_hits_a_disk_error)
+        await media.cleanup_old_media(1)
+    assert await media.get_snapshot("budget-old") is None
+    assert media.set_aside_pending_count >= 1
+    # The record route re-caches Frigate's photo meanwhile; it must not take the confirmed photo's name.
+    assert await media.cache_snapshot("budget-old", b"frigate-recache", source="frigate_snapshot_unverified") is None
+    await storage.MediaStorageService().enforce_limits()
+    assert await media.get_snapshot("budget-old") == photo
+    assert media.set_aside_pending_count == 0
+
+
+@pytest.mark.asyncio
 async def test_temporary_recording_candidates_are_never_orphan_eviction_inventory(budget_visit_history, monkeypatch):
     _, media, _ = budget_visit_history
     monkeypatch.setattr(clips.settings.media_cache, "per_species_maximum", 0)

@@ -1125,18 +1125,98 @@ async def test_returning_a_left_over_file_never_overwrites_an_owner_choice_publi
 
 
 @pytest.mark.asyncio
-async def test_a_left_over_file_comes_back_unless_a_newer_file_holds_its_name(tmp_path, monkeypatch):
+@pytest.mark.parametrize("hard_links", [True, False])
+async def test_a_left_over_file_whose_name_holds_an_automatic_file_is_kept_beside_it(tmp_path, monkeypatch, hard_links):
     service, snapshots = _make_service(tmp_path, monkeypatch)
+    if not hard_links:
+        monkeypatch.setattr(media_cache_module.os, "link", _no_hard_links)
     await service.cache_snapshot("back", b"kept-photo")
     await service.cache_snapshot("newer", b"old-photo")
     _leave_age_staged(service, snapshots / "back.jpg")
     _leave_age_staged(service, snapshots / "newer.jpg")
+    # Something wrote the name meanwhile, and nothing says it was the owner.
     (snapshots / "newer.jpg").write_bytes(b"newer-photo")
 
     assert await service.return_age_staged_files() == 1
     assert await service.get_snapshot("back") == b"kept-photo"
     assert await service.get_snapshot("newer") == b"newer-photo"
+    # Neither copy is deleted: the set-aside one is kept under a recovery name.
+    [kept] = [path for path in snapshots.iterdir() if path.name.endswith(".kept.tmp")]
+    assert kept.name.startswith(".newer.jpg.") and kept.read_bytes() == b"old-photo"
     assert not [path for path in snapshots.iterdir() if path.name.endswith(".ageing.tmp")]
+    assert service.set_aside_pending_count == 0
+
+
+def _no_hard_links(*args, **kwargs):
+    raise PermissionError(errno.EPERM, "hard links are not supported on this volume")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("hard_links", [True, False])
+async def test_a_stuck_left_over_photo_is_never_lost_to_an_automatic_recache(tmp_path, monkeypatch, hard_links):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.cache_snapshot("conf", b"owner-confirmed-hq-photo")
+    staged = _leave_age_staged(service, snapshots / "conf.jpg")
+    original_link = os.link
+    disk_full = True
+
+    def link(source, target, *args, **kwargs):
+        if disk_full:
+            raise OSError(errno.ENOSPC, "No space left on device")
+        if not hard_links:
+            return _no_hard_links()
+        return original_link(source, target, *args, **kwargs)
+
+    monkeypatch.setattr(media_cache_module.os, "link", link)
+    original_rename_back = service._rename_age_staged_file_back_sync
+
+    def rename_back(path):
+        if disk_full:
+            raise OSError(errno.ENOSPC, "No space left on device")
+        return original_rename_back(path)
+
+    monkeypatch.setattr(service, "_rename_age_staged_file_back_sync", rename_back)
+    assert await service.return_age_staged_files() == 0
+    assert staged.read_bytes() == b"owner-confirmed-hq-photo"
+    assert service.set_aside_pending_count == 1
+    # The record and card routes re-cache Frigate's photo while it is set aside: they must leave it alone.
+    disk_full = False
+    assert await service.cache_snapshot("conf", b"frigate-recache", source="frigate_snapshot_unverified") is None
+    assert await service.cache_thumbnail("conf", b"frigate-thumb") is None
+    assert await service.replace_snapshot("conf", b"automatic", automatic=True) is None
+    assert await service.return_age_staged_files() == 1
+    assert await service.get_snapshot("conf") == b"owner-confirmed-hq-photo"
+    assert service.set_aside_pending_count == 0
+
+
+@pytest.mark.asyncio
+async def test_a_file_that_came_back_but_left_its_set_aside_name_behind_counts_as_returned(tmp_path, monkeypatch):
+    from app.services.error_diagnostics import error_diagnostics_history
+
+    error_diagnostics_history.clear()
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.cache_snapshot("dup", b"the-photo")
+    staged = _leave_age_staged(service, snapshots / "dup.jpg")
+    original_unlink = Path.unlink
+
+    def unlink_fails_for_the_set_aside_name(self, *args, **kwargs):
+        if self == staged:
+            raise OSError(errno.EIO, "Input/output error")
+        return original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", unlink_fails_for_the_set_aside_name)
+    assert await service.return_age_staged_files() == 1
+    assert await service.get_snapshot("dup") == b"the-photo"
+    assert service.set_aside_pending_count == 0
+    assert not [
+        e for e in error_diagnostics_history.snapshot()["events"] if e["reason_code"] == "media_set_aside_unreturned"
+    ]
+    monkeypatch.setattr(Path, "unlink", original_unlink)
+    # The next pass sees the same file under both names and only removes the stray one.
+    assert await service.return_age_staged_files() == 0
+    assert not staged.exists()
+    assert await service.get_snapshot("dup") == b"the-photo"
+    assert not [path for path in snapshots.iterdir() if path.name.endswith(".kept.tmp")]
 
 
 @pytest.mark.asyncio

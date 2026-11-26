@@ -220,6 +220,8 @@ _STAGED_DELETION_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_STAGED_D
 # by a crash goes back to its name, so the next age cleanup decides again with every check.
 _AGE_STAGED_SUFFIX = ".ageing.tmp"
 _AGE_STAGED_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_AGE_STAGED_SUFFIX))
+# A set-aside copy whose name a newer file took is kept under this name rather than deleted.
+_KEPT_BESIDE_SUFFIX = ".kept.tmp"
 # A volume without hard links (some network and FUSE mounts) reports one of these.
 _NO_HARD_LINK_ERRNOS = frozenset(
     code
@@ -317,6 +319,8 @@ class MediaCacheService:
         # Age cleanup, orphan cleanup and the storage sweep never interleave, so each can tell its own
         # staged files from ones an interrupted run left behind.
         self.housekeeping_lock = asyncio.Lock()
+        # Names whose set-aside copy could not go back yet. Every return rebuilds it from disk.
+        self._set_aside_pending: set[Path] = set()
         try:
             self._ensure_dirs()
         except Exception as e:
@@ -621,6 +625,9 @@ class MediaCacheService:
             return None
         try:
             async with self._snapshot_commit_lock(event_id):
+                if self._snapshot_set_aside(event_id):
+                    log.debug("Left a set-aside photo's name alone", event_id=event_id)
+                    return None
                 stored_metadata = await self.get_snapshot_metadata(event_id)
                 metadata = stored_metadata or {}
                 has_live_photo = await self._has_nonempty_snapshot(event_id)
@@ -678,6 +685,10 @@ class MediaCacheService:
             return None
         try:
             async with self._snapshot_commit_lock(event_id):
+                if not (manual_selection or clear_manual_selection) and self._snapshot_set_aside(event_id):
+                    # Only an owner's choice may take the name of a photo that has not gone back yet.
+                    log.debug("Left a set-aside photo's name alone", event_id=event_id)
+                    return None
                 stored_metadata = await self.get_snapshot_metadata(event_id)
                 metadata = stored_metadata or {}
                 live_manual = (
@@ -803,7 +814,7 @@ class MediaCacheService:
             return False
         async with self._snapshot_commit_lock(event_id):
             snapshot_path = await self.get_snapshot_path(event_id)
-            if snapshot_path is None:
+            if snapshot_path is None or self._snapshot_set_aside(event_id):
                 return False
             stored_metadata = await self.get_snapshot_metadata(event_id)
             if stored_metadata is None and await asyncio.to_thread(has_manual_snapshot_selection, event_id):
@@ -862,6 +873,8 @@ class MediaCacheService:
             path = self._thumbnail_path(event_id)
             async with self._snapshot_commit_lock(path.stem):
                 if await self._thumbnail_slot_has_snapshot(event_id, path.stem):
+                    return None
+                if self._snapshot_set_aside(event_id):
                     return None
                 await self._write_bytes_atomic(path, image_bytes)
                 await self._write_thumbnail_metadata(event_id, source=source)
@@ -1038,6 +1051,8 @@ class MediaCacheService:
             return None
         try:
             path = self._clip_path(event_id)
+            if self._names_set_aside(path):
+                return None
             async with aiofiles.open(path, "wb") as f:
                 await f.write(clip_bytes)
             log.debug("Cached clip", event_id=event_id, size=len(clip_bytes))
@@ -1068,6 +1083,8 @@ class MediaCacheService:
             return None
         try:
             path = self._clip_path(event_id)
+            if self._names_set_aside(path):
+                return None
             total_size = 0
             async with aiofiles.open(path, "wb") as f:
                 async for chunk in chunks:
@@ -1165,6 +1182,9 @@ class MediaCacheService:
             return None
 
         async with self._recording_clip_commit_lock(event_id):
+            if self._names_set_aside(path):
+                await asyncio.to_thread(_unlink_if_present, tmp_path)
+                return None
             existing_duration = await asyncio.to_thread(_valid_clip_duration_seconds, path)
             if existing_duration is not None and candidate_duration <= existing_duration:
                 log.info(
@@ -1357,6 +1377,8 @@ class MediaCacheService:
         try:
             sprite_path = self._preview_sprite_path(event_id)
             manifest_path = self._preview_manifest_path(event_id)
+            if self._names_set_aside(sprite_path, manifest_path):
+                return False
             async with aiofiles.open(sprite_path, "wb") as f:
                 await f.write(sprite_bytes)
             async with aiofiles.open(manifest_path, "w", encoding="utf-8") as f:
@@ -1528,41 +1550,78 @@ class MediaCacheService:
             raise ValueError(f"Not an age-staged file: {staged.name}")
         return staged.with_name(match.group(1))
 
+    @staticmethod
+    def _name_holds_owner_choice_sync(original: Path) -> bool:
+        """Whether the file now at a canonical photo's name, or its sidecar's, is an owner's choice."""
+        name = original.name
+        if original.parent != SNAPSHOTS_DIR:
+            return False
+        stem = name[: -len(".jpg.meta.json")] if name.endswith(".jpg.meta.json") else name.removesuffix(".jpg")
+        if stem == name:
+            return False
+        return has_manual_snapshot_selection(stem) if (SNAPSHOTS_DIR / f"{stem}.jpg").is_file() else False
+
     @classmethod
-    def _link_age_staged_file_back_sync(cls, staged: Path) -> bool | None:
+    def _settle_taken_name_sync(cls, staged: Path, original: Path) -> str:
+        """The name came back taken. Only an owner's choice may replace the set-aside copy; anything
+        else might be an automatic write, so both are kept and neither is deleted."""
+        try:
+            if os.path.samefile(staged, original):
+                # A crash or a failed unlink left one file under both names; it is already back.
+                staged.unlink(missing_ok=True)
+                return "finished"
+        except FileNotFoundError:
+            return "finished"
+        if cls._name_holds_owner_choice_sync(original):
+            staged.unlink(missing_ok=True)
+            return "owner_choice_kept"
+        kept = staged.with_name(f".{original.name}.{uuid.uuid4().hex}{_KEPT_BESIDE_SUFFIX}")
+        staged.rename(kept)
+        log.warning(
+            "A set-aside file's name was taken by a newer file; kept both",
+            path=str(original),
+            kept_as=str(kept),
+        )
+        return "kept_beside"
+
+    @classmethod
+    def _link_age_staged_file_back_sync(cls, staged: Path) -> str | None:
         """Move a left-over file back without ever replacing a file at its name.
 
-        A hard link fails when the name is taken, so a photo published meanwhile always wins and the
-        stale copy goes. Returns whether it came back, or None when the volume has no hard links.
+        A hard link fails when the name is taken, so nothing published meanwhile is overwritten.
+        Returns the outcome, or None when the volume has no hard links.
         """
+        original = cls._age_staged_original(staged)
         try:
-            os.link(staged, cls._age_staged_original(staged))
+            os.link(staged, original)
         except FileExistsError:
-            staged.unlink(missing_ok=True)
-            return False
+            return cls._settle_taken_name_sync(staged, original)
         except FileNotFoundError:
-            return False
+            return "finished"
         except OSError as exc:
             if exc.errno in _NO_HARD_LINK_ERRNOS:
                 return None
             raise
-        staged.unlink(missing_ok=True)
-        return True
+        try:
+            staged.unlink(missing_ok=True)
+        except OSError as exc:
+            # The file is back; the stray second name is removed by the next pass.
+            log.debug("Could not remove a returned file's set-aside name", path=str(staged), error=str(exc))
+        return "returned"
 
     @classmethod
-    def _rename_age_staged_file_back_sync(cls, staged: Path) -> bool:
+    def _rename_age_staged_file_back_sync(cls, staged: Path) -> str:
         """The fallback without hard links. Callers hold the visit's commit locks, so no writer publishes meanwhile."""
         original = cls._age_staged_original(staged)
         try:
             if original.exists():
-                staged.unlink()
-                return False
+                return cls._settle_taken_name_sync(staged, original)
             staged.rename(original)
         except FileNotFoundError:
-            return False
-        return True
+            return "finished"
+        return "returned"
 
-    async def _return_age_staged_file(self, staged: Path) -> bool:
+    async def _return_age_staged_file(self, staged: Path) -> str:
         outcome = await self._complete_file_operation(self._link_age_staged_file_back_sync, staged)
         if outcome is not None:
             return outcome
@@ -1576,28 +1635,61 @@ class MediaCacheService:
                 await locks.enter_async_context(self._recording_clip_commit_lock(owner))
             return await self._complete_file_operation(self._rename_age_staged_file_back_sync, staged)
 
+    @property
+    def set_aside_pending_count(self) -> int:
+        """Files set aside by an interrupted cleanup that have not gone back yet, as last read from disk."""
+        return len(self._set_aside_pending)
+
+    def _names_set_aside(self, *paths: Path) -> bool:
+        """An automatic writer leaves alone a name whose set-aside copy has not gone back yet."""
+        return any(path in self._set_aside_pending for path in paths)
+
+    def _snapshot_set_aside(self, event_id: str) -> bool:
+        """Whether this capture's photo, its sidecar or its thumbnail is still set aside."""
+        if not self._set_aside_pending:
+            return False
+        try:
+            photo = self._snapshot_path(event_id)
+            thumbnail = self._thumbnail_path(event_id)
+        except ValueError:
+            return False
+        return self._names_set_aside(
+            photo, self._snapshot_metadata_path(event_id), thumbnail, thumbnail.with_suffix(".jpg.meta.json")
+        )
+
+    def _visit_has_set_aside(self, event_ids: set[str]) -> bool:
+        return any(cache_name_event_id(path.name) in event_ids for path in self._set_aside_pending)
+
+    def _mark_set_aside_pending(self, staged: list[tuple[Path, Path]]) -> None:
+        for original, target in staged:
+            if target.exists():
+                self._set_aside_pending.add(original)
+
     async def return_age_staged_files(self) -> int:
         """Put back files an interrupted age cleanup staged, so the next age cleanup decides again.
 
         Run at startup before any media service, and by the storage sweep under the housekeeping lock,
-        when no age cleanup can be running. A newer file at a file's name always wins. A file that
-        cannot be moved now stays set aside, unharmed, for the next try, and Health says so.
+        when no age cleanup can be running. Nothing is overwritten and nothing is deleted except a
+        set-aside copy an owner's choice has replaced. A file that cannot be moved now stays set aside,
+        unharmed, and automatic writers leave its name alone until it goes back.
         """
         returned = 0
-        unreturned = 0
+        pending: set[Path] = set()
         for staged in await asyncio.to_thread(self._age_staged_leftovers_sync):
             try:
-                returned += int(await self._return_age_staged_file(staged))
+                returned += int(await self._return_age_staged_file(staged) == "returned")
             except OSError as exc:
-                unreturned += 1
+                pending.add(self._age_staged_original(staged))
                 log.warning(
                     "Could not return a file an interrupted age cleanup set aside; will retry",
                     path=str(staged),
                     error=str(exc),
                 )
+        # Rebuilt from what is on disk now, so it is the same after a restart.
+        self._set_aside_pending = pending
         if returned:
             log.info("Returned files an interrupted age cleanup had set aside", files=returned)
-        if unreturned:
+        if pending:
             from app.services.error_diagnostics import error_diagnostics_history
 
             error_diagnostics_history.record(
@@ -1606,7 +1698,7 @@ class MediaCacheService:
                 reason_code="media_set_aside_unreturned",
                 message="Cached media set aside by an interrupted cleanup could not be returned yet.",
                 severity="warning",
-                context={"files": unreturned},
+                context={"files": len(pending)},
             )
         return returned
 
@@ -1893,6 +1985,9 @@ class MediaCacheService:
             return 0, 0, len(paths)
         if kind == "snapshots" and (possible_owners & protected_snapshot_event_ids):
             return 0, 0, len(paths)
+        if self._visit_has_set_aside(possible_owners):
+            # Part of this visit has not gone back yet; it is judged once it has.
+            return 0, 0, len(paths)
 
         rows = await self._cached_media_visit_rows(possible_owners)
         if any(row["is_favorite"] for row in rows):
@@ -1919,15 +2014,24 @@ class MediaCacheService:
         try:
             returned = await self._settle_staged_age_group(kind, event_id, possible_owners, staged)
         except BaseException:
-            await self._complete_file_operation(self._restore_staged_deletion_sync, staged)
+            await self._put_back_or_hold(staged)
             raise
         if returned:
-            await self._complete_file_operation(self._restore_staged_deletion_sync, returned)
+            await self._put_back_or_hold(returned)
         removed = await self._complete_file_operation(
             self._remove_staged_deletions_sync,
             [target for original, target in staged if (original, target) not in returned],
         )
         return removed[f"{kind}_deleted"], removed["bytes_freed"], len(kept_paths) + len(returned)
+
+    async def _put_back_or_hold(self, staged: list[tuple[Path, Path]]) -> None:
+        """Restore staged files. Any that cannot go back now are held: automatic writers leave their
+        names alone until the storage sweep returns them."""
+        try:
+            await self._complete_file_operation(self._restore_staged_deletion_sync, staged)
+        except OSError:
+            self._mark_set_aside_pending(staged)
+            raise
 
     async def cleanup_old_media(
         self,

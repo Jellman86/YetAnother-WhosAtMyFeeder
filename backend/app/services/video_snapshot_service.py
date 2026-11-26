@@ -353,6 +353,9 @@ async def _commit_video_snapshot_unlocked(
 ) -> str:
     selected = next(candidate for candidate in candidates if candidate["selected"])
     async with media_cache._media_write_lease(event_id), media_cache._snapshot_commit_lock(event_id):
+        if media_cache._snapshot_set_aside(event_id):
+            # The photo an interrupted cleanup set aside goes back first; video recovery waits for it.
+            return "photo_set_aside"
         metadata = await media_cache.get_snapshot_metadata(event_id) or {}
         if await media_cache.has_live_manual_selection(event_id, metadata):
             return "manual_selection_preserved"
