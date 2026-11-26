@@ -473,9 +473,18 @@ async def test_files_staged_by_age_cleanup_before_a_crash_come_back_on_the_next_
     class ProcessDied(BaseException):
         pass
 
+    original_settle = media._settle_staged_age_group
+
+    async def die_once_budget_old_is_staged(kind, event_id, owners, staged):
+        # Groups are aged in directory order, which differs between filesystems, so the process
+        # dies at budget-old's own group rather than at whichever group comes first.
+        if event_id == "budget-old":
+            raise ProcessDied()
+        return await original_settle(kind, event_id, owners, staged)
+
     with monkeypatch.context() as crash:
         # A process that dies after staging restores nothing and finishes nothing.
-        crash.setattr(media, "_settle_staged_age_group", AsyncMock(side_effect=ProcessDied()))
+        crash.setattr(media, "_settle_staged_age_group", die_once_budget_old_is_staged)
         crash.setattr(media, "_restore_staged_deletion_sync", lambda staged: None)
         with pytest.raises(ProcessDied):
             await media.cleanup_old_media(1)
