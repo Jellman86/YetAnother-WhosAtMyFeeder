@@ -18,12 +18,18 @@
   caching one capture's photo no longer deletes another capture's chosen photo when their names
   overlap.
 - **Storage cleanup is gentler and stops at the limit:** Removing cached files that no longer belong
-  to a capture no longer holds the database while files are deleted, so other saves do not wait for a
-  slow disk; a file that cannot be deleted is finished on the next cleanup. The storage limit now
-  weighs only files really on disk, so a missing Garden photo no longer pushes out an older bird
-  photo, and when a capture is confirmed while cleanup runs, cleanup goes on to the next oldest
-  capture until space used is under the limit. Empty-file cleanup no longer removes a clip or preview
-  that is still being written.
+  to a capture, and removing media older than the history window, no longer hold the database while
+  files are deleted, so other saves do not wait for a slow disk; a file that cannot be deleted is
+  finished on the next cleanup. Removing media to meet the storage limit or the per-species limit
+  still holds it while each capture's files are deleted. The storage limit now weighs only files
+  really on disk and counts Garden media as freed only once it is removed, so a missing Garden photo
+  no longer pushes out an older bird photo. When a capture is confirmed while cleanup runs, cleanup
+  goes on to the next oldest capture until space used is under the limit. Empty-file cleanup no
+  longer removes a clip, a recording clip that is still downloading, or a preview while it is being
+  written.
 - **A photo change that fails after you switch records is reported:** If using, regenerating or
   removing a photo fails after you have opened another record, the error names the species and time
   of the record it was for, instead of disappearing.
+- **Regenerating says when it kept the photo:** If regenerating a record's photo keeps the current
+  photo, because you chose another photo meanwhile or because the photo's saved settings cannot be
+  read, the record now says so and what to do next, instead of reporting a new photo.
