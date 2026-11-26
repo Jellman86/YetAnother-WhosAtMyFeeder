@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
     });
     page.on('pageerror', error => { throw error; });
     await page.goto('/browser-tests/fixture.html');
-    await expect(page.locator('[data-health-activity-row]')).toHaveCount(3);
+    await expect(page.locator('[data-health-activity-row]')).toHaveCount(4);
 });
 
 async function expectPortalledAndUnclipped(panel: Locator): Promise<void> {
@@ -39,6 +39,14 @@ test('recorded, filtered and failed rows stay distinct and only records can open
     await page.getByRole('button', { name: /View record:/ }).click();
     await expect(page.getByLabel('Selected record')).toHaveText('browser-recorded');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('a retry paused on purpose stays on the record in words without reading as a fault', async ({ page }) => {
+    const row = page.locator('[data-row-kind="held-back"]');
+    await expect(row).toContainText('Skipped on purpose');
+    await expect(row).toContainText('Retrying a Frigate update was paused briefly to avoid repeating work.');
+    await expect(row).not.toContainText('Fault');
+    await expect(page.locator('[data-health-activity-timeline] [role="group"]')).toContainText('Skipped on purpose');
 });
 
 test('filtered preview escapes clipping, supports keyboard and cleans up on unmount', async ({ page }) => {
@@ -90,5 +98,5 @@ test('loading and empty states do not present stale detections', async ({ page }
     await expect(page.getByText('No activity since startup')).toBeVisible();
     await expect(page.locator('[data-health-activity-loading]')).toHaveCount(0);
     await page.getByLabel('Fixture state').selectOption('events');
-    await expect(page.locator('[data-health-activity-row]')).toHaveCount(3);
+    await expect(page.locator('[data-health-activity-row]')).toHaveCount(4);
 });
