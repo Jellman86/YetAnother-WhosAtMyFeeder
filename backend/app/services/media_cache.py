@@ -149,6 +149,39 @@ def cache_name_event_id(name: str) -> str:
     return name
 
 
+def is_canonical_snapshot_file(event_id: str, path: Path) -> bool:
+    """Return whether ``path`` is the visit's own display photograph, thumbnail, or sidecar."""
+    if path.parent != SNAPSHOTS_DIR:
+        return False
+    try:
+        safe_id = sanitize_event_id(event_id)
+    except ValueError:
+        return False
+    return path.name in {
+        f"{safe_id}.jpg",
+        f"{safe_id}.jpg.meta.json",
+        f"{safe_id}_thumb.jpg",
+        f"{safe_id}_thumb.jpg.meta.json",
+    }
+
+
+def has_manual_snapshot_selection(event_id: str) -> bool:
+    """Return whether ``event_id`` holds a nonempty owner-selected canonical photograph."""
+    try:
+        safe_id = sanitize_event_id(event_id)
+    except ValueError:
+        return False
+    snapshot_path = SNAPSHOTS_DIR / f"{safe_id}.jpg"
+    metadata_path = SNAPSHOTS_DIR / f"{safe_id}.jpg.meta.json"
+    try:
+        if not snapshot_path.is_file() or snapshot_path.stat().st_size <= 0:
+            return False
+        parsed = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return False
+    return isinstance(parsed, dict) and bool(parsed.get("manual_selection"))
+
+
 def _unlink_if_present(path: Path) -> None:
     path.unlink(missing_ok=True)
 
@@ -483,6 +516,14 @@ class MediaCacheService:
                 pass
             raise
 
+    async def _has_nonempty_snapshot(self, event_id: str) -> bool:
+        try:
+            path = self._snapshot_path(event_id)
+            info = await aiofiles.os.stat(path)
+        except (OSError, ValueError):
+            return False
+        return stat.S_ISREG(info.st_mode) and info.st_size > 0
+
     @_tracks_media_write
     async def cache_snapshot(
         self,
@@ -508,12 +549,13 @@ class MediaCacheService:
         try:
             async with self._snapshot_commit_lock(event_id):
                 metadata = await self.get_snapshot_metadata(event_id) or {}
-                if metadata.get("manual_selection"):
+                has_live_photo = await self._has_nonempty_snapshot(event_id)
+                if metadata.get("manual_selection") and has_live_photo:
                     return self._snapshot_path(event_id)
                 path = self._snapshot_path(event_id)
                 previous_source = str(metadata.get("source") or "")
                 refined = previous_source.startswith(("high_quality_", "hq_candidate_", "video_evidence_"))
-                if source.startswith("frigate_") and refined and await self.get_snapshot_path(event_id) is not None:
+                if source.startswith("frigate_") and refined and has_live_photo:
                     if isinstance(event_hints, dict):
                         await self._write_snapshot_metadata(
                             event_id,
@@ -527,6 +569,7 @@ class MediaCacheService:
                     event_id,
                     source=source,
                     event_hints=event_hints,
+                    manual_selection=False if metadata.get("manual_selection") else None,
                     recording_alignment=recording_alignment,
                     image_bytes=image_bytes,
                     film_alignment=film_alignment,
@@ -559,19 +602,24 @@ class MediaCacheService:
         try:
             async with self._snapshot_commit_lock(event_id):
                 metadata = await self.get_snapshot_metadata(event_id) or {}
+                has_live_photo = await self._has_nonempty_snapshot(event_id)
+                live_manual = bool(metadata.get("manual_selection")) and has_live_photo
                 manual_choice_changed = (
                     clear_manual_selection
-                    and metadata.get("manual_selection")
+                    and live_manual
                     and metadata.get("updated_at") != expected_manual_selection_updated_at
                 )
-                if (automatic and metadata.get("manual_selection")) or manual_choice_changed:
+                if (automatic and live_manual) or manual_choice_changed:
                     return self._snapshot_path(event_id)
+                stale_manual = bool(metadata.get("manual_selection")) and not has_live_photo
                 path = self._snapshot_path(event_id)
                 await self._write_bytes_atomic(path, image_bytes)
                 await self._write_snapshot_metadata(
                     event_id,
                     source=source,
-                    manual_selection=True if manual_selection else False if clear_manual_selection else None,
+                    manual_selection=(
+                        True if manual_selection else False if (clear_manual_selection or stale_manual) else None
+                    ),
                     manual_candidate_id=manual_candidate_id,
                     image_bytes=image_bytes,
                     film_alignment=film_alignment,
@@ -1286,6 +1334,22 @@ class MediaCacheService:
                 if path.stat().st_size == 0:
                     path.unlink()
                     stats["snapshots_deleted"] += 1
+                    _unlink_if_present(path.with_suffix(".jpg.meta.json"))
+                    if not path.name.endswith("_thumb.jpg"):
+                        stem = path.stem
+                        thumb_path = path.with_name(f"{stem}_thumb.jpg")
+                        thumb_meta_path = path.with_name(f"{stem}_thumb.jpg.meta.json")
+                        try:
+                            thumb_meta = (
+                                json.loads(thumb_meta_path.read_text(encoding="utf-8"))
+                                if thumb_meta_path.is_file()
+                                else None
+                            )
+                        except (OSError, ValueError, TypeError):
+                            thumb_meta = None
+                        if isinstance(thumb_meta, dict) and thumb_meta.get("source") == "snapshot_derived":
+                            _unlink_if_present(thumb_path)
+                            _unlink_if_present(thumb_meta_path)
                     log.debug("Removed empty snapshot", path=str(path))
             except FileNotFoundError:
                 pass  # Already deleted
@@ -1326,6 +1390,7 @@ class MediaCacheService:
         retention_days: int,
         protected_event_ids: Optional[set[str]] = None,
         protected_snapshot_event_ids: Optional[set[str]] = None,
+        protected_canonical_photo_event_ids: Optional[set[str]] = None,
     ) -> dict:
         from app.services.high_quality_snapshot_service import high_quality_snapshot_service, HQ_PROCESSING_PIPELINE
         from app.repositories.processing_job_repository import ProcessingJobRepository
@@ -1333,7 +1398,11 @@ class MediaCacheService:
 
         protected = set(protected_event_ids or ()) | high_quality_snapshot_service.get_active_event_ids()
         stats = await asyncio.to_thread(
-            self._cleanup_old_media_sync, retention_days, protected, protected_snapshot_event_ids
+            self._cleanup_old_media_sync,
+            retention_days,
+            protected,
+            protected_snapshot_event_ids,
+            protected_canonical_photo_event_ids,
         )
         evicted = stats.pop("evicted_snapshot_event_ids", set())
         if evicted:
@@ -1348,9 +1417,11 @@ class MediaCacheService:
         retention_days: int,
         protected_event_ids: Optional[set[str]] = None,
         protected_snapshot_event_ids: Optional[set[str]] = None,
+        protected_canonical_photo_event_ids: Optional[set[str]] = None,
     ) -> dict:
         """Age a visit's variants together, keeping sidecars with fresh photographs."""
         protected = protected_event_ids or set()
+        canonical_protected = protected_canonical_photo_event_ids or set()
         empty_stats = self._cleanup_empty_files_sync()
         stats = {**empty_stats, "bytes_freed": 0, "protected_skipped": 0}
         if retention_days <= 0:
@@ -1370,12 +1441,19 @@ class MediaCacheService:
                 if event_id in exemptions:
                     stats["protected_skipped"] += len(paths)
                     continue
+                target_paths = paths
+                if kind == "snapshots" and (event_id in canonical_protected or has_manual_snapshot_selection(event_id)):
+                    kept_paths = [path for path in paths if is_canonical_snapshot_file(event_id, path)]
+                    target_paths = [path for path in paths if not is_canonical_snapshot_file(event_id, path)]
+                    stats["protected_skipped"] += len(kept_paths)
+                    if not target_paths:
+                        continue
                 try:
-                    media_paths = [path for path in paths if path.name.endswith(media_suffix)]
-                    newest_write = max(path.stat().st_mtime for path in (media_paths or paths))
+                    media_paths = [path for path in target_paths if path.name.endswith(media_suffix)]
+                    newest_write = max(path.stat().st_mtime for path in (media_paths or target_paths))
                     if newest_write >= cutoff:
                         continue
-                    for path in paths:
+                    for path in target_paths:
                         size = path.stat().st_size
                         path.unlink(missing_ok=True)
                         stats["bytes_freed"] += size
@@ -1459,7 +1537,7 @@ class MediaCacheService:
         """Delete ALL cached media files."""
         stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
 
-        # Clean all snapshots
+        # Clean all snapshots and metadata sidecars
         for path in SNAPSHOTS_DIR.glob("*.jpg"):
             try:
                 size = path.stat().st_size
@@ -1468,8 +1546,15 @@ class MediaCacheService:
                 stats["bytes_freed"] += size
             except Exception as e:
                 log.warning("Failed to delete snapshot", path=str(path), error=str(e))
+        for path in SNAPSHOTS_DIR.glob("*.meta.json"):
+            try:
+                size = path.stat().st_size
+                path.unlink()
+                stats["bytes_freed"] += size
+            except Exception as e:
+                log.warning("Failed to delete snapshot metadata", path=str(path), error=str(e))
 
-        # Clean all clips
+        # Clean all clips and metadata sidecars
         for path in CLIPS_DIR.glob("*.mp4"):
             try:
                 size = path.stat().st_size
@@ -1478,6 +1563,13 @@ class MediaCacheService:
                 stats["bytes_freed"] += size
             except Exception as e:
                 log.warning("Failed to delete clip", path=str(path), error=str(e))
+        for path in CLIPS_DIR.glob("*.meta.json"):
+            try:
+                size = path.stat().st_size
+                path.unlink()
+                stats["bytes_freed"] += size
+            except Exception as e:
+                log.warning("Failed to delete clip metadata", path=str(path), error=str(e))
 
         # Clean all previews
         for path in PREVIEWS_DIR.glob("*"):

@@ -95,11 +95,29 @@ class MediaStorageService:
         owners.update(cache_module.media_cache._media_write_owner(owner) for owner in tuple(owners))
         return owners
 
-    async def _recover_orphaned_media(self, files: dict[str, list[Path]]) -> int:
+    @staticmethod
+    def _photo_protection_inventory(files: dict[str, list[Path]]) -> tuple[dict[str, int], set[str]]:
+        photo_sizes: dict[str, int] = {}
+        manual_selected: set[str] = set()
+        for event_id, paths in files.items():
+            photo_bytes = 0
+            for path in paths:
+                if cache_module.is_canonical_snapshot_file(event_id, path):
+                    try:
+                        photo_bytes += path.stat().st_size
+                    except FileNotFoundError:
+                        continue
+            if photo_bytes:
+                photo_sizes[event_id] = photo_bytes
+            if cache_module.has_manual_snapshot_selection(event_id):
+                manual_selected.add(event_id)
+        return photo_sizes, manual_selected
+
+    async def _recover_orphaned_media_stats(self, files: dict[str, list[Path]]) -> dict[str, int]:
         """Retry post-delete filesystem cleanup independently of optional cache budgets."""
         async with get_db() as db:
             valid_ids = set(await DetectionRepository(db).get_all_frigate_event_ids())
-        freed = 0
+        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
         media = cache_module.media_cache
         for event_id in files.keys() - valid_ids - self._protected_event_ids():
             # A legacy variant suffix can also be part of a literal event ID.
@@ -130,12 +148,31 @@ class MediaStorageService:
                         if await cursor.fetchone():
                             continue
                 try:
-                    freed += await media._complete_file_operation(
+                    existing_paths = [path for path in files[event_id] if path.is_file()]
+                    freed = await media._complete_file_operation(
                         media._delete_visit_files_sync, event_id, files[event_id]
                     )
+                    stats["bytes_freed"] += freed
+                    for path in existing_paths:
+                        if path.parent == cache_module.SNAPSHOTS_DIR and path.name.endswith(".jpg"):
+                            stats["snapshots_deleted"] += 1
+                        elif path.parent == cache_module.CLIPS_DIR and path.name.endswith(".mp4"):
+                            stats["clips_deleted"] += 1
+                        elif path.parent == cache_module.PREVIEWS_DIR:
+                            stats["previews_deleted"] += 1
                 except OSError as exc:
                     log.warning("Orphaned media recovery failed; will retry", event_id=event_id, error=str(exc))
-        return freed
+        return stats
+
+    async def _recover_orphaned_media(self, files: dict[str, list[Path]]) -> int:
+        stats = await self._recover_orphaned_media_stats(files)
+        return stats["bytes_freed"]
+
+    async def recover_orphaned_media(self) -> dict[str, int]:
+        """Run locked orphan cleanup with full lifecycle guards for manual cache cleanup."""
+        async with self._lock:
+            _sizes, files = await asyncio.to_thread(self._inventory)
+            return await self._recover_orphaned_media_stats(files)
 
     async def _evict_budget_visit(self, event_id: str, paths: list[Path]) -> int | None:
         from app.repositories.processing_job_repository import ProcessingJobRepository
@@ -157,10 +194,21 @@ class MediaStorageService:
                 ):
                     await db.rollback()
                     return None
+                keep_photo = any(row.get("owner_confirmed") for row in current) or await asyncio.to_thread(
+                    cache_module.has_manual_snapshot_selection, event_id
+                )
+                target_paths = (
+                    [path for path in paths if not cache_module.is_canonical_snapshot_file(event_id, path)]
+                    if keep_photo
+                    else paths
+                )
+                if not target_paths:
+                    await db.rollback()
+                    return None
                 await ProcessingJobRepository(db).mark_storage_evicted(HQ_PROCESSING_PIPELINE, event_id)
                 await ProcessingJobRepository(db).mark_storage_evicted(FULL_VISIT_PROCESSING_PIPELINE, event_id)
                 freed = await cache_module.media_cache._complete_file_operation(
-                    cache_module.media_cache._delete_visit_files_sync, event_id, paths
+                    cache_module.media_cache._delete_visit_files_sync, event_id, target_paths
                 )
                 await db.commit()
                 return freed
@@ -210,13 +258,25 @@ class MediaStorageService:
             if not (options.per_species_maximum or options.max_size_mb):
                 return result
             sizes, files = await asyncio.to_thread(self._inventory)
+            photo_sizes, manual_selected = await asyncio.to_thread(self._photo_protection_inventory, files)
             owners = {event_id: self._possible_owners(event_id, paths) for event_id, paths in files.items()}
             async with get_db() as db:
                 all_rows = await DetectionRepository(db).list_cached_media_visits(
                     sorted(set().union(*owners.values())) if owners else []
                 )
             rows = [row for row in all_rows if row["event_id"] in sizes]
-            visits = [CachedVisit(**row, bytes_on_disk=sizes[row["event_id"]]) for row in rows]
+            visits = [
+                CachedVisit(
+                    event_id=row["event_id"],
+                    species_key=row["species_key"],
+                    detected_at=row["detected_at"],
+                    bytes_on_disk=sizes[row["event_id"]],
+                    is_favorite=bool(row["is_favorite"]),
+                    keep_photo=bool(row.get("owner_confirmed")) or (row["event_id"] in manual_selected),
+                    photo_bytes=photo_sizes.get(row["event_id"], 0),
+                )
+                for row in rows
+            ]
             visits.extend(await self._garden_visits())
             # In-flight clip/frame commits must finish before their visit can be evicted.
             protected = self._protected_event_ids()

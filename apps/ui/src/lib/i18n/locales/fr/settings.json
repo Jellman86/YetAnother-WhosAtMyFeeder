@@ -184,7 +184,7 @@
     "per_species_minimum": "Garder les photos des visites les plus récentes de chaque espèce",
     "per_species_minimum_help": "Ce nombre de visites les plus récentes de chaque espèce garde ses photos après avoir quitté la durée de l’historique, pour qu’un oiseau rare garde ses images. La vidéo n’est pas gardée plus longtemps. La limite de stockage s’applique toujours.",
     "per_species_maximum": "Limiter les visites par espèce avec photos et vidéos",
-    "per_species_maximum_help": "Les visites d’une espèce au-delà de ce nombre perdent leurs photos et vidéos, les plus anciennes d’abord. Les visites restent dans l’historique. Les favoris ne comptent pas.",
+    "per_species_maximum_help": "Les captures d’une espèce au-delà de ce nombre perdent leurs photos et vidéos, les plus anciennes d’abord. L’historique reste. Les favoris ne comptent pas, et les observations confirmées ou dont la photo a été choisie gardent leur photo principale.",
     "bird_scan_mode": "Intensité de recherche des oiseaux",
     "bird_scan_mode_help": "S’applique aux analyses manuelles et automatiques. Standard utilise moins de CPU. Intensif recherche aussi dans les zones des grandes images et classe davantage de recadrages. Aucun mode ne garantit de trouver tous les oiseaux.",
     "bird_scan_standard": "Standard",
@@ -226,7 +226,7 @@
     "storage_policy_history_only": "Aucune limite de taille : photos et vidéos restent jusqu’à ce que la durée de l’historique retire leurs visites.",
     "storage_policy_species_cap": "{count, plural, one {Chaque espèce ne garde photos et vidéos que pour sa visite la plus récente.} other {Chaque espèce ne garde photos et vidéos que pour ses # visites les plus récentes.}}",
     "storage_policy_species_floor": "{count, plural, one {La visite la plus récente de chaque espèce garde ses photos au-delà de la durée de l’historique.} other {Les # visites les plus récentes de chaque espèce gardent leurs photos au-delà de la durée de l’historique.}}",
-    "storage_policy_favourites": "Les favoris et leur archive sont toujours conservés."
+    "storage_policy_favourites": "Les favoris conservent tout\u00a0; les observations confirmées et les photos choisies gardent leur photo principale."
   },
   "security": {
     "https_warning": "La connexion est activée, mais cette page est servie en HTTP : les mots de passe et les sessions peuvent être lus sur le réseau. Servez YA-WAMF en HTTPS, par exemple derrière votre proxy inverse.",

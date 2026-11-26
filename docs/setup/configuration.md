@@ -572,9 +572,10 @@ history, are in [Maintenance](#maintenance). Telemetry, what leaves this install
   full-visit clips are turned off once. Review those choices and follow the
   [one-time migration steps](../../MIGRATION.md#retired-media-switches).
   **Clear cached files** asks first, then deletes cached media older than the retention
-  period and cached files that no longer belong to a detection. Favourites and each species'
-  newest visits covered by a configured minimum are protected from age cleanup; the
-  minimum protects photographs, not clips. Photo variants and metadata age together.
+  period and cached files that no longer belong to a detection. Favourites keep everything; each
+  species' newest visits covered by a configured minimum, owner-confirmed observations and
+  owner-chosen photographs keep their main photograph, while their clips and alternate frames
+  still age out. Photo variants and metadata age together.
   `media_cache.retention_days=0` follows detection retention; it does not independently mean
   unlimited when history retention is finite. Confirmed Garden animals keep their full photograph,
   and their Frigate clip while event-clip copies are on, under the same retention; **Space used**
@@ -613,15 +614,21 @@ history, are in [Maintenance](#maintenance). Telemetry, what leaves this install
 
 - **Limit the space photos and video use** — a switch, with the limit in GB beside it once it is
   on; the line under it says what the rules add up to. It periodically removes the oldest
-  non-favourite cached visits until ordinary cached snapshots, choices, thumbnails, clips,
+  non-favourite cached captures until ordinary cached snapshots, choices, thumbnails, clips,
   previews and metadata, and confirmed Garden animals' kept photos and clips, fit the budget.
+  Owner-confirmed observations and captures with an owner-chosen photograph keep their main
+  photograph while their clips, previews and alternate photo choices are still removed.
   Off means unlimited (stored as `media_cache.max_size_mb: 0`; the limit is stored in MiB).
 - **Show advanced options · Per-species limits**: **Keep photos of each species' newest visits**
   (the per-species floor) and **Limit visits per species with photos and video**, each a switch
-  with its number beside it. The second keeps media for the newest configured number of visits of
-  each canonical species; favourites are exempt. Off means unlimited (stored as `0`). It removes
-  cached media, including alternate photos and clips, while keeping visits and counted-bird records. Favourites and their archive are protected; active work is deferred, so the
-  cache can temporarily exceed the budget, or stay above it if protected media alone exceed it.
+  with its number beside it. The second keeps full cached media for the newest configured number
+  of captures of each canonical species; favourites are exempt, and owner-confirmed observations
+  or captures with an owner-chosen photograph keep their main photograph while their alternate
+  photos and clips are still removed. Off means unlimited (stored as `0`). Visits and
+  counted-bird records stay in history. Favourites and their archive, along with kept main
+  photographs of owner-confirmed and owner-chosen observations, are protected; active work is
+  deferred, so the cache can temporarily exceed the budget, or stay above it if protected media
+  alone exceed it.
   Limits run at startup and every five minutes, and when **Clear cached files** is used. The budget
   and species maximum take priority over the minimum kept through age cleanup.
   Orphaned published files are retried on the same schedule even with both limits at

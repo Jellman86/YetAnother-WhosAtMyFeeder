@@ -191,7 +191,7 @@
                     default: "{count, plural, one {Each species' newest visit keeps its photos past the history window.} other {Each species' newest # visits keep their photos past the history window.}}"
                 })
                 : null,
-            $_('settings.data.storage_policy_favourites', { default: 'Favourites and their archive are always kept.' })
+            $_('settings.data.storage_policy_favourites', { default: 'Favourites keep everything; confirmed observations and chosen photos keep their main photograph.' })
         ].filter((part): part is string => part !== null).join(' ')
     );
 
@@ -497,7 +497,7 @@
             <SettingsRow
                 labelId="setting-cache-per_species_maximum"
                 label={$_('settings.data.per_species_maximum', { default: 'Limit visits per species with photos and video' })}
-                description={$_('settings.data.per_species_maximum_help', { default: "A species' visits beyond this number lose their photos and video, oldest first. The visits stay in history. Favourites don't count." })}
+                description={$_('settings.data.per_species_maximum_help', { default: "A species' captures beyond this number lose their photos and video, oldest first. History stays. Favourites don't count, and confirmed observations or chosen photos keep their main photograph." })}
             >
                 <div class="flex flex-wrap items-center justify-end gap-3">
                     {#if cachePerSpeciesMaximum > 0}

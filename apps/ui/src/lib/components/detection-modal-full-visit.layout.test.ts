@@ -61,6 +61,8 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('handleUseMoment');
         expect(detectionModalSource).toContain('handleGenerateSnapshotCandidates');
         expect(detectionModalSource).toContain('handleApplySnapshot');
+        expect(detectionModalSource).toContain('detectionsStore.notePhotoChanged(detection.frigate_event)');
+        expect(detectionModalSource).toContain('detectionsStore.notePhotoChanged(eventId)');
         // The moment strip and its "as recorded" moment live in FrameStrip.svelte (#256).
         expect(detectionModalSource).toContain('<FrameStrip');
         expect(detectionModalSource).not.toContain("Save this frame");

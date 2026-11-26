@@ -1,0 +1,2 @@
+- Owner-confirmed observations and observations with an owner-chosen photograph now keep their main photograph when cache size limits, per-species caps, or retention cleanup remove older clips and alternate frames (previously deleted photos whose Frigate copy is no longer retained cannot be recovered).
+- Choosing or regenerating a photograph in the observation dialog now refreshes thumbnails in Explorer immediately without reloading the page.

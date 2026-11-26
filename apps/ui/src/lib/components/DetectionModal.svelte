@@ -1474,6 +1474,7 @@
             });
             snapshotStatus = result;
             snapshotRefreshToken = Date.now();
+            detectionsStore.notePhotoChanged(detection.frigate_event);
             currentSnapshotSource = result.source ?? null;
             currentSnapshotCandidateId = result.applied_candidate_id ?? null;
             resetMediaView();
@@ -1514,6 +1515,7 @@
             if (!detection || detection.frigate_event !== eventId) return;
             snapshotStatus = result;
             snapshotRefreshToken = Date.now();
+            detectionsStore.notePhotoChanged(eventId);
             await refreshSnapshotControls(eventId);
             if (!detection || detection.frigate_event !== eventId) return;
             // Regeneration can recount the birds, so the log's summary is reread too.

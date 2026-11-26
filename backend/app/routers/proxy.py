@@ -2105,6 +2105,12 @@ async def _apply_snapshot_candidate(request_body: SnapshotApplyRequest, event_id
         candidate_metadata = await media_cache.get_snapshot_metadata(image_ref) or {}
     if not image_bytes:
         raise HTTPException(status_code=409, detail="Snapshot candidate image unavailable")
+    from app.utils.image_io import decode_image_bytes
+
+    try:
+        await asyncio.to_thread(decode_image_bytes, image_bytes)
+    except Exception:
+        raise HTTPException(status_code=409, detail="Snapshot candidate image unavailable") from None
     alignment = validate_film_alignment(candidate_metadata.get("film_alignment"), image_bytes)
     snapshot_source = str(candidate.get("snapshot_source") or "high_quality_snapshot")
     replaced = await media_cache.replace_snapshot(

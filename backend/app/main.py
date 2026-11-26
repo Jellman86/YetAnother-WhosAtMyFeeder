@@ -303,12 +303,15 @@ async def run_cleanup():
                 repo = DetectionRepository(db)
                 if not favorite_event_ids:
                     favorite_event_ids = await repo.get_favorite_frigate_event_ids()
-                # Favourites keep everything; the per-species floor keeps photographs only (#178).
+                # Favourites keep everything; the per-species floor keeps photographs only (#178);
+                # owner-confirmed captures keep their main photograph while clips and alternates age out (#1109).
                 floor_ids = await repo.get_species_floor_frigate_event_ids(species_floor)
+                owner_confirmed_ids = await repo.get_owner_confirmed_frigate_event_ids()
             cache_stats = await media_cache.cleanup_old_media(
                 cache_retention,
                 protected_event_ids=favorite_event_ids,
                 protected_snapshot_event_ids=floor_ids,
+                protected_canonical_photo_event_ids=owner_confirmed_ids,
             )
             if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
                 log.info("Media cache cleanup completed", **cache_stats)

@@ -184,7 +184,7 @@
     "per_species_minimum": "Keep photos of each species' newest visits",
     "per_species_minimum_help": "That many of each species' newest visits keep their photos after they leave the history window, so a rare bird keeps its pictures. Video is not kept longer. The storage limit still applies.",
     "per_species_maximum": "Limit visits per species with photos and video",
-    "per_species_maximum_help": "A species' visits beyond this number lose their photos and video, oldest first. The visits stay in history. Favourites don't count.",
+    "per_species_maximum_help": "A species' captures beyond this number lose their photos and video, oldest first. History stays. Favourites don't count, and confirmed observations or chosen photos keep their main photograph.",
     "bird_scan_mode": "Bird scanning effort",
     "bird_scan_mode_help": "Applies to manual and automatic scans. Standard uses less CPU. Intensive also searches tiles in large frames and classifies more crop choices. Neither guarantees every bird is found.",
     "bird_scan_standard": "Standard",
@@ -226,7 +226,7 @@
     "storage_policy_history_only": "No size limit: photos and video stay until the history window removes their visits.",
     "storage_policy_species_cap": "{count, plural, one {Each species keeps photos and video only for its newest visit.} other {Each species keeps photos and video only for its newest # visits.}}",
     "storage_policy_species_floor": "{count, plural, one {Each species' newest visit keeps its photos past the history window.} other {Each species' newest # visits keep their photos past the history window.}}",
-    "storage_policy_favourites": "Favourites and their archive are always kept."
+    "storage_policy_favourites": "Favourites keep everything; confirmed observations and chosen photos keep their main photograph."
   },
   "security": {
     "https_warning": "Sign-in is on, but this page is served over HTTP, so passwords and sessions can be read on the network. Serve YA-WAMF over HTTPS, for example behind your reverse proxy.",

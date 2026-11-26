@@ -1860,8 +1860,15 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(
         mock_db = AsyncMock()
         mock_get_db.return_value.__aenter__.return_value = mock_db
 
+        from io import BytesIO
+        from PIL import Image
+
+        candidate_buf = BytesIO()
+        Image.new("RGB", (16, 16), "green").save(candidate_buf, format="JPEG")
+        candidate_bytes = candidate_buf.getvalue()
+
         async def fake_get_snapshot(key):
-            return b"candidate-image" if key == "evt__cand-1__image" else b"existing-snapshot"
+            return candidate_bytes if key == "evt__cand-1__image" else b"existing-snapshot"
 
         mock_get_snapshot.side_effect = fake_get_snapshot
         import hashlib
@@ -1869,7 +1876,7 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(
         alignment = {
             "frame_time": 101.0,
             "box": [0.1, 0.2, 0.3, 0.4],
-            "image_sha256": hashlib.sha256(b"candidate-image").hexdigest(),
+            "image_sha256": hashlib.sha256(candidate_bytes).hexdigest(),
         }
         if alignment_case == "wrong_bytes":
             alignment["image_sha256"] = "another-photo"
@@ -1925,7 +1932,7 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(
     assert body["applied_candidate_id"] == "cand-1"
     mock_replace_snapshot.assert_awaited_once_with(
         "test_event_id",
-        b"candidate-image",
+        candidate_bytes,
         source="hq_candidate_model_crop",
         manual_selection=True,
         manual_candidate_id="cand-1",

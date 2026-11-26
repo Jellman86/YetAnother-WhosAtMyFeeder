@@ -623,3 +623,113 @@ def test_invalid_photo_alignment_is_never_accepted(bad):
     alignment = {"frame_time": 101, "box": [0.1, 0.2, 0.3, 0.4], "image_sha256": hashlib.sha256(b"photo").hexdigest()}
     alignment.update(bad)
     assert media_cache_module.validate_film_alignment(alignment, b"photo") is None
+
+
+@pytest.mark.asyncio
+async def test_stale_manual_selection_sidecar_without_jpeg_does_not_block_recaching(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.replace_snapshot("evt-stale", b"first-photo", source="hq_candidate_model_crop", manual_selection=True)
+    # Simulate a missing JPEG while its sidecar survived.
+    (snapshots / "evt-stale.jpg").unlink()
+
+    assert not media_cache_module.has_manual_snapshot_selection("evt-stale")
+    written = await service.cache_snapshot("evt-stale", b"recovered-photo", source="frigate_snapshot_unverified")
+    assert written is not None
+    assert await service.get_snapshot("evt-stale") == b"recovered-photo"
+    meta = await service.get_snapshot_metadata("evt-stale") or {}
+    assert not meta.get("manual_selection")
+
+
+@pytest.mark.asyncio
+async def test_stale_manual_selection_sidecar_without_jpeg_does_not_block_automatic_replace(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.replace_snapshot("evt-auto", b"first-photo", source="hq_candidate_model_crop", manual_selection=True)
+    (snapshots / "evt-auto.jpg").unlink()
+
+    written = await service.replace_snapshot("evt-auto", b"hq-photo", source="high_quality_bird_crop", automatic=True)
+    assert written is not None
+    assert await service.get_snapshot("evt-auto") == b"hq-photo"
+    meta = await service.get_snapshot_metadata("evt-auto") or {}
+    assert not meta.get("manual_selection")
+
+
+@pytest.mark.asyncio
+async def test_empty_file_cleanup_removes_orphaned_sidecar_and_derived_thumbnail(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.replace_snapshot("evt-empty", b"photo", source="hq_candidate_model_crop", manual_selection=True)
+    await service.cache_thumbnail("evt-empty", b"thumb", source="snapshot_derived")
+    (snapshots / "evt-empty.jpg").write_bytes(b"")
+
+    stats = await service.cleanup_empty_files()
+    assert stats["snapshots_deleted"] == 1
+    assert not (snapshots / "evt-empty.jpg").exists()
+    assert not (snapshots / "evt-empty.jpg.meta.json").exists()
+    assert not (snapshots / "evt-empty_thumb.jpg").exists()
+    assert not (snapshots / "evt-empty_thumb.jpg.meta.json").exists()
+
+
+@pytest.mark.asyncio
+async def test_clear_all_removes_metadata_sidecars(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.replace_snapshot("evt-clear", b"photo", source="hq_candidate_model_crop", manual_selection=True)
+
+    await service.clear_all()
+    assert list(snapshots.iterdir()) == []
+
+
+@pytest.mark.asyncio
+async def test_cleanup_old_media_keeps_canonical_photo_for_owner_confirmed_and_manual_selection(tmp_path, monkeypatch):
+    import os
+    from datetime import datetime, timedelta
+
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    clips = media_cache_module.CLIPS_DIR
+    previews = media_cache_module.PREVIEWS_DIR
+
+    # 1. Owner-confirmed event: canonical photo kept, candidate & clip aged out.
+    await service.cache_snapshot("evt-confirmed", b"confirmed-photo", source="frigate_snapshot")
+    await service.cache_thumbnail("evt-confirmed", b"confirmed-thumb", source="snapshot_derived")
+    await service.cache_snapshot(
+        "evt-confirmed__model_crop__f1__0123456789__image", b"cand", source="snapshot_candidate"
+    )
+    await service.cache_clip("evt-confirmed", b"c" * 1024)
+    await service.cache_preview_assets("evt-confirmed", b"sprite", '{"cues": []}')
+
+    # 2. Manually selected photo (without owner confirmation): canonical photo kept, candidate & clip aged out.
+    await service.replace_snapshot(
+        "evt-chosen", b"chosen-photo", source="hq_candidate_model_crop", manual_selection=True
+    )
+    await service.cache_snapshot("evt-chosen__model_crop__f1__0123456789__image", b"cand2", source="snapshot_candidate")
+    await service.cache_clip("evt-chosen", b"c" * 1024)
+
+    # 3. Ordinary event: everything aged out.
+    await service.cache_snapshot("evt-ordinary", b"ordinary-photo", source="frigate_snapshot")
+    await service.cache_clip("evt-ordinary", b"c" * 1024)
+
+    old_time = (datetime.now() - timedelta(days=5)).timestamp()
+    for directory in (snapshots, clips, previews):
+        for path in directory.iterdir():
+            os.utime(path, (old_time, old_time))
+
+    stats = service._cleanup_old_media_sync(
+        retention_days=1,
+        protected_event_ids=set(),
+        protected_snapshot_event_ids=set(),
+        protected_canonical_photo_event_ids={"evt-confirmed"},
+    )
+
+    assert (snapshots / "evt-confirmed.jpg").exists()
+    assert (snapshots / "evt-confirmed.jpg.meta.json").exists()
+    assert (snapshots / "evt-confirmed_thumb.jpg").exists()
+    assert not (snapshots / "evt-confirmed__model_crop__f1__0123456789__image.jpg").exists()
+    assert not (clips / "evt-confirmed.mp4").exists()
+    assert not (previews / "evt-confirmed.jpg").exists()
+
+    assert (snapshots / "evt-chosen.jpg").exists()
+    assert (snapshots / "evt-chosen.jpg.meta.json").exists()
+    assert not (snapshots / "evt-chosen__model_crop__f1__0123456789__image.jpg").exists()
+    assert not (clips / "evt-chosen.mp4").exists()
+
+    assert not (snapshots / "evt-ordinary.jpg").exists()
+    assert not (clips / "evt-ordinary.mp4").exists()
+    assert stats["protected_skipped"] >= 4

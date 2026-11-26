@@ -184,7 +184,7 @@
     "per_species_minimum": "Manter as fotos das visitas mais recentes de cada espécie",
     "per_species_minimum_help": "Esse número de visitas mais recentes de cada espécie mantém as fotos depois de sair do período do histórico, para que uma ave rara mantenha as suas imagens. O vídeo não é mantido por mais tempo. O limite de armazenamento continua a aplicar-se.",
     "per_species_maximum": "Limitar as visitas por espécie com fotos e vídeo",
-    "per_species_maximum_help": "As visitas de uma espécie acima deste número perdem as fotos e o vídeo, primeiro as mais antigas. As visitas ficam no histórico. Os favoritos não contam.",
+    "per_species_maximum_help": "As capturas de uma espécie acima deste número perdem as fotos e o vídeo, primeiro as mais antigas. O histórico fica. Os favoritos não contam, e as observações confirmadas ou com foto escolhida mantêm a fotografia principal.",
     "bird_scan_mode": "Intensidade da procura de aves",
     "bird_scan_mode_help": "Aplica-se a análises manuais e automáticas. Padrão usa menos CPU. Intensivo também procura em partes de quadros grandes e classifica mais recortes. Nenhuma opção garante encontrar todas as aves.",
     "bird_scan_standard": "Padrão",
@@ -226,7 +226,7 @@
     "storage_policy_history_only": "Sem limite de tamanho: fotos e vídeo ficam até o período do histórico remover as suas visitas.",
     "storage_policy_species_cap": "{count, plural, one {Cada espécie mantém fotos e vídeo apenas da visita mais recente.} other {Cada espécie mantém fotos e vídeo apenas das # visitas mais recentes.}}",
     "storage_policy_species_floor": "{count, plural, one {A visita mais recente de cada espécie mantém as fotos além do período do histórico.} other {As # visitas mais recentes de cada espécie mantêm as fotos além do período do histórico.}}",
-    "storage_policy_favourites": "Os favoritos e o seu arquivo são sempre mantidos."
+    "storage_policy_favourites": "Os favoritos mantêm tudo; as observações confirmadas e as fotos escolhidas mantêm a fotografia principal."
   },
   "security": {
     "https_warning": "O login está ativado, mas esta página é servida por HTTP, então senhas e sessões podem ser lidas na rede. Sirva o YA-WAMF por HTTPS, por exemplo atrás do seu proxy reverso.",

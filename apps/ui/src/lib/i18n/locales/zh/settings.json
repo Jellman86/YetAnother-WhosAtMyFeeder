@@ -184,7 +184,7 @@
     "per_species_minimum": "保留每个物种最新到访的照片",
     "per_species_minimum_help": "每个物种最新的这么多次到访在超出历史时长后仍保留照片，这样稀有鸟类的照片不会丢失。视频不会保留更久。存储上限仍然适用。",
     "per_species_maximum": "限制每个物种带照片和视频的到访数",
-    "per_species_maximum_help": "某物种超出此数量的到访会从最旧的开始删除照片和视频。到访仍保留在历史中。收藏不计入。",
+    "per_species_maximum_help": "某物种超出此数量的拍摄记录会从最旧的开始删除照片和视频。历史记录仍会保留。收藏不计入，已确认的观察或手动选择的照片会保留主照片。",
     "bird_scan_mode": "鸟类扫描强度",
     "bird_scan_mode_help": "适用于手动和自动扫描。标准模式使用较少的CPU。密集模式还会搜索大帧的分块区域，并分类更多裁剪图。两种模式均不能保证找到所有鸟类。",
     "bird_scan_standard": "标准",
@@ -226,7 +226,7 @@
     "storage_policy_history_only": "无大小限制：照片和视频会一直保留，直到历史时长删除其到访。",
     "storage_policy_species_cap": "{count, plural, other {每个物种只为最新的 # 次到访保留照片和视频。}}",
     "storage_policy_species_floor": "{count, plural, other {每个物种最新的 # 次到访在超出历史时长后仍保留照片。}}",
-    "storage_policy_favourites": "收藏及其存档始终保留。"
+    "storage_policy_favourites": "收藏会保留全部内容；已确认的观察和手动选择的照片会保留主照片。"
   },
   "security": {
     "https_warning": "已启用登录，但此页面通过 HTTP 提供，密码和会话可能在网络上被读取。请通过 HTTPS 提供 YA-WAMF，例如放在您的反向代理之后。",

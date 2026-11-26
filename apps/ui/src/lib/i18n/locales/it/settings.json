@@ -184,7 +184,7 @@
     "per_species_minimum": "Conserva le foto delle visite più recenti di ogni specie",
     "per_species_minimum_help": "Questo numero di visite più recenti di ogni specie conserva le foto dopo essere uscito dalla durata della cronologia, così un uccello raro conserva le sue immagini. I video non vengono conservati più a lungo. Il limite di spazio vale comunque.",
     "per_species_maximum": "Limita le visite per specie con foto e video",
-    "per_species_maximum_help": "Le visite di una specie oltre questo numero perdono foto e video, a partire dalle più vecchie. Le visite restano nella cronologia. I preferiti non contano.",
+    "per_species_maximum_help": "Le catture di una specie oltre questo numero perdono foto e video, a partire dalle più vecchie. La cronologia resta. I preferiti non contano e le osservazioni confermate o con foto scelta mantengono la foto principale.",
     "bird_scan_mode": "Intensità di ricerca degli uccelli",
     "bird_scan_mode_help": "Si applica alle analisi manuali e automatiche. Standard usa meno CPU. Intensivo cerca anche nelle sezioni dei fotogrammi grandi e classifica più ritagli. Nessuna modalità garantisce di trovare tutti gli uccelli.",
     "bird_scan_standard": "Standard",
@@ -226,7 +226,7 @@
     "storage_policy_history_only": "Nessun limite di dimensione: foto e video restano finché la durata della cronologia non rimuove le loro visite.",
     "storage_policy_species_cap": "{count, plural, one {Ogni specie conserva foto e video solo per la visita più recente.} other {Ogni specie conserva foto e video solo per le # visite più recenti.}}",
     "storage_policy_species_floor": "{count, plural, one {La visita più recente di ogni specie conserva le foto oltre la durata della cronologia.} other {Le # visite più recenti di ogni specie conservano le foto oltre la durata della cronologia.}}",
-    "storage_policy_favourites": "I preferiti e il loro archivio restano sempre."
+    "storage_policy_favourites": "I preferiti conservano tutto; le osservazioni confermate e le foto scelte mantengono la foto principale."
   },
   "security": {
     "https_warning": "L’accesso è attivo, ma questa pagina è servita via HTTP, quindi password e sessioni possono essere lette sulla rete. Servi YA-WAMF via HTTPS, ad esempio dietro il tuo reverse proxy.",
