@@ -569,6 +569,9 @@ class EventProcessor:
             data = json.loads(payload)
             if isinstance(data, dict):
                 data.setdefault("__received_at_ts", time.time())
+                # Only YA-WAMF marks its own recording-frame replay; a message that claims to be one
+                # would skip the wait and the update cooldown.
+                data.pop("__recording_wait_done", None)
                 after = data.get("after")
                 if isinstance(after, dict):
                     event_id = str(after.get("id") or "unknown")
@@ -702,7 +705,9 @@ class EventProcessor:
                 self._record_completed(event.frigate_event, duration_ms)
                 self._record_recent_outcome(event.frigate_event, "update_already_ingested")
                 return
-            if not self._admit_update_recovery(event.frigate_event):
+            # A replay after the recording-frame wait is the retry that was already admitted, so its
+            # own admission must not pause it; separate update messages are still throttled.
+            if not event.recording_wait_done and not self._admit_update_recovery(event.frigate_event):
                 self._record_drop(event.frigate_event, "update_recovery_cooldown", camera=event.camera)
                 return
             log.info(
