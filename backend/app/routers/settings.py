@@ -1077,7 +1077,7 @@ class SettingsUpdate(BaseModel):
         0, ge=0, le=10000, description="Newest detections per species kept out of age cleanup (0 = off)"
     )
     media_cache_per_species_maximum: int = Field(
-        0, ge=0, le=10000, description="Maximum cached visits per species, excluding favourites; 0 is unlimited"
+        0, ge=0, le=10000, description="Maximum cached captures per species, excluding favourites; 0 is unlimited"
     )
     media_cache_max_size_mb: int = Field(
         0, ge=0, le=1048576, description="Ordinary media budget in MiB, excluding archived favourites; 0 is unlimited"

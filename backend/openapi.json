@@ -21114,7 +21114,7 @@
           },
           "media_cache_per_species_maximum": {
             "default": 0,
-            "description": "Maximum cached visits per species, excluding favourites; 0 is unlimited",
+            "description": "Maximum cached captures per species, excluding favourites; 0 is unlimited",
             "maximum": 10000.0,
             "minimum": 0.0,
             "title": "Media Cache Per Species Maximum",
