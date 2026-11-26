@@ -1936,7 +1936,7 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(
         source="hq_candidate_model_crop",
         manual_selection=True,
         manual_candidate_id="cand-1",
-        **({"film_alignment": alignment} if alignment_case == "valid" else {}),
+        film_alignment=alignment if alignment_case == "valid" else None,
     )
     mock_repo.mark_selected_snapshot_candidate.assert_awaited_once_with("test_event_id", "cand-1")
 

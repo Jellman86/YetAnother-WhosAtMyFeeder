@@ -66,6 +66,74 @@ async def test_replace_snapshot_preserves_original_when_swap_fails(tmp_path, mon
 
 
 @pytest.mark.asyncio
+async def test_failed_owner_choice_sidecar_never_publishes_unprotected_chosen_pixels(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt-choice-sidecar-failure"
+    await service.cache_snapshot(event_id, b"automatic-photo")
+    sidecar = snapshots / f"{event_id}.jpg.meta.json"
+    original_replace = Path.replace
+
+    def fail_sidecar_swap(self, target):
+        if Path(target) == sidecar:
+            raise OSError("sidecar disk full")
+        return original_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", fail_sidecar_swap)
+    assert await service.replace_snapshot(event_id, b"chosen", manual_selection=True) is None
+    monkeypatch.setattr(Path, "replace", original_replace)
+
+    # The choice did not happen, so the next automatic write may still replace the old photo.
+    assert await service.get_snapshot(event_id) == b"automatic-photo"
+    assert not (await service.get_snapshot_metadata(event_id)).get("manual_selection")
+
+
+@pytest.mark.asyncio
+async def test_failed_owner_choice_image_restores_the_previous_sidecar(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt-choice-image-failure"
+    await service.cache_snapshot(event_id, b"automatic-photo")
+    before = (snapshots / f"{event_id}.jpg.meta.json").read_bytes()
+    photo = snapshots / f"{event_id}.jpg"
+    original_replace = Path.replace
+
+    def fail_photo_swap(self, target):
+        if Path(target) == photo:
+            raise OSError("photo disk full")
+        return original_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", fail_photo_swap)
+    assert await service.replace_snapshot(event_id, b"chosen", manual_selection=True) is None
+    monkeypatch.setattr(Path, "replace", original_replace)
+
+    assert await service.get_snapshot(event_id) == b"automatic-photo"
+    assert (snapshots / f"{event_id}.jpg.meta.json").read_bytes() == before
+
+
+@pytest.mark.asyncio
+async def test_owner_choice_sidecar_protects_the_new_pixels_before_they_are_published(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt-choice-order"
+    await service.cache_snapshot(event_id, b"automatic-photo")
+    photo = snapshots / f"{event_id}.jpg"
+    original_replace = Path.replace
+    seen_at_publication: list[dict] = []
+
+    def observe_photo_swap(self, target):
+        if Path(target) == photo:
+            sidecar = media_cache_module.json.loads((snapshots / f"{event_id}.jpg.meta.json").read_text())
+            seen_at_publication.append(sidecar)
+        return original_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", observe_photo_swap)
+    assert await service.replace_snapshot(event_id, b"chosen", manual_selection=True, manual_candidate_id="c1")
+
+    # A process that dies at this instant leaves the new pixels already marked as the owner's choice.
+    assert seen_at_publication[0]["manual_selection"] is True
+    assert seen_at_publication[0]["manual_candidate_id"] == "c1"
+    assert seen_at_publication[0]["image_sha256"] == media_cache_module.image_sha256_hex(b"chosen")
+
+
+@pytest.mark.asyncio
 async def test_replace_snapshot_uses_unique_temp_file_per_write(tmp_path, monkeypatch):
     service, snapshots = _make_service(tmp_path, monkeypatch)
     event_id = "evt_unique_tmp"
@@ -133,7 +201,8 @@ async def test_cancelled_snapshot_replacement_finishes_publication_under_the_loc
     automatic = None
     try:
         await asyncio.wait_for(entered.wait(), 2)
-        assert await service.get_snapshot(event_id) == b"chosen"
+        # The protecting sidecar is written before the chosen pixels are published.
+        assert await service.get_snapshot(event_id) == (b"old-snapshot" if paused_step == "sidecar" else b"chosen")
         owner.cancel()
         automatic = asyncio.create_task(service.replace_snapshot(event_id, b"automatic", automatic=True))
         await asyncio.sleep(0)

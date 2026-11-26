@@ -215,6 +215,13 @@ def _unlink_if_present(path: Path) -> None:
     path.unlink(missing_ok=True)
 
 
+def _read_bytes_if_present(path: Path) -> bytes | None:
+    try:
+        return path.read_bytes()
+    except FileNotFoundError:
+        return None
+
+
 def _clip_duration_seconds(path: Path) -> Optional[float]:
     """Return clip duration in seconds when it can be measured cheaply."""
     try:
@@ -652,8 +659,7 @@ class MediaCacheService:
                 stale_manual = bool(metadata.get("manual_selection")) and not live_manual
                 path = self._snapshot_path(event_id)
 
-                async def publish() -> None:
-                    await self._write_bytes_atomic(path, image_bytes)
+                async def write_sidecar() -> None:
                     await self._write_snapshot_metadata(
                         event_id,
                         source=source,
@@ -664,6 +670,23 @@ class MediaCacheService:
                         image_bytes=image_bytes,
                         film_alignment=film_alignment,
                     )
+
+                async def publish() -> None:
+                    if manual_selection:
+                        # Protection is written before the pixels it protects, so no failure or crash
+                        # can leave the owner's photo on disk without the flag that keeps it.
+                        sidecar_path = self._snapshot_metadata_path(event_id)
+                        previous_sidecar = await asyncio.to_thread(_read_bytes_if_present, sidecar_path)
+                        await write_sidecar()
+                        try:
+                            await self._write_bytes_atomic(path, image_bytes)
+                        except Exception:
+                            await self._restore_sidecar(event_id, sidecar_path, previous_sidecar)
+                            raise
+                    else:
+                        # Removing protection waits for the replacement pixels, for the same reason.
+                        await self._write_bytes_atomic(path, image_bytes)
+                        await write_sidecar()
                     await self.delete_thumbnail(event_id)
 
                 # A later writer must see the new pixels and the selection that protects them.
@@ -673,6 +696,16 @@ class MediaCacheService:
         except Exception as e:
             log.error("Failed to replace cached snapshot", event_id=event_id, error=str(e))
             return None
+
+    async def _restore_sidecar(self, event_id: str, sidecar_path: Path, previous: bytes | None) -> None:
+        """Undo a protecting sidecar whose photo never landed. Failing to undo it keeps the old photo protected."""
+        try:
+            if previous is None:
+                await asyncio.to_thread(_unlink_if_present, sidecar_path)
+            else:
+                await self._write_bytes_atomic(sidecar_path, previous)
+        except Exception as exc:
+            log.warning("Could not restore the photo sidecar after a failed choice", event_id=event_id, error=str(exc))
 
     async def _write_snapshot_metadata(
         self,
@@ -710,9 +743,10 @@ class MediaCacheService:
             # One digest, hashed off the event loop, serves every field below.
             digest = await asyncio.to_thread(image_sha256_hex, image_bytes)
             # Binds this sidecar's provenance to the exact photograph it describes.
-            # The image is written before its sidecar, so a reader that checks
+            # The image and its sidecar are separate files, so a reader that checks
             # this against the bytes it decoded can never pair new pixels with
-            # old provenance. Hint-only updates keep the existing identity.
+            # old provenance, whichever is written first. Hint-only updates keep
+            # the existing identity.
             metadata["image_sha256"] = digest
             # Localization refreshed without writing the image cannot redefine its origin.
             metadata["snapshot_photo_hints"] = (
