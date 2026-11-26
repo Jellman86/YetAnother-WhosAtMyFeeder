@@ -8,6 +8,7 @@
     import { formatTime } from '../utils/datetime';
     import { SCORE_FILL, SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import type { HealthTimelineRow } from '../utils/health-timeline';
+    import { diagnosticWordsKey } from '../utils/diagnostic-words';
     import DetectionPreview from './DetectionPreview.svelte';
     import FilteredFramePreview from './FilteredFramePreview.svelte';
 
@@ -53,6 +54,13 @@
             ? 'border-l-status-fail-line bg-status-fail-soft/60'
             : 'border-l-status-neutral-line bg-surface-raised';
     }
+
+    /** What was held back, in the same words Health uses for that reason everywhere else. */
+    function heldBackTitle(reason: string): string {
+        return $_(`jobs.diagnostic_words.${diagnosticWordsKey(reason)}.title`, { default: reasonFallback(reason) });
+    }
+
+    const hasHeldBack = $derived(rows.some((row) => row.kind === 'held_back'));
 </script>
 
 <div
@@ -72,6 +80,12 @@
             <span class="h-2 w-2 rounded-full bg-status-neutral-line" aria-hidden="true"></span>
             {$_('jobs.errors_activity_filtered', { default: 'Filtered out' })}
         </span>
+        {#if hasHeldBack}
+            <span class="inline-flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full border border-status-neutral-line" aria-hidden="true"></span>
+                {$_('jobs.errors_activity_held_back', { default: 'Skipped on purpose' })}
+            </span>
+        {/if}
         <span class="inline-flex items-center gap-1.5">
             <span class="h-2 w-2 rounded-full bg-status-fail-line" aria-hidden="true"></span>
             {$_('jobs.errors_activity_fault', { default: 'Fault' })}
@@ -167,17 +181,18 @@
                 {:else}
                     {@const drop = row.drop}
                     {@const isFault = row.kind === 'fault'}
+                    {@const isHeldBack = row.kind === 'held_back'}
                     <li
                         class="grid grid-cols-[3rem_auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1 border-l-[3px] px-2 py-2.5 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_4.5rem] sm:gap-x-3 sm:px-3 {dropToneClass(isFault)}"
                         data-health-activity-row
-                        data-row-kind={isFault ? 'fault' : 'filtered'}
+                        data-row-kind={isFault ? 'fault' : isHeldBack ? 'held-back' : 'filtered'}
                     >
                         <span class="text-xs tabular-nums text-muted">
                             {drop.timestamp ? formatTime(drop.timestamp) : ''}
                         </span>
                         <span class="relative hidden h-full justify-center sm:flex" aria-hidden="true">
                             <span class="absolute inset-y-[-0.8rem] w-px bg-line"></span>
-                            <span class="relative mt-[0.45rem] h-2 w-2 rounded-full ring-2 ring-surface {isFault ? 'bg-status-fail-line' : 'bg-status-neutral-line'}"></span>
+                            <span class="relative mt-[0.45rem] h-2 w-2 rounded-full ring-2 ring-surface {isFault ? 'bg-status-fail-line' : isHeldBack ? 'border border-status-neutral-line bg-surface' : 'bg-status-neutral-line'}"></span>
                         </span>
                         <FilteredFramePreview
                             eventId={drop.eventId}
@@ -187,7 +202,12 @@
                                     values: { species: drop.label ?? $_('common.unknown_species', { default: 'Species not named' }) },
                                     default: 'Preview the failed detection frame for {species}'
                                 })
-                                : null}
+                                : isHeldBack
+                                    ? $_('jobs.errors_held_back_preview', {
+                                        values: { species: drop.label ?? $_('common.unknown_species', { default: 'Species not named' }) },
+                                        default: 'Preview the frame for {species}'
+                                    })
+                                    : null}
                         />
                         <div class="min-w-0">
                             <p class="flex min-w-0 items-baseline justify-between gap-2 text-sm font-semibold {isFault ? 'text-strong' : 'italic text-ink'}">
@@ -201,6 +221,10 @@
                                     <span class="font-semibold">{$_('jobs.errors_activity_fault', { default: 'Fault' })}</span>
                                     <Separator />
                                     <span>{$_(`jobs.errors_drop_reason.${drop.reason}`, { default: reasonFallback(drop.reason) })}</span>
+                                {:else if isHeldBack}
+                                    <span class="font-semibold">{$_('jobs.errors_activity_held_back', { default: 'Skipped on purpose' })}</span>
+                                    <Separator />
+                                    <span>{heldBackTitle(drop.reason)}</span>
                                 {:else}
                                     {$_(`jobs.errors_drop_reason_row.${drop.reason}`, {
                                         default: $_('jobs.errors_drop_reason_row.filter_low_confidence', {

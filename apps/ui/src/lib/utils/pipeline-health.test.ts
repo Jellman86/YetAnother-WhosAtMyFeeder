@@ -2,15 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
     eventPipelineVerdict,
-    expectedDropCount,
-    expectedDropReasons,
     faultDiagnostics,
     faultDropCount,
     faultDropReasons,
-    hasExpectedDrops,
+    filteredDropCount,
+    filteredDropReasons,
+    heldBackDropReasons,
     keyedPipelineDetections,
     recentFaultDetections,
-    recentFilteredDetections
+    recentFilteredDetections,
+    recentHeldBackDetections
 } from './pipeline-health';
 
 describe('event pipeline verdict', () => {
@@ -39,6 +40,19 @@ describe('event pipeline verdict', () => {
             fault_drop_reasons: { classifier_empty_results: 1 }
         };
         expect(eventPipelineVerdict(pipeline, 'ok')).toBe('degraded');
+    });
+
+    it('stays healthy when the only other drop was work held back on purpose', () => {
+        const pipeline = {
+            status: 'ok',
+            started_events: 3,
+            dropped_events: 2,
+            expected_drops: 2,
+            fault_drops: 0,
+            expected_drop_reasons: { filter_below_threshold: 1, update_recovery_cooldown: 1 },
+            fault_drop_reasons: {}
+        };
+        expect(eventPipelineVerdict(pipeline, 'ok')).toBe('ok');
     });
 
     it('reports critical while a critical failure is still active', () => {
@@ -71,20 +85,35 @@ describe('event pipeline verdict', () => {
 
 describe('drop counts', () => {
     const pipeline = {
-        expected_drops: 13,
+        expected_drops: 16,
         fault_drops: 2,
-        expected_drop_reasons: { filter_low_confidence: 12, filter_blocked_label: 1 },
+        expected_drop_reasons: {
+            filter_low_confidence: 12,
+            filter_blocked_label: 1,
+            update_recovery_cooldown: 2,
+            nest_mode_dedupe: 1
+        },
         fault_drop_reasons: { classify_snapshot_timeout: 2 }
     };
 
-    it('separates expected filtering from faults', () => {
-        expect(expectedDropCount(pipeline)).toBe(13);
+    it('separates what the filter rejected from faults', () => {
+        expect(filteredDropCount(pipeline)).toBe(13);
         expect(faultDropCount(pipeline)).toBe(2);
-        expect(hasExpectedDrops(pipeline)).toBe(true);
+    });
+
+    it('keeps work held back on purpose out of the filter, which is about identification settings', () => {
+        expect(filteredDropReasons(pipeline).map(entry => entry.reason)).toEqual([
+            'filter_low_confidence',
+            'filter_blocked_label'
+        ]);
+        expect(heldBackDropReasons(pipeline)).toEqual([
+            { reason: 'update_recovery_cooldown', count: 2 },
+            { reason: 'nest_mode_dedupe', count: 1 }
+        ]);
     });
 
     it('orders reasons by how often they happened', () => {
-        expect(expectedDropReasons(pipeline)).toEqual([
+        expect(filteredDropReasons(pipeline)).toEqual([
             { reason: 'filter_low_confidence', count: 12 },
             { reason: 'filter_blocked_label', count: 1 }
         ]);
@@ -92,13 +121,13 @@ describe('drop counts', () => {
     });
 
     it('treats missing, zero and unusable values as nothing to report', () => {
-        expect(expectedDropCount({})).toBe(0);
-        expect(expectedDropCount(null)).toBe(0);
+        expect(filteredDropCount({})).toBe(0);
+        expect(filteredDropCount(null)).toBe(0);
         expect(faultDropCount({ fault_drops: 'lots' })).toBe(0);
         expect(faultDropCount({ fault_drops: -3 })).toBe(0);
-        expect(hasExpectedDrops({ expected_drops: 0 })).toBe(false);
-        expect(expectedDropReasons({ expected_drop_reasons: [] })).toEqual([]);
-        expect(expectedDropReasons({ expected_drop_reasons: { filter_low_confidence: 0 } })).toEqual([]);
+        expect(filteredDropReasons({ expected_drop_reasons: [] })).toEqual([]);
+        expect(filteredDropReasons({ expected_drop_reasons: { filter_low_confidence: 0 } })).toEqual([]);
+        expect(heldBackDropReasons(null)).toEqual([]);
     });
 });
 
@@ -132,6 +161,25 @@ describe('recent filtered detections', () => {
                 timestamp: null
             }
         ]);
+    });
+
+    it('keeps work held back on purpose off the fault list but still on the record', () => {
+        const withHeldBack = [
+            ...outcomes,
+            { event_id: 'e', outcome: 'dropped', reason: 'update_recovery_cooldown', severity: 'info', timestamp: '2026-08-15T06:16:30Z' },
+            { event_id: 'f', outcome: 'dropped', reason: 'live_event_coalesced', severity: 'warning' }
+        ];
+        expect(recentFaultDetections({ recent_outcomes: withHeldBack }).map(entry => entry.eventId)).toEqual(['f', 'c']);
+        expect(recentFilteredDetections({ recent_outcomes: withHeldBack }).map(entry => entry.eventId)).toEqual(['d', 'b']);
+        expect(recentHeldBackDetections({ recent_outcomes: withHeldBack })).toEqual([
+            { eventId: 'e', reason: 'update_recovery_cooldown', label: null, score: null, timestamp: '2026-08-15T06:16:30Z' }
+        ]);
+    });
+
+    it('keeps a drop graded by an older backend without a severity on the fault list', () => {
+        const older = [{ event_id: 'g', outcome: 'dropped', reason: 'update_recovery_cooldown' }];
+        expect(recentFaultDetections({ recent_outcomes: older }).map(entry => entry.eventId)).toEqual(['g']);
+        expect(recentHeldBackDetections({ recent_outcomes: older })).toEqual([]);
     });
 
     it('honours the limit and tolerates unusable payloads', () => {
