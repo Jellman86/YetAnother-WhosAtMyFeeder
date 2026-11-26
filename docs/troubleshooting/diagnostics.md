@@ -45,6 +45,22 @@ many times it was recorded and when it was first and last seen (for example **×
 and severity match and their messages differ only in identifiers or numbers. The newest occurrence
 supplies the event shown.
 
+## Work skipped on purpose
+
+Some Frigate events are skipped on purpose, and none of these costs a visit by itself, so none makes
+Health **Degraded** or counts as an issue in the sidebar:
+
+| What Health says | Why it happens |
+|---|---|
+| **Retrying a Frigate update was paused briefly to avoid repeating work.** | A visit whose first frame was not saved is retried on Frigate's updates at most once every 5 seconds. The end of the visit is always retried, and if that fails it is recorded as its own fault. |
+| **A follow-up Frigate update was skipped because Frigate marked it as a false positive.** | Frigate already withdrew that event. |
+| **A repeat visit on a nest camera was skipped by nest mode.** | Nest mode, which you set per camera, already saved the same species on that camera within its window. |
+
+They stay on the record: the **Pipeline** card under **Detail by part** lists them under **Skipped on
+purpose** with how many times each happened, and **What happened** shows each one as **Skipped on
+purpose** rather than **Fault**. They are not listed under **Backend warnings and errors**, and a
+diagnostics bundle still carries them, graded as information.
+
 ## Dismissing a warning
 
 Each entry in **Backend warnings and errors**, each earlier incident and each open incident that
