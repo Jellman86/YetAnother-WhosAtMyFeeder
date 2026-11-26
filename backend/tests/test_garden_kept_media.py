@@ -118,6 +118,8 @@ async def frigate(monkeypatch):
         await db.commit()
     yield fake
     await close_db()
+    # Kept files live in the shared Garden folder; leave none for the next test file's size figures.
+    shutil.rmtree(cache_module.GARDEN_DIR, ignore_errors=True)
 
 
 def client() -> httpx.AsyncClient:
