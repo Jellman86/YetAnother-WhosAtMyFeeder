@@ -10,3 +10,20 @@
   now refreshes its thumbnails in Explorer without reloading the page, even when you open another
   record before it finishes. That other record's photo controls stay usable meanwhile, and no
   longer stay locked when a photo removal finishes after you switch.
+- **A photo you choose stays chosen, even if the save is interrupted:** Using a photo now marks it as
+  your choice before the photo itself is written, and finishes saving it and the record's selected
+  photo even if the connection drops part-way. If the save fails, the old photo and its settings are left as
+  they were. Refreshing a visit's timing hints no longer drops the choice when its photo settings
+  file cannot be read, a video recovery no longer brings back a choice whose photo had gone, and
+  caching one capture's photo no longer deletes another capture's chosen photo when their names
+  overlap.
+- **Storage cleanup is gentler and stops at the limit:** Removing cached files that no longer belong
+  to a capture no longer holds the database while files are deleted, so other saves do not wait for a
+  slow disk; a file that cannot be deleted is finished on the next cleanup. The storage limit now
+  weighs only files really on disk, so a missing Garden photo no longer pushes out an older bird
+  photo, and when a capture is confirmed while cleanup runs, cleanup goes on to the next oldest
+  capture until space used is under the limit. Empty-file cleanup no longer removes a clip or preview
+  that is still being written.
+- **A photo change that fails after you switch records is reported:** If using, regenerating or
+  removing a photo fails after you have opened another record, the error names the species and time
+  of the record it was for, instead of disappearing.
