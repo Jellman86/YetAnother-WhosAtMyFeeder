@@ -34,6 +34,8 @@
         colourFor: (key: string | null) => string;
         otherColour: string;
         loading: boolean;
+        /** Incremented when a real wall refetch settles so transiently failed tiles can retry. */
+        retryGeneration?: number;
         /** Visits to draw at most; a guest's photographs share a request budget, so the page caps them. */
         maxTiles?: number;
         onopen: (key: string) => void;
@@ -41,7 +43,20 @@
         onchecks: () => void;
     }
 
-    let { tiles, rows, eyebrow, label, countLabel, colourFor, otherColour, loading, maxTiles, onopen, onchecks }: Props = $props();
+    let {
+        tiles,
+        rows,
+        eyebrow,
+        label,
+        countLabel,
+        colourFor,
+        otherColour,
+        loading,
+        retryGeneration = 0,
+        maxTiles,
+        onopen,
+        onchecks
+    }: Props = $props();
 
     const id = $props.id();
     const popoutId = `wall-popout-${id}`;
@@ -91,16 +106,24 @@
     const rowCount = $derived(opened ? OPENED_ROWS : width < 520 ? CLOSED_ROWS_NARROW : CLOSED_ROWS);
     const tilePixels = (tile: WallTile): number => Math.round(large(tile) ? cell * 2 + GAP : cell);
 
-    let failed = $state<Set<string>>(new Set());
+    // Key tile failures to the current fetch/expand epoch so unrelated derived array rebuilds
+    // (species info, portraits, settings) never blink missing tiles, while a real wall refetch
+    // or re-expanding "Show more visits" lets transiently failed tiles retry cleanly.
+    let expandGeneration = $state(0);
+    const failureEpoch = $derived(`${retryGeneration}:${expandGeneration}`);
+    let failedEntries = $state<Map<string, string>>(new Map());
+    const failed = $derived(
+        new Set(
+            [...failedEntries.entries()]
+                .filter(([, epoch]) => epoch === failureEpoch)
+                .map(([event]) => event)
+        )
+    );
     function markFailed(event: string): void {
-        failed = new Set([...failed, event]);
+        const next = new Map(failedEntries);
+        next.set(event, failureEpoch);
+        failedEntries = next;
     }
-    // Clear stale tile load failures whenever a fresh tile set arrives so visits that failed
-    // transiently (for example during a Frigate hiccup) can recover on refresh or span switch.
-    $effect(() => {
-        void tiles;
-        failed = new Set();
-    });
     // A visit whose picture fails keeps its cell: the wall is packed once and nothing moves after load.
     const usable = $derived(tiles.slice(0, maxTiles ?? tiles.length));
     const shown = $derived(width === 0 ? [] : packTiles(usable, columns, rowCount));
@@ -544,7 +567,7 @@
                         onclick={() => {
                             const next = !opened;
                             opened = next;
-                            if (next && failed.size > 0) failed = new Set();
+                            if (next) expandGeneration += 1;
                         }}
                         data-capture-wall-more
                     >

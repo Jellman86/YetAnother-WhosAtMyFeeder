@@ -7,6 +7,7 @@ the media cache metadata, so full scenes are not mistaken for close photographs 
 
 import asyncio
 import os
+import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path as FilePath
 from typing import Awaitable, Callable, Literal, Optional
@@ -15,6 +16,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+import structlog
 
 from app.auth import AuthContext, get_auth_context_with_legacy
 from app.config import settings
@@ -24,13 +26,12 @@ from app.ratelimit import guest_rate_limit
 from app.repositories.detection_repository import DetectionRepository
 from app.routers.proxy import (
     SNAPSHOT_NO_STORE_HEADERS,
-    _cached_thumbnail_allowed_for_current_snapshot,
     require_event_access,
     validate_event_id,
 )
 from app.services.classification_input_provenance import cached_snapshot_input_provenance
 from app.services.community_stats_service import community_stats_service
-from app.services.media_cache import media_cache
+from app.services.media_cache import cached_thumbnail_allowed_for_current_snapshot, media_cache
 from app.services.reel_image_service import (
     REEL_IMAGE_CACHE_ENTRIES as REEL_IMAGE_CACHE_ENTRIES,
     REEL_IMAGE_MAX_EDGE as REEL_IMAGE_MAX_EDGE,
@@ -47,6 +48,7 @@ from app.utils.language import get_user_language
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.public_access import effective_public_events_days, public_events_window, public_media_window
 
+log = structlog.get_logger()
 router = APIRouter()
 
 # How far back the reel looks, and how many metadata files it will read to fill itself.
@@ -392,18 +394,30 @@ async def get_about_reel_image(
         raise HTTPException(status_code=400, detail="Invalid event ID format")
     await require_event_access(event_id, auth, lang, media="snapshot")
 
-    # Local stored photographs always take precedence so a newly chosen crop or archive wins immediately.
+    # Local stored photographs always take precedence so a newly chosen crop or archive wins
+    # immediately. If a cached file disappears mid-read (concurrent eviction) or is corrupt,
+    # fall through to the next eligible source instead of turning a valid visit into a 404.
     path = await media_cache.get_snapshot_path(event_id)
-    if path is None:
-        from app.services.archive_service import archive_service
-
-        path = await archive_service.snapshot_path(event_id)
     if path is not None:
         try:
             content = await reel_image_for(path, size)
-        except Exception:  # a corrupt file is a missing photograph, not a broken page
-            raise HTTPException(status_code=404, detail="Snapshot not found")
-        return Response(content=content, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+            return Response(content=content, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        except Exception as exc:
+            log.debug(
+                "Cached reel snapshot unreadable; trying next source", event_id=event_id, error=type(exc).__name__
+            )
+
+    from app.services.archive_service import archive_service
+
+    archive_path = await archive_service.snapshot_path(event_id)
+    if archive_path is not None:
+        try:
+            content = await reel_image_for(archive_path, size)
+            return Response(content=content, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        except Exception as exc:
+            log.debug(
+                "Archived reel snapshot unreadable; trying next source", event_id=event_id, error=type(exc).__name__
+            )
 
     # Manual uploads live in manual_observation_service and must never be probed against Frigate.
     if event_id.startswith("manual_"):
@@ -418,25 +432,35 @@ async def get_about_reel_image(
             raise HTTPException(status_code=404, detail="Snapshot not found")
         return Response(content=content, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
+    # Require a known detection row before serving cached thumbnails, consulting the warm
+    # fallback cache, or calling Frigate. This stops owner requests with arbitrary IDs from
+    # probing Frigate and stops deleted detections from serving stale thumbnails or fallback bytes.
+    try:
+        async with get_db() as db:
+            detection = await DetectionRepository(db).get_by_frigate_event(event_id)
+    except sqlite3.OperationalError as exc:
+        log.warning("Failed to verify detection for reel image; refusing fallback", error_type=type(exc).__name__)
+        raise HTTPException(
+            status_code=503,
+            detail="Snapshot temporarily unavailable",
+            headers={"Retry-After": "5"},
+        ) from exc
+    if detection is None:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+
     # An eligible locally cached thumbnail avoids an upstream round trip without serving stale
     # thumbnails that were derived from a now-missing snapshot.
     thumb_path = await media_cache.get_thumbnail_path(event_id)
     if thumb_path is not None:
         thumb_meta = await media_cache.get_thumbnail_metadata(event_id)
-        if _cached_thumbnail_allowed_for_current_snapshot(thumb_meta, has_snapshot=False):
+        if cached_thumbnail_allowed_for_current_snapshot(thumb_meta, has_snapshot=False):
             try:
                 content = await reel_image_for(thumb_path, size)
                 return Response(content=content, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
-            except Exception:
-                pass
-
-    # Require a known detection row before consulting the warm fallback cache or calling Frigate.
-    # This stops owner requests with arbitrary IDs from probing Frigate and stops deleted
-    # detections from being served out of a warm in-memory fallback cache.
-    async with get_db() as db:
-        detection = await DetectionRepository(db).get_by_frigate_event(event_id)
-    if detection is None:
-        raise HTTPException(status_code=404, detail="Snapshot not found")
+            except Exception as exc:
+                log.debug(
+                    "Cached reel thumbnail unreadable; trying Frigate", event_id=event_id, error=type(exc).__name__
+                )
 
     try:
         content = await reel_image_service.from_frigate(event_id, size)

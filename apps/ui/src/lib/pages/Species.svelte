@@ -394,6 +394,7 @@
     // The skeleton stands in only for a window's first answer: a refresh of a window already known to be
     // too quiet for a wall must not push the page about with a placeholder.
     let wallLoading = $state(true);
+    let wallLoadGeneration = $state(0);
     $effect(() => {
         // The wall shows the window the rankings beside it counted, and changes when they do.
         const requestedSpan = loadedSpan;
@@ -416,7 +417,10 @@
             signal: controller.signal
         })
             .then((response) => {
-                if (!controller.signal.aborted) wallFetched = { span: requestedSpan, detections: response };
+                if (!controller.signal.aborted) {
+                    wallFetched = { span: requestedSpan, detections: response };
+                    wallLoadGeneration += 1;
+                }
             })
             .catch((error) => {
                 if (controller.signal.aborted) return;
@@ -1939,6 +1943,7 @@
                 colourFor={(key) => (key ? speciesSeriesColor(speciesSlot().get(key) ?? SPECIES_SERIES_SLOTS, isDark()) : otherSeriesColor(isDark()))}
                 otherColour={otherSeriesColor(isDark())}
                 loading={wallLoading && wallFetched.span !== loadedSpan}
+                retryGeneration={wallLoadGeneration}
                 maxTiles={authStore.isGuest ? GUEST_WALL_TILES : undefined}
                 onopen={(key) => (selectedSpecies = key)}
                 onchecks={scrollToChecks}

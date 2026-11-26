@@ -453,14 +453,18 @@ test('a wall picture that fails keeps its cell, so nothing on the wall moves', a
 test('expanding Show more visits loads revealed tiles and hover poster, and retries after transient failure', async ({ page }) => {
     const requestedUrls: string[] = [];
     let transientWallFailure = false;
+    await page.route(url => url.pathname === '/api/leaderboard/species', async route => {
+        const span = new URL(route.request().url()).searchParams.get('span') ?? 'month';
+        await route.fulfill({ json: { span, species, window_start: start, window_end: end } });
+    });
     await page.route(url => url.pathname.startsWith('/api/about/showcase/') && url.pathname.endsWith('.jpg'), async route => {
         requestedUrls.push(route.request().url());
-        const id = Number(route.request().url().match(/wall-(\d+)\.jpg/)?.[1] ?? -1);
+        const id = Number(route.request().url().match(/wall-(?:retry-)?(\d+)\.jpg/)?.[1] ?? -1);
         if (transientWallFailure && id >= 50) {
-            await route.fulfill({ status: 503, headers: { 'Retry-After': '5' }, contentType: 'text/plain', body: 'busy' });
+            await route.fulfill({ status: 503, headers: { 'Retry-After': '5', 'Cache-Control': 'no-store' }, contentType: 'text/plain', body: 'busy' });
             return;
         }
-        await route.fulfill({ contentType: 'image/svg+xml', body: pixel });
+        await route.fulfill({ headers: { 'Cache-Control': 'no-store' }, contentType: 'image/svg+xml', body: pixel });
     });
 
     wallCaptures = captures(80);
@@ -476,7 +480,17 @@ test('expanding Show more visits loads revealed tiles and hover poster, and retr
     await expect.poll(() => page.locator('[data-capture-wall-tile]').count()).toBeGreaterThan(initialCount);
     await expect(page.locator('[data-capture-wall-missing]').first()).toBeVisible();
 
-    // Once the upstream recovers, collapsing and re-expanding clears stale failures and loads all expanded tiles.
+    // Once the upstream recovers, a real wall refetch (period switch) clears stale failures via retryGeneration without collapsing.
+    transientWallFailure = false;
+    await page.getByRole('button', { name: 'Last 7 days', exact: true }).click();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-capture-wall-missing]')).toHaveCount(0);
+
+    // Collapsing and re-expanding also retries tiles that failed transiently while expanded.
+    transientWallFailure = true;
+    wallCaptures = captures(80).map((item, index) => ({ ...item, frigate_event: `wall-retry-${index}` }));
+    await page.getByRole('button', { name: 'Last 30 days', exact: true }).click();
+    await expect(page.locator('[data-capture-wall-missing]').first()).toBeVisible();
     transientWallFailure = false;
     await page.locator('[data-capture-wall-more]').click();
     await page.locator('[data-capture-wall-more]').click();
@@ -486,14 +500,25 @@ test('expanding Show more visits loads revealed tiles and hover poster, and retr
     const lastTile = page.locator('[data-capture-wall-tile]').last();
     await lastTile.scrollIntoViewIfNeeded();
     await expect.poll(() => lastTile.locator('img').evaluate(img => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
+    const tileSrc = await lastTile.locator('img').getAttribute('src');
+    const focusedEvent = tileSrc?.match(/\/api\/about\/showcase\/(wall-(?:retry-)?\d+)\.jpg/)?.[1] ?? null;
+    expect(focusedEvent).not.toBeNull();
 
-    // Focusing the last expanded tile opens its popout and loads its card-sized poster.
+    // Move the pointer off the wall so expanding does not trigger an unrelated tile hover,
+    // then focus the last expanded tile and verify its popout loads that exact visit's card poster.
+    await page.mouse.move(0, 0);
     await page.locator('[data-capture-wall-tile][tabindex="0"]').focus();
     await page.keyboard.press('End');
     const popout = page.locator('[data-capture-wall-popout]');
     await expect(popout).toBeVisible();
+    await expect(popout.locator('img')).toHaveAttribute('src', `/api/about/showcase/${focusedEvent}.jpg`);
     await expect.poll(() => popout.locator('img').evaluate(img => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
-    expect(requestedUrls.some(url => /\/api\/about\/showcase\/wall-\d+\.jpg$/.test(new URL(url).pathname) && !url.includes('size=tile'))).toBe(true);
+    expect(
+        requestedUrls.some(url => {
+            const parsed = new URL(url);
+            return parsed.pathname === `/api/about/showcase/${focusedEvent}.jpg` && !parsed.searchParams.has('size');
+        })
+    ).toBe(true);
 });
 
 test('the chart says from which day its counts come from daily totals, and nothing when none do', async ({ page }) => {

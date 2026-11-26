@@ -34,8 +34,8 @@ from app.services.frigate_client import frigate_client
 log = structlog.get_logger()
 
 # The stored photograph can be a full-resolution frame of several megabytes; a card wants a
-# few hundred pixels. The reel serves a resized copy, kept in memory, keyed on the file so
-# a re-chosen frame is picked up immediately.
+# few hundred pixels. The reel serves a resized copy, kept in memory, keyed on the file's
+# identity (inode, nanosecond mtime, size) so even same-second replacements win immediately.
 REEL_IMAGE_MAX_EDGE = 480
 # A leaderboard wall draws up to 24 rows (300+ visits on wide displays) in cells under ninety
 # pixels wide. A card-sized copy of each is megabytes of photograph the screen cannot show,
@@ -52,6 +52,7 @@ REEL_UPSTREAM_CONCURRENCY = 6
 REEL_UPSTREAM_QUEUE_TIMEOUT_SECONDS = 5.0
 REEL_UPSTREAM_FETCH_TIMEOUT_SECONDS = 5.0
 REEL_UPSTREAM_BREAKER_SECONDS = 20.0
+REEL_UPSTREAM_BREAKER_THRESHOLD = 3
 REEL_UPSTREAM_MAX_BYTES = 16 * 1024 * 1024
 REEL_MAX_IMAGE_PIXELS = 40_000_000
 
@@ -108,6 +109,7 @@ class ReelImageService:
         upstream_queue_timeout_seconds: float = REEL_UPSTREAM_QUEUE_TIMEOUT_SECONDS,
         upstream_fetch_timeout_seconds: float = REEL_UPSTREAM_FETCH_TIMEOUT_SECONDS,
         breaker_seconds: float = REEL_UPSTREAM_BREAKER_SECONDS,
+        breaker_threshold: int = REEL_UPSTREAM_BREAKER_THRESHOLD,
     ) -> None:
         self._clock = clock
         self._max_local_entries = max(1, max_local_entries)
@@ -119,13 +121,15 @@ class ReelImageService:
         self._upstream_queue_timeout_seconds = upstream_queue_timeout_seconds
         self._upstream_fetch_timeout_seconds = upstream_fetch_timeout_seconds
         self._breaker_seconds = breaker_seconds
+        self._breaker_threshold = max(1, breaker_threshold)
 
-        self._local_images: OrderedDict[tuple[str, int, int, ReelImageSize], bytes] = OrderedDict()
+        self._local_images: OrderedDict[tuple[str, int, int, int, ReelImageSize], bytes] = OrderedDict()
         self._fallback_images: OrderedDict[tuple[str, ReelImageSize], tuple[float, bytes]] = OrderedDict()
         self._fallback_missing: OrderedDict[str, float] = OrderedDict()
         self._event_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
         self._pending_sizes: dict[str, dict[ReelImageSize, int]] = {}
         self._breaker_until: float = 0.0
+        self._consecutive_failures: int = 0
         self._semaphore: Optional[asyncio.Semaphore] = None
         self._semaphore_loop: Optional[asyncio.AbstractEventLoop] = None
 
@@ -137,6 +141,7 @@ class ReelImageService:
         self._event_locks.clear()
         self._pending_sizes.clear()
         self._breaker_until = 0.0
+        self._consecutive_failures = 0
         self._semaphore = None
         self._semaphore_loop = None
 
@@ -189,6 +194,15 @@ class ReelImageService:
         while len(self._fallback_missing) > self._max_missing_entries:
             self._fallback_missing.popitem(last=False)
 
+    def _record_transient_failure(self) -> None:
+        self._consecutive_failures += 1
+        if self._consecutive_failures >= self._breaker_threshold:
+            self._breaker_until = self._clock() + self._breaker_seconds
+            self._consecutive_failures = 0
+
+    def _record_upstream_answered(self) -> None:
+        self._consecutive_failures = 0
+
     def _register_pending_size(self, event_id: str, size: ReelImageSize) -> None:
         counts = self._pending_sizes.setdefault(event_id, {})
         counts[size] = counts.get(size, 0) + 1
@@ -206,9 +220,9 @@ class ReelImageService:
             self._pending_sizes.pop(event_id, None)
 
     async def from_file(self, path: Path, size: ReelImageSize = "card") -> bytes:
-        """Read and resize a local image file, caching the resized JPEG by file stat."""
-        stat = await aiofiles.os.stat(path)
-        key = (str(path), int(stat.st_mtime), int(stat.st_size), size)
+        """Read and resize a local image file, caching the resized JPEG by file identity."""
+        info = await aiofiles.os.stat(path)
+        key = (str(path), info.st_ino, info.st_mtime_ns, info.st_size, size)
         cached = self._local_images.get(key)
         if cached is not None:
             self._local_images.move_to_end(key)
@@ -259,21 +273,38 @@ class ReelImageService:
                     raise ReelImageUnavailableError("Frigate snapshot fallback busy") from exc
 
                 try:
-                    raw, error = await frigate_client.get_snapshot_with_error(
+                    # Recheck breaker and readiness after waiting for a slot so queued
+                    # requests do not hit Frigate after an active request opened the breaker.
+                    if self._clock() < self._breaker_until:
+                        raise ReelImageUnavailableError("Frigate snapshot fallback breaker open")
+                    if frigate_client.readiness.ready is False:
+                        frigate_client.readiness.note_deferred()
+                        raise ReelImageUnavailableError("Frigate not ready")
+
+                    raw, error = await frigate_client.get_snapshot_bounded(
                         event_id,
                         crop=True,
                         quality=95,
                         timeout=self._upstream_fetch_timeout_seconds,
+                        max_bytes=REEL_UPSTREAM_MAX_BYTES,
                     )
                     if error == "snapshot_not_found":
+                        self._record_upstream_answered()
                         self._store_missing(event_id)
                         return None
                     if _is_transient_frigate_error(error):
-                        self._breaker_until = self._clock() + self._breaker_seconds
+                        self._record_transient_failure()
                         raise ReelImageUnavailableError(f"Frigate snapshot fallback failed: {error}")
                     if error is not None or not raw:
+                        self._record_upstream_answered()
+                        log.warning(
+                            "Upstream reel snapshot unusable",
+                            event_id=event_id,
+                            error=error or "empty_payload",
+                        )
                         return None
                     if len(raw) > REEL_UPSTREAM_MAX_BYTES:
+                        self._record_upstream_answered()
                         log.warning(
                             "Upstream snapshot exceeded reel size limit",
                             event_id=event_id,
@@ -282,6 +313,7 @@ class ReelImageService:
                         )
                         return None
 
+                    self._record_upstream_answered()
                     # Resize every size currently awaited for this event (e.g. concurrent tile + card)
                     # from the single upstream download so a hover during expansion makes one call.
                     requested_sizes = set(self._pending_sizes.get(event_id, {}).keys())
@@ -292,7 +324,12 @@ class ReelImageService:
                             resized_by_size[target_size] = await asyncio.to_thread(
                                 resize_for_reel, raw, _REEL_MAX_EDGE[target_size]
                             )
-                    except Exception:
+                    except Exception as exc:
+                        log.warning(
+                            "Failed to decode upstream reel snapshot",
+                            event_id=event_id,
+                            error_type=type(exc).__name__,
+                        )
                         return None
 
                     for target_size, jpeg_bytes in resized_by_size.items():

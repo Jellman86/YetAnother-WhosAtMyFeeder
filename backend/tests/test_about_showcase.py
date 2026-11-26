@@ -250,7 +250,7 @@ async def test_reel_image_route_serves_the_stored_photograph_small(seeded_db, me
         patch("app.services.media_cache.media_cache.get_snapshot_path", new=AsyncMock(return_value=None)),
         patch("app.services.media_cache.media_cache.get_thumbnail_path", new=AsyncMock(return_value=None)),
         patch(
-            "app.services.reel_image_service.frigate_client.get_snapshot_with_error",
+            "app.services.reel_image_service.frigate_client.get_snapshot_bounded",
             new=AsyncMock(return_value=(None, "snapshot_not_found")),
         ),
     ):
@@ -380,7 +380,7 @@ async def test_evicted_visit_advertised_by_events_falls_back_read_only_to_frigat
             "app.routers.events.frigate_client.get_event_with_error",
             new=AsyncMock(return_value=({"has_snapshot": True, "has_clip": False}, None)),
         ),
-        patch("app.services.reel_image_service.frigate_client.get_snapshot_with_error", new=frigate_fetch),
+        patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=frigate_fetch),
     ):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             events_res = await client.get("/api/events?event_id=robin_new&fields=frigate_event,has_snapshot")
@@ -417,7 +417,7 @@ async def test_local_snapshot_and_archive_always_win_over_warm_fallback(seeded_d
         patch("app.services.media_cache.media_cache.get_snapshot_path", new=AsyncMock(return_value=None)),
         patch("app.services.media_cache.media_cache.get_thumbnail_path", new=AsyncMock(return_value=None)),
         patch("app.services.archive_service.archive_service.snapshot_path", new=AsyncMock(return_value=None)),
-        patch("app.services.reel_image_service.frigate_client.get_snapshot_with_error", new=frigate_fetch),
+        patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=frigate_fetch),
     ):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             fallback_res = await client.get("/api/about/showcase/robin_new.jpg?size=tile")
@@ -427,7 +427,7 @@ async def test_local_snapshot_and_archive_always_win_over_warm_fallback(seeded_d
     # Local snapshot appearing after fallback hit wins immediately without calling Frigate.
     with (
         patch("app.services.media_cache.media_cache.get_snapshot_path", new=AsyncMock(return_value=local_photo)),
-        patch("app.services.reel_image_service.frigate_client.get_snapshot_with_error", new=frigate_fetch),
+        patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=frigate_fetch),
     ):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             local_res = await client.get("/api/about/showcase/robin_new.jpg?size=tile")
@@ -439,7 +439,7 @@ async def test_local_snapshot_and_archive_always_win_over_warm_fallback(seeded_d
     with (
         patch("app.services.media_cache.media_cache.get_snapshot_path", new=AsyncMock(return_value=None)),
         patch("app.services.archive_service.archive_service.snapshot_path", new=AsyncMock(return_value=archive_photo)),
-        patch("app.services.reel_image_service.frigate_client.get_snapshot_with_error", new=frigate_fetch),
+        patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=frigate_fetch),
     ):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             archive_res = await client.get("/api/about/showcase/robin_old.jpg?size=tile")
@@ -463,7 +463,7 @@ async def test_manual_upload_and_thumbnail_provenance_paths(seeded_db, media_cac
             "app.services.manual_observation_service.manual_observation_service.path_for_event",
             new=AsyncMock(return_value=manual_preview),
         ),
-        patch("app.services.reel_image_service.frigate_client.get_snapshot_with_error", new=frigate_fetch),
+        patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=frigate_fetch),
     ):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             res = await client.get("/api/about/showcase/manual_abc123.jpg?size=tile")
@@ -478,7 +478,7 @@ async def test_manual_upload_and_thumbnail_provenance_paths(seeded_db, media_cac
             "app.services.manual_observation_service.manual_observation_service.path_for_event",
             new=AsyncMock(return_value=None),
         ),
-        patch("app.services.reel_image_service.frigate_client.get_snapshot_with_error", new=frigate_fetch),
+        patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=frigate_fetch),
     ):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             res = await client.get("/api/about/showcase/manual_missing.jpg?size=tile")
@@ -494,7 +494,7 @@ async def test_manual_upload_and_thumbnail_provenance_paths(seeded_db, media_cac
             "app.services.media_cache.media_cache.get_thumbnail_metadata",
             new=AsyncMock(return_value={"source": "frigate_thumbnail"}),
         ),
-        patch("app.services.reel_image_service.frigate_client.get_snapshot_with_error", new=frigate_fetch),
+        patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=frigate_fetch),
     ):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             res = await client.get("/api/about/showcase/robin_new.jpg?size=tile")
@@ -510,7 +510,7 @@ async def test_manual_upload_and_thumbnail_provenance_paths(seeded_db, media_cac
             "app.services.media_cache.media_cache.get_thumbnail_metadata",
             new=AsyncMock(return_value={"source": "snapshot_derived"}),
         ),
-        patch("app.services.reel_image_service.frigate_client.get_snapshot_with_error", new=frigate_fetch),
+        patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=frigate_fetch),
     ):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             res = await client.get("/api/about/showcase/robin_new.jpg?size=tile")
@@ -526,7 +526,7 @@ async def test_unknown_invalid_dotdot_and_deleted_detections_never_serve_or_prob
         patch("app.services.media_cache.media_cache.get_snapshot_path", new=AsyncMock(return_value=None)),
         patch("app.services.media_cache.media_cache.get_thumbnail_path", new=AsyncMock(return_value=None)),
         patch("app.services.archive_service.archive_service.snapshot_path", new=AsyncMock(return_value=None)),
-        patch("app.services.reel_image_service.frigate_client.get_snapshot_with_error", new=frigate_fetch),
+        patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=frigate_fetch),
     ):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             unknown = await client.get("/api/about/showcase/not_in_db_event.jpg")
@@ -583,7 +583,7 @@ async def test_denied_guest_cannot_read_owner_warmed_fallback_and_permitted_gues
             patch("app.services.media_cache.media_cache.get_snapshot_path", new=AsyncMock(return_value=None)),
             patch("app.services.media_cache.media_cache.get_thumbnail_path", new=AsyncMock(return_value=None)),
             patch("app.services.archive_service.archive_service.snapshot_path", new=AsyncMock(return_value=None)),
-            patch("app.services.reel_image_service.frigate_client.get_snapshot_with_error", new=frigate_fetch),
+            patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=frigate_fetch),
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app),
@@ -634,15 +634,94 @@ async def test_transient_frigate_outage_returns_503_with_retry_after_and_recover
         patch("app.services.media_cache.media_cache.get_snapshot_path", new=AsyncMock(return_value=None)),
         patch("app.services.media_cache.media_cache.get_thumbnail_path", new=AsyncMock(return_value=None)),
         patch("app.services.archive_service.archive_service.snapshot_path", new=AsyncMock(return_value=None)),
-        patch("app.services.reel_image_service.frigate_client.get_snapshot_with_error", new=fetch),
+        patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=fetch),
     ):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             first = await client.get("/api/about/showcase/robin_new.jpg?size=tile")
             assert first.status_code == 503
             assert first.headers.get("retry-after") == "5"
 
-            # Reset breaker as if window elapsed; retry succeeds because transient failure was not cached as missing.
-            reel_image_service._breaker_until = 0.0
+            # Retry succeeds immediately because transient failure was not negative-cached.
             second = await client.get("/api/about/showcase/robin_new.jpg?size=tile")
             assert second.status_code == 200
     assert fetch.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_eviction_during_local_read_and_corrupt_local_file_fall_through(seeded_db, media_cache_on, tmp_path):
+    """TOCTOU eviction or a corrupt local snapshot falls through to archive/Frigate instead of 404."""
+    vanished = tmp_path / "vanished.jpg"
+    corrupt = tmp_path / "corrupt.jpg"
+    corrupt.write_bytes(b"not-a-valid-jpeg")
+    archive_photo = tmp_path / "archived.jpg"
+    archive_photo.write_bytes(_jpeg(640, 480))
+    frigate_fetch = AsyncMock(return_value=(_jpeg(800, 600), None))
+
+    # 1. Snapshot path exists at lookup (not created on disk to simulate mid-read unlink) -> falls through to archive.
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot_path", new=AsyncMock(return_value=vanished)),
+        patch("app.services.archive_service.archive_service.snapshot_path", new=AsyncMock(return_value=archive_photo)),
+        patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=frigate_fetch),
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            res = await client.get("/api/about/showcase/robin_new.jpg?size=tile")
+    assert res.status_code == 200
+    assert frigate_fetch.await_count == 0
+
+    # 2. Corrupt local snapshot with no archive falls through to Frigate.
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot_path", new=AsyncMock(return_value=corrupt)),
+        patch("app.services.archive_service.archive_service.snapshot_path", new=AsyncMock(return_value=None)),
+        patch("app.services.media_cache.media_cache.get_thumbnail_path", new=AsyncMock(return_value=None)),
+        patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=frigate_fetch),
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            res = await client.get("/api/about/showcase/robin_new.jpg?size=tile")
+    assert res.status_code == 200
+    assert frigate_fetch.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_legacy_thumbnail_without_metadata_deleted_thumbnail_and_db_operational_error(
+    seeded_db, media_cache_on, tmp_path
+):
+    import sqlite3
+
+    thumb_file = tmp_path / "legacy_thumb.jpg"
+    thumb_file.write_bytes(_jpeg(320, 240))
+    frigate_fetch = AsyncMock(return_value=(_jpeg(800, 600), None))
+
+    # Legacy cached thumbnail with None metadata is served locally without calling Frigate.
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot_path", new=AsyncMock(return_value=None)),
+        patch("app.services.archive_service.archive_service.snapshot_path", new=AsyncMock(return_value=None)),
+        patch("app.services.media_cache.media_cache.get_thumbnail_path", new=AsyncMock(return_value=thumb_file)),
+        patch("app.services.media_cache.media_cache.get_thumbnail_metadata", new=AsyncMock(return_value=None)),
+        patch("app.services.reel_image_service.frigate_client.get_snapshot_bounded", new=frigate_fetch),
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            res = await client.get("/api/about/showcase/robin_new.jpg?size=tile")
+            assert res.status_code == 200
+            assert frigate_fetch.await_count == 0
+
+            # Deleting the detection blocks even the cached thumbnail for owners.
+            async with get_db() as db:
+                await db.execute("DELETE FROM detections WHERE frigate_event = 'robin_new'")
+                await db.commit()
+            after_delete = await client.get("/api/about/showcase/robin_new.jpg?size=tile")
+            assert after_delete.status_code == 404
+            assert frigate_fetch.await_count == 0
+
+    # Database operational error during detection existence check returns 503 with Retry-After.
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot_path", new=AsyncMock(return_value=None)),
+        patch("app.services.archive_service.archive_service.snapshot_path", new=AsyncMock(return_value=None)),
+        patch(
+            "app.repositories.detection_repository.DetectionRepository.get_by_frigate_event",
+            new=AsyncMock(side_effect=sqlite3.OperationalError("database is locked")),
+        ),
+    ):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            busy = await client.get("/api/about/showcase/robin_old.jpg?size=tile")
+    assert busy.status_code == 503
+    assert busy.headers.get("retry-after") == "5"

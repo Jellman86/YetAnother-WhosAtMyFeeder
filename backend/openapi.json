@@ -26047,7 +26047,7 @@
     },
     "/api/about/showcase/{event_id}.jpg": {
       "get": {
-        "description": "The stored photograph at card or tile size, under the same access rules as the photograph.",
+        "description": "The visit photograph at card or tile size, under the same access rules as snapshot.jpg.",
         "operationId": "get_about_reel_image_api_about_showcase__event_id__jpg_get",
         "parameters": [
           {
