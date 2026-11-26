@@ -18,6 +18,7 @@ import pytest_asyncio
 from app.repositories.detection_repository import Detection, DetectionRepository
 from app.repositories.processing_job_repository import ProcessingJobRepository
 from app.services import full_visit_clip_service as clips
+from app.services import high_quality_snapshot_service as photos
 from app.services import media_cache as cache
 from app.services import media_storage_service as storage
 
@@ -287,6 +288,105 @@ async def test_orphan_files_return_when_their_parent_appears_while_they_are_stag
     monkeypatch.setattr(media, "_stage_visit_deletion_sync", create_parent_then_stage)
     assert (await storage.MediaStorageService().enforce_limits())["bytes_freed"] == 0
     assert await media.get_snapshot("budget-old") == photo
+    assert media._staged_deletions_sync() == []
+
+
+async def _age_cache_files(days: int) -> None:
+    aged = (datetime.now() - timedelta(days=days)).timestamp()
+    for directory in (cache.SNAPSHOTS_DIR, cache.CLIPS_DIR, cache.PREVIEWS_DIR):
+        for path in directory.iterdir():
+            os.utime(path, (aged, aged))
+
+
+@pytest.mark.asyncio
+async def test_age_cleanup_holds_no_database_writer_while_it_unlinks(budget_visit_history, monkeypatch):
+    import app.database as db_module
+
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(db_module, "get_db", database)
+    async with database() as db:
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    await _age_cache_files(10)
+    original_unlink = Path.unlink
+    writes_during_unlink: list[str] = []
+
+    def write_during_unlink(path, *args, **kwargs):
+        if path.is_relative_to(cache.SNAPSHOTS_DIR) and not writes_during_unlink:
+            # A real independent writer, as ingest is, fails here if cleanup holds the writer lock.
+            with closing(sqlite3.connect(file_path, timeout=0.1)) as db:
+                db.execute("BEGIN IMMEDIATE")
+                db.execute(
+                    "INSERT INTO detections (detection_time,detection_index,score,category_name,display_name,"
+                    "frigate_event,camera_name) VALUES (datetime('now'),1,0.9,'Robin','Robin','age-ingest','camera')"
+                )
+                db.commit()
+            writes_during_unlink.append(path.name)
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", write_during_unlink)
+    stats = await media.cleanup_old_media(1)
+    assert writes_during_unlink
+    assert stats["snapshots_deleted"] >= 2
+    assert await media.get_snapshot("budget-old") is None
+    async with database() as db:
+        assert await DetectionRepository(db).get_by_frigate_event("age-ingest") is not None
+        state = await ProcessingJobRepository(db).get(photos.HQ_PROCESSING_PIPELINE, "budget-old")
+    assert state is not None and state.last_error == "storage_evicted"
+
+
+@pytest.mark.asyncio
+async def test_age_cleanup_returns_files_favourited_while_they_are_staged(budget_visit_history, monkeypatch):
+    import app.database as db_module
+
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(db_module, "get_db", database)
+    async with database() as db:
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    photo = await media.get_snapshot("budget-old")
+    await _age_cache_files(10)
+    original_stage = media._stage_paths_sync
+
+    def favourite_then_stage(paths):
+        with closing(sqlite3.connect(file_path, timeout=0.1)) as db:
+            db.execute(
+                "INSERT OR IGNORE INTO detection_favorites(detection_id,created_by) "
+                "SELECT id,'owner' FROM detections WHERE frigate_event='budget-old'"
+            )
+            db.commit()
+        return original_stage(paths)
+
+    monkeypatch.setattr(media, "_stage_paths_sync", favourite_then_stage)
+    await media.cleanup_old_media(1)
+    assert await media.get_snapshot("budget-old") == photo
+    assert media._staged_deletions_sync() == []
+    async with database() as db:
+        assert await ProcessingJobRepository(db).get(photos.HQ_PROCESSING_PIPELINE, "budget-old") is None
+
+
+@pytest.mark.asyncio
+async def test_age_cleanup_returns_the_main_photo_of_a_capture_confirmed_while_staged(
+    budget_visit_history, monkeypatch
+):
+    import app.database as db_module
+
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(db_module, "get_db", database)
+    async with database() as db:
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    photo = await media.get_snapshot("budget-old")
+    await _age_cache_files(10)
+    original_stage = media._stage_paths_sync
+
+    def confirm_then_stage(paths):
+        with closing(sqlite3.connect(file_path, timeout=0.1)) as db:
+            db.execute("UPDATE detections SET manual_tagged = 1 WHERE frigate_event = 'budget-old'")
+            db.commit()
+        return original_stage(paths)
+
+    monkeypatch.setattr(media, "_stage_paths_sync", confirm_then_stage)
+    await media.cleanup_old_media(1)
+    assert await media.get_snapshot("budget-old") == photo
+    assert await media.get_snapshot("budget-new") is None
     assert media._staged_deletions_sync() == []
 
 

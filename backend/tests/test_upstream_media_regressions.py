@@ -147,7 +147,7 @@ async def test_alternate_photos_and_sidecars_follow_their_visit(tmp_path, monkey
     other = snapshots / "visit_other.jpg"
     other.write_bytes(b"other")
     if operation == "age":
-        await service.cleanup_old_media(7, protected_event_ids={event}, recheck_db=False)
+        await service.cleanup_old_media(7, protected_event_ids={event})
     elif operation == "orphan":
         from contextlib import asynccontextmanager
         from unittest.mock import AsyncMock

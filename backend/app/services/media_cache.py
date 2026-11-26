@@ -1429,9 +1429,12 @@ class MediaCacheService:
         A rename is quick and touches no file contents, so the slow unlink can happen later
         without holding anything a writer needs. A failure part-way puts every file back.
         """
+        return self._stage_paths_sync(self._owned_visit_files_sync(event_id, paths))
+
+    def _stage_paths_sync(self, paths: list[Path]) -> list[tuple[Path, Path]]:
         staged: list[tuple[Path, Path]] = []
         try:
-            for path in self._owned_visit_files_sync(event_id, paths):
+            for path in paths:
                 target = path.with_name(f".{path.name}.{uuid.uuid4().hex}{_STAGED_DELETION_SUFFIX}")
                 try:
                     path.rename(target)
@@ -1677,10 +1680,10 @@ class MediaCacheService:
             )
         return groups
 
-    @staticmethod
-    def _unlink_aged_paths_sync(
-        target_paths: list[Path], cutoff: float, media_suffix: str, kind: str
-    ) -> tuple[int, int]:
+    def _stage_aged_paths_sync(
+        self, target_paths: list[Path], cutoff: float, media_suffix: str
+    ) -> list[tuple[Path, Path]]:
+        """Stage a group for deletion only if its newest media file is still older than the cutoff."""
         live_paths: list[tuple[Path, os.stat_result]] = []
         for path in target_paths:
             try:
@@ -1690,23 +1693,58 @@ class MediaCacheService:
             if stat.S_ISREG(info.st_mode):
                 live_paths.append((path, info))
         if not live_paths:
-            return 0, 0
+            return []
         media_stats = [info for path, info in live_paths if path.name.endswith(media_suffix)]
         newest_write = max(info.st_mtime for info in (media_stats or [info for _, info in live_paths]))
         if newest_write >= cutoff:
-            return 0, 0
-        deleted_count = 0
-        bytes_freed = 0
-        for path, _info in live_paths:
+            return []
+        return self._stage_paths_sync([path for path, _info in live_paths])
+
+    @staticmethod
+    async def _cached_media_visit_rows(possible_owners: set[str]) -> list[dict]:
+        from app.database import get_db
+        from app.repositories.detection_repository import DetectionRepository
+
+        # A plain read: it holds no SQLite lock once it returns.
+        async with get_db() as db:
+            return await DetectionRepository(db).list_cached_media_visits(sorted(possible_owners))
+
+    @staticmethod
+    async def _settle_staged_age_group(
+        kind: str, event_id: str, possible_owners: set[str], staged: list[tuple[Path, Path]]
+    ) -> list[tuple[Path, Path]]:
+        """Recheck the parents and record the eviction in one short, file-free write.
+
+        Returns the staged files to put back: all of them for a visit favourited meanwhile, and the main
+        photograph of one confirmed meanwhile.
+        """
+        from app.database import get_db
+        from app.repositories.detection_repository import DetectionRepository
+        from app.repositories.processing_job_repository import ProcessingJobRepository
+        from app.services.high_quality_snapshot_service import HQ_PROCESSING_PIPELINE
+
+        async with get_db() as db:
+            await db.execute("BEGIN IMMEDIATE")
             try:
-                size = path.stat().st_size
-                path.unlink()
-            except FileNotFoundError:
-                continue
-            bytes_freed += size
-            if path.name.endswith(media_suffix) or kind == "previews":
-                deleted_count += 1
-        return deleted_count, bytes_freed
+                rows = await DetectionRepository(db).list_cached_media_visits(sorted(possible_owners))
+                if any(row["is_favorite"] for row in rows):
+                    await db.rollback()
+                    return staged
+                returned: list[tuple[Path, Path]] = []
+                if kind == "snapshots":
+                    confirmed = {row["event_id"] for row in rows if row.get("owner_confirmed")}
+                    returned = [
+                        pair
+                        for pair in staged
+                        if any(is_canonical_snapshot_file(owner, pair[0]) for owner in confirmed)
+                    ]
+                    if len(returned) < len(staged):
+                        await ProcessingJobRepository(db).mark_storage_evicted(HQ_PROCESSING_PIPELINE, event_id)
+                await db.commit()
+                return returned
+            except BaseException:
+                await db.rollback()
+                raise
 
     async def _age_media_group(
         self,
@@ -1719,13 +1757,14 @@ class MediaCacheService:
         protected_event_ids: set[str],
         protected_snapshot_event_ids: set[str],
         canonical_protected: set[str],
-        recheck_db: bool,
     ) -> tuple[int, int, int]:
-        """Run one locked, DB-rechecked age eviction. Returns (deleted_count, bytes_freed, protected_skipped)."""
-        from app.database import get_db
-        from app.repositories.detection_repository import DetectionRepository
-        from app.repositories.processing_job_repository import ProcessingJobRepository
-        from app.services.high_quality_snapshot_service import HQ_PROCESSING_PIPELINE, high_quality_snapshot_service
+        """Age one visit's group without holding SQLite's writer lock across disk I/O.
+
+        The caller holds the group's media locks, so no writer touches its files meanwhile. The files
+        are staged by rename, the final check and eviction marker share one short transaction, and the
+        unlink runs after it with no connection open. Returns (deleted_count, bytes_freed, protected_skipped).
+        """
+        from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 
         possible_owners = possible_cache_owners(event_id, paths)
         active = high_quality_snapshot_service.get_active_event_ids() | self.get_active_write_event_ids()
@@ -1734,52 +1773,40 @@ class MediaCacheService:
         if kind == "snapshots" and (possible_owners & protected_snapshot_event_ids):
             return 0, 0, len(paths)
 
-        async def _execute_locked(db) -> tuple[int, int, int]:
-            db_confirmed: set[str] = set()
-            if db is not None:
-                rows = await DetectionRepository(db).list_cached_media_visits(sorted(possible_owners))
-                if any(row["is_favorite"] for row in rows):
-                    return 0, 0, len(paths)
-                db_confirmed = {row["event_id"] for row in rows if row.get("owner_confirmed")}
-            target_paths = paths
-            protected_skipped = 0
-            if kind == "snapshots":
-                protected_owners = {
-                    owner
-                    for owner in possible_owners
-                    if owner in canonical_protected
-                    or owner in db_confirmed
-                    or await asyncio.to_thread(has_manual_snapshot_selection, owner)
-                }
-                if protected_owners:
-                    kept_paths = [
-                        path
-                        for path in paths
-                        if any(is_canonical_snapshot_file(owner, path) for owner in protected_owners)
-                    ]
-                    target_paths = [path for path in paths if path not in kept_paths]
-                    protected_skipped = len(kept_paths)
-                    if not target_paths:
-                        return 0, 0, protected_skipped
-            deleted_count, bytes_freed = await self._complete_file_operation(
-                self._unlink_aged_paths_sync, target_paths, cutoff, media_suffix, kind
-            )
-            if db is not None and kind == "snapshots" and (deleted_count > 0 or bytes_freed > 0):
-                await ProcessingJobRepository(db).mark_storage_evicted(HQ_PROCESSING_PIPELINE, event_id)
-            return deleted_count, bytes_freed, protected_skipped
-
-        if not recheck_db:
-            return await _execute_locked(None)
-
-        async with get_db() as db:
-            await db.execute("BEGIN IMMEDIATE")
-            try:
-                result = await _execute_locked(db)
-                await db.commit()
-                return result
-            except BaseException:
-                await db.rollback()
-                raise
+        rows = await self._cached_media_visit_rows(possible_owners)
+        if any(row["is_favorite"] for row in rows):
+            return 0, 0, len(paths)
+        kept_paths: list[Path] = []
+        if kind == "snapshots":
+            db_confirmed = {row["event_id"] for row in rows if row.get("owner_confirmed")}
+            protected_owners = {
+                owner
+                for owner in possible_owners
+                if owner in canonical_protected
+                or owner in db_confirmed
+                or await asyncio.to_thread(has_manual_snapshot_selection, owner)
+            }
+            kept_paths = [
+                path for path in paths if any(is_canonical_snapshot_file(owner, path) for owner in protected_owners)
+            ]
+        target_paths = [path for path in paths if path not in kept_paths]
+        if not target_paths:
+            return 0, 0, len(kept_paths)
+        staged = await self._complete_file_operation(self._stage_aged_paths_sync, target_paths, cutoff, media_suffix)
+        if not staged:
+            return 0, 0, len(kept_paths)
+        try:
+            returned = await self._settle_staged_age_group(kind, event_id, possible_owners, staged)
+        except BaseException:
+            await self._complete_file_operation(self._restore_staged_deletion_sync, staged)
+            raise
+        if returned:
+            await self._complete_file_operation(self._restore_staged_deletion_sync, returned)
+        removed = await self._complete_file_operation(
+            self._remove_staged_deletions_sync,
+            [target for original, target in staged if (original, target) not in returned],
+        )
+        return removed[f"{kind}_deleted"], removed["bytes_freed"], len(kept_paths) + len(returned)
 
     async def cleanup_old_media(
         self,
@@ -1787,8 +1814,6 @@ class MediaCacheService:
         protected_event_ids: Optional[set[str]] = None,
         protected_snapshot_event_ids: Optional[set[str]] = None,
         protected_canonical_photo_event_ids: Optional[set[str]] = None,
-        *,
-        recheck_db: bool = True,
     ) -> dict:
         from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 
@@ -1829,7 +1854,6 @@ class MediaCacheService:
                             protected_event_ids=protected,
                             protected_snapshot_event_ids=snapshot_protected,
                             canonical_protected=canonical_protected,
-                            recheck_db=recheck_db,
                         ),
                         name="media_age_cleanup",
                     )

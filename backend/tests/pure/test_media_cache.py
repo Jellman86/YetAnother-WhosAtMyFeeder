@@ -3,6 +3,7 @@ import os
 import threading
 from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -24,6 +25,12 @@ def _make_service(tmp_path, monkeypatch):
     monkeypatch.setattr(media_cache_module, "PREVIEWS_DIR", previews)
 
     return media_cache_module.MediaCacheService(), snapshots
+
+
+def _without_detection_history(service, monkeypatch) -> None:
+    """Age cleanup's database boundary, for tests about its file rules: no parent is favourited or confirmed."""
+    monkeypatch.setattr(service, "_cached_media_visit_rows", AsyncMock(return_value=[]))
+    monkeypatch.setattr(service, "_settle_staged_age_group", AsyncMock(return_value=[]))
 
 
 @pytest.mark.asyncio
@@ -879,7 +886,8 @@ async def test_age_cleanup_only_locks_groups_with_expired_files(tmp_path, monkey
         return await age(**kwargs)
 
     monkeypatch.setattr(service, "_age_media_group", record_group)
-    stats = await service.cleanup_old_media(1, recheck_db=False)
+    _without_detection_history(service, monkeypatch)
+    stats = await service.cleanup_old_media(1)
 
     assert checked == ["old"]
     assert stats["snapshots_deleted"] == 1
@@ -1051,12 +1059,12 @@ async def test_cleanup_old_media_keeps_canonical_photo_for_owner_confirmed_and_m
         for path in directory.iterdir():
             os.utime(path, (old_time, old_time))
 
+    _without_detection_history(service, monkeypatch)
     stats = await service.cleanup_old_media(
         retention_days=1,
         protected_event_ids=set(),
         protected_snapshot_event_ids=set(),
         protected_canonical_photo_event_ids={"evt-confirmed"},
-        recheck_db=False,
     )
 
     assert (snapshots / "evt-confirmed.jpg").exists()
