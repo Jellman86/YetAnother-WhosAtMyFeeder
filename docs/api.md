@@ -1051,6 +1051,10 @@ other identifications for `needs_review`, and are excluded from personalization 
   successful replacement releases the previous protected owner photo choice. A newer choice
   made while regeneration runs stays protected. Empty regeneration preserves saved candidates
   and the chosen photo; unavailable media returns an error rather than claiming success.
+  When the photo is kept rather than replaced, `status` says why: `existing_crop_preserved` (no
+  reliable new crop), `manual_selection_preserved` (a newer owner choice was kept) or
+  `photo_settings_unreadable` (the photo's sidecar could not be read, so it is kept as the owner's
+  choice; choosing a photo for the capture replaces it).
 - `GET /api/frigate/{event_id}/clip.mp4`
 - `GET /api/frigate/{event_id}/recording-clip.mp4`
 - `GET /api/frigate/{event_id}/hls/{asset}`

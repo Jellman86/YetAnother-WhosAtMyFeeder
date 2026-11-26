@@ -532,7 +532,11 @@ class HighQualitySnapshotService:
         await archive_service.refresh_photograph(event_id)
 
         await self._apply_classification_refinement(event_id, classification_candidates)
-        if (await media_cache.get_snapshot_metadata(event_id) or {}).get("manual_selection"):
+        # replace_snapshot keeps a live owner choice, and fails closed when its sidecar cannot be read.
+        # Either way nothing was written, so the outcome must not claim a new photo.
+        if await media_cache.has_live_manual_selection(event_id):
+            if await media_cache.get_snapshot_metadata(event_id) is None:
+                return self._record_outcome(event_id, "photo_settings_unreadable")
             return self._record_outcome(event_id, "manual_selection_preserved")
         if manual_override and initial_metadata.get("manual_selection"):
             async with media_cache._snapshot_commit_lock(event_id):
@@ -3811,6 +3815,7 @@ class HighQualitySnapshotService:
                     "replaced",
                     "bird_crop_replaced",
                     "manual_selection_preserved",
+                    "photo_settings_unreadable",
                     "existing_crop_preserved",
                 }:
                     await repo.record_success(HQ_PROCESSING_PIPELINE, event_id, expected_revision=expected_revision)

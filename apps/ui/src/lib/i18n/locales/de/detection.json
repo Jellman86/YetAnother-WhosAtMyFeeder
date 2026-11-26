@@ -134,6 +134,8 @@
   "photo_request_failed_for_record": "Das Foto von {species} ({time}) wurde nicht geändert. {message}",
   "snapshot_generate_success": "HQ-Schnappschuss erzeugt",
   "snapshot_existing_crop_preserved": "Kein zuverlässiger neuer Ausschnitt gefunden; der vorhandene Ausschnitt wurde beibehalten.",
+  "snapshot_manual_choice_kept": "Ihr gewähltes Foto wurde beibehalten, daher wurde kein neues Foto gespeichert. Erzeugen Sie die Fotos erneut oder wählen Sie ein anderes Foto, um es zu ersetzen.",
+  "snapshot_settings_unreadable": "Das Foto wurde beibehalten, weil seine gespeicherten Einstellungen nicht gelesen werden konnten. Wählen Sie für diesen Eintrag ein Foto, um es zu ersetzen.",
   "snapshot_generated_full_frame": "Kein zuverlässiger Ausschnitt gefunden; das beste Vollbild wurde gespeichert.",
   "snapshot_candidates_loading": "Kandidaten-Frames werden geladen…",
   "snapshot_candidates_empty": "Noch keine gespeicherten Kandidaten-Frames.",

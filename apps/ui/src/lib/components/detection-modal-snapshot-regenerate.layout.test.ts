@@ -24,6 +24,14 @@ describe('DetectionModal snapshot regeneration', () => {
         expect(detectionModalSource).toContain('detection.snapshot_generated_full_frame');
     });
 
+    it('says in words when regeneration kept the photo instead of claiming a new one', () => {
+        // The server keeps an owner choice, or a photo whose settings cannot be read, and says so.
+        expect(detectionModalSource).toContain("result.status === 'manual_selection_preserved'");
+        expect(detectionModalSource).toContain('detection.snapshot_manual_choice_kept');
+        expect(detectionModalSource).toContain("result.status === 'photo_settings_unreadable'");
+        expect(detectionModalSource).toContain('detection.snapshot_settings_unreadable');
+    });
+
     it('exposes one regenerate control rather than duplicating it by candidate state', () => {
         expect(detectionModalSource.match(/void handleGenerateSnapshotCandidates\(\)/g)).toHaveLength(1);
         expect(stripSource.match(/onregenerate\?\.\(\)/g)).toHaveLength(1);

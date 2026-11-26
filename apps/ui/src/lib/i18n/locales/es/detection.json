@@ -134,6 +134,8 @@
   "photo_request_failed_for_record": "La foto de {species} ({time}) no se cambió. {message}",
   "snapshot_generate_success": "Instantánea HQ generada",
   "snapshot_existing_crop_preserved": "No se encontró un recorte nuevo fiable; se conservó el recorte existente.",
+  "snapshot_manual_choice_kept": "Se conservó la foto que elegiste, así que no se guardó ninguna foto nueva. Vuelve a regenerar o elige otra foto para reemplazarla.",
+  "snapshot_settings_unreadable": "Se conservó la foto porque no se pudieron leer sus ajustes guardados. Elige una foto para este registro para reemplazarla.",
   "snapshot_generated_full_frame": "No se encontró un recorte fiable; se guardó el mejor fotograma completo.",
   "snapshot_candidates_loading": "Cargando fotogramas candidatos…",
   "snapshot_candidates_empty": "Aún no hay fotogramas candidatos guardados.",

@@ -1565,6 +1565,10 @@
             resetMediaView();
             if (result.status === 'existing_crop_preserved') {
                 toastStore.warning($_('detection.snapshot_existing_crop_preserved', { default: 'No reliable new crop was found; the existing crop was kept.' }));
+            } else if (result.status === 'manual_selection_preserved') {
+                toastStore.warning($_('detection.snapshot_manual_choice_kept', { default: 'Your chosen photo was kept, so no new photo was saved. Regenerate again or choose another photo to replace it.' }));
+            } else if (result.status === 'photo_settings_unreadable') {
+                toastStore.warning($_('detection.snapshot_settings_unreadable', { default: 'The photo was kept because its saved settings could not be read. Choose a photo for this record to replace it.' }));
             } else if (result.status === 'generated_hq_snapshot') {
                 toastStore.warning($_('detection.snapshot_generated_full_frame', { default: 'No reliable crop was found; the best full frame was saved.' }));
             } else if (snapshotCandidates.length > 0 && countedBirds.length > 0 && !snapshotCandidatesError) {

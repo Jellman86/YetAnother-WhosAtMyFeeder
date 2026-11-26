@@ -22926,7 +22926,9 @@
               "already_hq_bird_crop",
               "generated_hq_bird_crop",
               "generated_hq_snapshot",
-              "existing_crop_preserved"
+              "existing_crop_preserved",
+              "manual_selection_preserved",
+              "photo_settings_unreadable"
             ],
             "title": "Status",
             "type": "string"

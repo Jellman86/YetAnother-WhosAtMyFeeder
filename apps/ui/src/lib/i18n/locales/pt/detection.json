@@ -134,6 +134,8 @@
   "photo_request_failed_for_record": "A foto de {species} ({time}) não foi alterada. {message}",
   "snapshot_generate_success": "Captura HQ gerada",
   "snapshot_existing_crop_preserved": "Não foi encontrado um novo recorte fiável; o recorte existente foi mantido.",
+  "snapshot_manual_choice_kept": "A foto que você escolheu foi mantida, então nenhuma foto nova foi salva. Gere novamente ou escolha outra foto para substituí-la.",
+  "snapshot_settings_unreadable": "A foto foi mantida porque as configurações salvas dela não puderam ser lidas. Escolha uma foto para este registro para substituí-la.",
   "snapshot_generated_full_frame": "Nenhum recorte confiável foi encontrado; o melhor quadro completo foi salvo.",
   "snapshot_candidates_loading": "Carregando quadros candidatos…",
   "snapshot_candidates_empty": "Ainda não há quadros candidatos salvos.",

@@ -163,6 +163,30 @@ async def test_only_removed_photo_preserves_the_current_manual_photograph(tmp_pa
 
 
 @pytest.mark.asyncio
+async def test_regeneration_refused_by_an_unreadable_photo_sidecar_says_so(tmp_path, monkeypatch):
+    event = "unreadable-sidecar-rescan"
+    cache = _make_cache_service(tmp_path, monkeypatch)
+    service, choices, _ = await _removed_photo_choices(monkeypatch, event)
+    chosen_bytes = _jpeg_bytes("green", size=(200, 200))
+    assert await cache.replace_snapshot(event, chosen_bytes, source="high_quality_bird_crop", manual_selection=True)
+    (hq_module.media_cache._snapshot_metadata_path(event)).write_bytes(b"{unreadable")
+    monkeypatch.setattr(service, "enabled", lambda: True)
+    monkeypatch.setattr(service, "_load_event_clip", AsyncMock(return_value=(b"clip", None)))
+    monkeypatch.setattr(service, "_load_event_data_for_crop", AsyncMock(return_value={}))
+    monkeypatch.setattr(service, "_persist_event_hints", AsyncMock())
+    monkeypatch.setattr(service, "_apply_classification_refinement", AsyncMock(return_value=False))
+
+    async def generate(*args, **kwargs):
+        return await service._score_and_select_snapshot_candidates(event, choices)
+
+    monkeypatch.setattr(service, "generate_snapshot_candidates_from_clip_bytes", generate)
+    outcome = await service._process_event_once(event, manual_override=True)
+    # Nothing was written, so the owner is told the photo was kept, not that a new one was saved.
+    assert outcome == "photo_settings_unreadable"
+    assert await cache.get_snapshot(event) == chosen_bytes
+
+
+@pytest.mark.asyncio
 async def test_raw_photo_fallback_cannot_reapply_removed_content(monkeypatch):
     event = "dismissed-fallback"
     service, choices, removed_bytes = await _removed_photo_choices(monkeypatch, event)

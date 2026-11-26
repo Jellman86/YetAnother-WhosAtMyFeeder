@@ -1618,6 +1618,38 @@ async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.As
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["manual_selection_preserved", "photo_settings_unreadable"])
+async def test_generate_hq_bird_crop_snapshot_reports_a_kept_photo_instead_of_success(
+    client: httpx.AsyncClient, outcome
+):
+    original_cache_enabled = media_cache_module.media_cache._available
+    original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
+    original_hq_crop = settings.media_cache.high_quality_event_snapshot_bird_crop
+    media_cache_module.media_cache._available = True
+    settings.media_cache.high_quality_event_snapshots = True
+    settings.media_cache.high_quality_event_snapshot_bird_crop = True
+
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=b"crop")),
+        patch("app.services.media_cache.media_cache.get_snapshot_metadata", new=AsyncMock(return_value=None)),
+        patch(
+            "app.routers.proxy.frigate_client.get_snapshot_with_error",
+            new=AsyncMock(return_value=(None, "snapshot_not_found")),
+        ),
+        patch("app.routers.proxy.high_quality_snapshot_service.process_event", new=AsyncMock(return_value=outcome)),
+    ):
+        try:
+            response = await client.post("/api/frigate/test_event_id/snapshot/hq-bird-crop?regenerate=true")
+            assert response.status_code == 200
+            assert response.json()["status"] == outcome
+            assert response.json()["result"] == outcome
+        finally:
+            media_cache_module.media_cache._available = original_cache_enabled
+            settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
+            settings.media_cache.high_quality_event_snapshot_bird_crop = original_hq_crop
+
+
+@pytest.mark.asyncio
 async def test_generate_hq_bird_crop_snapshot_reports_preserved_existing_crop(client: httpx.AsyncClient):
     original_cache_enabled = media_cache_module.media_cache._available
     original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
