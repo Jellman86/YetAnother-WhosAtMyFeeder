@@ -968,6 +968,47 @@ async def test_empty_file_cleanup_leaves_streaming_clips_until_writes_finish(tmp
 
 
 @pytest.mark.asyncio
+async def test_empty_file_cleanup_leaves_a_streaming_recording_clip_until_its_write_finishes(tmp_path, monkeypatch):
+    service, _ = _make_service(tmp_path, monkeypatch)
+    opened, send = asyncio.Event(), asyncio.Event()
+    data = b"clip" * 4096
+
+    async def chunks():
+        opened.set()
+        await send.wait()
+        yield data
+
+    async def commit(event_id, *, path, tmp_path, total_size):
+        # Duration probing needs a real video; this test is about the hidden file staying put.
+        tmp_path.replace(path)
+        return path
+
+    monkeypatch.setattr(service, "_commit_recording_clip_candidate", commit)
+    writer = asyncio.create_task(service.cache_recording_clip_streaming("live", chunks()))
+    await asyncio.wait_for(opened.wait(), 2)
+    try:
+        # The recording is written through a hidden temporary file that is empty until the first chunk.
+        assert [path.name.startswith(".live_recording.") for path in media_cache_module.CLIPS_DIR.iterdir()] == [True]
+        stats = await service.cleanup_empty_files()
+        assert stats["clips_deleted"] == 0
+    finally:
+        send.set()
+        path = await writer
+    assert path is not None
+    assert path.read_bytes() == data
+
+
+@pytest.mark.asyncio
+async def test_empty_file_cleanup_removes_an_abandoned_hidden_recording_file(tmp_path, monkeypatch):
+    service, _ = _make_service(tmp_path, monkeypatch)
+    abandoned = media_cache_module.CLIPS_DIR / f".gone_recording.{'a' * 32}.tmp.mp4"
+    abandoned.touch()
+
+    assert (await service.cleanup_empty_files())["clips_deleted"] == 1
+    assert not abandoned.exists()
+
+
+@pytest.mark.asyncio
 async def test_empty_file_cleanup_skips_previews_during_publication(tmp_path, monkeypatch):
     service, _ = _make_service(tmp_path, monkeypatch)
     path = service._preview_sprite_path("live-preview")

@@ -216,6 +216,15 @@ _STAGED_DELETION_SUFFIX = ".evicting.tmp"
 _STAGED_DELETION_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_STAGED_DELETION_SUFFIX))
 
 
+_HIDDEN_CLIP_WRITE_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}\.tmp\.mp4")
+
+
+def _clip_named_by_its_writer(path: Path) -> Path:
+    """A streaming clip writer's hidden temporary file, named as the clip it becomes."""
+    match = _HIDDEN_CLIP_WRITE_NAME.fullmatch(path.name)
+    return path.with_name(f"{match.group(1)}.mp4") if match else path
+
+
 def _unlink_if_present(path: Path) -> None:
     path.unlink(missing_ok=True)
 
@@ -1604,8 +1613,10 @@ class MediaCacheService:
                     log.warning("Failed to delete empty snapshot", path=str(path), error=str(e))
 
         for path in empty_clips:
-            event_id = cache_name_event_id(path.name)
-            owners = {self._media_write_owner(owner) for owner in possible_cache_owners(event_id, [path])}
+            # A streaming writer's hidden file is empty until its first chunk; its lease is the clip's.
+            named = _clip_named_by_its_writer(path)
+            event_id = cache_name_event_id(named.name)
+            owners = {self._media_write_owner(owner) for owner in possible_cache_owners(event_id, [named])}
             async with self._recording_clip_commit_lock(event_id), AsyncExitStack() as leases:
                 for owner in sorted(owners):
                     await leases.enter_async_context(self._media_lifecycle_lock(owner))
