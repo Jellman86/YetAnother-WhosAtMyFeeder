@@ -131,6 +131,7 @@
   "snapshot_candidate_final_frame": "Istantanea finale di Frigate",
   "snapshot_best": "Migliore",
   "snapshot_apply_success": "Istantanea aggiornata",
+  "photo_request_failed_for_record": "La foto di {species} ({time}) non è stata modificata. {message}",
   "snapshot_generate_success": "Istantanea HQ generata",
   "snapshot_existing_crop_preserved": "Non è stato trovato un nuovo ritaglio affidabile; è stato mantenuto quello esistente.",
   "snapshot_generated_full_frame": "Non è stato trovato un ritaglio affidabile; è stato salvato il miglior fotogramma intero.",

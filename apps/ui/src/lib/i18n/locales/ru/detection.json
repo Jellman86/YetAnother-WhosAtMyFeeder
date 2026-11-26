@@ -131,6 +131,7 @@
   "snapshot_candidate_final_frame": "Финальный снимок Frigate",
   "snapshot_best": "Лучший",
   "snapshot_apply_success": "Снимок обновлён",
+  "photo_request_failed_for_record": "Фото {species} ({time}) не изменено. {message}",
   "snapshot_generate_success": "HQ-снимок создан",
   "snapshot_existing_crop_preserved": "Надёжный новый кадр не найден; сохранён существующий кадр.",
   "snapshot_generated_full_frame": "Надёжный кадр не найден; сохранён лучший полный кадр.",

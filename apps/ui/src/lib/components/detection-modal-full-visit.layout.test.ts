@@ -66,7 +66,10 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(applyStart).toBeGreaterThan(-1);
         expect(applyEnd).toBeGreaterThan(applyStart);
         const applyBlock = detectionModalSource.slice(applyStart, applyEnd);
-        expect(applyBlock).toContain('const eventId = detection.frigate_event;');
+        expect(applyBlock).toContain('const record = photoRequestRecord();');
+        expect(applyBlock).toContain('const eventId = record.eventId;');
+        // A late failure is reported under the record it was for, never dropped.
+        expect(applyBlock).toContain('reportPhotoRequestFailure(record, e);');
         expect(applyBlock).toContain('await applySnapshotCandidate(eventId,');
         expect(applyBlock).toContain('detectionsStore.notePhotoChanged(eventId);');
         const staleGuard = 'if (!detection || detection.frigate_event !== eventId) return;';
@@ -79,6 +82,7 @@ describe('detection modal full-visit fetch wiring', () => {
         const regenBlock = detectionModalSource.slice(regenStart, regenEnd);
         expect(regenBlock.indexOf('detectionsStore.notePhotoChanged(eventId);')).toBeGreaterThan(-1);
         expect(regenBlock.indexOf('detectionsStore.notePhotoChanged(eventId);')).toBeLessThan(regenBlock.indexOf(staleGuard));
+        expect(regenBlock).toContain('reportPhotoRequestFailure(record, e);');
         // In-flight photo work is held per capture, so a switch neither inherits nor strands it.
         expect(detectionModalSource).toContain('photoApplyEvents.has(detection.frigate_event)');
         expect(detectionModalSource).toContain('photoGenerateEvents.has(detection.frigate_event)');

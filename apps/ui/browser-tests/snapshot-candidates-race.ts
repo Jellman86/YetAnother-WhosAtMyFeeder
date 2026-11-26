@@ -9,6 +9,7 @@ declare global {
             completeAnalysis: (id?: 'A' | 'B') => void;
             progressAnalysis: (frames: number) => void;
             mediaVersion: (id: 'A' | 'B') => number;
+            toasts: () => { type: string; message: string }[];
             setCapture: (id: 'A' | 'B') => void;
             setOwner: (owner: boolean) => void;
             setSummary: (counted: number) => void;

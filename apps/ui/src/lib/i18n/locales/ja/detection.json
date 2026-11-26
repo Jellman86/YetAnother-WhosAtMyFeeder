@@ -131,6 +131,7 @@
   "snapshot_candidate_final_frame": "Frigateの最終スナップショット",
   "snapshot_best": "最良",
   "snapshot_apply_success": "スナップショットを更新しました",
+  "photo_request_failed_for_record": "{species}（{time}）の写真は変更されませんでした。{message}",
   "snapshot_generate_success": "HQスナップショットを生成しました",
   "snapshot_existing_crop_preserved": "信頼できる新しい切り抜きが見つからなかったため、既存の切り抜きを保持しました。",
   "snapshot_generated_full_frame": "信頼できる切り抜きが見つからなかったため、最適なフルフレームを保存しました。",

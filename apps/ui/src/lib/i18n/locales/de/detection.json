@@ -131,6 +131,7 @@
   "snapshot_candidate_final_frame": "Finales Frigate-Standbild",
   "snapshot_best": "Bester",
   "snapshot_apply_success": "Schnappschuss aktualisiert",
+  "photo_request_failed_for_record": "Das Foto von {species} ({time}) wurde nicht geändert. {message}",
   "snapshot_generate_success": "HQ-Schnappschuss erzeugt",
   "snapshot_existing_crop_preserved": "Kein zuverlässiger neuer Ausschnitt gefunden; der vorhandene Ausschnitt wurde beibehalten.",
   "snapshot_generated_full_frame": "Kein zuverlässiger Ausschnitt gefunden; das beste Vollbild wurde gespeichert.",

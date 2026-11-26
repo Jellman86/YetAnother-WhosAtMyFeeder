@@ -131,6 +131,7 @@
   "snapshot_candidate_final_frame": "Frigate 最终快照",
   "snapshot_best": "最佳",
   "snapshot_apply_success": "快照已更新",
+  "photo_request_failed_for_record": "{species}（{time}）的照片未更改。{message}",
   "snapshot_generate_success": "HQ 快照已生成",
   "snapshot_existing_crop_preserved": "未找到可靠的新裁剪；已保留现有裁剪。",
   "snapshot_generated_full_frame": "未找到可靠的裁剪；已保存最佳完整画面。",

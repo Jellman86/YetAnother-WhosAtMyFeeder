@@ -131,6 +131,7 @@
   "snapshot_candidate_final_frame": "Frigate final snapshot",
   "snapshot_best": "Best",
   "snapshot_apply_success": "Snapshot updated",
+  "photo_request_failed_for_record": "The photo of {species} at {time} was not changed. {message}",
   "snapshot_generate_success": "HQ snapshot generated",
   "snapshot_existing_crop_preserved": "No reliable new crop was found; the existing crop was kept.",
   "snapshot_generated_full_frame": "No reliable crop was found; the best full frame was saved.",

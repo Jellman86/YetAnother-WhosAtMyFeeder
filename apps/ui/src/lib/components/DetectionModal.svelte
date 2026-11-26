@@ -1416,6 +1416,36 @@
         await handleApplySnapshot('candidate', candidate.candidate_id);
     }
 
+    interface PhotoRequestRecord {
+        eventId: string;
+        species: string;
+        time: string;
+    }
+
+    /** The record a photo request is for, named while it is still the open one. */
+    function photoRequestRecord(): PhotoRequestRecord {
+        return {
+            eventId: detection.frigate_event,
+            species: $birdNames(detection, showCommon, preferSci).primary,
+            time: formatDateTime(detection.detection_time)
+        };
+    }
+
+    /** A failure is always reported; after a switch it names its record, so it is not read as the open one's. */
+    function reportPhotoRequestFailure(record: PhotoRequestRecord, error: unknown): void {
+        const message = getErrorMessage(error) || $_('common.error', { default: 'Action failed' });
+        if (detection?.frigate_event === record.eventId) {
+            toastStore.error(message);
+            return;
+        }
+        toastStore.error(
+            $_('detection.photo_request_failed_for_record', {
+                values: { species: record.species, time: record.time, message },
+                default: 'The photo of {species} at {time} was not changed. {message}'
+            })
+        );
+    }
+
     /** Removes or restores every candidate behind one strip choice, and says which removals changed. */
     async function removePhotoChoice(
         candidateIds: string[],
@@ -1424,7 +1454,8 @@
     ): Promise<SnapshotDismissalTarget[]> {
         const [candidateId, ...companionCandidateIds] = candidateIds;
         if (!candidateId || !hasOwnerDetectionActions || snapshotApplyPending) return [];
-        const eventId = detection.frigate_event;
+        const record = photoRequestRecord();
+        const eventId = record.eventId;
         photoApplyEvents.add(eventId);
         try {
             const response = await dismissSnapshotCandidate(eventId, candidateId, dismissed, {
@@ -1442,7 +1473,7 @@
             }
             return response.changed_dismissals ?? [];
         } catch (error) {
-            toastStore.error(getErrorMessage(error));
+            reportPhotoRequestFailure(record, error);
             throw error;
         } finally {
             photoApplyEvents.delete(eventId);
@@ -1472,7 +1503,8 @@
         candidateId?: string | null
     ) {
         if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotApplyPending) return;
-        const eventId = detection.frigate_event;
+        const record = photoRequestRecord();
+        const eventId = record.eventId;
         photoApplyEvents.add(eventId);
         try {
             const result = await applySnapshotCandidate(eventId, {
@@ -1489,8 +1521,7 @@
             toastStore.success($_('detection.snapshot_apply_success', { default: 'Snapshot updated' }));
             await refreshSnapshotControls(eventId);
         } catch (e) {
-            if (!detection || detection.frigate_event !== eventId) return;
-            toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
+            reportPhotoRequestFailure(record, e);
         } finally {
             photoApplyEvents.delete(eventId);
         }
@@ -1517,7 +1548,8 @@
 
     async function handleGenerateSnapshotCandidates() {
         if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotGeneratePending) return;
-        const eventId = detection.frigate_event;
+        const record = photoRequestRecord();
+        const eventId = record.eventId;
         photoGenerateEvents.add(eventId);
         try {
             const result = await generateHighQualityBirdCropSnapshot(eventId);
@@ -1546,8 +1578,7 @@
                 toastStore.warning($_('detection.snapshot_regenerate_no_candidates', { default: 'Snapshot regenerated, but no selectable candidates were produced.' }));
             }
         } catch (e) {
-            if (!detection || detection.frigate_event !== eventId) return;
-            toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
+            reportPhotoRequestFailure(record, e);
         } finally {
             photoGenerateEvents.delete(eventId);
         }

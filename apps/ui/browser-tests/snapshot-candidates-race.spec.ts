@@ -172,8 +172,53 @@ test('applying a photo refreshes its own capture after switching records', async
     await expect.poll(() => page.evaluate(() => window.snapshotRace?.mediaVersion('A'))).toBeGreaterThan(0);
     expect(await page.evaluate(() => window.snapshotRace?.mediaVersion('B'))).toBe(0);
     await expect(page.locator('img[alt="Capture B"]').first()).toBeVisible();
-    await expect(page.getByText('Snapshot updated')).toHaveCount(0);
+    // A success that finishes after a switch stays silent: it is not news about the open record.
+    expect(await toasts(page)).toEqual([]);
     await expect(regenerateButton(page)).toBeEnabled();
+    expect(fixture.errors).toEqual([]);
+});
+
+test('a photo request that fails after switching records names the record it was for', async ({ page }) => {
+    const fixture = await open(page, 'shown', true);
+    await release(fixture, false);
+    const requests: Record<'apply' | 'regenerate' | 'remove', Route | null> = { apply: null, regenerate: null, remove: null };
+    await page.route('**/api/frigate/A/snapshot/apply', route => { requests.apply = route; });
+    await page.route('**/api/frigate/A/snapshot/hq-bird-crop**', route => { requests.regenerate = route; });
+    await page.route(url => /^\/api\/frigate\/A\/snapshot\/candidates\/[^/]+$/.test(url.pathname), route => {
+        if (route.request().method() !== 'PATCH') return route.fallback();
+        requests.remove = route;
+    });
+    const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+    const failures: [keyof typeof requests, string][] = [
+        ['remove', 'Fixture removal refused'],
+        ['regenerate', 'Fixture regeneration refused'],
+        ['apply', 'Fixture apply refused']
+    ];
+    for (const [index, [kind, detail]] of failures.entries()) {
+        if (index > 0) {
+            const requestsBefore = fixture.requestsA;
+            await page.evaluate(() => window.snapshotRace?.setCapture('A'));
+            await expect.poll(() => fixture.requestsA).toBeGreaterThan(requestsBefore);
+        }
+        await expect(page.locator('img[alt="Capture A"]').first()).toBeVisible();
+        await expect(triggers).toHaveCount(3);
+        if (kind === 'regenerate') {
+            await regenerateButton(page).click();
+        } else {
+            await triggers.nth(1).click();
+            const panel = page.locator('[data-frame-strip-panel]');
+            await (kind === 'apply' ? page.getByRole('button', { name: 'Use this frame' }) : panel.getByRole('button', { name: 'Remove photo choice' })).click();
+        }
+        await expect.poll(() => requests[kind] !== null).toBe(true);
+        await page.evaluate(() => window.snapshotRace?.setCapture('B'));
+        await expect(page.locator('img[alt="Capture B"]').first()).toBeVisible();
+        await requests[kind]?.fulfill({ status: 409, json: { detail: detail } });
+        await expect.poll(async () => (await toasts(page)).find(toast => toast.message.includes(detail))).toBeTruthy();
+        const toast = (await toasts(page)).find(item => item.message.includes(detail));
+        expect(toast?.type).toBe('error');
+        expect(toast?.message).toContain('The photo of Capture A at ');
+        expect(toast?.message).not.toContain('Capture B');
+    }
     expect(fixture.errors).toEqual([]);
 });
 
@@ -229,6 +274,10 @@ test('a photo removal that finishes after switching records leaves the next reco
     await expect(triggers).toHaveCount(3);
     expect(fixture.errors).toEqual([]);
 });
+
+async function toasts(page: Page): Promise<{ type: string; message: string }[]> {
+    return (await page.evaluate(() => window.snapshotRace?.toasts())) ?? [];
+}
 
 function regenerateButton(page: Page) {
     return page.getByRole('button', { name: 'Regenerate snapshots and recount birds', exact: true });
