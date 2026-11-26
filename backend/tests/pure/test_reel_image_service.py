@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
 from io import BytesIO
 import os
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 from PIL import Image
 import pytest
 
@@ -66,32 +66,44 @@ def test_transient_error_classification():
 
 
 @pytest.mark.asyncio
-async def test_bounded_snapshot_stream_stops_reading_at_limit():
+async def test_bounded_snapshot_stream_stops_reading_at_limit_and_rejects_compressed():
     chunks_yielded = 0
+    seen_accept_encoding: list[str] = []
 
-    class _FakeStreamResponse:
-        status_code = 200
-        headers: dict[str, str] = {}
-
-        async def aiter_bytes(self, _chunk_size: int = 65536):
+    class _ChunkedBody(httpx.AsyncByteStream):
+        async def __aiter__(self):
             nonlocal chunks_yielded
             for _ in range(10):
                 chunks_yielded += 1
                 yield b"x" * 40
 
-    class _FakeHttpClient:
-        @asynccontextmanager
-        async def stream(self, *_args, **_kwargs):
-            yield _FakeStreamResponse()
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen_accept_encoding.append(request.headers.get("accept-encoding", ""))
+        if "compressed" in str(request.url):
+            return httpx.Response(
+                200,
+                headers={"Content-Encoding": "gzip"},
+                stream=_ChunkedBody(),
+            )
+        return httpx.Response(200, stream=_ChunkedBody())
 
     client = FrigateClient()
-    with patch.object(client, "_get_client", return_value=_FakeHttpClient()):
-        data, error = await client.get_snapshot_bounded("evt-huge", max_bytes=100)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as real_httpx_client:
+        with patch.object(client, "_get_client", return_value=real_httpx_client):
+            data, error = await client.get_snapshot_bounded("evt-huge", max_bytes=100)
+            assert data is None
+            assert error == "snapshot_too_large"
+            # Stopped on chunk 3 (40 + 40 + 40 > 100) instead of consuming all 10 chunks.
+            assert chunks_yielded == 3
 
-    assert data is None
-    assert error == "snapshot_too_large"
-    # Stopped on chunk 3 (40 + 40 + 40 > 100) instead of consuming all 10 chunks.
-    assert chunks_yielded == 3
+            chunks_before_compressed = chunks_yielded
+            comp_data, comp_error = await client.get_snapshot_bounded("evt-compressed", max_bytes=100)
+            assert comp_data is None
+            assert comp_error == "snapshot_compressed_encoding"
+            # Compressed response is rejected from headers before consuming any body chunks.
+            assert chunks_yielded == chunks_before_compressed
+
+    assert seen_accept_encoding == ["identity", "identity"]
 
 
 @pytest.mark.asyncio

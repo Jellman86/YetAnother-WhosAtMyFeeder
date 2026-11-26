@@ -108,21 +108,16 @@
 
     // Key tile failures to the current fetch/expand epoch so unrelated derived array rebuilds
     // (species info, portraits, settings) never blink missing tiles, while a real wall refetch
-    // or re-expanding "Show more visits" lets transiently failed tiles retry cleanly.
+    // or re-expanding "Show more visits" lets transiently failed tiles retry cleanly without
+    // retaining failures from earlier generations.
+    const EMPTY_FAILED: ReadonlySet<string> = new Set();
     let expandGeneration = $state(0);
     const failureEpoch = $derived(`${retryGeneration}:${expandGeneration}`);
-    let failedEntries = $state<Map<string, string>>(new Map());
-    const failed = $derived(
-        new Set(
-            [...failedEntries.entries()]
-                .filter(([, epoch]) => epoch === failureEpoch)
-                .map(([event]) => event)
-        )
-    );
+    let failedState = $state<{ epoch: string; events: ReadonlySet<string> }>({ epoch: '', events: EMPTY_FAILED });
+    const failed = $derived(failedState.epoch === failureEpoch ? failedState.events : EMPTY_FAILED);
     function markFailed(event: string): void {
-        const next = new Map(failedEntries);
-        next.set(event, failureEpoch);
-        failedEntries = next;
+        const base = failedState.epoch === failureEpoch ? failedState.events : EMPTY_FAILED;
+        failedState = { epoch: failureEpoch, events: new Set([...base, event]) };
     }
     // A visit whose picture fails keeps its cell: the wall is packed once and nothing moves after load.
     const usable = $derived(tiles.slice(0, maxTiles ?? tiles.length));

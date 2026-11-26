@@ -189,9 +189,10 @@ class FrigateClient:
         """Stream a Frigate snapshot with a hard byte ceiling so oversized bodies are never buffered."""
         url = f"{self.base_url}/api/events/{event_id}/snapshot.jpg"
         params = {"crop": 1 if crop else 0, "quality": quality}
+        headers = {**self._get_headers(), "Accept-Encoding": "identity"}
         client = self._get_client()
         try:
-            async with client.stream("GET", url, params=params, headers=self._get_headers(), timeout=timeout) as resp:
+            async with client.stream("GET", url, params=params, headers=headers, timeout=timeout) as resp:
                 frigate_reachability.record_response(resp.status_code, datetime.now(timezone.utc))
                 if resp.status_code == 404:
                     log.debug("Snapshot not found", event_id=event_id)
@@ -199,6 +200,14 @@ class FrigateClient:
                 if resp.status_code != 200:
                     log.warning("Failed to fetch snapshot", event_id=event_id, status=resp.status_code)
                     return None, f"snapshot_http_{resp.status_code}"
+                content_encoding = resp.headers.get("content-encoding", "identity").strip().lower()
+                if content_encoding not in {"", "identity"}:
+                    log.warning(
+                        "Upstream snapshot used compressed encoding",
+                        event_id=event_id,
+                        content_encoding=content_encoding,
+                    )
+                    return None, "snapshot_compressed_encoding"
                 content_length = resp.headers.get("content-length")
                 if content_length is not None:
                     try:
@@ -213,7 +222,7 @@ class FrigateClient:
                     except ValueError:
                         pass
                 buf = bytearray()
-                async for chunk in resp.aiter_bytes(65536):
+                async for chunk in resp.aiter_raw():
                     if len(buf) + len(chunk) > max_bytes:
                         log.warning(
                             "Upstream snapshot stream exceeded byte limit",
