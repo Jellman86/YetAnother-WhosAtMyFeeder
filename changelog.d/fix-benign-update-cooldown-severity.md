@@ -5,3 +5,6 @@
   shows them as **Skipped on purpose** instead of **Fault**. A visit that is still lost after a
   paused retry is recorded as its own fault, as before. See
   [Work skipped on purpose](docs/troubleshooting/diagnostics.md#work-skipped-on-purpose).
+- With **Recording frame** chosen as the image to identify from, a visit whose first frame was not
+  saved is now retried from Frigate's updates again. The retry waited for its recording frame and
+  was then paused by its own 5-second limit, so only the end of the visit was ever retried.
