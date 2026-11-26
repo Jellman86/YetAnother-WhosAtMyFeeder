@@ -2707,16 +2707,11 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
 
     from app.services.media_storage_service import media_storage_service
 
-    # Run locked, alias-safe orphan recovery instead of an unlocked snapshot scan.
-    orphan_stats = await media_storage_service.recover_orphaned_media()
-
-    # Merge stats
-    stats["snapshots_deleted"] += orphan_stats["snapshots_deleted"]
-    stats["clips_deleted"] += orphan_stats["clips_deleted"]
-    stats["previews_deleted"] += orphan_stats["previews_deleted"]
-    stats["bytes_freed"] += orphan_stats["bytes_freed"]
-
+    # Run locked orphan recovery and optional storage limits in a single pass.
     limit_stats = await media_storage_service.enforce_limits()
+    stats["snapshots_deleted"] += limit_stats.get("orphan_snapshots_deleted", 0)
+    stats["clips_deleted"] += limit_stats.get("orphan_clips_deleted", 0)
+    stats["previews_deleted"] += limit_stats.get("orphan_previews_deleted", 0)
     stats["bytes_freed"] += limit_stats["bytes_freed"]
     from app.services.garden_media_cache import garden_media_cache
 

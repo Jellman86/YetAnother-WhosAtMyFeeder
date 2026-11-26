@@ -281,9 +281,11 @@ async def test_cache_cleanup_and_clear_never_touch_the_archive_but_the_orphan_sw
     snapshot_patch, clip_patch = _frigate()
     with snapshot_patch, clip_patch:
         await service.archive_event("fav_cached")
+    from app.services.media_storage_service import MediaStorageService
+
     cache = media_cache_module.MediaCacheService()
     await cache.cleanup_old_media(retention_days=1, protected_event_ids=set())
-    await cache.cleanup_orphaned_media(valid_event_ids=set())
+    await MediaStorageService().recover_orphaned_media()
     await cache.clear_all()
     assert not (dirs["cache"] / "snapshots" / "fav_cached.jpg").exists()
     assert (dirs["archive"] / "fav_cached" / SNAPSHOT_NAME).exists()

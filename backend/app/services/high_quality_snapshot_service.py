@@ -320,7 +320,7 @@ class HighQualitySnapshotService:
             if event_id.startswith("manual_"):
                 continue
             metadata = await media_cache.get_snapshot_metadata(event_id) or {}
-            if metadata.get("manual_selection") or metadata.get("storage_evicted"):
+            if await media_cache.has_live_manual_selection(event_id, metadata) or metadata.get("storage_evicted"):
                 continue
             async with get_db() as db:
                 candidates = await DetectionRepository(db).list_snapshot_candidates(event_id)
@@ -1237,6 +1237,7 @@ class HighQualitySnapshotService:
         from app.services.photo_presence import has_reusable_bird_presence
 
         metadata = await media_cache.get_snapshot_metadata(event_id) or {}
+        # A manual choice (or a missing photo behind a stale sidecar) is never defended as an auto incumbent.
         if metadata.get("manual_selection") or metadata.get("storage_evicted"):
             return None
         async with get_db() as db:

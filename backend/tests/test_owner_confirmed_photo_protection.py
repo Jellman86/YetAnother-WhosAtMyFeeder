@@ -277,3 +277,332 @@ async def test_apply_snapshot_candidate_rejects_corrupt_image_bytes(storage_env,
         app.dependency_overrides.pop(require_owner, None)
     assert resp.status_code == 409
     assert await media.get_snapshot("evt-apply") == good_photo
+
+
+@pytest.mark.asyncio
+async def test_apply_revert_original_rejects_corrupt_frigate_bytes(storage_env, monkeypatch):
+    _, _database, media = storage_env
+    good_photo = _jpeg_bytes("cyan")
+    await media.cache_snapshot("evt-revert", good_photo, source="hq_candidate_model_crop")
+    monkeypatch.setattr(proxy_router.frigate_client, "get_snapshot", AsyncMock(return_value=b"corrupt-upstream-bytes"))
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/api/frigate/evt-revert/snapshot/apply",
+                json={"mode": "revert_original"},
+            )
+    finally:
+        app.dependency_overrides.pop(require_owner, None)
+    assert resp.status_code == 409
+    assert await media.get_snapshot("evt-revert") == good_photo
+
+
+@pytest.mark.asyncio
+async def test_get_owner_confirmed_frigate_event_ids_excludes_unknown_and_unconfirmed(storage_env):
+    _, database, _media = storage_env
+    async with database() as db:
+        repo = DetectionRepository(db)
+        await repo.create(
+            Detection(datetime.now(), 1, 0.7, "Great Tit", "Parus major", "evt-real", "cam", manual_tagged=True)
+        )
+        await repo.create(
+            Detection(datetime.now(), 1, 0.3, "Unknown Bird", "Unknown Bird", "evt-unk", "cam", manual_tagged=True)
+        )
+        await repo.create(
+            Detection(datetime.now(), 1, 0.9, "Great Tit", "Parus major", "evt-auto", "cam", manual_tagged=False)
+        )
+        confirmed = await repo.get_owner_confirmed_frigate_event_ids()
+    assert confirmed == {"evt-real"}
+
+
+@pytest.mark.asyncio
+async def test_manual_selection_mid_sweep_race_preserves_canonical_photo(storage_env, monkeypatch):
+    _, database, media = storage_env
+    photo = _jpeg_bytes("magenta")
+    async with database() as db:
+        repo = DetectionRepository(db)
+        for idx, ev in enumerate(("evt-ms-old", "evt-ms-new")):
+            await repo.create(
+                Detection(
+                    datetime.now() - timedelta(minutes=20 - idx * 10),
+                    1,
+                    0.9,
+                    "Great Tit",
+                    "Parus major",
+                    ev,
+                    "feeder",
+                )
+            )
+            await media.cache_snapshot(ev, photo, source="frigate_snapshot")
+    await media.cache_clip("evt-ms-old", b"\x00\x00\x00\x18ftypmp42" + b"v" * 2048)
+
+    original_select = storage_module.select_media_evictions
+
+    def select_photo_after_plan(*args, **kwargs):
+        selected = original_select(*args, **kwargs)
+        assert "evt-ms-old" in selected
+        meta_path = cache_module.SNAPSHOTS_DIR / "evt-ms-old.jpg.meta.json"
+        meta_path.write_text('{"event_id": "evt-ms-old", "manual_selection": true}', encoding="utf-8")
+        return selected
+
+    monkeypatch.setattr(storage_module, "select_media_evictions", select_photo_after_plan)
+    result = await storage_module.MediaStorageService().enforce_limits()
+    assert result["visits_evicted"] == 1
+    assert media.get_clip_path("evt-ms-old") is None
+    assert await media.get_snapshot("evt-ms-old") == photo
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("next_is_garden", [False, True])
+async def test_byte_budget_sweep_stops_early_when_actual_freed_bytes_satisfy_cap(
+    storage_env, monkeypatch, next_is_garden
+):
+    _, database, media = storage_env
+    monkeypatch.setattr(storage_module.settings.media_cache, "per_species_maximum", 0)
+    monkeypatch.setattr(storage_module.settings.media_cache, "max_size_mb", 1)
+    # Create an older capture with a ~900 KB photo marked manual_selection and a ~200 KB clip,
+    # plus a newer ~600 KB capture. Total = ~1.7 MB > 1 MB cap.
+    # At planning time, freeing only old's ~200 KB clip leaves ~1.5 MB > 1 MB, so new is also planned.
+    # After planning, manual_selection is cleared on old, so evicting old frees ~1.1 MB -> remaining ~600 KB <= 1 MB.
+    # The sweep must stop and NOT evict new!
+    big_photo = _jpeg_bytes("navy") + (b"\x00" * 900_000)
+    new_photo = _jpeg_bytes("teal") + (b"\x00" * 600_000)
+    async with database() as db:
+        repo = DetectionRepository(db)
+        await repo.create(
+            Detection(datetime.now() - timedelta(minutes=20), 1, 0.9, "Great Tit", "Parus major", "evt-old", "cam")
+        )
+        await repo.create(
+            Detection(datetime.now() - timedelta(minutes=5), 1, 0.9, "Great Tit", "Parus major", "evt-new", "cam")
+        )
+    await media.replace_snapshot("evt-old", big_photo, source="hq_candidate_model_crop", manual_selection=True)
+    await media.cache_clip("evt-old", b"\x00\x00\x00\x18ftypmp42" + b"a" * 200_000)
+    await media.cache_snapshot("evt-new", new_photo, source="frigate_snapshot")
+    next_id = "evt-new"
+    evict_garden = AsyncMock()
+    if next_is_garden:
+        from app.services.garden_media_cache import garden_media_cache
+
+        await media.delete_snapshot("evt-new")
+        next_id = storage_module.eviction_key("b" * 32)
+        garden_visit = storage_module.CachedVisit(next_id, next_id, datetime.now().isoformat(), len(new_photo))
+        monkeypatch.setattr(
+            storage_module.MediaStorageService, "_garden_visits", AsyncMock(return_value=[garden_visit])
+        )
+        monkeypatch.setattr(garden_media_cache, "evict", evict_garden)
+
+    original_select = storage_module.select_media_evictions
+
+    def clear_manual_after_plan(*args, **kwargs):
+        selected = original_select(*args, **kwargs)
+        assert selected == ["evt-old", next_id]
+        meta_path = cache_module.SNAPSHOTS_DIR / "evt-old.jpg.meta.json"
+        meta_path.write_text('{"event_id": "evt-old", "manual_selection": false}', encoding="utf-8")
+        return selected
+
+    monkeypatch.setattr(storage_module, "select_media_evictions", clear_manual_after_plan)
+    result = await storage_module.MediaStorageService().enforce_limits()
+    assert result["visits_evicted"] == 1
+    assert await media.get_snapshot("evt-old") is None
+    if next_is_garden:
+        evict_garden.assert_not_awaited()
+    else:
+        assert await media.get_snapshot("evt-new") == new_photo
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("next_is_garden", [False, True])
+async def test_byte_budget_continues_when_late_owner_protection_reduces_actual_bytes_freed(
+    storage_env, monkeypatch, next_is_garden
+):
+    db_path, database, media = storage_env
+    monkeypatch.setattr(storage_module.settings.media_cache, "per_species_maximum", 0)
+    monkeypatch.setattr(storage_module.settings.media_cache, "max_size_mb", 1)
+    photo = _jpeg_bytes("green") + b"\x00" * 650_000
+    async with database() as db:
+        repo = DetectionRepository(db)
+        for index, event_id in enumerate(("evt-oldest", "evt-next", "evt-latest")):
+            await repo.create(
+                Detection(
+                    datetime.now() - timedelta(minutes=30 - index * 10), 1, 0.9, "Robin", "Robin", event_id, "camera"
+                )
+            )
+            if event_id != "evt-next" or not next_is_garden:
+                await media.cache_snapshot(event_id, photo if event_id != "evt-latest" else _jpeg_bytes("red"))
+    clip_path = await media.cache_clip("evt-oldest", b"\x00\x00\x00\x18ftypmp42" + b"a" * 50_000)
+    evict_garden = AsyncMock(return_value=len(photo))
+    if next_is_garden:
+        from app.services.garden_media_cache import garden_media_cache
+
+        garden_id = storage_module.eviction_key("b" * 32)
+        garden_visit = storage_module.CachedVisit(
+            garden_id, garden_id, (datetime.now() - timedelta(minutes=20)).isoformat(sep=" "), len(photo)
+        )
+        monkeypatch.setattr(
+            storage_module.MediaStorageService, "_garden_visits", AsyncMock(return_value=[garden_visit])
+        )
+        monkeypatch.setattr(garden_media_cache, "evict", evict_garden)
+
+    service = storage_module.MediaStorageService()
+    evict_visit = service._evict_budget_visit
+
+    async def confirm_immediately_before_final_recheck(event_id, paths):
+        if event_id == "evt-oldest":
+            with sqlite3.connect(db_path) as db:
+                db.execute("UPDATE detections SET manual_tagged = 1 WHERE frigate_event = ?", (event_id,))
+        return await evict_visit(event_id, paths)
+
+    monkeypatch.setattr(service, "_evict_budget_visit", confirm_immediately_before_final_recheck)
+    result = await service.enforce_limits()
+    assert result["visits_evicted"] == 2
+    assert await media.get_snapshot("evt-oldest") == photo
+    assert not clip_path.exists()
+    assert await media.get_snapshot("evt-latest") is not None
+    if next_is_garden:
+        evict_garden.assert_awaited_once_with(["b" * 32])
+    else:
+        assert await media.get_snapshot("evt-next") is None
+
+
+@pytest.mark.asyncio
+async def test_age_cleanup_rechecks_db_and_protects_literal_candidate_shaped_event_id(storage_env, monkeypatch):
+    import app.database as db_module
+
+    _, database, media = storage_env
+    monkeypatch.setattr(db_module, "get_db", database)
+    literal_id = "evt__model_crop__f1__0123456789__image"
+    photo = _jpeg_bytes("olive")
+    async with database() as db:
+        repo = DetectionRepository(db)
+        await repo.create(
+            Detection(
+                datetime.now() - timedelta(days=10),
+                1,
+                0.8,
+                "Great Tit",
+                "Parus major",
+                literal_id,
+                "feeder",
+                manual_tagged=True,
+            )
+        )
+        await repo.create(
+            Detection(
+                datetime.now() - timedelta(days=10),
+                1,
+                0.8,
+                "Great Tit",
+                "Parus major",
+                "evt-live-save",
+                "feeder",
+                manual_tagged=False,
+            )
+        )
+    await media.cache_snapshot(literal_id, photo, source="frigate_snapshot")
+    await media.cache_snapshot("evt-live-save", photo, source="frigate_snapshot")
+    old_time = (datetime.now() - timedelta(days=10)).timestamp()
+    for path in cache_module.SNAPSHOTS_DIR.iterdir():
+        os.utime(path, (old_time, old_time))
+
+    # Simulate an owner selecting a fresh photo on evt-live-save after discovery before locked unlink.
+    original_collect = media._collect_media_groups_sync
+
+    def collect_then_owner_chooses(cutoff):
+        groups = original_collect(cutoff)
+        (cache_module.SNAPSHOTS_DIR / "evt-live-save.jpg").write_bytes(b"fresh-owner-photo")
+        (cache_module.SNAPSHOTS_DIR / "evt-live-save.jpg.meta.json").write_text(
+            '{"event_id": "evt-live-save", "manual_selection": true}', encoding="utf-8"
+        )
+        return groups
+
+    monkeypatch.setattr(media, "_collect_media_groups_sync", collect_then_owner_chooses)
+    # Pass empty protected_canonical_photo_event_ids to verify DB recheck + literal-ID protection!
+    await media.cleanup_old_media(
+        retention_days=1,
+        protected_event_ids=set(),
+        protected_snapshot_event_ids=set(),
+        protected_canonical_photo_event_ids=set(),
+    )
+    assert await media.get_snapshot(literal_id) == photo
+    assert await media.get_snapshot("evt-live-save") == b"fresh-owner-photo"
+
+
+@pytest.mark.asyncio
+async def test_cache_cleanup_route_protects_owner_confirmed_and_sweeps_orphans(storage_env, monkeypatch):
+    import app.database as db_module
+    from app.routers import settings as settings_router
+    from app.services import garden_media_cache as garden_module
+
+    _, database, media = storage_env
+    monkeypatch.setattr(db_module, "get_db", database)
+    monkeypatch.setattr(settings_router, "get_db", database)
+    monkeypatch.setattr(settings_router, "media_cache", media)
+    monkeypatch.setattr(settings_router.settings.media_cache, "retention_days", 1)
+    monkeypatch.setattr(settings_router.settings.media_cache, "per_species_minimum", 0)
+    monkeypatch.setattr(settings_router.settings.media_cache, "per_species_maximum", 0)
+    monkeypatch.setattr(settings_router.settings.media_cache, "max_size_mb", 0)
+    monkeypatch.setattr(garden_module.garden_media_cache, "apply_retention", AsyncMock())
+
+    photo = _jpeg_bytes("gold")
+    cand_ref = "evt-route-confirmed__model_crop__f1__0123456789__image"
+    async with database() as db:
+        repo = DetectionRepository(db)
+        await repo.create(
+            Detection(
+                datetime.now() - timedelta(days=5),
+                1,
+                0.8,
+                "Great Tit",
+                "Parus major",
+                "evt-route-confirmed",
+                "feeder",
+                manual_tagged=True,
+            )
+        )
+        await repo.create(
+            Detection(
+                datetime.now() - timedelta(days=5),
+                1,
+                0.3,
+                "Unknown Bird",
+                "Unknown Bird",
+                "evt-route-unknown",
+                "feeder",
+                manual_tagged=True,
+            )
+        )
+
+    await media.cache_snapshot("evt-route-confirmed", photo, source="frigate_snapshot")
+    await media.cache_snapshot(cand_ref, photo, source="snapshot_candidate")
+    await media.cache_clip("evt-route-confirmed", b"\x00\x00\x00\x18ftypmp42" + b"v" * 2048)
+    await media.cache_snapshot("evt-route-unknown", photo, source="frigate_snapshot")
+    await media.cache_snapshot("evt-orphan", photo, source="frigate_snapshot")
+    await media.cache_clip("evt-orphan", b"\x00\x00\x00\x18ftypmp42" + b"o" * 2048)
+
+    old_time = (datetime.now() - timedelta(days=5)).timestamp()
+    for directory in (cache_module.SNAPSHOTS_DIR, cache_module.CLIPS_DIR):
+        for path in directory.iterdir():
+            if not path.name.startswith("evt-orphan"):
+                os.utime(path, (old_time, old_time))
+
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post("/api/cache/cleanup")
+    finally:
+        app.dependency_overrides.pop(require_owner, None)
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "completed"
+    # Confirmed photo kept; its candidate & clip aged out; unknown bird aged out; orphan snapshot + clip swept.
+    assert await media.get_snapshot("evt-route-confirmed") == photo
+    assert await media.get_snapshot(cand_ref) is None
+    assert media.get_clip_path("evt-route-confirmed") is None
+    assert await media.get_snapshot("evt-route-unknown") is None
+    assert await media.get_snapshot("evt-orphan") is None
+    assert media.get_clip_path("evt-orphan") is None
+    assert body["snapshots_deleted"] >= 3
+    assert body["clips_deleted"] >= 2
+    assert body["bytes_freed"] > 0

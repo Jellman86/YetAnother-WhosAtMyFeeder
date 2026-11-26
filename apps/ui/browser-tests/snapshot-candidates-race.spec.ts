@@ -148,6 +148,92 @@ async function currentA(page: Page, fixture: CandidateFixture): Promise<void> {
     await expect(page.locator('[data-counted-birds-total]')).toHaveText('2');
 }
 
+test('applying a photo refreshes its own capture after switching records', async ({ page }) => {
+    const fixture = await open(page, 'shown', true);
+    await release(fixture, false);
+    const apply: { route: Route | null } = { route: null };
+    await page.route('**/api/frigate/A/snapshot/apply', route => { apply.route = route; });
+    const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+    await triggers.nth(1).click();
+    await page.getByRole('button', { name: 'Use this frame' }).click();
+    await expect.poll(() => apply.route !== null).toBe(true);
+
+    await page.evaluate(() => window.snapshotRace?.setCapture('B'));
+    await expect(page.locator('img[alt="Capture B"]').first()).toBeVisible();
+    // A's photo change in flight is not B's: B's own photo controls stay usable.
+    await expect(regenerateButton(page)).toBeEnabled();
+    if (!apply.route) throw new Error('Apply request was not captured');
+    await apply.route.fulfill({ json: {
+        source: 'hq_candidate_model_crop',
+        applied_candidate_id: 'A__model_crop__f20__fixture',
+        available: true
+    } });
+
+    await expect.poll(() => page.evaluate(() => window.snapshotRace?.mediaVersion('A'))).toBeGreaterThan(0);
+    expect(await page.evaluate(() => window.snapshotRace?.mediaVersion('B'))).toBe(0);
+    await expect(page.locator('img[alt="Capture B"]').first()).toBeVisible();
+    await expect(page.getByText('Snapshot updated')).toHaveCount(0);
+    await expect(regenerateButton(page)).toBeEnabled();
+    expect(fixture.errors).toEqual([]);
+});
+
+test('regenerating a photo refreshes its own capture after switching records', async ({ page }) => {
+    const fixture = await open(page);
+    await release(fixture, false);
+    const regeneration: { route: Route | null } = { route: null };
+    await page.route('**/api/frigate/A/snapshot/hq-bird-crop**', route => { regeneration.route = route; });
+    await regenerateButton(page).click();
+    await expect.poll(() => regeneration.route !== null).toBe(true);
+    await expect(page.locator('[data-counted-birds-state="recounting"]')).toBeVisible();
+
+    await page.evaluate(() => window.snapshotRace?.setCapture('B'));
+    await expect(page.locator('img[alt="Capture B"]').first()).toBeVisible();
+    // B is not being recounted, so it neither says so nor locks its own button.
+    await expect(page.locator('[data-counted-birds-state="recounting"]')).toHaveCount(0);
+    await expect(regenerateButton(page)).toBeEnabled();
+    if (!regeneration.route) throw new Error('Regeneration request was not captured');
+    await regeneration.route.fulfill({ json: {
+        status: 'generated_hq_bird_crop', result: 'bird_crop_replaced', high_quality_bird_crop_enabled: true
+    } });
+
+    await expect.poll(() => page.evaluate(() => window.snapshotRace?.mediaVersion('A'))).toBeGreaterThan(0);
+    expect(await page.evaluate(() => window.snapshotRace?.mediaVersion('B'))).toBe(0);
+    await expect(regenerateButton(page)).toBeEnabled();
+    expect(fixture.errors).toEqual([]);
+});
+
+test('a photo removal that finishes after switching records leaves the next record usable', async ({ page }) => {
+    const fixture = await open(page, 'shown', true);
+    await release(fixture, false);
+    const removal: { route: Route | null } = { route: null };
+    await page.route(url => /^\/api\/frigate\/A\/snapshot\/candidates\/[^/]+$/.test(url.pathname), route => {
+        if (route.request().method() !== 'PATCH') return route.fallback();
+        removal.route = route;
+    });
+    const triggers = page.locator('[data-frame-strip] button[aria-pressed]');
+    await triggers.nth(1).click();
+    await page.locator('[data-frame-strip-panel]').getByRole('button', { name: 'Remove photo choice' }).click();
+    await expect.poll(() => removal.route !== null).toBe(true);
+
+    await page.evaluate(() => window.snapshotRace?.setCapture('B'));
+    await expect(page.locator('img[alt="Capture B"]').first()).toBeVisible();
+    await expect(regenerateButton(page)).toBeEnabled();
+    if (!removal.route) throw new Error('Removal request was not captured');
+    await removal.route.fulfill({ json: {
+        ...candidateResponse('A', false, 'removed'),
+        changed_dismissals: [{ candidate_id: 'A__model_crop__f20__fixture', content_identity: 'fixture-pixels' }]
+    } });
+
+    await page.waitForTimeout(150);
+    await expect(regenerateButton(page)).toBeEnabled();
+    await expect(triggers).toHaveCount(3);
+    expect(fixture.errors).toEqual([]);
+});
+
+function regenerateButton(page: Page) {
+    return page.getByRole('button', { name: 'Regenerate snapshots and recount birds', exact: true });
+}
+
 async function release(fixture: CandidateFixture, fail: boolean): Promise<void> {
     const held = fixture.held;
     if (!held) throw new Error('First A candidate request was not captured');

@@ -11,8 +11,8 @@ test('cache limits and scanning use the existing settings controls without overf
     await limit.blur();
     // The interacting per-species limits wait under advanced options, each behind its own switch.
     await page.getByRole('button', { name: /^Show advanced options.*Per-species limits/ }).click();
-    await page.getByRole('switch', { name: /^Limit visits per species with photos and video/ }).click();
-    await page.getByRole('spinbutton', { name: /^Visits per species with photos and video/ }).fill('50');
+    await page.getByRole('switch', { name: /^Limit captures per species with photos and video/ }).click();
+    await page.getByRole('spinbutton', { name: /^Captures per species with photos and video/ }).fill('50');
     await page.getByRole('button', { name: /^Show advanced options.*Snapshot quality/ }).click();
     await page.getByRole('combobox', { name: 'Bird scanning effort', exact: true }).selectOption('standard');
     await expect(page.getByRole('status', { name: 'Selected cache settings' })).toHaveText('50 / 2048 / standard');
@@ -64,10 +64,19 @@ test('the storage summary names every rule that removes media, the per-species c
     const summary = page.locator('[data-settings-row]').filter({ has: page.getByRole('switch', { name: /^Limit the space photos and video use/ }) });
     await expect(summary).toContainText('No size limit: photos and video stay until the history window removes their visits.');
     await page.getByRole('button', { name: /^Show advanced options.*Per-species limits/ }).click();
-    await page.getByRole('switch', { name: /^Limit visits per species with photos and video/ }).click();
+    await page.getByRole('switch', { name: /^Limit captures per species with photos and video/ }).click();
     // With a cap on, "until the history window" would be a promise the cap breaks.
     await expect(summary).not.toContainText('until the history window');
-    await expect(summary).toContainText('No size limit. Each species keeps photos and video only for its newest 100 visits.');
+    await expect(summary).toContainText('No size limit. Each species keeps photos and video only for its newest 100 captures.');
+    // Kept photographs are only the main one; their clips and other frames can still be removed.
+    await expect(summary).toContainText('Captures you confirmed, and captures whose photo you chose, keep their main photograph; their clips and other frames can still go.');
+    // Protected media is never removed, so a limit is not promised as a ceiling.
+    await expect(summary).not.toContainText('stays above the limit');
+    await page.getByRole('switch', { name: /^Limit the space photos and video use/ }).click();
+    const limit = page.getByRole('spinbutton', { name: /^Storage limit in GB/ });
+    await limit.fill('2');
+    await limit.blur();
+    await expect(summary).toContainText(/If favourites and kept main photographs alone take more than 2\u00a0GB, space used stays above the limit\./);
 });
 
 test('favourites archive figures wait for a measurement instead of showing zero', async ({ page }) => {

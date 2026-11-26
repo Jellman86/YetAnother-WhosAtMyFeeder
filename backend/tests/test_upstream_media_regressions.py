@@ -147,9 +147,23 @@ async def test_alternate_photos_and_sidecars_follow_their_visit(tmp_path, monkey
     other = snapshots / "visit_other.jpg"
     other.write_bytes(b"other")
     if operation == "age":
-        await service.cleanup_old_media(7, protected_event_ids={event})
+        await service.cleanup_old_media(7, protected_event_ids={event}, recheck_db=False)
     elif operation == "orphan":
-        await service.cleanup_orphaned_media({event, "visit_other"})
+        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock
+        from app.services import media_storage_service as storage_module
+
+        @asynccontextmanager
+        async def fake_db():
+            yield object()
+
+        monkeypatch.setattr(storage_module, "get_db", fake_db)
+        monkeypatch.setattr(
+            storage_module.DetectionRepository,
+            "get_all_frigate_event_ids",
+            AsyncMock(return_value=[event, "visit_other"]),
+        )
+        await storage_module.MediaStorageService().recover_orphaned_media()
     else:
         await service.delete_cached_media(event)
     assert other.exists()
@@ -242,10 +256,23 @@ async def test_deleting_visit_preserves_other_event_named_like_its_thumbnail(tmp
 
 @pytest.mark.asyncio
 async def test_orphan_cleanup_leaves_an_atomic_write_in_progress(tmp_path, monkeypatch):
+    from contextlib import asynccontextmanager
+    from unittest.mock import AsyncMock
+    from app.services import media_storage_service as storage_module
+
     monkeypatch.setattr(cache_module, "SNAPSHOTS_DIR", tmp_path)
+    monkeypatch.setattr(cache_module, "CLIPS_DIR", tmp_path / "clips")
+    monkeypatch.setattr(cache_module, "PREVIEWS_DIR", tmp_path / "previews")
     temporary = tmp_path / "pending.jpg.012345.tmp"
     temporary.write_bytes(b"in progress")
-    await cache_module.MediaCacheService().cleanup_orphaned_media(set())
+
+    @asynccontextmanager
+    async def fake_db():
+        yield object()
+
+    monkeypatch.setattr(storage_module, "get_db", fake_db)
+    monkeypatch.setattr(storage_module.DetectionRepository, "get_all_frigate_event_ids", AsyncMock(return_value=[]))
+    await storage_module.MediaStorageService().recover_orphaned_media()
     assert temporary.exists()
 
 
@@ -456,13 +483,28 @@ async def test_age_cleanup_does_not_recreate_deliberately_expired_photos(tmp_pat
 
 @pytest.mark.asyncio
 async def test_generated_candidate_thumbnails_are_owned_by_the_parent_visit(tmp_path, monkeypatch):
+    from contextlib import asynccontextmanager
+    from unittest.mock import AsyncMock
+    from app.services import media_storage_service as storage_module
+
     monkeypatch.setattr(cache_module, "SNAPSHOTS_DIR", tmp_path)
+    monkeypatch.setattr(cache_module, "CLIPS_DIR", tmp_path / "clips")
+    monkeypatch.setattr(cache_module, "PREVIEWS_DIR", tmp_path / "previews")
     service = cache_module.MediaCacheService()
     key = "parent__model_crop__f150__0123456789__thumb"
     path = await service.cache_thumbnail(key, jpeg((240, 240)), source="snapshot_candidate")
     assert cache_module.cache_file_event_id(path) == "parent"
     assert cache_module.cache_file_event_id(path.with_suffix(".jpg.meta.json")) == "parent"
-    await service.cleanup_orphaned_media({"parent"})
+
+    @asynccontextmanager
+    async def fake_db():
+        yield object()
+
+    monkeypatch.setattr(storage_module, "get_db", fake_db)
+    monkeypatch.setattr(
+        storage_module.DetectionRepository, "get_all_frigate_event_ids", AsyncMock(return_value=["parent"])
+    )
+    await storage_module.MediaStorageService().recover_orphaned_media()
     assert path.exists()
     await service.delete_cached_media("parent")
     assert not path.exists()

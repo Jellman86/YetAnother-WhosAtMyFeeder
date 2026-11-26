@@ -42,7 +42,7 @@
     import type { Detection } from '../api';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import FrameStrip from './FrameStrip.svelte';
-    import { MediaQuery } from 'svelte/reactivity';
+    import { MediaQuery, SvelteSet } from 'svelte/reactivity';
     import CountedBirds from './CountedBirds.svelte';
     import BirdScanControl from './BirdScanControl.svelte';
     import { BirdScan } from '../utils/bird-scan.svelte';
@@ -640,12 +640,17 @@
     });
     let snapshotCandidatesLoading = $state(false);
     let snapshotCandidatesError = $state(false);
-    let snapshotApplyPending = $state(false);
-    let snapshotGeneratePending = $state(false);
+    // Photo work belongs to the capture that asked for it: another record neither shows it as its
+    // own nor waits for it, and a request that finishes after a switch still clears its own mark.
+    const photoApplyEvents = new SvelteSet<string>();
+    const photoGenerateEvents = new SvelteSet<string>();
+    const snapshotApplyPending = $derived(photoApplyEvents.has(detection.frigate_event));
+    const snapshotGeneratePending = $derived(photoGenerateEvents.has(detection.frigate_event));
     let currentSnapshotCandidateId = $state<string | null>(null);
     let currentSnapshotSource = $state<string | null>(null);
     /** The strip moment being saved as the photograph, while the request is in flight. */
-    let applyingMomentKey = $state<string | null>(null);
+    let applyingMoment = $state<{ eventId: string; key: string } | null>(null);
+    const applyingMomentKey = $derived(applyingMoment?.eventId === detection.frigate_event ? applyingMoment.key : null);
     let snapshotRefreshToken = $state(Date.now());
     const settledMediaVersion = $derived(
         detectionsStore.settledMediaVersion(detection.frigate_event)
@@ -1420,7 +1425,7 @@
         const [candidateId, ...companionCandidateIds] = candidateIds;
         if (!candidateId || !hasOwnerDetectionActions || snapshotApplyPending) return [];
         const eventId = detection.frigate_event;
-        snapshotApplyPending = true;
+        photoApplyEvents.add(eventId);
         try {
             const response = await dismissSnapshotCandidate(eventId, candidateId, dismissed, {
                 companionCandidateIds,
@@ -1440,13 +1445,14 @@
             toastStore.error(getErrorMessage(error));
             throw error;
         } finally {
-            if (detection.frigate_event === eventId) snapshotApplyPending = false;
+            photoApplyEvents.delete(eventId);
         }
     }
 
     async function handleUseMoment(moment: FrameMoment) {
         if (!hasOwnerDetectionActions || snapshotApplyPending) return;
-        applyingMomentKey = moment.key;
+        const eventId = detection.frigate_event;
+        applyingMoment = { eventId, key: moment.key };
         try {
             if (moment.asRecorded) {
                 if (!originalFrigateSnapshotAvailable) return;
@@ -1457,7 +1463,7 @@
             if (!candidate) return;
             await handleApplySnapshot('candidate', candidate.candidate_id);
         } finally {
-            applyingMomentKey = null;
+            if (applyingMoment?.eventId === eventId) applyingMoment = null;
         }
     }
 
@@ -1466,24 +1472,27 @@
         candidateId?: string | null
     ) {
         if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotApplyPending) return;
-        snapshotApplyPending = true;
+        const eventId = detection.frigate_event;
+        photoApplyEvents.add(eventId);
         try {
-            const result = await applySnapshotCandidate(detection.frigate_event, {
+            const result = await applySnapshotCandidate(eventId, {
                 mode,
                 candidate_id: candidateId ?? null
             });
+            detectionsStore.notePhotoChanged(eventId);
+            if (!detection || detection.frigate_event !== eventId) return;
             snapshotStatus = result;
             snapshotRefreshToken = Date.now();
-            detectionsStore.notePhotoChanged(detection.frigate_event);
             currentSnapshotSource = result.source ?? null;
             currentSnapshotCandidateId = result.applied_candidate_id ?? null;
             resetMediaView();
             toastStore.success($_('detection.snapshot_apply_success', { default: 'Snapshot updated' }));
-            await refreshSnapshotControls(detection.frigate_event);
+            await refreshSnapshotControls(eventId);
         } catch (e) {
+            if (!detection || detection.frigate_event !== eventId) return;
             toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
         } finally {
-            snapshotApplyPending = false;
+            photoApplyEvents.delete(eventId);
         }
     }
 
@@ -1509,13 +1518,14 @@
     async function handleGenerateSnapshotCandidates() {
         if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotGeneratePending) return;
         const eventId = detection.frigate_event;
-        snapshotGeneratePending = true;
+        photoGenerateEvents.add(eventId);
         try {
             const result = await generateHighQualityBirdCropSnapshot(eventId);
+            // The photo changed whichever record is open now, so its thumbnails elsewhere refresh.
+            detectionsStore.notePhotoChanged(eventId);
             if (!detection || detection.frigate_event !== eventId) return;
             snapshotStatus = result;
             snapshotRefreshToken = Date.now();
-            detectionsStore.notePhotoChanged(eventId);
             await refreshSnapshotControls(eventId);
             if (!detection || detection.frigate_event !== eventId) return;
             // Regeneration can recount the birds, so the log's summary is reread too.
@@ -1536,9 +1546,10 @@
                 toastStore.warning($_('detection.snapshot_regenerate_no_candidates', { default: 'Snapshot regenerated, but no selectable candidates were produced.' }));
             }
         } catch (e) {
+            if (!detection || detection.frigate_event !== eventId) return;
             toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
         } finally {
-            snapshotGeneratePending = false;
+            photoGenerateEvents.delete(eventId);
         }
     }
 

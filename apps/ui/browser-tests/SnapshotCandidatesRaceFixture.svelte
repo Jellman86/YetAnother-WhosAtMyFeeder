@@ -19,6 +19,7 @@
         score: 0.9
     });
     window.snapshotRace = {
+        mediaVersion(id) { return detectionsStore.settledMediaVersion(id); },
         completeAnalysis(id = 'A') {
             detectionsStore.startReclassification(id, 15, 'video');
             detectionsStore.completeReclassification(id, [], 'success');

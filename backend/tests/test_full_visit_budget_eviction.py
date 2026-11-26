@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager, closing
 from datetime import datetime, timedelta
 from io import BytesIO
 import os
+from pathlib import Path
 import sqlite3
 import threading
 from unittest.mock import AsyncMock
@@ -237,21 +238,30 @@ async def test_orphan_cleanup_rechecks_a_parent_created_after_inventory_and_hold
     assert await media.get_snapshot("budget-old") is not None
     async with database() as db:
         await DetectionRepository(db).delete_by_frigate_event("budget-old")
-    original_delete = media._delete_visit_files_sync
-
-    def check_writer_available(event, paths=None):
-        # This real independent writer would fail if cleanup held SQLite's write lock across I/O.
-        with closing(sqlite3.connect(os.environ["RF4_DB_PATH"], timeout=0.1)) as db:
-            db.execute("BEGIN IMMEDIATE")
-            db.rollback()
-        return original_delete(event, paths)
-
-    # The fixture exposes its isolated path rather than ever touching production.
-    async with database() as db:
         file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
-    monkeypatch.setenv("RF4_DB_PATH", file_path)
-    monkeypatch.setattr(media, "_delete_visit_files_sync", check_writer_available)
+    original_unlink = Path.unlink
+    inserted_during_unlink = False
+
+    def create_parent_during_unlink(path, *args, **kwargs):
+        nonlocal inserted_during_unlink
+        if path.is_relative_to(cache.SNAPSHOTS_DIR) and not inserted_during_unlink:
+            with closing(sqlite3.connect(file_path, timeout=0.1)) as db:
+                db.execute("BEGIN IMMEDIATE")
+                db.execute(
+                    "INSERT INTO detections (detection_time,detection_index,score,category_name,display_name,"
+                    "frigate_event,camera_name) VALUES (datetime('now'),1,0.9,'Robin','Robin','budget-old','camera')"
+                )
+                db.commit()
+            inserted_during_unlink = True
+            assert not (cache.SNAPSHOTS_DIR / "budget-old.jpg").exists()
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", create_parent_during_unlink)
     assert (await storage.MediaStorageService().enforce_limits())["bytes_freed"] > 0
+    assert inserted_during_unlink
+    async with database() as db:
+        assert await DetectionRepository(db).get_by_frigate_event("budget-old") is not None
+    assert await media.get_snapshot("budget-old") is None
 
 
 @pytest.mark.asyncio
@@ -273,14 +283,15 @@ async def test_cancelled_orphan_sweep_waits_for_disk_deletion_before_releasing_w
     async with database() as db:
         await DetectionRepository(db).delete_by_frigate_event("budget-old")
     entered, release = threading.Event(), threading.Event()
-    original_delete = media._delete_visit_files_sync
+    original_unlink = Path.unlink
 
-    def paused_delete(event, paths=None):
-        entered.set()
-        assert release.wait(5)
-        return original_delete(event, paths)
+    def paused_unlink(path, *args, **kwargs):
+        if path.is_relative_to(cache.SNAPSHOTS_DIR):
+            entered.set()
+            assert release.wait(5)
+        return original_unlink(path, *args, **kwargs)
 
-    monkeypatch.setattr(media, "_delete_visit_files_sync", paused_delete)
+    monkeypatch.setattr(Path, "unlink", paused_unlink)
     sweep = asyncio.create_task(storage.MediaStorageService().enforce_limits())
     assert await asyncio.to_thread(entered.wait, 2)
     sweep.cancel()
@@ -306,21 +317,34 @@ async def test_orphan_disk_failure_is_retried_on_the_next_sweep(budget_visit_his
     monkeypatch.setattr(clips.settings.media_cache, "per_species_maximum", 0)
     async with database() as db:
         await DetectionRepository(db).delete_by_frigate_event("budget-old")
-    original_delete = media._delete_visit_files_sync
-    failures = 0
+    original_unlink = Path.unlink
+    failures: list[Path] = []
 
-    def fail_once(event, paths=None):
-        nonlocal failures
-        if failures == 0:
-            failures += 1
+    def fail_media_unlink(path, *args, **kwargs):
+        if path.is_relative_to(cache.SNAPSHOTS_DIR):
+            failures.append(path)
             raise OSError("fixture unavailable disk")
-        return original_delete(event, paths)
+        return original_unlink(path, *args, **kwargs)
 
-    monkeypatch.setattr(media, "_delete_visit_files_sync", fail_once)
-    assert (await storage.MediaStorageService().enforce_limits())["bytes_freed"] == 0
-    assert await media.get_snapshot("budget-old") is not None
-    assert (await storage.MediaStorageService().enforce_limits())["bytes_freed"] > 0
+    with monkeypatch.context() as disk:
+        disk.setattr(Path, "unlink", fail_media_unlink)
+        assert (await storage.MediaStorageService().enforce_limits())["bytes_freed"] == 0
     assert await media.get_snapshot("budget-old") is None
+    assert failures and all(path.exists() for path in failures)
+
+    # A new parent and photo at the original path must be safe while a fresh
+    # service drains the previous sweep's staged files.
+    async with database() as db:
+        await DetectionRepository(db).create(
+            Detection(datetime.now(), 1, 0.9, "Robin", "Robin", "budget-old", "camera")
+        )
+    photo = await media.get_snapshot("budget-new")
+    assert await media.cache_snapshot("budget-old", photo)
+    recovered = await storage.MediaStorageService().recover_orphaned_media()
+    assert recovered["bytes_freed"] > 0
+    assert recovered["snapshots_deleted"] == 1
+    assert all(not path.exists() for path in failures)
+    assert await media.get_snapshot("budget-old") == photo
 
 
 @pytest.mark.asyncio

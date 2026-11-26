@@ -126,6 +126,49 @@ def remove(photos):
     )
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["candidate", "revert_original"])
+async def test_cancelled_apply_completes_selected_candidate_update_under_photo_choice_lock(photos, monkeypatch, mode):
+    original_photo = jpeg("blue")
+    monkeypatch.setattr(proxy.frigate_client, "get_snapshot", AsyncMock(return_value=original_photo))
+    entered, release = asyncio.Event(), asyncio.Event()
+    mark_selected = DetectionRepository.mark_selected_snapshot_candidate
+    candidate = photos.second["candidate_id"] if mode == "candidate" else None
+
+    async def pause_selected_update(repo, event_id, candidate_id):
+        entered.set()
+        await release.wait()
+        await mark_selected(repo, event_id, candidate_id)
+
+    monkeypatch.setattr(DetectionRepository, "mark_selected_snapshot_candidate", pause_selected_update)
+    applying = asyncio.create_task(
+        proxy.apply_snapshot_candidate(
+            proxy.SnapshotApplyRequest(mode=mode, candidate_id=candidate),
+            event_id=photos.event,
+            auth=AuthContext("owner"),
+        )
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        metadata = await photos.cache.get_snapshot_metadata(photos.event)
+        assert metadata["manual_selection"] is True
+        assert metadata["manual_candidate_id"] == candidate
+        applying.cancel()
+        await asyncio.sleep(0)
+        applying.cancel()
+        assert not applying.done()
+        assert photo_choice_lock(photos.event).locked()
+    finally:
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await applying
+    async with get_db() as db:
+        choices = await DetectionRepository(db).list_snapshot_candidates(photos.event)
+    assert [choice["candidate_id"] for choice in choices if choice["selected"]] == ([candidate] if candidate else [])
+    expected = photos.second["image_bytes"] if candidate else original_photo
+    assert await photos.cache.get_snapshot(photos.event) == expected
+
+
 def test_photo_action_lock_is_reclaimed_after_its_last_holder():
     event = "unused-photo-lock-" + uuid4().hex
     lock = photo_choice_lock(event)

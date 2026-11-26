@@ -442,6 +442,38 @@ async def test_kept_media_shares_the_media_budget_and_the_oldest_goes_first(frig
 
 
 @pytest.mark.asyncio
+async def test_missing_garden_photo_does_not_evict_an_older_bird_under_the_byte_budget(frigate, tmp_path, monkeypatch):
+    from app.repositories.detection_repository import Detection, DetectionRepository
+    from app.services.media_storage_service import MediaStorageService
+
+    frigate.snapshot = photograph() + b"\x00" * 650_000
+    capture_id = await frigate_capture("confirmed")
+    await garden_media_cache.collect(capture_id)
+    assert (await record(capture_id)).photo_bytes == len(frigate.snapshot)
+    kept_path(capture_id, "photo").unlink()
+    assert kept_path(capture_id, "clip").is_file()
+
+    for name in ("SNAPSHOTS_DIR", "CLIPS_DIR", "PREVIEWS_DIR"):
+        monkeypatch.setattr(cache_module, name, tmp_path / name)
+    media = cache_module.MediaCacheService()
+    monkeypatch.setattr(cache_module, "media_cache", media)
+    event_id = "older-bird-under-shared-budget"
+    async with get_db() as db:
+        await DetectionRepository(db).create(
+            Detection(datetime.fromisoformat(recent(days=5)), 1, 0.9, "Robin", "Robin", event_id, "patio")
+        )
+    photo = photograph("blue") + b"\x00" * 700_000
+    assert await media.cache_snapshot(event_id, photo)
+
+    monkeypatch.setattr(settings.media_cache, "max_size_mb", 1)
+    result = await MediaStorageService().enforce_limits()
+    assert result["visits_evicted"] == 0
+    assert result["bytes_freed"] == 0
+    assert await media.get_snapshot(event_id) == photo
+    assert kept_path(capture_id, "clip").is_file()
+
+
+@pytest.mark.asyncio
 async def test_storage_figures_include_kept_garden_media(frigate):
     capture_id = await frigate_capture("confirmed")
     await garden_media_cache.collect(capture_id)

@@ -61,8 +61,28 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('handleUseMoment');
         expect(detectionModalSource).toContain('handleGenerateSnapshotCandidates');
         expect(detectionModalSource).toContain('handleApplySnapshot');
-        expect(detectionModalSource).toContain('detectionsStore.notePhotoChanged(detection.frigate_event)');
-        expect(detectionModalSource).toContain('detectionsStore.notePhotoChanged(eventId)');
+        const applyStart = detectionModalSource.indexOf('async function handleApplySnapshot(');
+        const applyEnd = detectionModalSource.indexOf('async function refreshBirdsAfterScan(', applyStart);
+        expect(applyStart).toBeGreaterThan(-1);
+        expect(applyEnd).toBeGreaterThan(applyStart);
+        const applyBlock = detectionModalSource.slice(applyStart, applyEnd);
+        expect(applyBlock).toContain('const eventId = detection.frigate_event;');
+        expect(applyBlock).toContain('await applySnapshotCandidate(eventId,');
+        expect(applyBlock).toContain('detectionsStore.notePhotoChanged(eventId);');
+        const staleGuard = 'if (!detection || detection.frigate_event !== eventId) return;';
+        // The photo's own thumbnails refresh before a record switch can end the handler.
+        expect(applyBlock.indexOf('detectionsStore.notePhotoChanged(eventId);')).toBeLessThan(applyBlock.indexOf(staleGuard));
+        const regenStart = detectionModalSource.indexOf('async function handleGenerateSnapshotCandidates()');
+        const regenEnd = detectionModalSource.indexOf('function handleFetchFullVisitClick(', regenStart);
+        expect(regenStart).toBeGreaterThan(-1);
+        expect(regenEnd).toBeGreaterThan(regenStart);
+        const regenBlock = detectionModalSource.slice(regenStart, regenEnd);
+        expect(regenBlock.indexOf('detectionsStore.notePhotoChanged(eventId);')).toBeGreaterThan(-1);
+        expect(regenBlock.indexOf('detectionsStore.notePhotoChanged(eventId);')).toBeLessThan(regenBlock.indexOf(staleGuard));
+        // In-flight photo work is held per capture, so a switch neither inherits nor strands it.
+        expect(detectionModalSource).toContain('photoApplyEvents.has(detection.frigate_event)');
+        expect(detectionModalSource).toContain('photoGenerateEvents.has(detection.frigate_event)');
+        expect(detectionModalSource).not.toMatch(/^\s+snapshot(Apply|Generate)Pending = /m);
         // The moment strip and its "as recorded" moment live in FrameStrip.svelte (#256).
         expect(detectionModalSource).toContain('<FrameStrip');
         expect(detectionModalSource).not.toContain("Save this frame");

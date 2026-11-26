@@ -11,8 +11,8 @@ from app.config import settings
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.services import media_cache as cache_module
-from app.utils.tasks import create_background_task
-from app.services.media_storage_policy import CachedVisit, select_media_evictions
+from app.utils.tasks import create_background_task, finish_started_operation
+from app.services.media_storage_policy import CachedVisit, plan_media_evictions, select_media_evictions
 from app.services.garden_media_policy import capture_id_from_eviction_key, eviction_key
 
 log = structlog.get_logger()
@@ -79,21 +79,7 @@ class MediaStorageService:
     @staticmethod
     def _possible_owners(event_id: str, paths: list[Path]) -> set[str]:
         """A generated variant name may also be a supported literal visit ID."""
-        owners = {event_id}
-        for path in paths:
-            for suffix in (".jpg.meta.json", ".mp4.meta.json", ".jpg", ".mp4", ".json"):
-                if path.name.endswith(suffix):
-                    stem = path.name[: -len(suffix)]
-                    owners.add(stem)
-                    # A literal candidate visit may have only its generated thumbnail.
-                    # Preserve the intermediate ID before canonicalizing candidate keys.
-                    for variant in ("_thumb", "_recording", "_preview"):
-                        if stem.endswith(variant):
-                            owners.add(stem[: -len(variant)])
-                            break
-                    break
-        owners.update(cache_module.media_cache._media_write_owner(owner) for owner in tuple(owners))
-        return owners
+        return cache_module.possible_cache_owners(event_id, paths)
 
     @staticmethod
     def _photo_protection_inventory(files: dict[str, list[Path]]) -> tuple[dict[str, int], set[str]]:
@@ -112,6 +98,45 @@ class MediaStorageService:
             if cache_module.has_manual_snapshot_selection(event_id):
                 manual_selected.add(event_id)
         return photo_sizes, manual_selected
+
+    async def _delete_orphan_visit(self, event_id: str, paths: list[Path]) -> dict[str, int] | None:
+        media = cache_module.media_cache
+        possible_owners = self._possible_owners(event_id, paths)
+        async with get_db() as db:
+            await db.execute("BEGIN IMMEDIATE")
+            try:
+                if possible_owners & self._protected_event_ids():
+                    await db.rollback()
+                    return None
+                if await DetectionRepository(db).list_cached_media_visits(sorted(possible_owners)):
+                    await db.rollback()
+                    return None
+
+                def _delete_and_count(target_event_id: str, target_paths: list[Path]) -> dict[str, int]:
+                    before = [path for path in target_paths if path.is_file() and not path.name.endswith(".tmp")]
+                    freed = media._delete_visit_files_sync(target_event_id, target_paths)
+                    removed = [path for path in before if not path.exists()]
+                    return {
+                        "bytes_freed": freed,
+                        "snapshots_deleted": sum(
+                            1
+                            for path in removed
+                            if path.parent == cache_module.SNAPSHOTS_DIR and path.name.endswith(".jpg")
+                        ),
+                        "clips_deleted": sum(
+                            1
+                            for path in removed
+                            if path.parent == cache_module.CLIPS_DIR and path.name.endswith(".mp4")
+                        ),
+                        "previews_deleted": sum(1 for path in removed if path.parent == cache_module.PREVIEWS_DIR),
+                    }
+
+                deleted = await media._complete_file_operation(_delete_and_count, event_id, paths)
+                await db.commit()
+                return deleted
+            except BaseException:
+                await db.rollback()
+                raise
 
     async def _recover_orphaned_media_stats(self, files: dict[str, list[Path]]) -> dict[str, int]:
         """Retry post-delete filesystem cleanup independently of optional cache budgets."""
@@ -138,35 +163,19 @@ class MediaStorageService:
                     await leases.enter_async_context(media._media_lifecycle_lock(owner))
                 if possible_owners & self._protected_event_ids():
                     continue
-                # Recheck births after inventory and release the connection before disk I/O.
-                async with get_db() as db:
-                    placeholders = ",".join("?" for _ in possible_owners)
-                    async with db.execute(
-                        f"SELECT 1 FROM detections WHERE frigate_event IN ({placeholders}) LIMIT 1",
-                        tuple(possible_owners),
-                    ) as cursor:
-                        if await cursor.fetchone():
-                            continue
                 try:
-                    existing_paths = [path for path in files[event_id] if path.is_file()]
-                    freed = await media._complete_file_operation(
-                        media._delete_visit_files_sync, event_id, files[event_id]
+                    deleted = await finish_started_operation(
+                        self._delete_orphan_visit(event_id, files[event_id]), name="media_orphan_recovery"
                     )
-                    stats["bytes_freed"] += freed
-                    for path in existing_paths:
-                        if path.parent == cache_module.SNAPSHOTS_DIR and path.name.endswith(".jpg"):
-                            stats["snapshots_deleted"] += 1
-                        elif path.parent == cache_module.CLIPS_DIR and path.name.endswith(".mp4"):
-                            stats["clips_deleted"] += 1
-                        elif path.parent == cache_module.PREVIEWS_DIR:
-                            stats["previews_deleted"] += 1
+                    if deleted is None:
+                        continue
+                    stats["bytes_freed"] += deleted["bytes_freed"]
+                    stats["snapshots_deleted"] += deleted["snapshots_deleted"]
+                    stats["clips_deleted"] += deleted["clips_deleted"]
+                    stats["previews_deleted"] += deleted["previews_deleted"]
                 except OSError as exc:
                     log.warning("Orphaned media recovery failed; will retry", event_id=event_id, error=str(exc))
         return stats
-
-    async def _recover_orphaned_media(self, files: dict[str, list[Path]]) -> int:
-        stats = await self._recover_orphaned_media_stats(files)
-        return stats["bytes_freed"]
 
     async def recover_orphaned_media(self) -> dict[str, int]:
         """Run locked orphan cleanup with full lifecycle guards for manual cache cleanup."""
@@ -216,23 +225,6 @@ class MediaStorageService:
                 await db.rollback()
                 raise
 
-    async def _finish_budget_eviction(self, event_id: str, paths: list[Path]) -> int | None:
-        """Hold lifecycle locks until irreversible deletion and its durable commit finish."""
-        task = asyncio.create_task(self._evict_budget_visit(event_id, paths), name="media_budget_eviction")
-        cancellation = None
-        while not task.done():
-            try:
-                await asyncio.shield(task)
-            except asyncio.CancelledError as exc:
-                cancellation = exc
-            except BaseException:
-                break
-        if cancellation is not None:
-            if not task.cancelled():
-                task.exception()
-            raise cancellation
-        return task.result()
-
     @staticmethod
     async def _garden_visits() -> list[CachedVisit]:
         """Garden's kept media shares the byte budget, oldest first. A per-species maximum counts birds only."""
@@ -250,11 +242,23 @@ class MediaStorageService:
         ]
 
     async def enforce_limits(self) -> dict[str, int]:
-        result = {"visits_evicted": 0, "bytes_freed": 0}
+        from app.services.garden_media_cache import garden_media_cache
+
+        result = {
+            "visits_evicted": 0,
+            "bytes_freed": 0,
+            "orphan_snapshots_deleted": 0,
+            "orphan_clips_deleted": 0,
+            "orphan_previews_deleted": 0,
+        }
         options = settings.media_cache
         async with self._lock:
             sizes, files = await asyncio.to_thread(self._inventory)
-            result["bytes_freed"] += await self._recover_orphaned_media(files)
+            orphan_stats = await self._recover_orphaned_media_stats(files)
+            result["bytes_freed"] += orphan_stats["bytes_freed"]
+            result["orphan_snapshots_deleted"] = orphan_stats["snapshots_deleted"]
+            result["orphan_clips_deleted"] = orphan_stats["clips_deleted"]
+            result["orphan_previews_deleted"] = orphan_stats["previews_deleted"]
             if not (options.per_species_maximum or options.max_size_mb):
                 return result
             sizes, files = await asyncio.to_thread(self._inventory)
@@ -286,23 +290,45 @@ class MediaStorageService:
                 for event_id, possible in owners.items()
                 if possible & protected or (possible - {event_id}) & live_ids
             )
+            max_bytes = options.max_size_mb * 1024 * 1024
             evictions = select_media_evictions(
                 visits,
                 per_species_maximum=options.per_species_maximum,
-                max_bytes=options.max_size_mb * 1024 * 1024,
+                max_bytes=max_bytes,
                 protected_event_ids=protected,
             )
-            garden_evictions = [capture_id for capture_id in map(capture_id_from_eviction_key, evictions) if capture_id]
-            if garden_evictions:
-                from app.services.garden_media_cache import garden_media_cache
-
-                await garden_media_cache.evict(garden_evictions)
-                evicted_keys = {eviction_key(capture_id) for capture_id in garden_evictions}
-                result["visits_evicted"] += len(garden_evictions)
-                result["bytes_freed"] += sum(visit.bytes_on_disk for visit in visits if visit.event_id in evicted_keys)
+            species_cap_ids = (
+                set(
+                    plan_media_evictions(
+                        visits,
+                        per_species_maximum=options.per_species_maximum,
+                        max_bytes=0,
+                        protected_event_ids=protected,
+                    )[0]
+                )
+                if max_bytes > 0
+                else set()
+            )
+            remaining_bytes = sum(visit.bytes_on_disk for visit in visits)
+            garden_sizes = {
+                visit.event_id: visit.bytes_on_disk for visit in visits if capture_id_from_eviction_key(visit.event_id)
+            }
+            # Apply the species cap first. Only then is the optional byte-budget work known.
+            evictions.sort(key=lambda event_id: event_id not in species_cap_ids)
+            garden_batch: list[str] = []
             for event_id in evictions:
-                if capture_id_from_eviction_key(event_id):
+                if max_bytes > 0 and event_id not in species_cap_ids and remaining_bytes <= max_bytes:
+                    break
+                capture_id = capture_id_from_eviction_key(event_id)
+                if capture_id:
+                    garden_batch.append(capture_id)
+                    result["visits_evicted"] += 1
+                    result["bytes_freed"] += garden_sizes[event_id]
+                    remaining_bytes -= garden_sizes[event_id]
                     continue
+                if garden_batch:
+                    await garden_media_cache.evict(garden_batch)
+                    garden_batch = []
                 async with (
                     cache_module.media_cache._snapshot_commit_lock(event_id),
                     cache_module.media_cache._recording_clip_commit_lock(event_id),
@@ -313,11 +339,16 @@ class MediaStorageService:
                         await leases.enter_async_context(cache_module.media_cache._media_lifecycle_lock(owner))
                     if owners[event_id] & self._protected_event_ids():
                         continue
-                    freed = await self._finish_budget_eviction(event_id, files[event_id])
+                    freed = await finish_started_operation(
+                        self._evict_budget_visit(event_id, files[event_id]), name="media_budget_eviction"
+                    )
                     if freed is None:
                         continue
                     result["visits_evicted"] += 1
                     result["bytes_freed"] += freed
+                    remaining_bytes -= freed
+            if garden_batch:
+                await garden_media_cache.evict(garden_batch)
             if result["visits_evicted"]:
                 log.info("Media cache limits enforced", **result)
         return result

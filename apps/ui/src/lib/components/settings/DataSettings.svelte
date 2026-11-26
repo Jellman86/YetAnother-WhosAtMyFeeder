@@ -182,16 +182,23 @@
             cachePerSpeciesMaximum > 0
                 ? $_('settings.data.storage_policy_species_cap', {
                     values: { count: cachePerSpeciesMaximum },
-                    default: '{count, plural, one {Each species keeps photos and video only for its newest visit.} other {Each species keeps photos and video only for its newest # visits.}}'
+                    default: '{count, plural, one {Each species keeps photos and video only for its newest capture.} other {Each species keeps photos and video only for its newest # captures.}}'
                 })
                 : null,
             cachePerSpeciesMinimum > 0
                 ? $_('settings.data.storage_policy_species_floor', {
                     values: { count: cachePerSpeciesMinimum },
-                    default: "{count, plural, one {Each species' newest visit keeps its photos past the history window.} other {Each species' newest # visits keep their photos past the history window.}}"
+                    default: "{count, plural, one {Each species' newest capture keeps its photos past the history window.} other {Each species' newest # captures keep their photos past the history window.}}"
                 })
                 : null,
-            $_('settings.data.storage_policy_favourites', { default: 'Favourites keep everything; confirmed observations and chosen photos keep their main photograph.' })
+            $_('settings.data.storage_policy_favourites', { default: 'Favourites keep all their photos and video. Captures you confirmed, and captures whose photo you chose, keep their main photograph; their clips and other frames can still go.' }),
+            // Limits never remove protected media, so the summary does not promise a ceiling it cannot hold.
+            cacheMaxSizeMb > 0
+                ? $_('settings.data.storage_policy_over_limit', {
+                    values: { size: storedMegabytesToGigabytes(cacheMaxSizeMb) },
+                    default: 'If favourites and kept main photographs alone take more than {size} GB, space used stays above the limit.'
+                })
+                : null
         ].filter((part): part is string => part !== null).join(' ')
     );
 
@@ -473,13 +480,13 @@
         >
             <SettingsRow
                 labelId="setting-cache-species-floor"
-                label={$_('settings.data.per_species_minimum', { default: "Keep photos of each species' newest visits" })}
-                description={$_('settings.data.per_species_minimum_help', { default: "That many of each species' newest visits keep their photos after they leave the history window, so a rare bird keeps its pictures. Video is not kept longer. The storage limit still applies." })}
+                label={$_('settings.data.per_species_minimum', { default: "Keep photos of each species' newest captures" })}
+                description={$_('settings.data.per_species_minimum_help', { default: "That many of each species' newest captures keep their photos after they leave the history window, so a rare bird keeps its pictures. Video is not kept longer. The storage limit and the per-species limit still apply." })}
             >
                 <div class="flex flex-wrap items-center justify-end gap-3">
                     {#if cachePerSpeciesMinimum > 0}
                         <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-                            <span class="sr-only">{$_('settings.data.per_species_minimum_count', { default: 'Visits kept per species' })}</span>
+                            <span class="sr-only">{$_('settings.data.per_species_minimum_count', { default: 'Captures kept per species' })}</span>
                             <input type="number" min="1" max="10000" step="1" value={cachePerSpeciesMinimum}
                                 onchange={(event) => (cachePerSpeciesMinimum = wholeCount(event.currentTarget.value))}
                                 class="input-base w-24 py-2 text-right" />
@@ -488,7 +495,7 @@
                     <SettingsToggle
                         checked={cachePerSpeciesMinimum > 0}
                         labelledBy="setting-cache-species-floor"
-                        srLabel={$_('settings.data.per_species_minimum', { default: "Keep photos of each species' newest visits" })}
+                        srLabel={$_('settings.data.per_species_minimum', { default: "Keep photos of each species' newest captures" })}
                         onchange={setSpeciesFloor}
                     />
                 </div>
@@ -496,13 +503,13 @@
 
             <SettingsRow
                 labelId="setting-cache-per_species_maximum"
-                label={$_('settings.data.per_species_maximum', { default: 'Limit visits per species with photos and video' })}
-                description={$_('settings.data.per_species_maximum_help', { default: "A species' captures beyond this number lose their photos and video, oldest first. History stays. Favourites don't count, and confirmed observations or chosen photos keep their main photograph." })}
+                label={$_('settings.data.per_species_maximum', { default: 'Limit captures per species with photos and video' })}
+                description={$_('settings.data.per_species_maximum_help', { default: "A species' captures beyond this number lose their photos and video, oldest first. History stays. Favourites don't count; captures you confirmed, and captures whose photo you chose, keep their main photograph." })}
             >
                 <div class="flex flex-wrap items-center justify-end gap-3">
                     {#if cachePerSpeciesMaximum > 0}
                         <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-                            <span class="sr-only">{$_('settings.data.per_species_maximum_count', { default: 'Visits per species with photos and video' })}</span>
+                            <span class="sr-only">{$_('settings.data.per_species_maximum_count', { default: 'Captures per species with photos and video' })}</span>
                             <input type="number" min="1" max="10000" step="1" value={cachePerSpeciesMaximum}
                                 onchange={(event) => (cachePerSpeciesMaximum = wholeCount(event.currentTarget.value))}
                                 class="input-base w-24 py-2 text-right" />
@@ -511,7 +518,7 @@
                     <SettingsToggle
                         checked={cachePerSpeciesMaximum > 0}
                         labelledBy="setting-cache-per_species_maximum"
-                        srLabel={$_('settings.data.per_species_maximum', { default: 'Limit visits per species with photos and video' })}
+                        srLabel={$_('settings.data.per_species_maximum', { default: 'Limit captures per species with photos and video' })}
                         onchange={setSpeciesMaximum}
                     />
                 </div>

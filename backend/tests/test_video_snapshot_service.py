@@ -602,6 +602,24 @@ async def test_photo_preflight_does_not_decode_for_an_owner_selected_photo(clip,
 
 
 @pytest.mark.asyncio
+async def test_video_replacement_clears_an_owner_choice_when_its_photo_is_missing(clip, monkeypatch):
+    event_id = "video-recovery-stale-choice"
+    await _seed(event_id)
+    photo = await module.media_cache.replace_snapshot(
+        event_id, b"owner-photo", manual_selection=True, manual_candidate_id="old-choice"
+    )
+    assert photo is not None
+    photo.unlink()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
+
+    assert await module.replace_video_snapshot(event_id, clip, _result(), clip_variant="event") == "replaced"
+
+    assert await module.media_cache.get_snapshot(event_id)
+    metadata = await module.media_cache.get_snapshot_metadata(event_id)
+    assert metadata and not metadata.get("manual_selection") and not metadata.get("manual_candidate_id")
+
+
+@pytest.mark.asyncio
 async def test_saved_hash_does_not_prevent_restoring_a_missing_earlier_photo():
     import hashlib
 

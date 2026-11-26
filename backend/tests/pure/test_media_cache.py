@@ -1,5 +1,7 @@
 import asyncio
+import os
 import threading
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -106,6 +108,50 @@ async def test_replace_snapshot_invalidates_cached_thumbnail(tmp_path, monkeypat
     assert await service.get_snapshot(event_id) == b"new-snapshot"
     assert await service.get_thumbnail(event_id) is None
     assert not thumbnail_path.exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("paused_step", ["sidecar", "thumbnail"])
+async def test_cancelled_snapshot_replacement_finishes_publication_under_the_lock(tmp_path, monkeypatch, paused_step):
+    service, _ = _make_service(tmp_path, monkeypatch)
+    event_id = "evt-cancelled-choice"
+    await service.cache_snapshot(event_id, b"old-snapshot")
+    thumbnail = await service.cache_thumbnail(event_id, b"old-thumbnail")
+    entered, release = asyncio.Event(), asyncio.Event()
+    method_name = "_write_snapshot_metadata" if paused_step == "sidecar" else "delete_thumbnail"
+    original = getattr(service, method_name)
+
+    async def pause_publication(*args, **kwargs):
+        entered.set()
+        await release.wait()
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(service, method_name, pause_publication)
+    owner = asyncio.create_task(
+        service.replace_snapshot(event_id, b"chosen", manual_selection=True, manual_candidate_id="candidate")
+    )
+    automatic = None
+    try:
+        await asyncio.wait_for(entered.wait(), 2)
+        assert await service.get_snapshot(event_id) == b"chosen"
+        owner.cancel()
+        automatic = asyncio.create_task(service.replace_snapshot(event_id, b"automatic", automatic=True))
+        await asyncio.sleep(0)
+        owner.cancel()
+        assert not owner.done()
+        assert service._snapshot_commit_lock(event_id).locked()
+    finally:
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await owner
+        if automatic is not None:
+            await automatic
+    assert await service.get_snapshot(event_id) == b"chosen"
+    metadata = await service.get_snapshot_metadata(event_id)
+    assert metadata["manual_selection"] is True
+    assert metadata["manual_candidate_id"] == "candidate"
+    assert not thumbnail.exists()
+    assert await service.get_thumbnail_metadata(event_id) is None
 
 
 @pytest.mark.asyncio
@@ -669,6 +715,125 @@ async def test_empty_file_cleanup_removes_orphaned_sidecar_and_derived_thumbnail
 
 
 @pytest.mark.asyncio
+async def test_empty_file_cleanup_preserves_event_hints_and_non_derived_thumbnail(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.cache_snapshot(
+        "evt-hints",
+        b"photo",
+        source="frigate_snapshot",
+        event_hints={"snapshot": {"frame_time": 123.4, "box": [0.1, 0.2, 0.3, 0.4]}},
+    )
+    await service.replace_snapshot("evt-hints", b"chosen", source="hq_candidate_model_crop", manual_selection=True)
+    await service.cache_thumbnail("evt-hints", b"frigate-thumb", source="frigate_thumbnail")
+    (snapshots / "evt-hints.jpg").write_bytes(b"")
+
+    stats = await service.cleanup_empty_files()
+    assert stats["snapshots_deleted"] == 1
+    assert not (snapshots / "evt-hints.jpg").exists()
+    # Event hints survive while stale manual_selection is stripped.
+    meta = await service.get_snapshot_metadata("evt-hints") or {}
+    assert meta.get("event_hints") == {"snapshot": {"frame_time": 123.4, "box": [0.1, 0.2, 0.3, 0.4]}}
+    assert "manual_selection" not in meta
+    # Independent Frigate thumbnail is not deleted as a derived thumbnail.
+    assert (snapshots / "evt-hints_thumb.jpg").exists()
+    assert (snapshots / "evt-hints_thumb.jpg.meta.json").exists()
+
+
+@pytest.mark.asyncio
+async def test_empty_file_cleanup_serializes_with_concurrent_owner_save(tmp_path, monkeypatch):
+    import asyncio
+
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    (snapshots / "evt-race.jpg").write_bytes(b"")
+    (snapshots / "evt-race.jpg.meta.json").write_text('{"event_id": "evt-race"}', encoding="utf-8")
+
+    # Hold the snapshot commit lock so cleanup discovers the zero-byte file first,
+    # then a concurrent owner save replaces it before cleanup runs under the lock.
+    async with service._snapshot_commit_lock("evt-race"):
+        cleanup_task = asyncio.create_task(service.cleanup_empty_files())
+        await asyncio.sleep(0.05)
+        (snapshots / "evt-race.jpg").write_bytes(b"new-owner-photo")
+        (snapshots / "evt-race.jpg.meta.json").write_text(
+            '{"event_id": "evt-race", "manual_selection": true}', encoding="utf-8"
+        )
+
+    stats = await cleanup_task
+    assert stats["snapshots_deleted"] == 0
+    assert (snapshots / "evt-race.jpg").read_bytes() == b"new-owner-photo"
+    assert media_cache_module.has_manual_snapshot_selection("evt-race") is True
+
+
+@pytest.mark.asyncio
+async def test_has_manual_snapshot_selection_fails_closed_on_io_error_and_corrupt_sidecar(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.replace_snapshot("evt-corrupt", b"photo", source="hq_candidate_model_crop", manual_selection=True)
+    (snapshots / "evt-corrupt.jpg.meta.json").write_text("{not-json", encoding="utf-8")
+    assert media_cache_module.has_manual_snapshot_selection("evt-corrupt") is True
+
+    original_stat = media_cache_module.Path.stat
+
+    def _boom_stat(self, *args, **kwargs):
+        if self.name == "evt-corrupt.jpg":
+            raise PermissionError("transient io error")
+        return original_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(media_cache_module.Path, "stat", _boom_stat)
+    assert media_cache_module.has_manual_snapshot_selection("evt-corrupt") is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sidecar", ["{not-json", "[]"])
+async def test_unreadable_selection_sidecar_protects_photo_from_automatic_writes(tmp_path, monkeypatch, sidecar):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.replace_snapshot("evt-choice", b"chosen", manual_selection=True)
+    (snapshots / "evt-choice.jpg.meta.json").write_text(sidecar, encoding="utf-8")
+
+    await service.cache_snapshot("evt-choice", b"new Frigate photo")
+    await service.replace_snapshot("evt-choice", b"new automatic photo", automatic=True)
+
+    assert media_cache_module.has_manual_snapshot_selection("evt-choice")
+    assert await service.get_snapshot("evt-choice") == b"chosen"
+
+
+@pytest.mark.asyncio
+async def test_age_cleanup_only_locks_groups_with_expired_files(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.cache_snapshot("fresh", b"fresh")
+    await service.cache_snapshot("old", b"old")
+    old_time = (datetime.now() - timedelta(days=5)).timestamp()
+    os.utime(snapshots / "old.jpg", (old_time, old_time))
+    checked = []
+    age = service._age_media_group
+
+    async def record_group(**kwargs):
+        checked.append(kwargs["event_id"])
+        return await age(**kwargs)
+
+    monkeypatch.setattr(service, "_age_media_group", record_group)
+    stats = await service.cleanup_old_media(1, recheck_db=False)
+
+    assert checked == ["old"]
+    assert stats["snapshots_deleted"] == 1
+    assert await service.get_snapshot("fresh") == b"fresh"
+
+
+@pytest.mark.asyncio
+async def test_has_live_manual_selection_requires_nonempty_snapshot_and_fails_closed_on_io_error(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.replace_snapshot("evt-live", b"photo", source="hq_candidate_model_crop", manual_selection=True)
+    assert await service.has_live_manual_selection("evt-live") is True
+
+    (snapshots / "evt-live.jpg").unlink()
+    assert await service.has_live_manual_selection("evt-live") is False
+
+    async def _boom_stat(_path):
+        raise PermissionError("transient io error")
+
+    monkeypatch.setattr(media_cache_module.aiofiles.os, "stat", _boom_stat)
+    assert await service.has_live_manual_selection("evt-live") is True
+
+
+@pytest.mark.asyncio
 async def test_clear_all_removes_metadata_sidecars(tmp_path, monkeypatch):
     service, snapshots = _make_service(tmp_path, monkeypatch)
     await service.replace_snapshot("evt-clear", b"photo", source="hq_candidate_model_crop", manual_selection=True)
@@ -678,10 +843,71 @@ async def test_clear_all_removes_metadata_sidecars(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_cleanup_old_media_keeps_canonical_photo_for_owner_confirmed_and_manual_selection(tmp_path, monkeypatch):
-    import os
-    from datetime import datetime, timedelta
+async def test_hint_refresh_preserves_unreadable_owner_photo_metadata(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.replace_snapshot("hint-choice", b"chosen", manual_selection=True)
+    metadata = snapshots / "hint-choice.jpg.meta.json"
+    metadata.write_bytes(b"{bad-json")
 
+    assert not await service.update_snapshot_event_hints("hint-choice", {"snapshot": {"frame_time": 1.5}})
+    assert metadata.read_bytes() == b"{bad-json"
+    await service.cache_snapshot("hint-choice", b"automatic")
+    assert await service.get_snapshot("hint-choice") == b"chosen"
+
+
+@pytest.mark.asyncio
+async def test_thumbnail_invalidation_and_cache_writes_preserve_literal_snapshot(tmp_path, monkeypatch):
+    service, _ = _make_service(tmp_path, monkeypatch)
+    await service.replace_snapshot("literal_thumb", b"chosen", manual_selection=True)
+
+    await service.cache_snapshot("literal", b"other capture")
+    assert await service.cache_thumbnail("literal", b"thumbnail") is None
+    assert await service.get_thumbnail("literal") is None
+    assert await service.get_thumbnail_path("literal") is None
+    assert await service.get_cached_image_version("literal", thumbnail=True) is None
+    assert await service.get_snapshot("literal_thumb") == b"chosen"
+    assert await service.has_live_manual_selection("literal_thumb")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("event_id", ["live", "live_recording"])
+async def test_empty_file_cleanup_leaves_streaming_clips_until_writes_finish(tmp_path, monkeypatch, event_id):
+    service, _ = _make_service(tmp_path, monkeypatch)
+    opened = asyncio.Event()
+    send = asyncio.Event()
+    data = b"clip" * 256
+
+    async def chunks():
+        opened.set()
+        await send.wait()
+        yield data
+
+    writer = asyncio.create_task(service.cache_clip_streaming(event_id, chunks()))
+    await asyncio.wait_for(opened.wait(), 2)
+    try:
+        stats = await service.cleanup_empty_files()
+        assert stats["clips_deleted"] == 0
+    finally:
+        send.set()
+        path = await writer
+    assert path is not None
+    assert path.read_bytes() == data
+
+
+@pytest.mark.asyncio
+async def test_empty_file_cleanup_skips_previews_during_publication(tmp_path, monkeypatch):
+    service, _ = _make_service(tmp_path, monkeypatch)
+    path = service._preview_sprite_path("live-preview")
+    async with service._media_write_lease("live-preview"):
+        path.touch()
+        assert (await service.cleanup_empty_files())["previews_deleted"] == 0
+        assert path.exists()
+    assert (await service.cleanup_empty_files())["previews_deleted"] == 1
+    assert not path.exists()
+
+
+@pytest.mark.asyncio
+async def test_cleanup_old_media_keeps_canonical_photo_for_owner_confirmed_and_manual_selection(tmp_path, monkeypatch):
     service, snapshots = _make_service(tmp_path, monkeypatch)
     clips = media_cache_module.CLIPS_DIR
     previews = media_cache_module.PREVIEWS_DIR
@@ -711,11 +937,12 @@ async def test_cleanup_old_media_keeps_canonical_photo_for_owner_confirmed_and_m
         for path in directory.iterdir():
             os.utime(path, (old_time, old_time))
 
-    stats = service._cleanup_old_media_sync(
+    stats = await service.cleanup_old_media(
         retention_days=1,
         protected_event_ids=set(),
         protected_snapshot_event_ids=set(),
         protected_canonical_photo_event_ids={"evt-confirmed"},
+        recheck_db=False,
     )
 
     assert (snapshots / "evt-confirmed.jpg").exists()
@@ -732,4 +959,4 @@ async def test_cleanup_old_media_keeps_canonical_photo_for_owner_confirmed_and_m
 
     assert not (snapshots / "evt-ordinary.jpg").exists()
     assert not (clips / "evt-ordinary.mp4").exists()
-    assert stats["protected_skipped"] >= 4
+    assert stats["protected_skipped"] == 6
