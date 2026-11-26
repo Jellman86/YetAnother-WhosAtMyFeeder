@@ -21,6 +21,10 @@
         faults: [{
             eventId: 'browser-fault', label: null, score: null,
             reason: 'classify_snapshot_timeout', timestamp: '2026-09-23T07:59:00Z'
+        }],
+        heldBack: [{
+            eventId: 'browser-held-back', label: null, score: null, camera: 'patiocam',
+            reason: 'update_recovery_cooldown', timestamp: '2026-09-23T07:58:00Z'
         }]
     });
     let mode = $state('events');

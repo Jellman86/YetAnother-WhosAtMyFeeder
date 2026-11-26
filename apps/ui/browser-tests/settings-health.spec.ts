@@ -90,6 +90,40 @@ test('Health is healthy only with both connections measured up', async ({ page }
     await expect(page.locator('[data-health-card="frigate"]')).toContainText('Frigate announces itself online over MQTT.');
 });
 
+test('a retry paused on purpose leaves Health healthy and stays listed under the pipeline in words', async ({ page }) => {
+    const payload = workspace({
+        mqtt: { state: 'connected', server: 'mqtt', port: 1883, connected_since: '2026-11-13T17:00:00Z' },
+        frigate: { state: 'reachable', url: 'http://frigate:5000', checked_at: '2026-11-13T18:19:00Z', availability: 'online' },
+        generated_at: '2026-11-13T18:20:00Z'
+    });
+    // What the backend records for the owner's patiocam visit: a filtered first frame, two paused
+    // retries graded as information, then the visit saved.
+    payload.health.event_pipeline = {
+        status: 'ok', started_events: 4, completed_events: 1, dropped_events: 3, fault_drops: 0, expected_drops: 3,
+        expected_drop_reasons: { filter_below_threshold: 1, update_recovery_cooldown: 2 }, fault_drop_reasons: {},
+        recent_outcomes: [
+            { event_id: 'evt-patio', outcome: 'dropped', reason: 'filter_below_threshold', severity: 'info', label: 'Columba palumbus', score: 0.22, timestamp: '2026-11-13T18:18:00Z' },
+            { event_id: 'evt-patio', outcome: 'dropped', reason: 'update_recovery_cooldown', severity: 'info', camera: 'patiocam', timestamp: '2026-11-13T18:18:02Z' }
+        ]
+    } as never;
+    payload.backend_diagnostics.events = [{
+        id: 'diag:test:cooldown', timestamp: '2026-11-13T18:18:02Z', source: 'event_pipeline', component: 'event_processor',
+        stage: null, reason_code: 'drop_update_recovery_cooldown', message: 'Dropped event due to update_recovery_cooldown',
+        severity: 'info', event_id: 'evt-patio', context: { camera: 'patiocam' }, correlation_key: null, count: 2,
+        first_seen: '2026-11-13T18:18:02Z', last_seen: '2026-11-13T18:18:04Z'
+    }] as never[];
+    await openHealth(page, payload);
+
+    await expect(page.locator('[data-health-status-pill]')).toHaveText('Healthy');
+    await expect(page.locator('#app-sidebar')).not.toContainText('needs attention');
+    await page.locator('[data-subsystem-detail] > summary').click();
+    const heldBack = page.locator('[data-health-held-back]');
+    await expect(heldBack).toContainText('Retrying a Frigate update was paused briefly to avoid repeating work.');
+    await expect(heldBack).toContainText('YA-WAMF will try again when the visit ends.');
+    // The filter counts only what the identification settings rejected.
+    await expect(page.locator('[data-health-subsystem="filtered"]')).toContainText('1 Frigate event did not pass your identification settings.');
+});
+
 test('a backend error is said in words; its raw text, paths and addresses stay under Technical details', async ({ page }) => {
     const event = (reason: string, message: string) => ({
         id: `diag:test:${reason}`, timestamp: '2026-11-13T18:19:00Z', source: 'event_pipeline', component: 'event_processor',

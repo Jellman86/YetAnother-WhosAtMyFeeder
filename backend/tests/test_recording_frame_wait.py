@@ -348,3 +348,67 @@ def test_a_slow_recording_read_does_not_stop_the_camera_waiting():
     processor, _slept, _gate = _processor()
     processor._note_recording_frame_outcome("birdcam", "recording_slow")
     assert "birdcam" not in processor._recording_unavailable_until
+
+
+def _with_monotonic(monkeypatch, value: float) -> None:
+    monkeypatch.setattr("app.services.event_processor.time.monotonic", lambda: value)
+
+
+@pytest.mark.asyncio
+async def test_an_admitted_update_retry_is_identified_after_its_own_recording_frame_wait(monkeypatch):
+    """The wait is the retry's own work, so its cooldown must not pause it when it comes back.
+
+    Frigate's updates repeat the best snapshot's time, often seconds old, so the wait is often
+    shorter than the 5 s update cooldown and the replay used to be paused by its own admission.
+    """
+    monkeypatch.setattr(settings.frigate, "recording_frame_delay_seconds", 12.0)
+    processor, slept, gate = _processor()
+    _with_monotonic(monkeypatch, 500.0)
+
+    await processor.process_mqtt_message(_payload("update", frame_time=NOW - 8.0))
+    await asyncio.sleep(0)
+    assert slept == [pytest.approx(4.0)]
+    processor._classify_snapshot.assert_not_awaited()
+
+    _with_monotonic(monkeypatch, 504.0)
+    gate.set()
+    await _settle(processor)
+
+    processor._classify_snapshot.assert_awaited_once()
+    assert processor._classify_snapshot.await_args.args[0].recording_wait_done is True
+    assert "update_recovery_cooldown" not in processor.get_status()["drop_reasons"]
+
+
+@pytest.mark.asyncio
+async def test_a_separate_update_right_after_an_admitted_retry_is_still_paused(monkeypatch):
+    monkeypatch.setattr(settings.frigate, "recording_frame_delay_seconds", 12.0)
+    processor, _slept, gate = _processor()
+    gate.set()
+    _with_monotonic(monkeypatch, 500.0)
+
+    await processor.process_mqtt_message(_payload("update", frame_time=NOW - 8.0))
+    await _settle(processor)
+    _with_monotonic(monkeypatch, 504.5)
+    await processor.process_mqtt_message(_payload("update", frame_time=NOW - 8.0))
+
+    processor._classify_snapshot.assert_awaited_once()
+    assert processor.get_status()["drop_reasons"]["update_recovery_cooldown"] == 1
+
+
+@pytest.mark.asyncio
+async def test_an_mqtt_message_cannot_claim_to_be_a_recording_frame_replay(monkeypatch):
+    """Only YA-WAMF marks its own replay; a message that claims it is waited for and throttled."""
+    monkeypatch.setattr(settings.frigate, "recording_frame_delay_seconds", 12.0)
+    processor, slept, gate = _processor()
+    gate.set()
+    _with_monotonic(monkeypatch, 500.0)
+    forged = json.loads(_payload("update", frame_time=NOW - 8.0))
+    forged["__recording_wait_done"] = True
+
+    await processor.process_mqtt_message(json.dumps(forged).encode())
+    await _settle(processor)
+    await processor.process_mqtt_message(json.dumps(forged).encode())
+
+    assert slept == [pytest.approx(4.0)]
+    processor._classify_snapshot.assert_awaited_once()
+    assert processor.get_status()["drop_reasons"]["update_recovery_cooldown"] == 1

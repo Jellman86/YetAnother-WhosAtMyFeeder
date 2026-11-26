@@ -92,8 +92,7 @@ describe('the health verdict', () => {
 
 describe('filtered rows', () => {
     it('are rendered by the health timeline as their own kind', () => {
-        expect(timelineSource).toContain("isFault ? 'fault' : 'filtered'");
-        expect(timelineSource).toContain("data-row-kind={isFault ? 'fault' : 'filtered'}");
+        expect(timelineSource).toContain("data-row-kind={isFault ? 'fault' : isHeldBack ? 'held-back' : 'filtered'}");
     });
 
     it('never borrow the amber that means a person is needed', () => {
@@ -108,8 +107,16 @@ describe('filtered rows', () => {
 
     it('keeps fault drops visible and distinct from expected filtering', () => {
         expect(timelineSource).toContain("row.kind === 'fault'");
-        expect(timelineSource).toContain("data-row-kind={isFault ? 'fault' : 'filtered'}");
+        expect(timelineSource).toContain("data-row-kind={isFault ? 'fault' : isHeldBack ? 'held-back' : 'filtered'}");
         expect(timelineSource).toContain('border-l-status-fail-line');
+    });
+
+    it('keeps work skipped on purpose on the record, in words, without calling it a fault', () => {
+        expect(errorsSource).toContain('heldBack: recentHeldBackDetections(health?.event_pipeline, 25)');
+        expect(errorsSource).toContain('data-health-held-back');
+        expect(timelineSource).toContain("row.kind === 'held_back'");
+        expect(timelineSource).toContain('jobs.errors_activity_held_back');
+        expect(timelineSource).toContain('jobs.diagnostic_words.${diagnosticWordsKey(reason)}.title');
     });
 
     it('states each outcome once instead of repeating status at the end of the row', () => {

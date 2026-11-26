@@ -1,15 +1,22 @@
 import type { DetectionVisit } from './visit-grouping';
-import { keyedPipelineDetections, type FaultDetection, type FilteredDetection } from './pipeline-health';
+import {
+    keyedPipelineDetections,
+    type FaultDetection,
+    type FilteredDetection,
+    type HeldBackDetection
+} from './pipeline-health';
 
 /**
- * The Health page shows one thread of what the feeder did: visits it kept and
- * frames the filter rejected, and fault drops, in the order they happened. This
+ * The Health page shows one thread of what the feeder did: visits it kept,
+ * frames the filter rejected, work it held back on purpose, and fault drops, in
+ * the order they happened. This
  * module decides what belongs on that operational thread and in what order.
  */
 
 export type HealthTimelineRow =
     | { kind: 'visit'; key: string; at: number; visit: DetectionVisit }
     | { kind: 'filtered'; key: string; at: number; drop: FilteredDetection }
+    | { kind: 'held_back'; key: string; at: number; drop: HeldBackDetection }
     | { kind: 'fault'; key: string; at: number; drop: FaultDetection };
 
 function parse(value: string | null | undefined): number {
@@ -36,11 +43,12 @@ export interface HealthTimelineInput {
     visits?: readonly DetectionVisit[];
     filtered?: readonly FilteredDetection[];
     faults?: readonly FaultDetection[];
+    heldBack?: readonly HeldBackDetection[];
     limit?: number;
 }
 
 /**
- * Merge kept visits, filtered frames, and fault drops into one newest-first thread. Rows
+ * Merge kept visits, filtered frames, held-back work and fault drops into one newest-first thread. Rows
  * whose time cannot be read are kept at the end rather than dropped, so a bad
  * timestamp never silently hides a real event.
  */
@@ -48,6 +56,7 @@ export function buildHealthTimeline({
     visits = [],
     filtered = [],
     faults = [],
+    heldBack = [],
     limit = 12
 }: HealthTimelineInput): HealthTimelineRow[] {
     const rows: HealthTimelineRow[] = [];
@@ -60,6 +69,9 @@ export function buildHealthTimeline({
     }
     for (const { key, entry: drop } of keyedPipelineDetections(faults)) {
         rows.push({ kind: 'fault', key: `fault:${key}`, at: parse(drop.timestamp), drop });
+    }
+    for (const { key, entry: drop } of keyedPipelineDetections(heldBack)) {
+        rows.push({ kind: 'held_back', key: `held:${key}`, at: parse(drop.timestamp), drop });
     }
 
     rows.sort((left, right) => {

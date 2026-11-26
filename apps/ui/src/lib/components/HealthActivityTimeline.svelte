@@ -8,6 +8,7 @@
     import { formatTime } from '../utils/datetime';
     import { SCORE_FILL, SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import type { HealthTimelineRow } from '../utils/health-timeline';
+    import { diagnosticWordsKey } from '../utils/diagnostic-words';
     import DetectionPreview from './DetectionPreview.svelte';
     import FilteredFramePreview from './FilteredFramePreview.svelte';
 
@@ -53,6 +54,39 @@
             ? 'border-l-status-fail-line bg-status-fail-soft/60'
             : 'border-l-status-neutral-line bg-surface-raised';
     }
+
+    /** What was held back, in the same words Health uses for that reason everywhere else. */
+    function heldBackTitle(reason: string): string {
+        return $_(`jobs.diagnostic_words.${diagnosticWordsKey(reason)}.title`, { default: reasonFallback(reason) });
+    }
+
+    /**
+     * What a skipped row is about: the species when one is known (nest mode keeps it), otherwise
+     * the Frigate event and its camera. "Species not named" would claim an identification failed.
+     */
+    function heldBackSubject(row: Extract<HealthTimelineRow, { kind: 'held_back' }>): string {
+        if (row.drop.label) return row.drop.label;
+        if (row.drop.camera) {
+            return $_('jobs.errors_held_back_subject_camera', {
+                values: { camera: row.drop.camera },
+                default: 'Frigate event on {camera}'
+            });
+        }
+        return $_('jobs.errors_held_back_subject', { default: 'Frigate event' });
+    }
+
+    function dropSubject(row: Exclude<HealthTimelineRow, { kind: 'visit' }>): string {
+        if (row.kind === 'held_back') return heldBackSubject(row);
+        return row.drop.label ?? $_('common.unknown_species', { default: 'Species not named' });
+    }
+
+    function dropSubjectClass(row: Exclude<HealthTimelineRow, { kind: 'visit' }>): string {
+        if (row.kind === 'fault') return 'text-strong';
+        // A species name is set in italics; a Frigate event and its camera are not.
+        return row.kind === 'held_back' && !row.drop.label ? 'text-ink' : 'italic text-ink';
+    }
+
+    const hasHeldBack = $derived(rows.some((row) => row.kind === 'held_back'));
 </script>
 
 <div
@@ -72,6 +106,12 @@
             <span class="h-2 w-2 rounded-full bg-status-neutral-line" aria-hidden="true"></span>
             {$_('jobs.errors_activity_filtered', { default: 'Filtered out' })}
         </span>
+        {#if hasHeldBack}
+            <span class="inline-flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full border border-status-neutral-line" aria-hidden="true"></span>
+                {$_('jobs.errors_activity_held_back', { default: 'Skipped on purpose' })}
+            </span>
+        {/if}
         <span class="inline-flex items-center gap-1.5">
             <span class="h-2 w-2 rounded-full bg-status-fail-line" aria-hidden="true"></span>
             {$_('jobs.errors_activity_fault', { default: 'Fault' })}
@@ -167,17 +207,18 @@
                 {:else}
                     {@const drop = row.drop}
                     {@const isFault = row.kind === 'fault'}
+                    {@const isHeldBack = row.kind === 'held_back'}
                     <li
                         class="grid grid-cols-[3rem_auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1 border-l-[3px] px-2 py-2.5 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_4.5rem] sm:gap-x-3 sm:px-3 {dropToneClass(isFault)}"
                         data-health-activity-row
-                        data-row-kind={isFault ? 'fault' : 'filtered'}
+                        data-row-kind={isFault ? 'fault' : isHeldBack ? 'held-back' : 'filtered'}
                     >
                         <span class="text-xs tabular-nums text-muted">
                             {drop.timestamp ? formatTime(drop.timestamp) : ''}
                         </span>
                         <span class="relative hidden h-full justify-center sm:flex" aria-hidden="true">
                             <span class="absolute inset-y-[-0.8rem] w-px bg-line"></span>
-                            <span class="relative mt-[0.45rem] h-2 w-2 rounded-full ring-2 ring-surface {isFault ? 'bg-status-fail-line' : 'bg-status-neutral-line'}"></span>
+                            <span class="relative mt-[0.45rem] h-2 w-2 rounded-full ring-2 ring-surface {isFault ? 'bg-status-fail-line' : isHeldBack ? 'border border-status-neutral-line bg-surface' : 'bg-status-neutral-line'}"></span>
                         </span>
                         <FilteredFramePreview
                             eventId={drop.eventId}
@@ -187,11 +228,16 @@
                                     values: { species: drop.label ?? $_('common.unknown_species', { default: 'Species not named' }) },
                                     default: 'Preview the failed detection frame for {species}'
                                 })
-                                : null}
+                                : isHeldBack
+                                    ? $_('jobs.errors_held_back_preview', {
+                                        values: { subject: dropSubject(row) },
+                                        default: 'Preview the frame for {subject}'
+                                    })
+                                    : null}
                         />
                         <div class="min-w-0">
-                            <p class="flex min-w-0 items-baseline justify-between gap-2 text-sm font-semibold {isFault ? 'text-strong' : 'italic text-ink'}">
-                                <span class="truncate">{drop.label ?? $_('common.unknown_species', { default: 'Species not named' })}</span>
+                            <p class="flex min-w-0 items-baseline justify-between gap-2 text-sm font-semibold {dropSubjectClass(row)}">
+                                <span class="truncate">{dropSubject(row)}</span>
                                 {#if drop.score !== null}
                                     <span class="shrink-0 text-xs font-bold not-italic tabular-nums text-muted sm:hidden">{Math.round(drop.score * 100)}%</span>
                                 {/if}
@@ -201,6 +247,11 @@
                                     <span class="font-semibold">{$_('jobs.errors_activity_fault', { default: 'Fault' })}</span>
                                     <Separator />
                                     <span>{$_(`jobs.errors_drop_reason.${drop.reason}`, { default: reasonFallback(drop.reason) })}</span>
+                                {:else if isHeldBack}
+                                    <!-- The reason is a full sentence that wraps, so it takes its own line
+                                         rather than hanging a separator after the label. -->
+                                    <span class="w-full font-semibold">{$_('jobs.errors_activity_held_back', { default: 'Skipped on purpose' })}</span>
+                                    <span class="w-full">{heldBackTitle(drop.reason)}</span>
                                 {:else}
                                     {$_(`jobs.errors_drop_reason_row.${drop.reason}`, {
                                         default: $_('jobs.errors_drop_reason_row.filter_low_confidence', {

@@ -8,7 +8,7 @@ import type { DetectionVisit } from './visit-grouping';
  * Operational fault history belongs to HealthActivityTimeline instead.
  */
 export type FieldLogRow =
-    | Exclude<HealthTimelineRow, { kind: 'fault' }>
+    | Exclude<HealthTimelineRow, { kind: 'fault' | 'held_back' }>
     | { kind: 'garden'; key: string; at: number; visit: GardenServerVisit };
 
 /**
