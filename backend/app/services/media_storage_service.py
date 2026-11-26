@@ -99,51 +99,38 @@ class MediaStorageService:
                 manual_selected.add(event_id)
         return photo_sizes, manual_selected
 
+    @staticmethod
+    async def _has_cached_media_parent(possible_owners: set[str]) -> bool:
+        # A plain read: it holds no SQLite lock once it returns.
+        async with get_db() as db:
+            return bool(await DetectionRepository(db).list_cached_media_visits(sorted(possible_owners)))
+
     async def _delete_orphan_visit(self, event_id: str, paths: list[Path]) -> dict[str, int] | None:
+        """Delete an orphan's files without holding SQLite's writer lock across disk I/O.
+
+        The caller holds every possible owner's media locks, so no writer can add files meanwhile.
+        A parent created after the first check is caught by the second and gets its files back.
+        """
         media = cache_module.media_cache
         possible_owners = self._possible_owners(event_id, paths)
-        async with get_db() as db:
-            await db.execute("BEGIN IMMEDIATE")
-            try:
-                if possible_owners & self._protected_event_ids():
-                    await db.rollback()
-                    return None
-                if await DetectionRepository(db).list_cached_media_visits(sorted(possible_owners)):
-                    await db.rollback()
-                    return None
-
-                def _delete_and_count(target_event_id: str, target_paths: list[Path]) -> dict[str, int]:
-                    before = [path for path in target_paths if path.is_file() and not path.name.endswith(".tmp")]
-                    freed = media._delete_visit_files_sync(target_event_id, target_paths)
-                    removed = [path for path in before if not path.exists()]
-                    return {
-                        "bytes_freed": freed,
-                        "snapshots_deleted": sum(
-                            1
-                            for path in removed
-                            if path.parent == cache_module.SNAPSHOTS_DIR and path.name.endswith(".jpg")
-                        ),
-                        "clips_deleted": sum(
-                            1
-                            for path in removed
-                            if path.parent == cache_module.CLIPS_DIR and path.name.endswith(".mp4")
-                        ),
-                        "previews_deleted": sum(1 for path in removed if path.parent == cache_module.PREVIEWS_DIR),
-                    }
-
-                deleted = await media._complete_file_operation(_delete_and_count, event_id, paths)
-                await db.commit()
-                return deleted
-            except BaseException:
-                await db.rollback()
-                raise
+        if possible_owners & self._protected_event_ids() or await self._has_cached_media_parent(possible_owners):
+            return None
+        staged = await media._complete_file_operation(media._stage_visit_deletion_sync, event_id, paths)
+        if await self._has_cached_media_parent(possible_owners):
+            await media._complete_file_operation(media._restore_staged_deletion_sync, staged)
+            return None
+        return await media._complete_file_operation(
+            media._remove_staged_deletions_sync, [target for _original, target in staged]
+        )
 
     async def _recover_orphaned_media_stats(self, files: dict[str, list[Path]]) -> dict[str, int]:
         """Retry post-delete filesystem cleanup independently of optional cache budgets."""
+        media = cache_module.media_cache
+        # Files staged by an earlier sweep were already judged orphaned; finish deleting them.
+        staged = await asyncio.to_thread(media._staged_deletions_sync)
+        stats = await media._complete_file_operation(media._remove_staged_deletions_sync, staged)
         async with get_db() as db:
             valid_ids = set(await DetectionRepository(db).get_all_frigate_event_ids())
-        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
-        media = cache_module.media_cache
         for event_id in files.keys() - valid_ids - self._protected_event_ids():
             # A legacy variant suffix can also be part of a literal event ID.
             # Keep ambiguous files while any possible parent still exists.

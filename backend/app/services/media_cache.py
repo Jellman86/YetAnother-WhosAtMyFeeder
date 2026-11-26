@@ -211,6 +211,11 @@ def has_manual_snapshot_selection(event_id: str) -> bool:
     return not isinstance(parsed, dict) or bool(parsed.get("manual_selection"))
 
 
+# A staged name is hidden and ends in ".tmp", so every cache reader and inventory already skips it.
+_STAGED_DELETION_SUFFIX = ".evicting.tmp"
+_STAGED_DELETION_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_STAGED_DELETION_SUFFIX))
+
+
 def _unlink_if_present(path: Path) -> None:
     path.unlink(missing_ok=True)
 
@@ -1392,7 +1397,8 @@ class MediaCacheService:
             )
             await self._write_bytes_atomic(self._snapshot_metadata_path(event_id), json.dumps(metadata).encode())
 
-    def _delete_visit_files_sync(self, event_id: str, paths: list[Path] | None = None) -> int:
+    @staticmethod
+    def _owned_visit_files_sync(event_id: str, paths: list[Path] | None = None) -> list[Path]:
         safe_id = sanitize_event_id(event_id)
         candidates = (
             paths
@@ -1402,11 +1408,77 @@ class MediaCacheService:
             ]
         )
         # Resolve every owner before removing sidecars used to disambiguate filenames.
-        owned = [
+        return [
             path
             for path in candidates
             if path.is_file() and not path.name.endswith(".tmp") and cache_file_event_id(path) == safe_id
         ]
+
+    def _stage_visit_deletion_sync(self, event_id: str, paths: list[Path]) -> list[tuple[Path, Path]]:
+        """Move a visit's files to hidden deletion names: gone to every reader, still restorable.
+
+        A rename is quick and touches no file contents, so the slow unlink can happen later
+        without holding anything a writer needs. A failure part-way puts every file back.
+        """
+        staged: list[tuple[Path, Path]] = []
+        try:
+            for path in self._owned_visit_files_sync(event_id, paths):
+                target = path.with_name(f".{path.name}.{uuid.uuid4().hex}{_STAGED_DELETION_SUFFIX}")
+                try:
+                    path.rename(target)
+                except FileNotFoundError:
+                    continue
+                staged.append((path, target))
+        except BaseException:
+            self._restore_staged_deletion_sync(staged)
+            raise
+        return staged
+
+    @staticmethod
+    def _restore_staged_deletion_sync(staged: list[tuple[Path, Path]]) -> None:
+        for original, target in staged:
+            try:
+                target.rename(original)
+            except FileNotFoundError:
+                continue
+
+    @staticmethod
+    def _remove_staged_deletions_sync(staged_paths: list[Path]) -> dict[str, int]:
+        """Unlink staged files. One that cannot be removed now stays staged for the next sweep."""
+        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
+        for path in staged_paths:
+            match = _STAGED_DELETION_NAME.fullmatch(path.name)
+            original_name = match.group(1) if match else path.name
+            try:
+                size = path.stat().st_size
+                path.unlink()
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                log.warning("Could not remove a staged cache file; will retry", path=str(path), error=str(exc))
+                continue
+            stats["bytes_freed"] += size
+            if path.parent == SNAPSHOTS_DIR and original_name.endswith(".jpg"):
+                stats["snapshots_deleted"] += 1
+            elif path.parent == CLIPS_DIR and original_name.endswith(".mp4"):
+                stats["clips_deleted"] += 1
+            elif path.parent == PREVIEWS_DIR:
+                stats["previews_deleted"] += 1
+        return stats
+
+    @staticmethod
+    def _staged_deletions_sync() -> list[Path]:
+        """Files an earlier sweep decided to delete but could not unlink, including before a restart."""
+        return [
+            path
+            for directory in (SNAPSHOTS_DIR, CLIPS_DIR, PREVIEWS_DIR)
+            if directory.exists()
+            for path in directory.iterdir()
+            if _STAGED_DELETION_NAME.fullmatch(path.name)
+        ]
+
+    def _delete_visit_files_sync(self, event_id: str, paths: list[Path] | None = None) -> int:
+        owned = self._owned_visit_files_sync(event_id, paths)
         bytes_freed = 0
         for path in owned:
             try:

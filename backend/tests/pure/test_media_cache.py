@@ -912,14 +912,15 @@ async def test_clear_all_removes_metadata_sidecars(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_hint_refresh_preserves_unreadable_owner_photo_metadata(tmp_path, monkeypatch):
+@pytest.mark.parametrize("sidecar", [b"{bad-json", b"[]"])
+async def test_hint_refresh_preserves_unreadable_owner_photo_metadata(tmp_path, monkeypatch, sidecar):
     service, snapshots = _make_service(tmp_path, monkeypatch)
     await service.replace_snapshot("hint-choice", b"chosen", manual_selection=True)
     metadata = snapshots / "hint-choice.jpg.meta.json"
-    metadata.write_bytes(b"{bad-json")
+    metadata.write_bytes(sidecar)
 
     assert not await service.update_snapshot_event_hints("hint-choice", {"snapshot": {"frame_time": 1.5}})
-    assert metadata.read_bytes() == b"{bad-json"
+    assert metadata.read_bytes() == sidecar
     await service.cache_snapshot("hint-choice", b"automatic")
     assert await service.get_snapshot("hint-choice") == b"chosen"
 
@@ -930,6 +931,9 @@ async def test_thumbnail_invalidation_and_cache_writes_preserve_literal_snapshot
     await service.replace_snapshot("literal_thumb", b"chosen", manual_selection=True)
 
     await service.cache_snapshot("literal", b"other capture")
+    # Caching "literal" invalidates its thumbnail slot, which is "literal_thumb"'s own photo.
+    assert await service.get_snapshot("literal_thumb") == b"chosen"
+    assert await service.get_snapshot_metadata("literal_thumb")
     assert await service.cache_thumbnail("literal", b"thumbnail") is None
     assert await service.get_thumbnail("literal") is None
     assert await service.get_thumbnail_path("literal") is None

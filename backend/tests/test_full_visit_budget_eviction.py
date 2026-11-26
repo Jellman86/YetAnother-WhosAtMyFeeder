@@ -265,6 +265,32 @@ async def test_orphan_cleanup_rechecks_a_parent_created_after_inventory_and_hold
 
 
 @pytest.mark.asyncio
+async def test_orphan_files_return_when_their_parent_appears_while_they_are_staged(budget_visit_history, monkeypatch):
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(clips.settings.media_cache, "per_species_maximum", 0)
+    monkeypatch.setattr(clips.settings.media_cache, "max_size_mb", 0)
+    photo = await media.get_snapshot("budget-old")
+    async with database() as db:
+        await DetectionRepository(db).delete_by_frigate_event("budget-old")
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    original_stage = media._stage_visit_deletion_sync
+
+    def create_parent_then_stage(event_id, paths):
+        with closing(sqlite3.connect(file_path, timeout=0.1)) as db:
+            db.execute(
+                "INSERT INTO detections (detection_time,detection_index,score,category_name,display_name,"
+                "frigate_event,camera_name) VALUES (datetime('now'),1,0.9,'Robin','Robin','budget-old','camera')"
+            )
+            db.commit()
+        return original_stage(event_id, paths)
+
+    monkeypatch.setattr(media, "_stage_visit_deletion_sync", create_parent_then_stage)
+    assert (await storage.MediaStorageService().enforce_limits())["bytes_freed"] == 0
+    assert await media.get_snapshot("budget-old") == photo
+    assert media._staged_deletions_sync() == []
+
+
+@pytest.mark.asyncio
 async def test_temporary_recording_candidates_are_never_orphan_eviction_inventory(budget_visit_history, monkeypatch):
     _, media, _ = budget_visit_history
     monkeypatch.setattr(clips.settings.media_cache, "per_species_maximum", 0)
