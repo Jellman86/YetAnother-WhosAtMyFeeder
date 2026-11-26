@@ -199,7 +199,7 @@
             case 'record_stream_missing':
                 return $_('settings.frigate.full_visit_reason_record_stream_missing', { default: 'A selected camera has no recording stream. Add record to its FFmpeg input roles and retain at least one continuous day.' });
             case 'camera_disabled':
-                return $_('settings.frigate.full_visit_reason_camera_disabled', { default: 'A selected camera is disabled in Frigate. Enable it before using full-visit clips.' });
+                return $_('settings.frigate.full_visit_reason_camera_disabled', { default: 'A selected camera is disabled in Frigate. Enable it before using full clips.' });
             case 'camera_not_found':
                 return $_('settings.frigate.full_visit_reason_camera_not_found', { default: 'A selected camera is no longer present in Frigate. Sync the camera list and review your selection.' });
             case 'partial_camera_coverage':
@@ -207,7 +207,7 @@
             case 'camera_configuration_incomplete':
                 return $_('settings.frigate.full_visit_reason_camera_configuration_incomplete', { default: 'The selected cameras have more than one recording configuration issue. Review each camera below.' });
             case 'retention_unknown':
-                return $_('settings.frigate.full_visit_reason_retention_unknown', { default: 'Continuous recording retention could not be determined. Validate the Frigate recording config before enabling full visits.' });
+                return $_('settings.frigate.full_visit_reason_retention_unknown', { default: 'Continuous recording retention could not be determined. Validate the Frigate recording config before enabling full clips.' });
             default:
                 return $_('settings.frigate.full_visit_reason_unknown', { default: 'Capability could not be confirmed.' });
         }
@@ -443,17 +443,17 @@
 
         <AdvancedSection
             id="connection-full-visit"
-            title={$_('settings.connection.full_visit_advanced_title', { default: 'Full-visit clips' })}
+            title={$_('settings.connection.full_visit_advanced_title', { default: 'Full clips' })}
         >
         <SettingsRow
             labelId="setting-recording-clips"
-            label={$_('settings.frigate.full_visit_clips', { default: 'Full-visit clips' })}
-            description={$_('settings.frigate.full_visit_clips_desc', { default: 'Serve a longer clip from Frigate’s recordings around each visit.' })}
+            label={$_('settings.frigate.full_visit_clips', { default: 'Full clips' })}
+            description={$_('settings.frigate.full_visit_clips_desc', { default: 'Serve a longer clip from Frigate’s recordings around each capture.' })}
         >
             <SettingsToggle
                 checked={recordingClipEnabled}
                 labelledBy="setting-recording-clips"
-                srLabel={$_('settings.frigate.full_visit_clips', { default: 'Full-visit clips' })}
+                srLabel={$_('settings.frigate.full_visit_clips', { default: 'Full clips' })}
                 disabled={!canToggleRecordingClips}
                 onchange={(v) => toggleRecordingClips(v)}
             />

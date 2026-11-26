@@ -32,9 +32,9 @@ test('confidence and full-visit badges explain themselves on keyboard focus with
     await card.getByRole('button', { name: '80%', exact: true }).focus();
     await expect(page.getByRole('tooltip')).toHaveText('Identification confidence: 80%.', { timeout: 2000 });
     await page.keyboard.press('Escape');
-    await card.locator('[aria-label="Full visit clip ready"]').focus();
-    expect(await card.locator('[aria-label="Full visit clip ready"]').evaluate(node => getComputedStyle(node).position)).toBe('absolute');
-    await expect(page.getByRole('tooltip')).toHaveText('Full visit clip ready', { timeout: 2000 });
+    await card.locator('[aria-label="Full clip ready"]').focus();
+    expect(await card.locator('[aria-label="Full clip ready"]').evaluate(node => getComputedStyle(node).position)).toBe('absolute');
+    await expect(page.getByRole('tooltip')).toHaveText('Full clip ready', { timeout: 2000 });
     await page.keyboard.press('Enter');
     await expect(page.locator('output[aria-label="Played clips"]')).toHaveText('0');
     const box = await page.getByRole('tooltip').boundingBox();

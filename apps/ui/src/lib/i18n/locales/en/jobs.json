@@ -36,7 +36,7 @@
   "kind_auto_video": "Automatic video analysis",
   "kind_video_analysis": "Video analysis",
   "kind_high_quality_snapshot": "Best-quality snapshots",
-  "kind_full_visit": "Full visit clips",
+  "kind_full_visit": "Full clips",
   "errors_clear": "Clear error history",
   "errors_backend_empty": "The backend has recorded no warnings or errors since the error history was last cleared. Connection problems are listed at the top of this page, not here.",
   "errors_export_failed": "The diagnostics could not be read. Try again; if it keeps failing, check that YA-WAMF is running.",

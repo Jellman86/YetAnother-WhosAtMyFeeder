@@ -43,7 +43,7 @@ export function captureFacts(capture: Detection, visit: DetectionVisit): Capture
     };
 }
 
-export interface SpeciesInCapture {
+interface SpeciesInCapture {
     /** The stored label, usually the classifier's scientific name. */
     species: string;
     count: number;
@@ -52,16 +52,33 @@ export interface SpeciesInCapture {
     scientific_name: string | null;
 }
 
+/** Other species seen in one capture of a visit, and the capture that shows them. */
+export interface CompanionSpecies {
+    /** The capture whose photo holds them; the note about them opens it. */
+    capture: Detection;
+    /** That capture is the one the visit shows, so the note is about the photo on screen. */
+    shown: boolean;
+    /** Species other than the visit's own, most counted first. */
+    species: SpeciesInCapture[];
+}
+
+function speciesKey(label: string | null | undefined): string {
+    return (label ?? '').trim().toLocaleLowerCase();
+}
+
 /**
- * The species in a visit's busiest capture, when there is more than one. That capture is a single
- * moment, so its species and counts are a statement about one frame, never a sum across repeats.
- * Owner-only evidence: a guest's visit carries no bird summary and stays a one-species row.
+ * A visit is one species coming to the feeder, so it keeps that species' name. When its busiest
+ * capture also holds other named species, they are a fact about that one capture's photo, which
+ * may not be the photo the visit shows: the note names them and opens that capture. The rule
+ * matches the "Multiple bird species" filter: two or more named species in one analyzed capture.
+ * Owner-only evidence: a guest's visit carries no bird summary and has no note.
  */
-export function visitSpeciesMix(visit: DetectionVisit | undefined): SpeciesInCapture[] | null {
-    const species = visit?.peak_capture?.bird_summary?.species ?? [];
+export function visitCompanionSpecies(visit: DetectionVisit | undefined): CompanionSpecies | null {
+    const capture = visit?.peak_capture;
+    if (!visit || !capture) return null;
     const merged = new Map<string, SpeciesInCapture>();
-    for (const entry of species) {
-        const key = entry.species.trim().toLocaleLowerCase();
+    for (const entry of capture.bird_summary?.species ?? []) {
+        const key = speciesKey(entry.species);
         if (!key || entry.count <= 0) continue;
         const known = merged.get(key);
         if (known) known.count += entry.count;
@@ -73,5 +90,13 @@ export function visitSpeciesMix(visit: DetectionVisit | undefined): SpeciesInCap
         });
     }
     if (merged.size < 2) return null;
-    return [...merged.values()].sort((a, b) => b.count - a.count || a.species.localeCompare(b.species));
+    const shown = visit.representative;
+    const visitSpecies = new Set(
+        [shown.display_name, shown.category_name, shown.scientific_name, shown.common_name].map(speciesKey).filter(Boolean)
+    );
+    const others = [...merged.values()]
+        .filter((entry) => ![entry.species, entry.scientific_name, entry.common_name].some((label) => visitSpecies.has(speciesKey(label))))
+        .sort((a, b) => b.count - a.count || a.species.localeCompare(b.species));
+    if (others.length === 0) return null;
+    return { capture, shown: capture.frigate_event === shown.frigate_event, species: others };
 }

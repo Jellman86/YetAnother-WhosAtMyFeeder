@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Detection } from '../api';
 import type { DetectionVisit } from '../api/visits';
-import { captureFacts, hasCaptureFooter, hasCaptureTimeline, visitSpeciesMix } from './visit-captures';
+import { captureFacts, hasCaptureFooter, hasCaptureTimeline, visitCompanionSpecies } from './visit-captures';
 
 type Summary = NonNullable<Detection['bird_summary']>;
 
@@ -96,36 +96,59 @@ describe('captureFacts favourites', () => {
     });
 });
 
-describe('visitSpeciesMix', () => {
-    const withSpecies = (species: Summary['species']) => ({ ...visit(2), peak_capture: capture('busy', { bird_summary: summary(3, { species }) }) });
+describe('visitCompanionSpecies', () => {
+    const blueTit = (event: string, overrides: Partial<Detection> = {}) => capture(event, {
+        display_name: 'Cyanistes caeruleus', category_name: 'Cyanistes caeruleus', scientific_name: 'Cyanistes caeruleus', common_name: 'Eurasian Blue Tit', ...overrides
+    });
+    const pigeonAndTit: Summary['species'] = [
+        { species: 'Columba palumbus', count: 1, common_name: 'Common Wood-Pigeon', scientific_name: 'Columba palumbus' },
+        { species: 'Cyanistes caeruleus', count: 1, common_name: 'Eurasian Blue Tit', scientific_name: 'Cyanistes caeruleus' }
+    ];
+    const withPeak = (species: Summary['species'], peak = blueTit('hqfh0o', { bird_summary: summary(2, { species }) })) =>
+        ({ ...visit(6, blueTit('cforck')), peak_capture: peak });
 
-    it('names every species in the busiest capture, busiest first', () => {
-        expect(visitSpeciesMix(withSpecies([{ species: 'European Robin', count: 1 }, { species: 'Dunnock', count: 2 }]))).toEqual([
+    it('names only the species the visit is not, from the capture that holds them (the owner\'s Blue Tit visit)', () => {
+        const companions = visitCompanionSpecies(withPeak(pigeonAndTit));
+        expect(companions?.capture.frigate_event).toBe('hqfh0o');
+        expect(companions?.shown).toBe(false);
+        expect(companions?.species).toEqual([
+            { species: 'Columba palumbus', count: 1, common_name: 'Common Wood-Pigeon', scientific_name: 'Columba palumbus' }
+        ]);
+    });
+
+    it('says the shown photo holds them when the visit shows that very capture', () => {
+        const peak = blueTit('cforck', { bird_summary: summary(2, { species: pigeonAndTit }) });
+        const companions = visitCompanionSpecies({ ...visit(6, blueTit('cforck')), peak_capture: peak });
+        expect(companions?.shown).toBe(true);
+        expect(companions?.capture).toBe(peak);
+    });
+
+    it('recognises the visit species by its common name as well as its stored label', () => {
+        const species: Summary['species'] = [
+            { species: 'Eurasian Blue Tit', count: 2 },
+            { species: 'Erithacus rubecula', count: 1, common_name: 'European Robin', scientific_name: 'Erithacus rubecula' }
+        ];
+        expect(visitCompanionSpecies(withPeak(species))?.species.map((entry) => entry.species)).toEqual(['Erithacus rubecula']);
+    });
+
+    it('names every other species when the visit species is not among them, busiest first', () => {
+        const species: Summary['species'] = [{ species: 'European Robin', count: 1 }, { species: 'Dunnock', count: 2 }];
+        expect(visitCompanionSpecies(withPeak(species))?.species).toEqual([
             { species: 'Dunnock', count: 2, common_name: null, scientific_name: null },
             { species: 'European Robin', count: 1, common_name: null, scientific_name: null }
         ]);
     });
 
-    it('keeps the catalogue names a species was given, for the row to name it as it names a visit', () => {
-        expect(visitSpeciesMix(withSpecies([
-            { species: 'Prunella modularis', count: 1, common_name: 'Dunnock', scientific_name: 'Prunella modularis' },
-            { species: 'Rattus norvegicus', count: 1, common_name: 'Brown Rat', scientific_name: 'Rattus norvegicus' }
-        ]))).toEqual([
-            { species: 'Prunella modularis', count: 1, common_name: 'Dunnock', scientific_name: 'Prunella modularis' },
-            { species: 'Rattus norvegicus', count: 1, common_name: 'Brown Rat', scientific_name: 'Rattus norvegicus' }
-        ]);
-    });
-
-    it('stays a one-species row when the capture holds one species, however many birds', () => {
-        expect(visitSpeciesMix(withSpecies([{ species: 'Dunnock', count: 3 }]))).toBeNull();
+    it('says nothing when the capture holds one species, however many birds', () => {
+        expect(visitCompanionSpecies(withPeak([{ species: 'Cyanistes caeruleus', count: 3 }]))).toBeNull();
     });
 
     it('treats a species written two ways as one', () => {
-        expect(visitSpeciesMix(withSpecies([{ species: 'Dunnock', count: 1 }, { species: 'dunnock ', count: 1 }]))).toBeNull();
+        expect(visitCompanionSpecies(withPeak([{ species: 'Dunnock', count: 1 }, { species: 'dunnock ', count: 1 }]))).toBeNull();
     });
 
     it('says nothing without stored evidence, which a guest never has', () => {
-        expect(visitSpeciesMix(visit(2))).toBeNull();
-        expect(visitSpeciesMix(undefined)).toBeNull();
+        expect(visitCompanionSpecies(visit(2))).toBeNull();
+        expect(visitCompanionSpecies(undefined)).toBeNull();
     });
 });

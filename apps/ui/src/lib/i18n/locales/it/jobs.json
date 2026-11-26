@@ -34,7 +34,7 @@
   "kind_auto_video": "Analisi video automatica",
   "kind_video_analysis": "Analisi video",
   "kind_high_quality_snapshot": "Istantanee della migliore qualità",
-  "kind_full_visit": "Clip delle visite complete",
+  "kind_full_visit": "Clip completi",
   "errors_clear": "Cancella cronologia errori",
   "errors_backend_empty": "Il backend non ha registrato avvisi né errori dall’ultima volta che la cronologia degli errori è stata cancellata.",
   "errors_export_failed": "Impossibile recuperare la diagnostica attuale. Riprova.",

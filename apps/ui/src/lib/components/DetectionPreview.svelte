@@ -30,8 +30,6 @@
         label?: string | null;
         /** Off where the surrounding row already states the capture count in words. */
         showCount?: boolean;
-        /** A second capture laid behind the photo, so the thumbnail reads as a stack of several. */
-        stackBehind?: Detection | null;
     }
 
     let {
@@ -43,8 +41,7 @@
         onopen,
         interactive = true,
         label = null,
-        showCount = true,
-        stackBehind = null
+        showCount = true
     }: Props = $props();
 
     /**
@@ -107,27 +104,8 @@
     onkeydown={popout.keydown}
     role="presentation"
 >
-    {#if stackBehind}
-        {@const behind = thumbnailUrl(stackBehind)}
-        {#if !failed.has(behind)}
-            <img
-                src={behind}
-                alt=""
-                aria-hidden="true"
-                loading="lazy"
-                decoding="async"
-                width="36"
-                height="36"
-                class="pointer-events-none absolute left-2 top-2 h-9 w-9 rounded-lg border-2 border-surface bg-surface-raised object-cover opacity-80"
-                onerror={() => markFailed(behind)}
-                data-detection-preview-stack
-            />
-        {/if}
-    {/if}
     {#each stack as frame, index (frame.frigate_event)}
         <div
-            class:-translate-x-1={Boolean(stackBehind) && index === 0}
-            class:-translate-y-1={Boolean(stackBehind) && index === 0}
             class="relative"
             class:-ml-1={index > 0}
             class:hidden={index > 0}

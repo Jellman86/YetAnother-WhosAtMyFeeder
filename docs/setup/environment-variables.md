@@ -136,7 +136,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `MEDIA_CACHE__CACHE_CLIPS` | `false` | Keep copies of Frigate's event clips. Photographs, full-visit clips and previews are always kept. |
+| `MEDIA_CACHE__CACHE_CLIPS` | `false` | Keep copies of Frigate's event clips. Photographs, full clips and previews are always kept. |
 | `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS` | `false` | Derive the clearest recorded frame and strongest reliable crop automatically. |
 | `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_BIRD_CROP` | `false` | Deprecated compatibility flag; crop attempts are automatic whenever HQ snapshots are enabled. |
 | `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY` | `90` | JPEG quality for high-quality snapshots. These are full-resolution frames, often several MB each. |
@@ -154,7 +154,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 
 `MEDIA_CACHE__ENABLED` and `MEDIA_CACHE__CACHE_SNAPSHOTS` were removed (#622): photographs and visit
 media are always kept, within the retention and size limits. Either variable is still read once, on
-upgrade: if it was `false`, best-available snapshots (and, for `MEDIA_CACHE__ENABLED`, full-visit
+upgrade: if it was `false`, best-available snapshots (and, for `MEDIA_CACHE__ENABLED`, full
 clips) are turned off once unless their current environment overrides explicitly enable them.
 Review those options afterwards. The migration marker is persisted on the next settings save. A
 startup warning says where a retired switch is still set: delete an environment variable from your

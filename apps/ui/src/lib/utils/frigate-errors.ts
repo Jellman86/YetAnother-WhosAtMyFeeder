@@ -77,7 +77,7 @@ export function getVideoFailureInsight(detection: Detection, t: Translate): Vide
                     default: 'YA-WAMF had already stored the media for this capture, so it can still be played although Frigate no longer has the event.'
                 }),
                 t('detection.video_analysis.error_details.causes.event_missing_media_cached_retention', {
-                    default: 'Frigate may have removed the event when its retention ran out, while YA-WAMF kept the snapshot or the full-visit clip.'
+                    default: 'Frigate may have removed the event when its retention ran out, while YA-WAMF kept the snapshot or the full clip.'
                 })
             ],
             checks: [

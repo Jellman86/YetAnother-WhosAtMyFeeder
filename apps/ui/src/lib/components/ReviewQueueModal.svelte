@@ -717,7 +717,7 @@
                                     sources={[inspectedDirectUrl]}
                                     alt={inspectedBird
                                         ? formatBirdInspectionLabel(inspectedBird)
-                                        : $_('detection.photo_option_image_alt', { default: 'Candidate photograph from this visit' })}
+                                        : $_('detection.photo_option_image_alt', { default: 'Candidate photograph from this capture' })}
                                     class="absolute inset-0 h-full w-full object-contain"
                                     placeholderClass="hidden"
                                     onfail={inspectFailed}

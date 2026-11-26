@@ -339,7 +339,7 @@
     {#if region === 'main'}
     <SettingsCard id="settings-group-data-cache" title={$_('settings.data.cache_title', { default: 'Photos and video' })}>
         <p class="text-sm text-slate-600 dark:text-slate-300" data-media-always-kept>
-            {$_('settings.data.cache_always_kept', { default: 'Photos, full-visit clips and previews are kept with their visits until the history window or the storage limit removes them.' })}
+            {$_('settings.data.cache_always_kept', { default: 'Photos, full clips and previews are kept with their visits until the history window or the storage limit removes them.' })}
         </p>
         {#if cacheStats && cacheStats.storage_available === false}
             <p class="text-sm text-attention-800 dark:text-attention-200" role="status" data-media-storage-unavailable>

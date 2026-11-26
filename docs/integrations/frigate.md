@@ -34,7 +34,7 @@ See the full [Recommended Frigate Config](../setup/frigate-config.md) for optimi
 In YA-WAMF, set **Settings → Cameras & connection → Frigate NVR → Server URL** to the internal URL of your Frigate instance (e.g., `http://frigate:5000`). The backend uses the Frigate HTTP API to fetch:
 
 - **Snapshots** — Frigate's final clean best frame plus its tracked-object coordinates
-- **Video clips** — used for **Auto video analysis** and **Full-visit clips**
+- **Video clips** — used for **Auto video analysis** and **Full clips**
 - **Config** — to auto-discover your configured camera names
 
 **Test connection** probes the Frigate URL currently visible in the form, before you save it. When
@@ -118,15 +118,15 @@ instead of treating partial history as a successful empty result. The import can
 detections and missing cached snapshots, but it cannot recreate BirdNET-Go audio that YA-WAMF never
 stored.
 
-## Full-visit reconciliation
+## Full clip reconciliation
 
-Automatic full-visit reconciliation searches the last 24 hours in bounded batches. Completed
+Automatic full clip reconciliation searches the last 24 hours in bounded batches. Completed
 or cached visits are remembered across restarts so they cannot keep older uncached visits off
 the next page. Failed visits wait 30 minutes, then one hour, then two hours between retries;
 after the final failed attempt automatic retries stop. Cancelling unfinished work leaves it
-retryable. Manual uploads are not sent to Frigate for full-visit processing.
+retryable. Manual uploads are not sent to Frigate for full clip processing.
 
-Cache-budget eviction records a durable decision for both photo and full-visit work.
+Cache-budget eviction records a durable decision for both photo and full clip work.
 An admitted budget eviction finishes its file deletion and durable database decision before
 shutdown cancellation returns. Favourite protection is rechecked before deletion.
 If a generated variant filename also matches another saved visit's literal ID, the
@@ -193,6 +193,6 @@ browser tabs suspend frame refreshes and direct status reads.
 |---------|-------------|-----|
 | No detections appearing | MQTT not connected | Check `docker compose -f docker-compose.monolith.yml logs yawamf` for `Connected to MQTT` and the subscribed topics. |
 | Events received but no clips | Frigate recording or stream role not enabled | Add `record` to the camera's FFmpeg input roles, enable `record`, and set `record.continuous.days: 1` in Frigate config |
-| Full-visit clips are unavailable or truncated | Only alert/detection event segments are retained | Set `record.continuous.days` to at least `1` for every YA-WAMF camera; the inline Settings status names any camera without full coverage |
+| Full clips are unavailable or truncated | Only alert/detection event segments are retained | Set `record.continuous.days` to at least `1` for every YA-WAMF camera; the inline Settings status names any camera without full coverage |
 | Detections missing for brief visits | Frigate did not create a bird event, or YA-WAMF filtered it | Check Frigate's object/event history first, then YA-WAMF Health outcomes and selected cameras. Tune Frigate detection settings against actual recordings before increasing frame rate. |
 | `404` when fetching clips | The event has no clip, its recording expired, or the URL is incorrect | Check Frigate's `has_clip` and recording configuration. A snapshot-only event can still classify successfully. A disabled `record` role cannot supply video. |

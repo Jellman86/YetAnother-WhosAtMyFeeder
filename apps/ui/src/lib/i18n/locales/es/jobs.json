@@ -34,7 +34,7 @@
   "kind_auto_video": "Análisis automático de vídeo",
   "kind_video_analysis": "Análisis de vídeo",
   "kind_high_quality_snapshot": "Capturas de máxima calidad",
-  "kind_full_visit": "Clips de visitas completas",
+  "kind_full_visit": "Clips completos",
   "errors_clear": "Borrar historial de errores",
   "errors_backend_empty": "El backend no ha registrado avisos ni errores desde que se vació el historial de errores por última vez.",
   "errors_export_failed": "No se pudieron obtener los diagnósticos actuales. Inténtalo de nuevo.",

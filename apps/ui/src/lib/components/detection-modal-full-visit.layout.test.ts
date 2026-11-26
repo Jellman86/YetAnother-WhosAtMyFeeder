@@ -12,9 +12,11 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('fullVisitFetchState');
         expect(detectionModalSource).toContain("fullVisitFetchState === 'failed'");
         expect(detectionModalSource).toContain('Fetch full clip');
-        expect(detectionModalSource).toContain('Full visit');
+        // The clip and photo options belong to this capture; "Full visit" read as the whole visit.
+        expect(detectionModalSource).not.toContain("'Full visit'");
         expect(detectionModalSource).toContain('getSnapshotUrl(detection.frigate_event)');
-        expect(detectionModalSource).toContain("title={fullVisitFetched ? $_('video_player.full_visit_ready'");
+        expect(detectionModalSource).toContain('title={fullVisitFetched ? fullClipTitle');
+        expect(detectionModalSource).toContain("$_('detection.full_clip_seconds'");
         // The accent fill carries its own ink, which holds AA in every mode (KIT-02).
         expect(detectionModalSource).toContain("fullVisitFetched ? 'gap-2 border-on-media-accent/30 bg-accent px-3 text-accent-fg");
         expect(detectionModalSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
@@ -22,7 +24,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).not.toContain('{#if fullVisitFetched}\n                                    <div');
         expect(detectionModalSource).not.toContain('absolute inset-0 flex items-center justify-center pointer-events-none');
         expect(detectionModalSource).toContain('inline-flex min-h-11 items-center gap-2 rounded-full border border-on-media/25 bg-media/55');
-        expect(detectionModalSource).toContain("video_player.full_visit_action', { default: 'Full visit' }");
+        expect(detectionModalSource).toContain("video_player.full_visit_action', { default: 'Full clip' }");
         expect(detectionModalSource).not.toContain('img src={getThumbnailUrl(detection.frigate_event)}');
         expect(detectionModalSource).toContain("title={videoFailureInsight.summary}");
         expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full border border-on-media-fail/70 bg-media/55 text-on-media-fail');

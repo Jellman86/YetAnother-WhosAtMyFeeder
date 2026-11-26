@@ -90,10 +90,10 @@
     let shortEventId = $derived(frigateEvent.split('-').pop() ?? frigateEvent);
     let clipVariantLabel = $derived.by(() => {
         if (recordingClipState === 'complete') {
-            return $_('video_player.full_visit_badge', { default: 'Full visit' });
+            return $_('video_player.full_visit_badge', { default: 'Full clip' });
         }
         if (recordingClipState === 'partial') {
-            return $_('video_player.partial_visit_badge', { default: 'Partial visit' });
+            return $_('video_player.partial_visit_badge', { default: 'Partial clip' });
         }
         return $_('video_player.clip_badge', { default: 'Clip' });
     });

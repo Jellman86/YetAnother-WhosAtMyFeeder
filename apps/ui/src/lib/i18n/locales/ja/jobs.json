@@ -34,7 +34,7 @@
   "kind_auto_video": "自動映像解析",
   "kind_video_analysis": "映像解析",
   "kind_high_quality_snapshot": "最高品質のスナップショット",
-  "kind_full_visit": "訪問全体のクリップ",
+  "kind_full_visit": "完全なクリップ",
   "errors_clear": "エラー履歴を消去",
   "errors_backend_empty": "エラー履歴を最後に消去してから、バックエンドは警告もエラーも記録していません。",
   "errors_export_failed": "現在の診断情報を取得できませんでした。もう一度お試しください。",

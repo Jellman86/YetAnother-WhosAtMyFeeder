@@ -6,7 +6,7 @@
     import VisitCaptures from '../components/VisitCaptures.svelte';
     import HeardBandRow from '../components/HeardBandRow.svelte';
     import HeardBandCard from '../components/HeardBandCard.svelte';
-    import { hasCaptureFooter, visitSpeciesMix } from '../utils/visit-captures';
+    import { hasCaptureFooter, visitCompanionSpecies } from '../utils/visit-captures';
     import { fetchHeardGroups, type HeardGroup, type HeardVisitCalls } from '../api/audio';
     import { buildHeardTimeline, heardWindow, type HeardBand } from '../utils/heard-timeline';
     import { explorerHeardStore } from '../stores/explorer_heard.svelte';
@@ -1310,6 +1310,17 @@
         selectedEvent = event;
     }
 
+    // The visit a record was opened from, so the record can say it is one capture of that visit.
+    let openedFromVisit = $state<{ eventId: string; visit: DetectionVisit } | null>(null);
+    const selectedEventVisit = $derived(
+        selectedEvent && openedFromVisit?.eventId === selectedEvent.frigate_event ? openedFromVisit.visit : null
+    );
+
+    function openCaptureOfVisit(capture: Detection, visit: DetectionVisit | undefined): void {
+        openedFromVisit = visit ? { eventId: capture.frigate_event, visit } : null;
+        handleEventCardClick(capture);
+    }
+
     function closeGardenRecord(): void {
         gardenGroupGeneration++;
         selectedGarden = null;
@@ -1345,12 +1356,12 @@
         try {
             const complete = await fullVisitStore.fetchFullVisit(event.frigate_event);
             if (complete) {
-                toastStore.success($_('video_player.full_visit_ready', { default: 'Full visit clip ready' }));
+                toastStore.success($_('video_player.full_visit_ready', { default: 'Full clip ready' }));
             } else {
-                toastStore.warning($_('video_player.partial_visit_ready', { default: 'A partial visit is ready; retry shortly for the complete clip.' }));
+                toastStore.warning($_('video_player.partial_visit_ready', { default: 'A partial clip is ready; retry shortly for the complete clip.' }));
             }
         } catch (e) {
-            const message = e instanceof Error ? e.message : $_('video_player.full_visit_failed', { default: 'Could not fetch full visit clip' });
+            const message = e instanceof Error ? e.message : $_('video_player.full_visit_failed', { default: 'Could not fetch the full clip' });
             toastStore.error(message);
         }
     }
@@ -2063,10 +2074,6 @@
     const multiSelectAvailable = $derived(authStore.hasOwnerAccess && !gardenOnly);
     const pane = $derived(explorerPane({ loading, failed: error !== null, measured, entries: entries.length, filtered: hasActiveExplorerFilters }));
 
-    function openPeakCapture(visit: DetectionVisit | undefined): (() => void) | undefined {
-        const capture = visit?.peak_capture;
-        return capture ? () => handleEventCardClick(capture) : undefined;
-    }
 </script>
 
 <svelte:window onkeydown={handleTimelineKeydown} />
@@ -2611,18 +2618,17 @@
                         <div class="*:data-detection-row:border-b-0" data-explorer-visit={visit?.visit_id}>
                         <DetectionRow
                             detection={event}
-                            onclick={() => handleEventCardClick(event)}
+                            onclick={() => openCaptureOfVisit(event, visit)}
                             onPlay={() => playClip(event)}
                             selectionMode={selectionMode}
                             selected={selectedEventIds.includes(event.frigate_event)}
                             ownerConfirmation={ownerConfirmationScope(event, visit, unnamedSinceVisitRead.has(event.frigate_event))}
-                            speciesMix={visitSpeciesMix(visit)}
-                            stackFrame={visit?.peak_capture ?? null}
+                            companions={visitCompanionSpecies(visit)}
                             matchedCalls={entry.matchedCalls}
-                            onopenCapture={openPeakCapture(visit)}
+                            onopenCapture={(capture) => openCaptureOfVisit(capture, visit)}
                             hideProgress={selectedEvent?.frigate_event === event.frigate_event}
                         />
-                        {#if visit}<VisitCaptures {visit} window={captureWindow} onselect={handleEventCardClick} onplay={playClip} />{/if}
+                        {#if visit}<VisitCaptures {visit} window={captureWindow} onselect={(capture) => openCaptureOfVisit(capture, visit)} onplay={playClip} />{/if}
                         </div>
                     {/if}
                 {/each}
@@ -2648,12 +2654,12 @@
                     <!-- The card is the one outline; a visit's captures sit inside it, not in a second box. -->
                     <div class="min-w-0" data-explorer-visit={visit?.visit_id}>
                     {#snippet captures()}
-                        {#if visit}<VisitCaptures floating {visit} window={captureWindow} onselect={handleEventCardClick} onplay={playClip} />{/if}
+                        {#if visit}<VisitCaptures floating {visit} window={captureWindow} onselect={(capture) => openCaptureOfVisit(capture, visit)} onplay={playClip} />{/if}
                     {/snippet}
                     <DetectionCard
                         detection={event}
                         {index}
-                        onclick={() => handleEventCardClick(event)}
+                        onclick={() => openCaptureOfVisit(event, visit)}
                         onPlay={() => playClip(event)}
                         onFetchFullVisit={recordingClipFetchEnabled ? () => handleFetchFullVisit(event) : undefined}
                         fullVisitAvailable={fullVisitAvailability[event.frigate_event] === 'available'}
@@ -2664,7 +2670,8 @@
                         selected={selectedEventIds.includes(event.frigate_event)}
                         footer={visit && hasCaptureFooter(visit) ? captures : undefined}
                         ownerConfirmation={ownerConfirmationScope(event, visit, unnamedSinceVisitRead.has(event.frigate_event))}
-                        speciesMix={visitSpeciesMix(visit)}
+                        companions={visitCompanionSpecies(visit)}
+                        onopenCapture={(capture) => openCaptureOfVisit(capture, visit)}
                         matchedCalls={entry.matchedCalls}
                     />
                     </div>
@@ -2697,6 +2704,7 @@
             {#if selectedEvent}
                 <DetectionModal
                     detection={selectedEvent}
+                    visit={selectedEventVisit ? { captureCount: selectedEventVisit.capture_count, startTime: selectedEventVisit.start_time, endTime: selectedEventVisit.end_time } : null}
                     llmReady={llmReady}
                     showVideoButton={true}
                     fullVisitAvailable={fullVisitAvailability[selectedEvent.frigate_event] === 'available'}

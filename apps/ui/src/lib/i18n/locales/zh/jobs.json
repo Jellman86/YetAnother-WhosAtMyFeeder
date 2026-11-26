@@ -34,7 +34,7 @@
   "kind_auto_video": "自动视频分析",
   "kind_video_analysis": "视频分析",
   "kind_high_quality_snapshot": "最佳质量快照",
-  "kind_full_visit": "完整访问片段",
+  "kind_full_visit": "完整片段",
   "errors_clear": "清除错误记录",
   "errors_backend_empty": "自上次清除错误历史以来，后端没有记录任何警告或错误。",
   "errors_export_failed": "无法获取当前诊断信息。请重试。",

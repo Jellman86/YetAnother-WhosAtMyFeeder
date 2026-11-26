@@ -893,12 +893,12 @@
         try {
             const complete = await fullVisitStore.fetchFullVisit(detection.frigate_event);
             if (complete) {
-                toastStore.success($_('video_player.full_visit_ready', { default: 'Full visit clip ready' }));
+                toastStore.success($_('video_player.full_visit_ready', { default: 'Full clip ready' }));
             } else {
-                toastStore.warning($_('video_player.partial_visit_ready', { default: 'A partial visit is ready; retry shortly for the complete clip.' }));
+                toastStore.warning($_('video_player.partial_visit_ready', { default: 'A partial clip is ready; retry shortly for the complete clip.' }));
             }
         } catch (e) {
-            const message = e instanceof Error ? e.message : $_('video_player.full_visit_failed', { default: 'Could not fetch full visit clip' });
+            const message = e instanceof Error ? e.message : $_('video_player.full_visit_failed', { default: 'Could not fetch the full clip' });
             toastStore.error(message);
         }
     }

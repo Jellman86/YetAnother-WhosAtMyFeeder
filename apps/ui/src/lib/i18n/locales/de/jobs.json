@@ -34,7 +34,7 @@
   "kind_auto_video": "Automatische Videoanalyse",
   "kind_video_analysis": "Videoanalyse",
   "kind_high_quality_snapshot": "Aufnahmen in bester Qualität",
-  "kind_full_visit": "Clips vollständiger Besuche",
+  "kind_full_visit": "Vollständige Clips",
   "errors_clear": "Fehlerverlauf löschen",
   "errors_backend_empty": "Das Backend hat seit dem letzten Leeren des Fehlerverlaufs keine Warnungen oder Fehler aufgezeichnet. Verbindungsprobleme stehen oben auf dieser Seite, nicht hier.",
   "errors_export_failed": "Die Diagnose konnte nicht gelesen werden. Versuchen Sie es erneut; schlägt es weiter fehl, prüfen Sie, ob YA-WAMF läuft.",

@@ -75,7 +75,7 @@
         getDetectionClassificationSource,
         shouldShowVideoStatusNotice
     } from '../detection-classification-source';
-    import { formatDateTime } from '../utils/datetime';
+    import { formatDateTime, formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
     import { getManualTagSearchOptions } from '../search/manual-tag-search';
     import {
@@ -100,8 +100,17 @@
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
 
+    /** The visit a capture belongs to, as the page that opened the record knows it. */
+    interface RecordVisit {
+        captureCount: number;
+        startTime: string;
+        endTime: string;
+    }
+
     interface Props {
         detection: Detection;
+        /** The visit this capture is part of, when the record was opened from that visit. */
+        visit?: RecordVisit | null;
         llmReady: boolean;
         showVideoButton?: boolean;
         onClose: () => void;
@@ -120,6 +129,7 @@
 
     let {
         detection,
+        visit = null,
         llmReady,
         showVideoButton = false,
         onClose,
@@ -679,6 +689,27 @@
         }
         return $_('video_player.fetch_full_visit', { default: 'Fetch full clip' });
     });
+    // The clip and the photo options belong to this one capture, so a longer visit is stated
+    // beside them: otherwise one capture's media reads as the whole visit.
+    const visitSpan = $derived.by(() => {
+        if (!visit || visit.captureCount < 2) return null;
+        const startsAt = formatTime(visit.startTime);
+        const endsAt = formatTime(visit.endTime);
+        const span = startsAt === endsAt ? endsAt : `${startsAt}–${endsAt}`;
+        const captures = $_('visits.captures', { values: { count: visit.captureCount }, default: '{count, plural, one {# capture} other {# captures}}' });
+        return `${captures}, ${span}`;
+    });
+    // The full clip is cut from Frigate's recordings around this capture, by the owner's settings.
+    const fullClipSeconds = $derived.by(() => {
+        const before = settingsStore.settings?.recording_clip_before_seconds;
+        const after = settingsStore.settings?.recording_clip_after_seconds;
+        return typeof before === 'number' && typeof after === 'number' && before + after > 0 ? before + after : null;
+    });
+    const fullClipTitle = $derived(
+        fullClipSeconds === null
+            ? $_('video_player.full_visit_ready', { default: 'Full clip ready' })
+            : $_('detection.full_clip_seconds', { values: { seconds: fullClipSeconds }, default: "This capture's full clip, {seconds, plural, one {# second} other {# seconds}}" })
+    );
     let awaitingReclassifyOverlay = $state(false);
     let videoAnalysisStatus = $derived(detection.video_classification_status ?? null);
     let videoAnalysisActive = $derived(videoAnalysisStatus === 'processing' || videoAnalysisStatus === 'pending');
@@ -2088,6 +2119,15 @@
                         {formatDateTime(detection.detection_time)} &middot; {detection.camera_name}
                     </dd>
                 </div>
+                {#if visitSpan}
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2" data-detection-visit-span>
+                        <dt class="flex items-center gap-2 text-muted">
+                            <svg class="h-3.5 w-3.5 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h4M4 12h10M4 17h16" /></svg>
+                            {$_('detection.fact_part_of_visit', { default: 'Part of a visit' })}
+                        </dt>
+                        <dd class="min-w-0 max-w-full text-right font-medium tabular-nums text-strong">{visitSpan}</dd>
+                    </div>
+                {/if}
                 {#if weatherSummary}
                     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2" data-detection-weather-row>
                         <dt class="flex items-center gap-2 text-muted">
@@ -2393,15 +2433,15 @@
                                                     e.preventDefault();
                                                     e.stopPropagation();
                                                 }}
-                                                title={fullVisitFetched ? $_('video_player.full_visit_ready', { default: 'Full visit clip ready' }) : $_('detection.play_video', { values: { species: primaryName } })}
-                                                aria-label={fullVisitFetched ? $_('detection.play_full_visit', { values: { species: primaryName }, default: 'Play full visit clip of {species}' }) : $_('detection.play_video', { values: { species: primaryName } })}
+                                                title={fullVisitFetched ? fullClipTitle : $_('detection.play_video', { values: { species: primaryName } })}
+                                                aria-label={fullVisitFetched ? $_('detection.play_full_visit', { values: { species: primaryName }, default: "Play this capture's full clip, {species}" }) : $_('detection.play_video', { values: { species: primaryName } })}
                                                 class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border shadow-xl backdrop-blur-xs transition-colors duration-150 focus:outline-hidden focus:ring-2 focus:ring-focus-on-dark {fullVisitFetched ? 'gap-2 border-on-media-accent/30 bg-accent px-3 text-accent-fg hover:bg-accent-hover' : 'w-11 border-on-media/25 bg-media/55 text-on-media'}"
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                                     <path d="M8 5v14l11-7z"/>
                                                 </svg>
                                                 {#if fullVisitFetched}
-                                                    <span class="text-2xs font-semibold">{$_('video_player.full_visit_action', { default: 'Full visit' })}</span>
+                                                    <span class="text-2xs font-semibold">{$_('video_player.full_visit_action', { default: 'Full clip' })}</span>
                                                 {/if}
                                             </button>
                                         {/if}

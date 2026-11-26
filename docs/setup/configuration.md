@@ -158,7 +158,7 @@ public Frigate URL, the image used for the first identification, and clips).
 | **Collect motion review photos** | Shown while a camera watches for Garden animals. See [Beta features](#beta-features). |
 | **MQTT broker** / **Port** / **Use authentication** | The broker Frigate publishes its events to: its hostname, its port (default `1883`), and optional user and pass. |
 | **Fetch video clips** | Whether YA-WAMF caches Frigate's short event clip. Turn it off on a metered link. |
-| **Full-visit clips** | Ask Frigate for a wider window of recording around each detection. The default window is `30` seconds before and `90` seconds after. |
+| **Full clips** | Ask Frigate for a wider window of recording around each detection. The default window is `30` seconds before and `90` seconds after. |
 | **Test Frigate and MQTT** | One staged diagnostic with two checks: **Frigate API**, then **MQTT broker publish**. It tests the values currently in the form, so you can prove a change before saving it. |
 
 #### Cameras to watch
@@ -182,7 +182,7 @@ migration:
   until you choose **Off**. If the list cannot be read from Frigate, saved cameras are shown
   without that mark.
 
-> **Full-visit clips need continuous recording.** Every selected camera needs an enabled
+> **Full clips need continuous recording.** Every selected camera needs an enabled
 > FFmpeg `record` role and positive `record.continuous.days` retention. Alert or detection
 > retention alone can leave the start or end of the requested window missing. Settings
 > checks this coverage and names any camera that needs attention.
@@ -564,12 +564,12 @@ history, are in [Maintenance](#maintenance). Telemetry, what leaves this install
   video analysis, leaves the record as it was, and so does a record you added by hand.
   Automatic missing-media deletion checks favourites in its final database decision. A favourite
   accepted before that decision keeps its detection and cached photos, even if a scan is running.
-- **Photos and video** — photographs, full-visit clips and previews are YA-WAMF's own record and are
+- **Photos and video** — photographs, full clips and previews are YA-WAMF's own record and are
   kept until a retention or size limit removes them; Frigate may delete its copies much sooner.
   **Keep copies of Frigate's event clips** is the one choice, because Frigate already holds those.
   If the media folder cannot be written, the card, system checks and `/health` say so. On upgrade
   from a build with retired media switches off, best-available snapshots and possibly
-  full-visit clips are turned off once. Review those choices and follow the
+  full clips are turned off once. Review those choices and follow the
   [one-time migration steps](../../MIGRATION.md#retired-media-switches).
   **Clear cached files** asks first, then deletes cached media older than the retention
   period and cached files that no longer belong to a detection. Favourites keep all their cached

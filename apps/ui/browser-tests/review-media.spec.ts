@@ -458,7 +458,7 @@ test('record: removing a folded photo removes all its framings at once and Undo 
 
     await expect(triggers).toHaveCount(1);
     await expect(page.locator('[data-frame-strip] img[src*="wren__f10-"]')).toHaveCount(0);
-    await expect(page.locator('[data-frame-strip-status]')).toContainText('1 frame from this visit');
+    await expect(page.locator('[data-frame-strip-status]')).toContainText('1 frame from this capture');
     expect(plan.photoMutations).toEqual([{
         capture: 'wren', candidateId: 'wren__f10-model', dismissed: true, companions: ['wren__f10-full', 'wren__f10-hint']
     }]);
@@ -822,7 +822,7 @@ test.describe('the frame strip marks the photograph honestly', () => {
         const triggers = strip.locator('button[aria-pressed]');
         await expect(triggers).toHaveCount(4);
         // Kept stills are not frames of the clip, so the strip counts photo options.
-        await expect(strip).toContainText('4 photo options from this visit');
+        await expect(strip).toContainText('4 photo options from this capture');
         await settle(page);
         await page.screenshot({ path: testInfo.outputPath('wren-earlier-photos-strip.png') });
 
@@ -1156,7 +1156,7 @@ test.describe('a strip with more choices than fit', () => {
             const strip = page.locator('[data-frame-strip]');
             const triggers = strip.locator('button[aria-pressed]');
             await expect(triggers).toHaveCount(22);
-            await expect(strip).toContainText('22 photo options from this visit');
+            await expect(strip).toContainText('22 photo options from this capture');
             const back = strip.locator('[data-frame-strip-back]');
             const forward = strip.locator('[data-frame-strip-forward]');
 
