@@ -24,7 +24,9 @@
   still holds it while each capture's files are deleted. The storage limit now weighs only files
   really on disk and counts Garden media as freed only once it is removed, so a missing Garden photo
   no longer pushes out an older bird photo. When a capture is confirmed while cleanup runs, cleanup
-  goes on to the next oldest capture until space used is under the limit. Empty-file cleanup no
+  goes on to the next oldest capture until space used is under the limit. A capture you favourite or
+  confirm while old media is being removed keeps its media, and its favourite archive waits for it
+  rather than recording it as unavailable. Empty-file cleanup no
   longer removes a clip, a recording clip that is still downloading, or a preview while it is being
   written.
 - **A photo change that fails after you switch records is reported:** If using, regenerating or
