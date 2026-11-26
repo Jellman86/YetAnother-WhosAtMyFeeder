@@ -28,9 +28,12 @@
   confirm while old media is being removed keeps its media, and its favourite archive waits for it
   rather than recording it as unavailable. If YA-WAMF stops part-way through, the media it had set
   aside goes back when it starts again, before anything reads the cache. Nothing written under its
-  name meanwhile is overwritten: the set-aside copy gives way only to a photo you chose, and
-  otherwise both are kept. Media that cannot be put back yet stays set aside, nothing automatic
-  takes its name, and Health shows it until it is back. A long cleanup of old media no longer holds up the
+  name meanwhile is overwritten. The set-aside copy gives way only to a photo you chose, when its
+  saved settings prove that photo is the one at the name; otherwise both are kept, the set-aside one
+  as a hidden spare copy that counts towards Space used, shows in Health and goes when you delete
+  the capture (the storage guide explains how to put one back). Media that cannot be put back yet
+  stays set aside, nothing automatic takes its name, and Health shows it until it is back; asking
+  for a new photo meanwhile says the photo is being put back. A long cleanup of old media no longer holds up the
   storage limit. Clear cached files pressed while one is running shares that work and still takes
   about as long. Empty-file cleanup no
   longer removes a clip, a recording clip that is still downloading, or a preview while it is being
