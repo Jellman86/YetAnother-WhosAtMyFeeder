@@ -1122,6 +1122,8 @@ async def test_returning_a_left_over_file_never_overwrites_an_owner_choice_publi
     assert await service.get_snapshot("x") == b"owner-chosen-photo"
     assert (await service.get_snapshot_metadata("x"))["manual_selection"] is True
     assert not [path for path in snapshots.iterdir() if path.name.endswith(".ageing.tmp")]
+    # The owner's photo, proved by its sidecar's hash, replaces the stale copy outright.
+    assert not [path for path in snapshots.iterdir() if path.name.endswith(".kept.tmp")]
 
 
 @pytest.mark.asyncio
@@ -1328,6 +1330,116 @@ async def test_a_left_over_file_that_cannot_be_returned_does_not_stop_the_others
     assert diagnostic["component"] == "media_cache"
     assert diagnostic["context"] == {"files": 1}
     error_diagnostics_history.clear()
+
+
+def _disk_errors_for(monkeypatch, *, stat: set[Path] = frozenset(), read: set[Path] = frozenset()) -> None:
+    """EIO from stat or read for the given paths only, as a flaky volume gives."""
+    original_stat, original_read = Path.stat, Path.read_text
+
+    def failing_stat(self, *args, **kwargs):
+        if self in stat:
+            raise OSError(errno.EIO, "Input/output error")
+        return original_stat(self, *args, **kwargs)
+
+    def failing_read(self, *args, **kwargs):
+        if self in read:
+            raise OSError(errno.EIO, "Input/output error")
+        return original_read(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", failing_stat)
+    monkeypatch.setattr(Path, "read_text", failing_read)
+
+
+@pytest.mark.asyncio
+async def test_a_failed_restore_holds_every_set_aside_name_even_when_the_disk_cannot_be_read(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.cache_snapshot("conf", b"owner-confirmed-hq-photo")
+    pairs = service._stage_paths_sync(
+        [snapshots / "conf.jpg", snapshots / "conf.jpg.meta.json"], media_cache_module._AGE_STAGED_SUFFIX
+    )
+
+    def restore_fails(staged):
+        raise OSError(errno.EIO, "Input/output error")
+
+    monkeypatch.setattr(service, "_restore_staged_deletion_sync", restore_fails)
+    with monkeypatch.context() as disk:
+        _disk_errors_for(disk, stat={target for _original, target in pairs})
+        with pytest.raises(OSError):
+            await service._put_back_or_hold(pairs)
+    assert service.set_aside_pending_count == 2
+    assert await service.cache_snapshot("conf", b"frigate-recache", source="frigate_snapshot_unverified") is None
+
+
+@pytest.mark.asyncio
+async def test_a_staging_rollback_that_fails_holds_the_names_it_left_set_aside(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    for event_id in ("one", "two"):
+        await service.cache_snapshot(event_id, b"photo")
+    original_rename = Path.rename
+
+    def rename(self, target):
+        # Staging "two" fails, and so does putting "one" back.
+        if self.name == "two.jpg" or (self.name.endswith(".ageing.tmp") and Path(target).name == "one.jpg"):
+            raise OSError(errno.EIO, "Input/output error")
+        return original_rename(self, target)
+
+    monkeypatch.setattr(Path, "rename", rename)
+    with pytest.raises(OSError):
+        service._stage_paths_sync([snapshots / "one.jpg", snapshots / "two.jpg"], media_cache_module._AGE_STAGED_SUFFIX)
+    assert service.set_aside_pending_count == 1
+    assert service._snapshot_set_aside("one")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sidecar", ["unreadable", "stale_hash", "no_hash", "not_an_object"])
+async def test_a_taken_name_drops_the_set_aside_copy_only_for_a_proved_owner_choice(tmp_path, monkeypatch, sidecar):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.cache_snapshot("conf", b"owner-confirmed-hq-photo")
+    _leave_age_staged(service, snapshots / "conf.jpg")
+    _leave_age_staged(service, snapshots / "conf.jpg.meta.json")
+    photo, meta = snapshots / "conf.jpg", snapshots / "conf.jpg.meta.json"
+    photo.write_bytes(b"frigate-recache")
+    meta_text = {
+        "unreadable": '{"manual_selection": true}',
+        "stale_hash": '{"manual_selection": true, "image_sha256": "%s"}' % ("0" * 64),
+        "no_hash": '{"manual_selection": true}',
+        "not_an_object": "[]",
+    }[sidecar]
+    meta.write_text(meta_text)
+    if sidecar == "unreadable":
+        _disk_errors_for(monkeypatch, read={meta})
+
+    await service.return_age_staged_files()
+
+    # Nothing proves the photo at the name is the owner's, so the set-aside one is kept.
+    survivors = [p for p in snapshots.iterdir() if p.is_file() and p.read_bytes() == b"owner-confirmed-hq-photo"]
+    assert survivors, "the set-aside photo was deleted"
+    assert [p for p in snapshots.iterdir() if p.name.endswith(".kept.tmp")]
+
+
+@pytest.mark.asyncio
+async def test_the_whole_chain_of_disk_errors_never_deletes_a_confirmed_photo(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.cache_snapshot("conf", b"owner-confirmed-hq-photo")
+    pairs = service._stage_paths_sync(
+        [snapshots / "conf.jpg", snapshots / "conf.jpg.meta.json"], media_cache_module._AGE_STAGED_SUFFIX
+    )
+
+    def restore_fails(staged):
+        raise OSError(errno.EIO, "Input/output error")
+
+    with monkeypatch.context() as disk:
+        disk.setattr(service, "_restore_staged_deletion_sync", restore_fails)
+        _disk_errors_for(disk, stat={target for _original, target in pairs})
+        with pytest.raises(OSError):
+            await service._put_back_or_hold(pairs)
+    # The card route tries to re-cache Frigate's photo, then the next sweep cannot read the sidecar.
+    await service.cache_snapshot("conf", b"frigate-recache", source="frigate_snapshot_unverified")
+    with monkeypatch.context() as disk:
+        _disk_errors_for(disk, read={snapshots / "conf.jpg.meta.json"})
+        await service.return_age_staged_files()
+    survivors = [p for p in snapshots.iterdir() if p.is_file() and p.read_bytes() == b"owner-confirmed-hq-photo"]
+    assert survivors, "the owner-confirmed photo was deleted"
 
 
 @pytest.mark.asyncio

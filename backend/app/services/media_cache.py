@@ -1486,7 +1486,12 @@ class MediaCacheService:
                     continue
                 staged.append((path, target))
         except BaseException:
-            self._restore_staged_deletion_sync(staged)
+            try:
+                self._restore_staged_deletion_sync(staged)
+            except OSError:
+                if suffix == _AGE_STAGED_SUFFIX:
+                    self._hold_set_aside_names(staged)
+                raise
             raise
         return staged
 
@@ -1552,14 +1557,27 @@ class MediaCacheService:
 
     @staticmethod
     def _name_holds_owner_choice_sync(original: Path) -> bool:
-        """Whether the file now at a canonical photo's name, or its sidecar's, is an owner's choice."""
+        """Whether the photo now at a canonical photo's name is provably an owner's choice.
+
+        Unlike the eviction check, this fails open: a set-aside copy is deleted only when the sidecar
+        reads cleanly, marks a manual selection and names, by hash, the very photo at the name. Any read
+        error, missing hash or mismatch keeps both copies.
+        """
         name = original.name
         if original.parent != SNAPSHOTS_DIR:
             return False
         stem = name[: -len(".jpg.meta.json")] if name.endswith(".jpg.meta.json") else name.removesuffix(".jpg")
         if stem == name:
             return False
-        return has_manual_snapshot_selection(stem) if (SNAPSHOTS_DIR / f"{stem}.jpg").is_file() else False
+        try:
+            sidecar = json.loads((SNAPSHOTS_DIR / f"{stem}.jpg.meta.json").read_text(encoding="utf-8"))
+            photo = (SNAPSHOTS_DIR / f"{stem}.jpg").read_bytes()
+        except (OSError, ValueError):
+            return False
+        if not isinstance(sidecar, dict) or sidecar.get("manual_selection") is not True:
+            return False
+        recorded = sidecar.get("image_sha256")
+        return isinstance(recorded, str) and bool(photo) and recorded == image_sha256_hex(photo)
 
     @classmethod
     def _settle_taken_name_sync(cls, staged: Path, original: Path) -> str:
@@ -1660,10 +1678,10 @@ class MediaCacheService:
     def _visit_has_set_aside(self, event_ids: set[str]) -> bool:
         return any(cache_name_event_id(path.name) in event_ids for path in self._set_aside_pending)
 
-    def _mark_set_aside_pending(self, staged: list[tuple[Path, Path]]) -> None:
-        for original, target in staged:
-            if target.exists():
-                self._set_aside_pending.add(original)
+    def _hold_set_aside_names(self, staged: list[tuple[Path, Path]]) -> None:
+        """Hold every name whose restore was not proved. It reads nothing from disk: right after an I/O
+        error the disk is the least trustworthy witness, and the next return rebuilds the set anyway."""
+        self._set_aside_pending.update(original for original, _target in staged)
 
     async def return_age_staged_files(self) -> int:
         """Put back files an interrupted age cleanup staged, so the next age cleanup decides again.
@@ -2030,7 +2048,7 @@ class MediaCacheService:
         try:
             await self._complete_file_operation(self._restore_staged_deletion_sync, staged)
         except OSError:
-            self._mark_set_aside_pending(staged)
+            self._hold_set_aside_names(staged)
             raise
 
     async def cleanup_old_media(
