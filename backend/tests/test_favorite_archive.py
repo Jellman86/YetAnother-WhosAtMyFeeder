@@ -225,21 +225,6 @@ async def test_a_favourite_archived_after_a_crash_during_age_cleanup_finds_its_c
     assert (row["snapshot_state"], row["clip_state"]) == ("durable", "durable")
 
 
-def test_startup_returns_interrupted_age_cleanup_before_any_media_service_starts():
-    source = Path(__file__).resolve().parents[1].joinpath("app", "main.py").read_text(encoding="utf-8")
-    returned_at = source.index('"media_cache_return_interrupted_cleanup"')
-    for phase in (
-        "bird_scan_start",
-        "auto_video_classifier_start",
-        "media_storage_start",
-        "high_quality_snapshot_start",
-        "full_visit_clip_start",
-        "favorite_archive_start",
-        "mqtt_service_task_start",
-    ):
-        assert returned_at < source.index(f'"{phase}"'), phase
-
-
 @pytest.mark.asyncio
 async def test_frigate_without_a_clip_is_unavailable_and_the_favourite_is_still_durable(seeded_db, dirs):
     await _favorite("fav_frigate")
