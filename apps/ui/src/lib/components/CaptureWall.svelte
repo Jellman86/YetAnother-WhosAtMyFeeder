@@ -106,18 +106,17 @@
     const rowCount = $derived(opened ? OPENED_ROWS : width < 520 ? CLOSED_ROWS_NARROW : CLOSED_ROWS);
     const tilePixels = (tile: WallTile): number => Math.round(large(tile) ? cell * 2 + GAP : cell);
 
-    // Key tile failures to the current fetch/expand epoch so unrelated derived array rebuilds
-    // (species info, portraits, settings) never blink missing tiles, while a real wall refetch
-    // or re-expanding "Show more visits" lets transiently failed tiles retry cleanly without
-    // retaining failures from earlier generations.
-    const EMPTY_FAILED: ReadonlySet<string> = new Set();
+    // Reset failed tiles automatically via writable $derived whenever a real wall refetch
+    // (retryGeneration) or "Show more visits" re-expansion (expandGeneration) advances,
+    // without flickering on unrelated showcaseRows rebuilds or retaining previous epochs.
     let expandGeneration = $state(0);
-    const failureEpoch = $derived(`${retryGeneration}:${expandGeneration}`);
-    let failedState = $state<{ epoch: string; events: ReadonlySet<string> }>({ epoch: '', events: EMPTY_FAILED });
-    const failed = $derived(failedState.epoch === failureEpoch ? failedState.events : EMPTY_FAILED);
+    let failed = $derived.by(() => {
+        void retryGeneration;
+        void expandGeneration;
+        return new Set<string>();
+    });
     function markFailed(event: string): void {
-        const base = failedState.epoch === failureEpoch ? failedState.events : EMPTY_FAILED;
-        failedState = { epoch: failureEpoch, events: new Set([...base, event]) };
+        failed = new Set([...failed, event]);
     }
     // A visit whose picture fails keeps its cell: the wall is packed once and nothing moves after load.
     const usable = $derived(tiles.slice(0, maxTiles ?? tiles.length));
