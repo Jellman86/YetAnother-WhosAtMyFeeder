@@ -6,5 +6,5 @@
   **Multiple bird species** filter, each visit points at a capture that holds them.
 - The record no longer calls one capture's media the whole visit. **Full visit** is now **Full
   clip**, the recording Frigate kept around that capture, and the photo options say "from this
-  capture". A record opened from a longer visit adds **Part of a visit** with the visit's captures
-  and time span. The setting is renamed **Full clips** to match; it works as before.
+  capture". A record opened from a longer visit, in the Explorer or the Dashboard field log, adds
+  **Part of a visit** with the visit's captures and time span. The setting is renamed **Full clips** to match; it works as before.

@@ -53,6 +53,7 @@
     import { lockDocumentScroll } from '../utils/document-scroll-lock';
     import { toastStore } from '../stores/toast.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { canWatchRecordVideo } from '../utils/record-access';
     import { SCORE_FILL, scoreBand } from '../utils/score-tone';
     import { savedVisitGapMs } from '../stores/public_settings.svelte';
 
@@ -133,7 +134,7 @@
 
     const index = $derived(Math.max(0, group.findIndex((item) => item.id === capture.id)));
     // A capture carries its clip only while clips are on, and for a visitor only while video is shared.
-    const canPlay = $derived(Boolean(onplay && capture.clip_event));
+    const canPlay = $derived(Boolean(onplay && canWatchRecordVideo(authStore) && capture.clip_event));
     // YA-WAMF's own copies, which outlast Frigate's retention; read-only evidence for Details.
     const keptMedia = $derived([capture.photo_kept && 'photo', capture.clip_kept && 'clip'].filter(Boolean).join(', ') || 'none');
     const view = $derived(gardenEntryView(capture));

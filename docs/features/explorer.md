@@ -21,7 +21,8 @@ it is not a count of distinct individual birds.
 5. A record is one capture. Its photo options and its **Full clip** (the recording Frigate kept
    around that capture, by the seconds set under **Settings → Cameras & connection**) belong to
    that capture alone. When the capture is part of a longer visit, the record says **Part of a
-   visit** with the visit's number of captures and its time span.
+   visit** with the visit's number of captures and its time span, whether it was opened here or
+   from the Dashboard field log.
 
 ![A heard band between camera visits showing three European Robin calls from 08:30 to 08:34 and a Show calls control; the count tile appears when no spectrogram is retained](../images/explorer-heard-calls.png)
 

@@ -28,6 +28,7 @@
     import CompanionSpeciesNote from './CompanionSpeciesNote.svelte';
     import { frameScan } from '../utils/frame-scan';
     import FrameScanRibbon from './FrameScanRibbon.svelte';
+    import { canWatchRecordVideo } from '../utils/record-access';
 
     interface Props {
         detection: Detection;
@@ -75,7 +76,7 @@
     const isManualObservation = $derived(detection.observation_source === 'manual_upload');
     const hasAudioConfirmed = $derived(!isManualObservation && !!detection.audio_confirmed);
     const upstreamMissing = $derived(!isManualObservation && detection.frigate_status === 'missing');
-    const canPlayVideo = $derived(!!onPlay && !!detection.has_clip);
+    const canPlayVideo = $derived(!!onPlay && canWatchRecordVideo(authStore) && !!detection.has_clip);
 
     const rowSubject = $derived(`${primaryName}, ${formatTime(detection.detection_time)}`);
     const openLabel = $derived(

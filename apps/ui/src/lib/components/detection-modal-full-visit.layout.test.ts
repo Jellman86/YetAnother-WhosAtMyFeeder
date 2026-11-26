@@ -3,6 +3,8 @@ import detectionModalSource from './DetectionModal.svelte?raw';
 import aiAnalysisSource from './record/RecordAiAnalysis.svelte?raw';
 import eventsPageSource from '../pages/Events.svelte?raw';
 import dashboardPageSource from '../pages/Dashboard.svelte?raw';
+import openerSource from './RecordDialogs.svelte?raw';
+import detectionSyncSource from '../utils/detection-sync.ts?raw';
 
 describe('detection modal full-visit fetch wiring', () => {
     it('threads full-visit state and actions into the details modal', () => {
@@ -30,23 +32,17 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full border border-on-media-fail/70 bg-media/55 text-on-media-fail');
         expect(detectionModalSource).not.toContain("<span>{$_('detection.frigate_badge', { default: 'Frigate' })}</span>");
 
-        expect(eventsPageSource).toContain("fullVisitAvailable={fullVisitAvailability[selectedEvent.frigate_event] === 'available'}");
-        expect(eventsPageSource).toContain('selectedEventFullVisitHandler');
-        expect(eventsPageSource).toContain('onFetchFullVisit={selectedEventFullVisitHandler}');
-        expect(eventsPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');
+        // Every page opens the record through the shared opener, which wires the full visit once.
+        expect(openerSource).toContain("fullVisitAvailable={fullVisitStore.availability[record.frigate_event] === 'available'}");
+        expect(openerSource).toContain('onFetchFullVisit={fullVisitHandler}');
+        expect(openerSource).toContain("initialFullVisitPromoted={fullVisitStore.fetchState[video.frigateEvent] === 'ready'}");
+        expect(openerSource).toContain('autoFetch: true');
         expect(eventsPageSource).not.toContain('preferredClipVariantByEvent');
-        expect(eventsPageSource).toContain("autoFetch: true");
-        expect(dashboardPageSource).toContain("autoFetch: true");
-
-        expect(dashboardPageSource).toContain("fullVisitAvailable={fullVisitAvailability[selectedEvent.frigate_event] === 'available'}");
-        expect(dashboardPageSource).toContain('selectedEventFullVisitHandler');
-        expect(dashboardPageSource).toContain('onFetchFullVisit={selectedEventFullVisitHandler}');
-        expect(dashboardPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');
         expect(dashboardPageSource).not.toContain('preferredClipVariantByEvent');
     });
 
     it('gates owner-only detection actions behind explicit owner access', () => {
-        expect(detectionModalSource).toContain('const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess && !readOnly);');
+        expect(detectionModalSource).toContain('const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess);');
         expect(detectionModalSource).toContain('{#if hasOwnerDetectionActions}');
         expect(detectionModalSource).toContain('{#if hasOwnerDetectionActions && showTagDropdown}');
         expect(detectionModalSource).toContain('if (!authStore.hasOwnerAccess) return;');
@@ -117,7 +113,9 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(aiAnalysisSource).toContain('(detection.ai_analysis ?? null)');
         expect(detectionModalSource).toContain('const nextDetection = applyManualTagResult(detection, result);');
         expect(detectionModalSource).toContain('Object.assign(detection, nextDetection);');
-        expect(dashboardPageSource).toContain('asText(d.ai_analysis)');
-        expect(dashboardPageSource).toContain('asText(d.ai_analysis_timestamp)');
+        // The open record follows the live store on the fields the note changes.
+        expect(detectionSyncSource).toContain('asText(d.ai_analysis)');
+        expect(detectionSyncSource).toContain('asText(d.ai_analysis_timestamp)');
+        expect(openerSource).toContain('withLiveFields(current, updated)');
     });
 });

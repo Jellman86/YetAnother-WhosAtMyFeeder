@@ -17,6 +17,7 @@
         type VideoShareLinkItem
     } from '../api';
     import { authStore } from '../stores/auth.svelte';
+    import { canDownloadRecordClip } from '../utils/record-access';
     import { toastStore } from '../stores/toast.svelte';
     import { logger } from '../utils/logger';
     import { toAppPath } from '../app/url-base';
@@ -84,7 +85,7 @@
     let clipUrl = $state('');
     let hlsUrl = $derived(retryCount > 0 ? appendQueryParam(hlsUrlBase, 'retry', String(retryCount)) : hlsUrlBase);
     let clipDownloadUrl = $derived(clipUrl ? `${clipUrl}${clipUrl.includes('?') ? '&' : '?'}download=1` : '');
-    let canDownloadClip = $derived(!shareToken && (!authStore.isGuest || authStore.publicAccessAllowClipDownloads));
+    let canDownloadClip = $derived(canDownloadRecordClip(authStore, { shared: !!shareToken }));
     let canShareClip = $derived(!authStore.isGuest);
     let canManageShareLinks = $derived(!shareToken && !authStore.isGuest);
     let shortEventId = $derived(frigateEvent.split('-').pop() ?? frigateEvent);

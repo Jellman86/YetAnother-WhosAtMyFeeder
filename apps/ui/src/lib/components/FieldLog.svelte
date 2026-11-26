@@ -32,7 +32,8 @@
         unavailable?: boolean;
         /** Garden visits were asked for and could not be read, so their absence is not a quiet garden. */
         gardenUnavailable?: boolean;
-        onselect?: (detection: Detection) => void;
+        /** Opens a capture's record, with the visit it was chosen from. */
+        onselect?: (detection: Detection, visit: DetectionVisit) => void;
         onidentify?: (detection: Detection) => void;
         onplay?: (detection: Detection) => void;
         ongardenopen?: (visit: GardenServerVisit) => void;
@@ -222,7 +223,7 @@
                     <FieldLogGardenRow visit={row.visit} {grid} {showCamera} scope={gardenScope}
                         onopen={(visit) => ongardenopen?.(visit)} oncapture={ongardencapture ? (capture, index) => ongardencapture?.(row.visit, capture, index) : undefined} />
                 {:else}
-                    <FieldLogVisitRow visit={row.visit} {grid} {showCamera} {canIdentify} {onselect} {onidentify} {onplay} />
+                    <FieldLogVisitRow visit={row.visit} {grid} {showCamera} {canIdentify} onselect={onselect ? (detection) => onselect(detection, row.visit) : undefined} {onidentify} {onplay} />
                 {/if}
             {/each}
         </ol>
