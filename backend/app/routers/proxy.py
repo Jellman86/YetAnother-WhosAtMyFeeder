@@ -257,16 +257,9 @@ def _build_display_thumbnail_from_snapshot(image_bytes: bytes) -> bytes:
 
 def _cached_thumbnail_allowed_for_current_snapshot(metadata: dict | None, *, has_snapshot: bool) -> bool:
     """Return whether a cached thumbnail still matches the configured snapshot source."""
-    source = str((metadata or {}).get("source") or "").strip()
-    if has_snapshot:
-        # Legacy thumbnails had no source metadata. Once a canonical snapshot is
-        # available, regenerate from it so cards follow the current snapshot config.
-        return source == "snapshot_derived"
-    # Without a canonical snapshot, keep old cached thumbnails for compatibility
-    # unless metadata proves they were derived from a now-missing snapshot.
-    if not source:
-        return True
-    return source == "frigate_thumbnail"
+    from app.services.media_cache import cached_thumbnail_allowed_for_current_snapshot
+
+    return cached_thumbnail_allowed_for_current_snapshot(metadata, has_snapshot=has_snapshot)
 
 
 def _preview_lock(event_id: str) -> asyncio.Lock:

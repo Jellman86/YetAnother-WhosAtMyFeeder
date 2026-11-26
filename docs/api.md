@@ -1669,10 +1669,14 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   not made yet is asked for in the background. Guests get films only when clips are shared.
 - `GET /api/about/showcase?limit=` (guest-rate-limited). One recent crop per species, newest first;
   guests see the public media window, and nothing when snapshots are not shared.
-- `GET /api/about/showcase/{event_id}.jpg?size=` (guest-rate-limited). The stored photograph at card
+- `GET /api/about/showcase/{event_id}.jpg?size=` (guest-rate-limited). The visit photograph at card
   size (`size=card`, the default, 480 px on its longer edge) or at the size of one cell in a wall
-  of many (`size=tile`, 240 px), under the same access rules as `snapshot.jpg`. Any other `size`
-  is a 422.
+  of many (`size=tile`, 240 px), under the same access rules as `snapshot.jpg`. Checks local cache,
+  favourite archive, manual-upload preview (for `manual_` visits, never contacting Frigate), and
+  eligible cached thumbnails first; for known detections whose local copy was evicted by cache limits,
+  falls back read-only to Frigate's cropped snapshot and caches only the resized JPEG in memory
+  (never re-writing evicted visits to disk). Any other `size` is a 422; a missing or unusable photo
+  is a 404; transient Frigate unavailability returns 503 with `Retry-After`.
 - `GET /api/about/showcase/{event_id}.webm` (guest-rate-limited). A visit film: four silent seconds
   of 640x360 VP8 WebM cut from Frigate's recording around the visit's best snapshot and framed on
   the bird, under the same access rules as the clip. Answers byte ranges and is never cached. A film

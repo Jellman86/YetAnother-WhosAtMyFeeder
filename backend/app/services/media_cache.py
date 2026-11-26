@@ -85,6 +85,20 @@ def film_alignment_for_digest(alignment: Any, digest: str) -> dict | None:
         return None
 
 
+def cached_thumbnail_allowed_for_current_snapshot(metadata: dict | None, *, has_snapshot: bool) -> bool:
+    """Return whether a cached thumbnail still matches the current snapshot provenance."""
+    source = str((metadata or {}).get("source") or "").strip()
+    if has_snapshot:
+        # Legacy thumbnails had no source metadata. Once a canonical snapshot is
+        # available, regenerate from it so cards follow the current snapshot config.
+        return source == "snapshot_derived"
+    # Without a canonical snapshot, keep old cached thumbnails for compatibility
+    # unless metadata proves they were derived from a now-missing snapshot.
+    if not source:
+        return True
+    return source == "frigate_thumbnail"
+
+
 def sanitize_event_id(event_id: str) -> str:
     """An event id as a safe file name: alphanumerics, dash, underscore and dot only.
 
@@ -643,6 +657,14 @@ class MediaCacheService:
         """Where the stored photograph lives, or None when there is none."""
         try:
             path = self._snapshot_path(event_id)
+        except ValueError:
+            return None
+        return path if await aiofiles.os.path.exists(path) else None
+
+    async def get_thumbnail_path(self, event_id: str) -> Optional[Path]:
+        """Where a cached thumbnail lives, or None when there is none."""
+        try:
+            path = self._thumbnail_path(event_id)
         except ValueError:
             return None
         return path if await aiofiles.os.path.exists(path) else None
