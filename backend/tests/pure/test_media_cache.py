@@ -1,4 +1,5 @@
 import asyncio
+import errno
 import os
 import threading
 from datetime import datetime, timedelta
@@ -1054,6 +1055,111 @@ async def test_age_cleanup_waits_for_the_storage_sweep_before_staging_anything(t
     stats = await cleanup
     assert stats["snapshots_deleted"] == 1
     assert not (snapshots / "aged.jpg").exists()
+
+
+@pytest.mark.asyncio
+async def test_age_cleanup_lets_a_waiting_storage_sweep_run_between_visits(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    _without_detection_history(service, monkeypatch)
+    for event_id in ("aged-one", "aged-two"):
+        await service.cache_snapshot(event_id, b"aged-photo")
+    old_time = (datetime.now() - timedelta(days=5)).timestamp()
+    for path in snapshots.iterdir():
+        os.utime(path, (old_time, old_time))
+    order: list[str] = []
+    sweeps: list[asyncio.Task] = []
+    original_age = service._age_media_group
+
+    async def sweep() -> None:
+        async with service.housekeeping_lock:
+            order.append("sweep")
+
+    async def age_group(**kwargs):
+        order.append(kwargs["event_id"])
+        if not sweeps:
+            # The five-minute sweep arrives while the first visit is being aged.
+            sweeps.append(asyncio.create_task(sweep()))
+            await asyncio.sleep(0)
+        return await original_age(**kwargs)
+
+    monkeypatch.setattr(service, "_age_media_group", age_group)
+    await service.cleanup_old_media(1)
+    await sweeps[0]
+    # asyncio.Lock is first come, first served, so the waiting sweep goes before the next visit.
+    assert order[1] == "sweep" and sorted(order[::2]) == ["aged-one", "aged-two"]
+
+
+def _leave_age_staged(service, path: Path) -> Path:
+    """The state an age cleanup leaves when the process dies after staging a file."""
+    [(_original, staged)] = service._stage_paths_sync([path], media_cache_module._AGE_STAGED_SUFFIX)
+    return staged
+
+
+@pytest.mark.asyncio
+async def test_returning_a_left_over_file_never_overwrites_an_owner_choice_published_meanwhile(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.cache_snapshot("x", b"old-automatic-photo")
+    photo = snapshots / "x.jpg"
+    _leave_age_staged(service, photo)
+    loop = asyncio.get_running_loop()
+    about_to_move, published = asyncio.Event(), threading.Event()
+    original_link = os.link
+
+    def link_after_the_owner_publishes(source, target, *args, **kwargs):
+        if Path(target) == photo and not published.is_set():
+            # The owner's Apply lands between any check and the move.
+            loop.call_soon_threadsafe(about_to_move.set)
+            assert published.wait(5)
+        return original_link(source, target, *args, **kwargs)
+
+    monkeypatch.setattr(media_cache_module.os, "link", link_after_the_owner_publishes)
+    returning = asyncio.create_task(service.return_age_staged_files())
+    await asyncio.wait_for(about_to_move.wait(), 5)
+    await service.replace_snapshot("x", b"owner-chosen-photo", manual_selection=True)
+    published.set()
+    assert await returning == 0
+
+    assert await service.get_snapshot("x") == b"owner-chosen-photo"
+    assert (await service.get_snapshot_metadata("x"))["manual_selection"] is True
+    assert not [path for path in snapshots.iterdir() if path.name.endswith(".ageing.tmp")]
+
+
+@pytest.mark.asyncio
+async def test_a_left_over_file_comes_back_unless_a_newer_file_holds_its_name(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.cache_snapshot("back", b"kept-photo")
+    await service.cache_snapshot("newer", b"old-photo")
+    _leave_age_staged(service, snapshots / "back.jpg")
+    _leave_age_staged(service, snapshots / "newer.jpg")
+    (snapshots / "newer.jpg").write_bytes(b"newer-photo")
+
+    assert await service.return_age_staged_files() == 1
+    assert await service.get_snapshot("back") == b"kept-photo"
+    assert await service.get_snapshot("newer") == b"newer-photo"
+    assert not [path for path in snapshots.iterdir() if path.name.endswith(".ageing.tmp")]
+
+
+@pytest.mark.asyncio
+async def test_without_hard_links_a_left_over_file_is_renamed_back_under_its_visit_locks(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.cache_snapshot("nolink", b"kept-photo")
+    _leave_age_staged(service, snapshots / "nolink.jpg")
+
+    def no_hard_links(*args, **kwargs):
+        raise PermissionError(errno.EPERM, "hard links are not supported on this volume")
+
+    monkeypatch.setattr(media_cache_module.os, "link", no_hard_links)
+    original_rename_back = service._rename_age_staged_file_back_sync
+    locked_during_rename: list[bool] = []
+
+    def rename_back(staged):
+        locked_during_rename.append(service._snapshot_commit_lock("nolink").locked())
+        return original_rename_back(staged)
+
+    monkeypatch.setattr(service, "_rename_age_staged_file_back_sync", rename_back)
+    assert await service.return_age_staged_files() == 1
+    assert await service.get_snapshot("nolink") == b"kept-photo"
+    assert locked_during_rename and all(locked_during_rename)
 
 
 @pytest.mark.asyncio

@@ -456,9 +456,10 @@ async def test_a_storage_sweep_during_age_cleanup_never_deletes_files_it_gives_b
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("returned_by", ["startup", "sweep"])
 @pytest.mark.parametrize("change", ["favourite", "confirm"])
-async def test_files_staged_by_age_cleanup_before_a_crash_come_back_on_the_next_sweep(
-    budget_visit_history, monkeypatch, change
+async def test_files_staged_by_age_cleanup_before_a_crash_come_back(
+    budget_visit_history, monkeypatch, change, returned_by
 ):
     import app.database as db_module
 
@@ -491,8 +492,12 @@ async def test_files_staged_by_age_cleanup_before_a_crash_come_back_on_the_next_
     assert await media.get_snapshot("budget-old") is None
 
     await asyncio.to_thread(_owner_acts, file_path, change)
-    restarted = storage.MediaStorageService()
-    result = await restarted.enforce_limits()
+    if returned_by == "startup":
+        # Startup returns them before any service reads the cache; the sweep finds nothing left.
+        async with media.housekeeping_lock:
+            assert await media.return_age_staged_files() > 0
+        assert await media.get_snapshot("budget-old") == photo
+    result = await storage.MediaStorageService().enforce_limits()
     assert result["orphan_snapshots_deleted"] == 0
     assert await media.get_snapshot("budget-old") == photo
     # The next age cleanup judges the returned files again, with every check.

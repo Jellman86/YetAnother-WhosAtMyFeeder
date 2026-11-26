@@ -125,9 +125,6 @@ class MediaStorageService:
     async def _recover_orphaned_media_stats(self, files: dict[str, list[Path]]) -> dict[str, int]:
         """Retry post-delete filesystem cleanup independently of optional cache budgets."""
         media = cache_module.media_cache
-        # The caller holds the housekeeping lock, so no age cleanup is running: any file it staged
-        # was left by an interrupted run and goes back to its capture to be judged again.
-        await media._complete_file_operation(media._return_age_staged_files_sync)
         # Files staged by an earlier orphan cleanup were already proved orphaned; finish deleting them.
         staged = await asyncio.to_thread(media._staged_deletions_sync)
         stats = await media._complete_file_operation(media._remove_staged_deletions_sync, staged)
@@ -166,9 +163,17 @@ class MediaStorageService:
                     log.warning("Orphaned media recovery failed; will retry", event_id=event_id, error=str(exc))
         return stats
 
+    @staticmethod
+    async def _return_interrupted_age_cleanup() -> None:
+        """A safety net behind the startup step. The caller holds the housekeeping lock, so no age
+        cleanup is running and any age-staged file was left by one that was interrupted. Returning
+        it before the inventory lets this pass weigh it."""
+        await cache_module.media_cache.return_age_staged_files()
+
     async def recover_orphaned_media(self) -> dict[str, int]:
         """Run locked orphan cleanup with full lifecycle guards for manual cache cleanup."""
         async with cache_module.media_cache.housekeeping_lock:
+            await self._return_interrupted_age_cleanup()
             _sizes, files = await asyncio.to_thread(self._inventory)
             return await self._recover_orphaned_media_stats(files)
 
@@ -296,6 +301,7 @@ class MediaStorageService:
         }
         options = settings.media_cache
         async with cache_module.media_cache.housekeeping_lock:
+            await self._return_interrupted_age_cleanup()
             _sizes, files = await asyncio.to_thread(self._inventory)
             orphan_stats = await self._recover_orphaned_media_stats(files)
             result["bytes_freed"] += orphan_stats["bytes_freed"]

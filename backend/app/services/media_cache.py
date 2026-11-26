@@ -3,6 +3,7 @@
 import asyncio
 from contextlib import AsyncExitStack, asynccontextmanager
 from functools import wraps
+import errno
 import json
 import hashlib
 import math
@@ -219,6 +220,19 @@ _STAGED_DELETION_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_STAGED_D
 # by a crash goes back to its name, so the next age cleanup decides again with every check.
 _AGE_STAGED_SUFFIX = ".ageing.tmp"
 _AGE_STAGED_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_AGE_STAGED_SUFFIX))
+# A volume without hard links (some network and FUSE mounts) reports one of these.
+_NO_HARD_LINK_ERRNOS = frozenset(
+    code
+    for code in (
+        errno.EPERM,
+        errno.EOPNOTSUPP,
+        getattr(errno, "ENOTSUP", None),
+        errno.EXDEV,
+        errno.EMLINK,
+        errno.ENOSYS,
+    )
+    if code is not None
+)
 
 
 _HIDDEN_CLIP_WRITE_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}\.tmp\.mp4")
@@ -1498,28 +1512,72 @@ class MediaCacheService:
         ]
 
     @staticmethod
-    def _return_age_staged_files_sync() -> int:
-        """Put back files an interrupted age cleanup staged. Call only while holding the housekeeping lock.
+    def _age_staged_leftovers_sync() -> list[Path]:
+        return [
+            path
+            for directory in (SNAPSHOTS_DIR, CLIPS_DIR, PREVIEWS_DIR)
+            if directory.exists()
+            for path in directory.iterdir()
+            if _AGE_STAGED_NAME.fullmatch(path.name)
+        ]
 
-        A newer file already written under the original name wins, and the stale staged copy goes.
+    @staticmethod
+    def _age_staged_original(staged: Path) -> Path:
+        match = _AGE_STAGED_NAME.fullmatch(staged.name)
+        if match is None:
+            raise ValueError(f"Not an age-staged file: {staged.name}")
+        return staged.with_name(match.group(1))
+
+    @classmethod
+    def _link_age_staged_file_back_sync(cls, staged: Path) -> bool | None:
+        """Move a left-over file back without ever replacing a file at its name.
+
+        A hard link fails when the name is taken, so a photo published meanwhile always wins and the
+        stale copy goes. Returns whether it came back, or None when the volume has no hard links.
+        """
+        try:
+            os.link(staged, cls._age_staged_original(staged))
+        except FileExistsError:
+            staged.unlink(missing_ok=True)
+            return False
+        except FileNotFoundError:
+            return False
+        except OSError as exc:
+            if exc.errno in _NO_HARD_LINK_ERRNOS:
+                return None
+            raise
+        staged.unlink(missing_ok=True)
+        return True
+
+    @classmethod
+    def _rename_age_staged_file_back_sync(cls, staged: Path) -> bool:
+        """The fallback without hard links. Callers hold the visit's commit locks, so no writer publishes meanwhile."""
+        original = cls._age_staged_original(staged)
+        try:
+            if original.exists():
+                staged.unlink()
+                return False
+            staged.rename(original)
+        except FileNotFoundError:
+            return False
+        return True
+
+    async def return_age_staged_files(self) -> int:
+        """Put back files an interrupted age cleanup staged, so the next age cleanup decides again.
+
+        Run at startup before any media service, and by the storage sweep under the housekeeping lock,
+        when no age cleanup can be running. A newer file at a file's name always wins.
         """
         returned = 0
-        for directory in (SNAPSHOTS_DIR, CLIPS_DIR, PREVIEWS_DIR):
-            if not directory.exists():
-                continue
-            for path in directory.iterdir():
-                match = _AGE_STAGED_NAME.fullmatch(path.name)
-                if not match:
-                    continue
-                original = path.with_name(match.group(1))
-                try:
-                    if original.exists():
-                        path.unlink()
-                    else:
-                        path.rename(original)
-                        returned += 1
-                except FileNotFoundError:
-                    continue
+        for staged in await asyncio.to_thread(self._age_staged_leftovers_sync):
+            outcome = await self._complete_file_operation(self._link_age_staged_file_back_sync, staged)
+            if outcome is None:
+                event_id = cache_name_event_id(self._age_staged_original(staged).name)
+                async with self._snapshot_commit_lock(event_id), self._recording_clip_commit_lock(event_id):
+                    outcome = await self._complete_file_operation(self._rename_age_staged_file_back_sync, staged)
+            returned += int(outcome)
+        if returned:
+            log.info("Returned files an interrupted age cleanup had set aside", files=returned)
         return returned
 
     def _delete_visit_files_sync(self, event_id: str, paths: list[Path] | None = None) -> int:
@@ -1859,46 +1917,47 @@ class MediaCacheService:
         snapshot_protected = set(protected_snapshot_event_ids or ())
         canonical_protected = set(protected_canonical_photo_event_ids or ())
         cutoff = (datetime.now() - timedelta(days=retention_days)).timestamp()
-        # Holding the housekeeping lock keeps the storage sweep from mistaking this run's staged files
-        # for ones an interrupted run left behind.
-        async with self.housekeeping_lock:
-            groups = await asyncio.to_thread(self._collect_media_groups_sync, cutoff)
+        groups = await asyncio.to_thread(self._collect_media_groups_sync, cutoff)
 
-            for kind, media_suffix, event_id, paths in groups:
-                possible_owners = possible_cache_owners(event_id, paths)
-                active = high_quality_snapshot_service.get_active_event_ids() | self.get_active_write_event_ids()
-                exemptions = protected | active | (snapshot_protected if kind == "snapshots" else set())
-                if possible_owners & exemptions:
-                    stats["protected_skipped"] += len(paths)
+        for kind, media_suffix, event_id, paths in groups:
+            possible_owners = possible_cache_owners(event_id, paths)
+            active = high_quality_snapshot_service.get_active_event_ids() | self.get_active_write_event_ids()
+            exemptions = protected | active | (snapshot_protected if kind == "snapshots" else set())
+            if possible_owners & exemptions:
+                stats["protected_skipped"] += len(paths)
+                continue
+            # The housekeeping lock is held while this group's files are staged, so the storage sweep
+            # never mistakes them for ones an interrupted run left behind. It is released between
+            # groups, so a long cleanup never holds the sweep or a manual cleanup off for its length.
+            async with (
+                self.housekeeping_lock,
+                self._snapshot_commit_lock(event_id),
+                self._recording_clip_commit_lock(event_id),
+                AsyncExitStack() as leases,
+            ):
+                owners = {self._media_write_owner(owner) for owner in possible_owners}
+                for owner in sorted(owners):
+                    await leases.enter_async_context(self._media_lifecycle_lock(owner))
+                try:
+                    deleted_count, bytes_freed, protected_skipped = await finish_started_operation(
+                        self._age_media_group(
+                            kind=kind,
+                            media_suffix=media_suffix,
+                            event_id=event_id,
+                            paths=paths,
+                            cutoff=cutoff,
+                            protected_event_ids=protected,
+                            protected_snapshot_event_ids=snapshot_protected,
+                            canonical_protected=canonical_protected,
+                        ),
+                        name="media_age_cleanup",
+                    )
+                except OSError as exc:
+                    log.warning("Failed to age cached visit media", event_id=event_id, kind=kind, error=str(exc))
                     continue
-                async with (
-                    self._snapshot_commit_lock(event_id),
-                    self._recording_clip_commit_lock(event_id),
-                    AsyncExitStack() as leases,
-                ):
-                    owners = {self._media_write_owner(owner) for owner in possible_owners}
-                    for owner in sorted(owners):
-                        await leases.enter_async_context(self._media_lifecycle_lock(owner))
-                    try:
-                        deleted_count, bytes_freed, protected_skipped = await finish_started_operation(
-                            self._age_media_group(
-                                kind=kind,
-                                media_suffix=media_suffix,
-                                event_id=event_id,
-                                paths=paths,
-                                cutoff=cutoff,
-                                protected_event_ids=protected,
-                                protected_snapshot_event_ids=snapshot_protected,
-                                canonical_protected=canonical_protected,
-                            ),
-                            name="media_age_cleanup",
-                        )
-                    except OSError as exc:
-                        log.warning("Failed to age cached visit media", event_id=event_id, kind=kind, error=str(exc))
-                        continue
-                    stats[f"{kind}_deleted"] += deleted_count
-                    stats["bytes_freed"] += bytes_freed
-                    stats["protected_skipped"] += protected_skipped
+                stats[f"{kind}_deleted"] += deleted_count
+                stats["bytes_freed"] += bytes_freed
+                stats["protected_skipped"] += protected_skipped
 
         log.info("Media cache cleanup complete", **stats)
         return stats

@@ -458,6 +458,16 @@ def _log_startup_diagnostics(test_mode: bool) -> None:
     )
 
 
+async def _return_interrupted_age_cleanup() -> None:
+    """Files an age cleanup set aside before a crash go back before anything reads the cache.
+
+    The archive, the record and new photos must never see them as missing; the storage sweep
+    returns any left over later as a safety net.
+    """
+    async with media_cache.housekeeping_lock:
+        await media_cache.return_age_staged_files()
+
+
 async def _revalidate_stale_accelerators() -> None:
     """Identification model first, so the bird finder's check never delays it."""
     from app.services.bird_finder_revalidation import bird_finder_revalidation
@@ -565,6 +575,12 @@ async def lifespan(app: FastAPI):
             fatal=True,
             startup_phase="database",
             startup_progress=68,
+        )
+        await _run_lifecycle_phase(
+            app,
+            "media_cache_return_interrupted_cleanup",
+            _return_interrupted_age_cleanup,
+            fatal=False,
         )
         from app.services.garden_capture_service import garden_capture_service
 
