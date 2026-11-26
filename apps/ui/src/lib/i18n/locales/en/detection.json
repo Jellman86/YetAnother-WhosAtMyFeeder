@@ -136,7 +136,7 @@
   "snapshot_existing_crop_preserved": "No reliable new crop was found; the existing crop was kept.",
   "snapshot_manual_choice_kept": "Your chosen photo was kept, so no new photo was saved. Regenerate again or choose another photo to replace it.",
   "snapshot_settings_unreadable": "The photo was kept because its saved settings could not be read. Choose a photo for this record to replace it.",
-  "snapshot_photo_set_aside": "This capture's photo is being put back after a cleanup, so no new photo was saved. Try again in a few minutes.",
+  "snapshot_photo_set_aside": "This capture's photo is being put back after a cleanup, so no new photo was saved. Health shows when it is back; try again then.",
   "snapshot_generated_full_frame": "No reliable crop was found; the best full frame was saved.",
   "snapshot_candidates_loading": "Loading…",
   "snapshot_candidates_empty": "No scored frames yet. Use \"Regenerate HQ\" to analyse this clip.",

@@ -1568,7 +1568,7 @@
             } else if (result.status === 'manual_selection_preserved') {
                 toastStore.warning($_('detection.snapshot_manual_choice_kept', { default: 'Your chosen photo was kept, so no new photo was saved. Regenerate again or choose another photo to replace it.' }));
             } else if (result.status === 'photo_set_aside') {
-                toastStore.warning($_('detection.snapshot_photo_set_aside', { default: "This capture's photo is being put back after a cleanup, so no new photo was saved. Try again in a few minutes." }));
+                toastStore.warning($_('detection.snapshot_photo_set_aside', { default: "This capture's photo is being put back after a cleanup, so no new photo was saved. Health shows when it is back; try again then." }));
             } else if (result.status === 'photo_settings_unreadable') {
                 toastStore.warning($_('detection.snapshot_settings_unreadable', { default: 'The photo was kept because its saved settings could not be read. Choose a photo for this record to replace it.' }));
             } else if (result.status === 'generated_hq_snapshot') {

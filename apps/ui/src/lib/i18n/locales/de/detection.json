@@ -136,7 +136,7 @@
   "snapshot_existing_crop_preserved": "Kein zuverlässiger neuer Ausschnitt gefunden; der vorhandene Ausschnitt wurde beibehalten.",
   "snapshot_manual_choice_kept": "Ihr gewähltes Foto wurde beibehalten, daher wurde kein neues Foto gespeichert. Erzeugen Sie die Fotos erneut oder wählen Sie ein anderes Foto, um es zu ersetzen.",
   "snapshot_settings_unreadable": "Das Foto wurde beibehalten, weil seine gespeicherten Einstellungen nicht gelesen werden konnten. Wählen Sie für diesen Eintrag ein Foto, um es zu ersetzen.",
-  "snapshot_photo_set_aside": "Das Foto dieser Aufnahme wird nach einer Bereinigung gerade zurückgelegt, daher wurde kein neues Foto gespeichert. Versuchen Sie es in einigen Minuten erneut.",
+  "snapshot_photo_set_aside": "Das Foto dieser Aufnahme wird nach einer Bereinigung gerade zurückgelegt, daher wurde kein neues Foto gespeichert. Der Zustand zeigt, wann es zurück ist; versuchen Sie es dann erneut.",
   "snapshot_generated_full_frame": "Kein zuverlässiger Ausschnitt gefunden; das beste Vollbild wurde gespeichert.",
   "snapshot_candidates_loading": "Kandidaten-Frames werden geladen…",
   "snapshot_candidates_empty": "Noch keine gespeicherten Kandidaten-Frames.",

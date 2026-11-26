@@ -136,7 +136,7 @@
   "snapshot_existing_crop_preserved": "Non è stato trovato un nuovo ritaglio affidabile; è stato mantenuto quello esistente.",
   "snapshot_manual_choice_kept": "La foto che hai scelto è stata mantenuta, quindi non è stata salvata una nuova foto. Rigenera di nuovo o scegli un'altra foto per sostituirla.",
   "snapshot_settings_unreadable": "La foto è stata mantenuta perché non è stato possibile leggerne le impostazioni salvate. Scegli una foto per questo record per sostituirla.",
-  "snapshot_photo_set_aside": "La foto di questa cattura viene rimessa al suo posto dopo una pulizia, quindi non è stata salvata una nuova foto. Riprova tra qualche minuto.",
+  "snapshot_photo_set_aside": "La foto di questa cattura viene rimessa al suo posto dopo una pulizia, quindi non è stata salvata una nuova foto. Stato indica quando è tornata; riprova allora.",
   "snapshot_generated_full_frame": "Non è stato trovato un ritaglio affidabile; è stato salvato il miglior fotogramma intero.",
   "snapshot_candidates_loading": "Caricamento dei fotogrammi candidati…",
   "snapshot_candidates_empty": "Nessun fotogramma candidato salvato.",
