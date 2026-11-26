@@ -30,6 +30,7 @@ from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
 from app.utils.api_datetime import utc_naive_datetime
 from app.utils.canonical_species import should_hide_species_label
+from app.utils.tasks import finish_started_operation
 from app.utils.frigate_recording import (
     RecordingCameraIssue,
     RecordingCapabilityReason,
@@ -689,6 +690,9 @@ class SnapshotGenerateResponse(SnapshotStatusResponse):
         "generated_hq_bird_crop",
         "generated_hq_snapshot",
         "existing_crop_preserved",
+        "manual_selection_preserved",
+        "photo_settings_unreadable",
+        "photo_set_aside",
     ]
     result: str
 
@@ -1757,8 +1761,14 @@ async def generate_hq_bird_crop_snapshot(
             status = "generated_hq_bird_crop"
         elif result == "replaced":
             status = "generated_hq_snapshot"
-        elif result == "existing_crop_preserved":
-            status = "existing_crop_preserved"
+        elif result in {
+            "existing_crop_preserved",
+            "manual_selection_preserved",
+            "photo_settings_unreadable",
+            "photo_set_aside",
+        }:
+            # The photo was kept, which is an answer rather than an error, so the record can say why.
+            status = result
         else:
             raise HTTPException(status_code=409, detail=f"HQ bird crop generation unavailable: {result}")
 
@@ -2030,98 +2040,75 @@ async def apply_snapshot_candidate(
 
 
 async def _apply_snapshot_candidate(request_body: SnapshotApplyRequest, event_id: str) -> SnapshotApplyResponse:
+    from app.services.archive_service import archive_service
+    from app.services.media_cache import media_cache, validate_film_alignment
+    from app.utils.image_io import decode_image_bytes
 
-    from app.services.media_cache import media_cache
-
+    applied_candidate_id: str | None = None
+    candidate_metadata: dict = {}
     if request_body.mode == "revert_original":
         async with get_db() as db:
             if await DetectionRepository(db).is_as_recorded_dismissed(event_id):
                 raise HTTPException(409, "Restore this photo choice before using it")
 
-    if request_body.mode == "revert_original" and event_id.startswith("manual_"):
-        # Frigate never had an upload; its original photo is its own species photo. It is held as
-        # the owner's choice, as an ordinary revert holds Frigate's, so Score again keeps it.
-        from app.services.manual_observation_service import manual_observation_service
+        if event_id.startswith("manual_"):
+            # The upload's own species photo is the original and remains an owner choice.
+            from app.services.manual_observation_service import manual_observation_service
 
-        own_photo = await manual_observation_service.path_for_event(event_id, preview=True)
-        if own_photo is None:
-            raise HTTPException(status_code=404, detail="Original photo unavailable")
-        replaced = await media_cache.replace_snapshot(
-            event_id, await asyncio.to_thread(own_photo.read_bytes), source="manual_upload", manual_selection=True
-        )
-        if not replaced:
-            raise HTTPException(status_code=409, detail="Snapshot apply failed")
-        async with get_db() as db:
-            await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, None)
-        from app.services.archive_service import archive_service
+            image_unavailable = "Original photo unavailable"
+            own_photo = await manual_observation_service.path_for_event(event_id, preview=True)
+            if own_photo is None:
+                raise HTTPException(status_code=404, detail=image_unavailable)
+            image_bytes = await asyncio.to_thread(own_photo.read_bytes)
+            snapshot_source = "manual_upload"
+        else:
+            image_unavailable = "Original Frigate snapshot unavailable"
+            image_bytes = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
+            if not image_bytes:
+                raise HTTPException(status_code=404, detail=image_unavailable)
+            snapshot_source = "frigate_snapshot"
+    else:
+        candidates = await _list_snapshot_candidates(event_id)
+        candidate = _pick_snapshot_candidate(candidates, request_body)
+        if candidate is None:
+            raise HTTPException(status_code=404, detail="Snapshot candidate unavailable")
+        if candidate.get("photo_hidden"):
+            raise HTTPException(409, "Restore this photo choice before using it")
 
-        await archive_service.refresh_photograph(event_id)
-        after = await _build_snapshot_status(event_id)
-        return SnapshotApplyResponse(
-            **after.model_dump(),
-            status="applied",
-            applied_mode=request_body.mode,
-            applied_candidate_id=None,
-        )
+        image_unavailable = "Snapshot candidate image unavailable"
+        image_ref = str(candidate.get("image_ref") or "").strip()
+        if not image_ref:
+            raise HTTPException(status_code=409, detail=image_unavailable)
+        async with media_cache._snapshot_commit_lock(image_ref):
+            image_bytes = await media_cache.get_snapshot(image_ref)
+            candidate_metadata = await media_cache.get_snapshot_metadata(image_ref) or {}
+        if not image_bytes:
+            raise HTTPException(status_code=409, detail=image_unavailable)
+        snapshot_source = str(candidate.get("snapshot_source") or "high_quality_snapshot")
+        applied_candidate_id = str(candidate.get("candidate_id") or "")
 
-    if request_body.mode == "revert_original":
-        snapshot_bytes = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
-        if not snapshot_bytes:
-            raise HTTPException(status_code=404, detail="Original Frigate snapshot unavailable")
-        replaced = await media_cache.replace_snapshot(
-            event_id, snapshot_bytes, source="frigate_snapshot", manual_selection=True
-        )
-        if not replaced:
-            raise HTTPException(status_code=409, detail="Snapshot apply failed")
-        async with get_db() as db:
-            await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, None)
-        # Archive work follows the committed choice, so cancelling it cannot
-        # leave the selected candidate describing the photograph it replaced.
-        from app.services.archive_service import archive_service
-
-        await archive_service.refresh_photograph(event_id)
-        after = await _build_snapshot_status(event_id)
-        return SnapshotApplyResponse(
-            **after.model_dump(),
-            status="applied",
-            applied_mode=request_body.mode,
-            applied_candidate_id=None,
-        )
-
-    candidates = await _list_snapshot_candidates(event_id)
-    candidate = _pick_snapshot_candidate(candidates, request_body)
-    if candidate and candidate.get("photo_hidden"):
-        raise HTTPException(409, "Restore this photo choice before using it")
-    if candidate is None:
-        raise HTTPException(status_code=404, detail="Snapshot candidate unavailable")
-
-    image_ref = str(candidate.get("image_ref") or "").strip()
-    if not image_ref:
-        raise HTTPException(status_code=409, detail="Snapshot candidate image unavailable")
-    from app.services.media_cache import validate_film_alignment
-
-    async with media_cache._snapshot_commit_lock(image_ref):
-        image_bytes = await media_cache.get_snapshot(image_ref)
-        candidate_metadata = await media_cache.get_snapshot_metadata(image_ref) or {}
-    if not image_bytes:
-        raise HTTPException(status_code=409, detail="Snapshot candidate image unavailable")
+    try:
+        await asyncio.to_thread(decode_image_bytes, image_bytes)
+    except Exception:
+        raise HTTPException(status_code=409, detail=image_unavailable) from None
     alignment = validate_film_alignment(candidate_metadata.get("film_alignment"), image_bytes)
-    snapshot_source = str(candidate.get("snapshot_source") or "high_quality_snapshot")
-    replaced = await media_cache.replace_snapshot(
-        event_id,
-        image_bytes,
-        source=snapshot_source,
-        manual_selection=True,
-        manual_candidate_id=str(candidate.get("candidate_id") or "") or None,
-        **({"film_alignment": alignment} if alignment is not None else {}),
-    )
-    if not replaced:
-        raise HTTPException(status_code=409, detail="Snapshot apply failed")
-    applied_candidate_id = str(candidate.get("candidate_id") or "")
-    async with get_db() as db:
-        await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, applied_candidate_id)
-    from app.services.archive_service import archive_service
 
+    async def commit_choice() -> None:
+        replaced = await media_cache.replace_snapshot(
+            event_id,
+            image_bytes,
+            source=snapshot_source,
+            manual_selection=True,
+            manual_candidate_id=applied_candidate_id or None,
+            film_alignment=alignment,
+        )
+        if not replaced:
+            raise HTTPException(status_code=409, detail="Snapshot apply failed")
+        async with get_db() as db:
+            await DetectionRepository(db).mark_selected_snapshot_candidate(event_id, applied_candidate_id)
+
+    # Keep the photo choice lock through publication and the selected-candidate update.
+    await finish_started_operation(commit_choice(), name="snapshot_choice_commit")
     await archive_service.refresh_photograph(event_id)
     after = await _build_snapshot_status(event_id)
     return SnapshotApplyResponse(

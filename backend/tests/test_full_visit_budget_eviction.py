@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager, closing
 from datetime import datetime, timedelta
 from io import BytesIO
 import os
+from pathlib import Path
 import sqlite3
 import threading
 from unittest.mock import AsyncMock
@@ -17,6 +18,7 @@ import pytest_asyncio
 from app.repositories.detection_repository import Detection, DetectionRepository
 from app.repositories.processing_job_repository import ProcessingJobRepository
 from app.services import full_visit_clip_service as clips
+from app.services import high_quality_snapshot_service as photos
 from app.services import media_cache as cache
 from app.services import media_storage_service as storage
 
@@ -237,21 +239,333 @@ async def test_orphan_cleanup_rechecks_a_parent_created_after_inventory_and_hold
     assert await media.get_snapshot("budget-old") is not None
     async with database() as db:
         await DetectionRepository(db).delete_by_frigate_event("budget-old")
-    original_delete = media._delete_visit_files_sync
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    original_unlink = Path.unlink
+    inserted_during_unlink = False
 
-    def check_writer_available(event, paths=None):
-        # This real independent writer would fail if cleanup held SQLite's write lock across I/O.
-        with closing(sqlite3.connect(os.environ["RF4_DB_PATH"], timeout=0.1)) as db:
-            db.execute("BEGIN IMMEDIATE")
-            db.rollback()
-        return original_delete(event, paths)
+    def create_parent_during_unlink(path, *args, **kwargs):
+        nonlocal inserted_during_unlink
+        if path.is_relative_to(cache.SNAPSHOTS_DIR) and not inserted_during_unlink:
+            with closing(sqlite3.connect(file_path, timeout=0.1)) as db:
+                db.execute("BEGIN IMMEDIATE")
+                db.execute(
+                    "INSERT INTO detections (detection_time,detection_index,score,category_name,display_name,"
+                    "frigate_event,camera_name) VALUES (datetime('now'),1,0.9,'Robin','Robin','budget-old','camera')"
+                )
+                db.commit()
+            inserted_during_unlink = True
+            assert not (cache.SNAPSHOTS_DIR / "budget-old.jpg").exists()
+        return original_unlink(path, *args, **kwargs)
 
-    # The fixture exposes its isolated path rather than ever touching production.
+    monkeypatch.setattr(Path, "unlink", create_parent_during_unlink)
+    assert (await storage.MediaStorageService().enforce_limits())["bytes_freed"] > 0
+    assert inserted_during_unlink
+    async with database() as db:
+        assert await DetectionRepository(db).get_by_frigate_event("budget-old") is not None
+    assert await media.get_snapshot("budget-old") is None
+
+
+@pytest.mark.asyncio
+async def test_orphan_files_return_when_their_parent_appears_while_they_are_staged(budget_visit_history, monkeypatch):
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(clips.settings.media_cache, "per_species_maximum", 0)
+    monkeypatch.setattr(clips.settings.media_cache, "max_size_mb", 0)
+    photo = await media.get_snapshot("budget-old")
+    async with database() as db:
+        await DetectionRepository(db).delete_by_frigate_event("budget-old")
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    original_stage = media._stage_visit_deletion_sync
+
+    def create_parent_then_stage(event_id, paths):
+        with closing(sqlite3.connect(file_path, timeout=0.1)) as db:
+            db.execute(
+                "INSERT INTO detections (detection_time,detection_index,score,category_name,display_name,"
+                "frigate_event,camera_name) VALUES (datetime('now'),1,0.9,'Robin','Robin','budget-old','camera')"
+            )
+            db.commit()
+        return original_stage(event_id, paths)
+
+    monkeypatch.setattr(media, "_stage_visit_deletion_sync", create_parent_then_stage)
+    assert (await storage.MediaStorageService().enforce_limits())["bytes_freed"] == 0
+    assert await media.get_snapshot("budget-old") == photo
+    assert media._staged_deletions_sync() == []
+
+
+async def _age_cache_files(days: int) -> None:
+    aged = (datetime.now() - timedelta(days=days)).timestamp()
+    for directory in (cache.SNAPSHOTS_DIR, cache.CLIPS_DIR, cache.PREVIEWS_DIR):
+        for path in directory.iterdir():
+            os.utime(path, (aged, aged))
+
+
+@pytest.mark.asyncio
+async def test_age_cleanup_holds_no_database_writer_while_it_unlinks(budget_visit_history, monkeypatch):
+    import app.database as db_module
+
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(db_module, "get_db", database)
     async with database() as db:
         file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
-    monkeypatch.setenv("RF4_DB_PATH", file_path)
-    monkeypatch.setattr(media, "_delete_visit_files_sync", check_writer_available)
-    assert (await storage.MediaStorageService().enforce_limits())["bytes_freed"] > 0
+    await _age_cache_files(10)
+    original_unlink = Path.unlink
+    writes_during_unlink: list[str] = []
+
+    def write_during_unlink(path, *args, **kwargs):
+        if path.is_relative_to(cache.SNAPSHOTS_DIR) and not writes_during_unlink:
+            # A real independent writer, as ingest is, fails here if cleanup holds the writer lock.
+            with closing(sqlite3.connect(file_path, timeout=0.1)) as db:
+                db.execute("BEGIN IMMEDIATE")
+                db.execute(
+                    "INSERT INTO detections (detection_time,detection_index,score,category_name,display_name,"
+                    "frigate_event,camera_name) VALUES (datetime('now'),1,0.9,'Robin','Robin','age-ingest','camera')"
+                )
+                db.commit()
+            writes_during_unlink.append(path.name)
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", write_during_unlink)
+    stats = await media.cleanup_old_media(1)
+    assert writes_during_unlink
+    assert stats["snapshots_deleted"] >= 2
+    assert await media.get_snapshot("budget-old") is None
+    async with database() as db:
+        assert await DetectionRepository(db).get_by_frigate_event("age-ingest") is not None
+        state = await ProcessingJobRepository(db).get(photos.HQ_PROCESSING_PIPELINE, "budget-old")
+    assert state is not None and state.last_error == "storage_evicted"
+
+
+@pytest.mark.asyncio
+async def test_age_cleanup_returns_files_favourited_while_they_are_staged(budget_visit_history, monkeypatch):
+    import app.database as db_module
+
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(db_module, "get_db", database)
+    async with database() as db:
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    photo = await media.get_snapshot("budget-old")
+    await _age_cache_files(10)
+    original_stage = media._stage_paths_sync
+
+    def favourite_then_stage(paths, *args):
+        with closing(sqlite3.connect(file_path, timeout=0.1)) as db:
+            db.execute(
+                "INSERT OR IGNORE INTO detection_favorites(detection_id,created_by) "
+                "SELECT id,'owner' FROM detections WHERE frigate_event='budget-old'"
+            )
+            db.commit()
+        return original_stage(paths, *args)
+
+    monkeypatch.setattr(media, "_stage_paths_sync", favourite_then_stage)
+    await media.cleanup_old_media(1)
+    assert await media.get_snapshot("budget-old") == photo
+    assert media._staged_deletions_sync() == []
+    async with database() as db:
+        assert await ProcessingJobRepository(db).get(photos.HQ_PROCESSING_PIPELINE, "budget-old") is None
+
+
+@pytest.mark.asyncio
+async def test_age_cleanup_returns_the_main_photo_of_a_capture_confirmed_while_staged(
+    budget_visit_history, monkeypatch
+):
+    import app.database as db_module
+
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(db_module, "get_db", database)
+    async with database() as db:
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    photo = await media.get_snapshot("budget-old")
+    await _age_cache_files(10)
+    original_stage = media._stage_paths_sync
+
+    def confirm_then_stage(paths, *args):
+        with closing(sqlite3.connect(file_path, timeout=0.1)) as db:
+            db.execute("UPDATE detections SET manual_tagged = 1 WHERE frigate_event = 'budget-old'")
+            db.commit()
+        return original_stage(paths, *args)
+
+    monkeypatch.setattr(media, "_stage_paths_sync", confirm_then_stage)
+    await media.cleanup_old_media(1)
+    assert await media.get_snapshot("budget-old") == photo
+    assert await media.get_snapshot("budget-new") is None
+    assert media._staged_deletions_sync() == []
+
+
+class _ObservedLock(asyncio.Lock):
+    """A lock that says when a second caller has to wait for it."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.contended = asyncio.Event()
+
+    async def acquire(self) -> bool:
+        if self.locked():
+            self.contended.set()
+        return await super().acquire()
+
+
+def _owner_acts(file_path: str, change: str) -> None:
+    with closing(sqlite3.connect(file_path, timeout=1)) as db:
+        if change == "favourite":
+            db.execute(
+                "INSERT OR IGNORE INTO detection_favorites(detection_id,created_by) "
+                "SELECT id,'owner' FROM detections WHERE frigate_event='budget-old'"
+            )
+        else:
+            db.execute("UPDATE detections SET manual_tagged = 1 WHERE frigate_event = 'budget-old'")
+        db.commit()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", ["favourite", "confirm"])
+async def test_a_storage_sweep_during_age_cleanup_never_deletes_files_it_gives_back(
+    budget_visit_history, monkeypatch, change
+):
+    import app.database as db_module
+
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(db_module, "get_db", database)
+    monkeypatch.setattr(storage.settings.media_cache, "per_species_maximum", 0)
+    async with database() as db:
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    photo = await media.get_snapshot("budget-old")
+    await _age_cache_files(10)
+    housekeeping = _ObservedLock()
+    monkeypatch.setattr(media, "housekeeping_lock", housekeeping, raising=False)
+    sweeps: list[asyncio.Task] = []
+    original_settle = media._settle_staged_age_group
+
+    async def settle_while_a_sweep_runs(kind, event_id, owners, staged):
+        if event_id == "budget-old" and not sweeps:
+            # The owner acts after the first read, and the five-minute sweep starts meanwhile.
+            await asyncio.to_thread(_owner_acts, file_path, change)
+            sweep = asyncio.create_task(storage.MediaStorageService().enforce_limits())
+            sweeps.append(sweep)
+            contended = asyncio.create_task(housekeeping.contended.wait())
+            # Either the sweep runs to the end now, or it waits for age cleanup to finish.
+            await asyncio.wait({sweep, contended}, return_when=asyncio.FIRST_COMPLETED)
+            contended.cancel()
+        return await original_settle(kind, event_id, owners, staged)
+
+    monkeypatch.setattr(media, "_settle_staged_age_group", settle_while_a_sweep_runs)
+    await media.cleanup_old_media(1)
+    sweep_result = await sweeps[0]
+    assert await media.get_snapshot("budget-old") == photo
+    # A capture with a row is never counted as an orphan.
+    assert sweep_result["orphan_snapshots_deleted"] == 0
+    assert media._staged_deletions_sync() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("returned_by", ["startup", "sweep"])
+@pytest.mark.parametrize("change", ["favourite", "confirm"])
+async def test_files_staged_by_age_cleanup_before_a_crash_come_back(
+    budget_visit_history, monkeypatch, change, returned_by
+):
+    import app.database as db_module
+
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(db_module, "get_db", database)
+    monkeypatch.setattr(storage.settings.media_cache, "per_species_maximum", 0)
+    async with database() as db:
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    photo = await media.get_snapshot("budget-old")
+    await _age_cache_files(10)
+
+    class ProcessDied(BaseException):
+        pass
+
+    original_settle = media._settle_staged_age_group
+
+    async def die_once_budget_old_is_staged(kind, event_id, owners, staged):
+        # Groups are aged in directory order, which differs between filesystems, so the process
+        # dies at budget-old's own group rather than at whichever group comes first.
+        if event_id == "budget-old":
+            raise ProcessDied()
+        return await original_settle(kind, event_id, owners, staged)
+
+    with monkeypatch.context() as crash:
+        # A process that dies after staging restores nothing and finishes nothing.
+        crash.setattr(media, "_settle_staged_age_group", die_once_budget_old_is_staged)
+        crash.setattr(media, "_restore_staged_deletion_sync", lambda staged: None)
+        with pytest.raises(ProcessDied):
+            await media.cleanup_old_media(1)
+    assert await media.get_snapshot("budget-old") is None
+
+    await asyncio.to_thread(_owner_acts, file_path, change)
+    if returned_by == "startup":
+        # Startup returns them before any service reads the cache; the sweep finds nothing left.
+        async with media.housekeeping_lock:
+            assert await media.return_age_staged_files() > 0
+        assert await media.get_snapshot("budget-old") == photo
+    result = await storage.MediaStorageService().enforce_limits()
+    assert result["orphan_snapshots_deleted"] == 0
+    assert await media.get_snapshot("budget-old") == photo
+    # The next age cleanup judges the returned files again, with every check.
+    await media.cleanup_old_media(1)
+    assert await media.get_snapshot("budget-old") == photo
+
+
+@pytest.mark.asyncio
+async def test_a_left_over_file_that_cannot_be_returned_does_not_stop_the_storage_sweep(
+    budget_visit_history, monkeypatch
+):
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(storage.settings.media_cache, "per_species_maximum", 0)
+    stuck = media._stage_paths_sync([cache.SNAPSHOTS_DIR / "budget-new.jpg"], cache._AGE_STAGED_SUFFIX)[0][1]
+    async with database() as db:
+        await DetectionRepository(db).delete_by_frigate_event("budget-old")
+
+    def failing_disk(*args, **kwargs):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(cache.os, "link", failing_disk)
+    # The orphan pass still runs: one stuck file must not switch off cleanup and the storage limit.
+    result = await storage.MediaStorageService().enforce_limits()
+    assert result["orphan_snapshots_deleted"] == 1
+    assert await media.get_snapshot("budget-old") is None
+    assert stuck.exists()
+    recovered = await storage.MediaStorageService().recover_orphaned_media()
+    assert recovered["bytes_freed"] == 0
+    assert stuck.exists()
+
+
+@pytest.mark.asyncio
+async def test_a_confirmed_photo_age_cleanup_could_not_put_back_waits_for_the_next_return(
+    budget_visit_history, monkeypatch
+):
+    import app.database as db_module
+
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(db_module, "get_db", database)
+    monkeypatch.setattr(storage.settings.media_cache, "per_species_maximum", 0)
+    async with database() as db:
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    photo = await media.get_snapshot("budget-old")
+    await _age_cache_files(10)
+    original_settle = media._settle_staged_age_group
+    original_restore = media._restore_staged_deletion_sync
+
+    async def confirm_during_the_group(kind, event_id, owners, staged):
+        if event_id == "budget-old":
+            await asyncio.to_thread(_owner_acts, file_path, "confirm")
+        return await original_settle(kind, event_id, owners, staged)
+
+    def restore_hits_a_disk_error(staged):
+        if any(original.name == "budget-old.jpg" for original, _target in staged):
+            raise OSError(5, "Input/output error")
+        return original_restore(staged)
+
+    with monkeypatch.context() as disk:
+        disk.setattr(media, "_settle_staged_age_group", confirm_during_the_group)
+        disk.setattr(media, "_restore_staged_deletion_sync", restore_hits_a_disk_error)
+        await media.cleanup_old_media(1)
+    assert await media.get_snapshot("budget-old") is None
+    assert media.set_aside_pending_count >= 1
+    # The record route re-caches Frigate's photo meanwhile; it must not take the confirmed photo's name.
+    assert await media.cache_snapshot("budget-old", b"frigate-recache", source="frigate_snapshot_unverified") is None
+    await storage.MediaStorageService().enforce_limits()
+    assert await media.get_snapshot("budget-old") == photo
+    assert media.set_aside_pending_count == 0
 
 
 @pytest.mark.asyncio
@@ -273,14 +587,15 @@ async def test_cancelled_orphan_sweep_waits_for_disk_deletion_before_releasing_w
     async with database() as db:
         await DetectionRepository(db).delete_by_frigate_event("budget-old")
     entered, release = threading.Event(), threading.Event()
-    original_delete = media._delete_visit_files_sync
+    original_unlink = Path.unlink
 
-    def paused_delete(event, paths=None):
-        entered.set()
-        assert release.wait(5)
-        return original_delete(event, paths)
+    def paused_unlink(path, *args, **kwargs):
+        if path.is_relative_to(cache.SNAPSHOTS_DIR):
+            entered.set()
+            assert release.wait(5)
+        return original_unlink(path, *args, **kwargs)
 
-    monkeypatch.setattr(media, "_delete_visit_files_sync", paused_delete)
+    monkeypatch.setattr(Path, "unlink", paused_unlink)
     sweep = asyncio.create_task(storage.MediaStorageService().enforce_limits())
     assert await asyncio.to_thread(entered.wait, 2)
     sweep.cancel()
@@ -306,21 +621,34 @@ async def test_orphan_disk_failure_is_retried_on_the_next_sweep(budget_visit_his
     monkeypatch.setattr(clips.settings.media_cache, "per_species_maximum", 0)
     async with database() as db:
         await DetectionRepository(db).delete_by_frigate_event("budget-old")
-    original_delete = media._delete_visit_files_sync
-    failures = 0
+    original_unlink = Path.unlink
+    failures: list[Path] = []
 
-    def fail_once(event, paths=None):
-        nonlocal failures
-        if failures == 0:
-            failures += 1
+    def fail_media_unlink(path, *args, **kwargs):
+        if path.is_relative_to(cache.SNAPSHOTS_DIR):
+            failures.append(path)
             raise OSError("fixture unavailable disk")
-        return original_delete(event, paths)
+        return original_unlink(path, *args, **kwargs)
 
-    monkeypatch.setattr(media, "_delete_visit_files_sync", fail_once)
-    assert (await storage.MediaStorageService().enforce_limits())["bytes_freed"] == 0
-    assert await media.get_snapshot("budget-old") is not None
-    assert (await storage.MediaStorageService().enforce_limits())["bytes_freed"] > 0
+    with monkeypatch.context() as disk:
+        disk.setattr(Path, "unlink", fail_media_unlink)
+        assert (await storage.MediaStorageService().enforce_limits())["bytes_freed"] == 0
     assert await media.get_snapshot("budget-old") is None
+    assert failures and all(path.exists() for path in failures)
+
+    # A new parent and photo at the original path must be safe while a fresh
+    # service drains the previous sweep's staged files.
+    async with database() as db:
+        await DetectionRepository(db).create(
+            Detection(datetime.now(), 1, 0.9, "Robin", "Robin", "budget-old", "camera")
+        )
+    photo = await media.get_snapshot("budget-new")
+    assert await media.cache_snapshot("budget-old", photo)
+    recovered = await storage.MediaStorageService().recover_orphaned_media()
+    assert recovered["bytes_freed"] > 0
+    assert recovered["snapshots_deleted"] == 1
+    assert all(not path.exists() for path in failures)
+    assert await media.get_snapshot("budget-old") == photo
 
 
 @pytest.mark.asyncio

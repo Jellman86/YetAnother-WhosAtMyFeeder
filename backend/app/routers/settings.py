@@ -1077,7 +1077,7 @@ class SettingsUpdate(BaseModel):
         0, ge=0, le=10000, description="Newest detections per species kept out of age cleanup (0 = off)"
     )
     media_cache_per_species_maximum: int = Field(
-        0, ge=0, le=10000, description="Maximum cached visits per species, excluding favourites; 0 is unlimited"
+        0, ge=0, le=10000, description="Maximum cached captures per species, excluding favourites; 0 is unlimited"
     )
     media_cache_max_size_mb: int = Field(
         0, ge=0, le=1048576, description="Ordinary media budget in MiB, excluding archived favourites; 0 is unlimited"
@@ -2689,34 +2689,29 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
         retention = settings.maintenance.retention_days
 
     # Favorites are exempt from retention cleanup and media cleanup.
+    # Owner-confirmed captures keep their canonical photograph while clips and alternates age out (#1109).
     async with get_db() as db:
         repo = DetectionRepository(db)
         protected_ids = await repo.get_favorite_frigate_event_ids()
         # The per-species floor keeps photographs only (#178); favourites keep everything.
         floor_ids = await repo.get_species_floor_frigate_event_ids(settings.media_cache.per_species_minimum)
+        owner_confirmed_ids = await repo.get_owner_confirmed_frigate_event_ids()
 
     # Even if retention is 0, we still run cleanup to remove empty files
     stats = await media_cache.cleanup_old_media(
-        retention, protected_event_ids=protected_ids, protected_snapshot_event_ids=floor_ids
+        retention,
+        protected_event_ids=protected_ids,
+        protected_snapshot_event_ids=floor_ids,
+        protected_canonical_photo_event_ids=owner_confirmed_ids,
     )
-
-    # Also run orphaned media cleanup (files not in DB)
-    async with get_db() as db:
-        repo = DetectionRepository(db)
-        valid_ids = set(await repo.get_all_frigate_event_ids())
-    valid_ids.update(protected_ids)
-    valid_ids.update(floor_ids)
-
-    orphan_stats = await media_cache.cleanup_orphaned_media(valid_ids)
-
-    # Merge stats
-    stats["snapshots_deleted"] += orphan_stats["snapshots_deleted"]
-    stats["clips_deleted"] += orphan_stats["clips_deleted"]
-    stats["bytes_freed"] += orphan_stats["bytes_freed"]
 
     from app.services.media_storage_service import media_storage_service
 
+    # Run locked orphan recovery and optional storage limits in a single pass.
     limit_stats = await media_storage_service.enforce_limits()
+    stats["snapshots_deleted"] += limit_stats.get("orphan_snapshots_deleted", 0)
+    stats["clips_deleted"] += limit_stats.get("orphan_clips_deleted", 0)
+    stats["previews_deleted"] += limit_stats.get("orphan_previews_deleted", 0)
     stats["bytes_freed"] += limit_stats["bytes_freed"]
     from app.services.garden_media_cache import garden_media_cache
 

@@ -55,6 +55,13 @@ def latest_telemetry() -> TelemetrySummary | None:
     )
 
 
+def incident_health_media_storage() -> dict[str, int]:
+    """The media-storage values an incident is resolved from, read the way /health reports them."""
+    from app.services.media_cache import media_cache
+
+    return {"set_aside_pending": media_cache.set_aside_pending_count, "kept_copies": media_cache.kept_copies_count}
+
+
 class SystemStatusReadings:
     """The collector the status service calls; app-level readings are passed in by `main`."""
 
@@ -135,7 +142,11 @@ class SystemStatusReadings:
             analysis=build_analysis_status(),
             mqtt_health=mqtt_health,
             classifier_health=classifier_health,
-            incident_health={"ml": classifier_health, "mqtt": mqtt_health},
+            incident_health={
+                "ml": classifier_health,
+                "mqtt": mqtt_health,
+                "media_storage": incident_health_media_storage(),
+            },
             classifier_status=classifier_status,
             provider_validation_state=str(validation.get("state") or "idle"),
             media_storage_available=bool(media_cache.available),

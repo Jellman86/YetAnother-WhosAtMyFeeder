@@ -558,8 +558,8 @@ run can include `photo_outcome`, such as `replaced`, `matching_photo_preserved`,
 `manual_selection_preserved`, `owner_identification_preserved`, `primary_identity_preserved`,
 `storage_evicted`, `blocked_species`, `media_cache_disabled`, `snapshot_caching_disabled`,
 `media_cache_unavailable`, `bird_presence_unconfirmed`, `detector_error`, `classifier_error`,
-`inference_deferred`, `frame_extract_failed`, or
-`snapshot_replace_failed`. Owner, identity, storage and failure outcomes also enter processing
+`inference_deferred`, `frame_extract_failed`, `photo_set_aside` (the photo an interrupted cleanup
+set aside is being put back, so the video's photo waits), or `snapshot_replace_failed`. Owner, identity, storage and failure outcomes also enter processing
 diagnostics; routine replacements and matching photographs do not. Species success does not imply
 a photograph was replaced; existing owner choices remain protected. `bird_presence_unconfirmed`
 means no suitable photo had sufficiently confident detector localization inside its bounds.
@@ -1024,8 +1024,26 @@ other identifications for `needs_review`, and are excluded from personalization 
   small chooser thumbnail for one candidate.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg` (owner) — the retained
   full-resolution candidate, for the large preview.
-- `POST /api/frigate/{event_id}/snapshot/apply` (owner) — marks the chosen candidate or original
-  photo as an owner selection, protected from later automatic snapshot writes.
+- `POST /api/frigate/{event_id}/snapshot/apply` (owner) — makes one photograph the capture's main
+  photograph. The body is `{mode, candidate_id}`: `mode: "candidate"` with a `candidate_id` from the
+  candidates list, or `mode: "revert_original"` for the photograph as recorded (Frigate's snapshot,
+  or the uploaded photo of a manual observation). The chosen image is read and decoded before it
+  replaces the cached snapshot. Success returns the snapshot status with `status: "applied"`,
+  `applied_mode` and `applied_candidate_id` (`null` for `revert_original`).
+  - `400`: the event ID is not valid.
+  - `404`: the candidate is not listed for this capture, or the original photograph is no longer
+    available (Frigate no longer returns it, or the upload is missing).
+  - `409`: the choice was removed and must be restored first; the candidate's retained image is
+    missing; the image cannot be decoded; or the replacement could not be saved. The missing and
+    undecodable cases are refused before the cached snapshot is touched. When saving fails, the
+    previous photograph and its owner-choice marking are left as they were.
+  - Once the save starts it finishes, with the capture's selected candidate, even if the request is
+    cancelled. The owner-choice marking is written before the new photograph, so an interrupted save
+    never leaves the new photograph unprotected.
+  - The applied photograph is held as the owner's choice. Automatic snapshot writes, the
+    per-species limit, the storage limit and age cleanup keep it (its clips, previews and other
+    photo choices can still be removed) until the owner chooses again or a regeneration replaces it.
+    Deleting the capture from history removes it.
 - `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
 - `POST /api/frigate/{event_id}/snapshot/hq-bird-crop` (owner; legacy route name, generates the best available HQ image)
   accepts `regenerate=true` to rebuild frame choices even when an HQ crop already exists. It also recounts localized birds when
@@ -1033,6 +1051,11 @@ other identifications for `needs_review`, and are excluded from personalization 
   successful replacement releases the previous protected owner photo choice. A newer choice
   made while regeneration runs stays protected. Empty regeneration preserves saved candidates
   and the chosen photo; unavailable media returns an error rather than claiming success.
+  When the photo is kept rather than replaced, `status` says why: `existing_crop_preserved` (no
+  reliable new crop), `manual_selection_preserved` (a newer owner choice was kept),
+  `photo_settings_unreadable` (the photo's sidecar could not be read, so it is kept as the owner's
+  choice; choosing a photo for the capture replaces it) or `photo_set_aside` (the photo an
+  interrupted cleanup set aside is being put back; try again once Health no longer lists it).
 - `GET /api/frigate/{event_id}/clip.mp4`
 - `GET /api/frigate/{event_id}/recording-clip.mp4`
 - `GET /api/frigate/{event_id}/hls/{asset}`
@@ -1701,10 +1724,16 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   guest, whose facts cover only the shared window of `shared_days`.
 - `GET /api/about/community` (guest-rate-limited). The telemetry service's active install count,
   cached for an hour; `enabled` is false when update checks are off.
-- `POST /api/cache/cleanup` (owner) — applies age retention, removes orphaned media and enforces
-  optional `media_cache_per_species_maximum` and `media_cache_max_size_mb` limits. Garden's kept
-  media follows the same age retention and storage limit. Limits preserve
-  detection history and favourites. `media_cache_bird_scan_mode` accepts `standard` or `intensive`.
+- `POST /api/cache/cleanup` (owner) — applies age retention, removes cached media that no longer
+  belongs to a capture (with the same locks as the five-minute sweep) and enforces optional
+  `media_cache_per_species_maximum` and `media_cache_max_size_mb` limits. Garden's kept media
+  follows the same age retention and storage limit. Limits preserve detection history and
+  favourites' media. Owner-confirmed captures and captures whose photograph the owner chose keep
+  their main photograph while their clips, previews and alternate photo choices are still removed.
+  Media is never removed to meet `media_cache_max_size_mb` when it is protected, so space used can
+  stay above the limit. `snapshots_deleted`, `clips_deleted`, `previews_deleted` and `bytes_freed`
+  include the media removed for no longer belonging to a capture.
+  `media_cache_bird_scan_mode` accepts `standard` or `intensive`.
 
 Published ordinary cache files left after a capture deletion are retried every five
 minutes independently of optional limits. Photographs and generated visit media no

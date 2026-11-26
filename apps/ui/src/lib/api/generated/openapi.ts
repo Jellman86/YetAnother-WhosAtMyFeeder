@@ -3010,7 +3010,7 @@ export interface components {
     original_frigate_snapshot_available?: boolean | null;
     result: string;
     source?: string | null;
-    status: "already_hq_bird_crop" | "generated_hq_bird_crop" | "generated_hq_snapshot" | "existing_crop_preserved";
+    status: "already_hq_bird_crop" | "generated_hq_bird_crop" | "generated_hq_snapshot" | "existing_crop_preserved" | "manual_selection_preserved" | "photo_settings_unreadable" | "photo_set_aside";
 };
     SnapshotStatusResponse: {
     already_hq_bird_crop: boolean;

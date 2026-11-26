@@ -572,9 +572,11 @@ history, are in [Maintenance](#maintenance). Telemetry, what leaves this install
   full-visit clips are turned off once. Review those choices and follow the
   [one-time migration steps](../../MIGRATION.md#retired-media-switches).
   **Clear cached files** asks first, then deletes cached media older than the retention
-  period and cached files that no longer belong to a detection. Favourites and each species'
-  newest visits covered by a configured minimum are protected from age cleanup; the
-  minimum protects photographs, not clips. Photo variants and metadata age together.
+  period and cached files that no longer belong to a detection. Favourites keep all their cached
+  media; each species' newest captures covered by a configured minimum keep their snapshot files (not clips);
+  owner-confirmed captures and captures whose photograph the owner chose keep their main
+  photograph, while their clips, previews and alternate frames still age out. Photo variants and
+  metadata age together.
   `media_cache.retention_days=0` follows detection retention; it does not independently mean
   unlimited when history retention is finite. Confirmed Garden animals keep their full photograph,
   and their Frigate clip while event-clip copies are on, under the same retention; **Space used**
@@ -609,19 +611,31 @@ history, are in [Maintenance](#maintenance). Telemetry, what leaves this install
   frame when a reviewed bird cannot be matched safely. This does not track individual
   birds between frames. See [Video analysis](../features/video-analysis.md).
 
-![The Photos and video card: Frigate event-clip copies, the space used and archived favourites, a 2 GB storage limit, and the per-species limits opened, keeping photos of each species' newest visits and limiting visits per species to 50](../images/settings-media-retention.png)
+![The Photos and video card: Frigate event-clip copies, the space used and archived favourites, a 2 GB storage limit, and the per-species limits opened, keeping photos of each species' newest captures and limiting captures per species to 50](../images/settings-media-retention.png)
 
 - **Limit the space photos and video use** — a switch, with the limit in GB beside it once it is
   on; the line under it says what the rules add up to. It periodically removes the oldest
-  non-favourite cached visits until ordinary cached snapshots, choices, thumbnails, clips,
+  non-favourite cached captures until ordinary cached snapshots, choices, thumbnails, clips,
   previews and metadata, and confirmed Garden animals' kept photos and clips, fit the budget.
+  Favourites' cached media is never removed. Owner-confirmed captures and captures whose
+  photograph the owner chose keep their main photograph while their clips, previews and alternate
+  photo choices are still removed. Media in active work is deferred, so **Space used** can pass the
+  budget for a while, and it stays above the budget when favourites and kept main photographs alone
+  take more; the line under the switch says so.
   Off means unlimited (stored as `media_cache.max_size_mb: 0`; the limit is stored in MiB).
-- **Show advanced options · Per-species limits**: **Keep photos of each species' newest visits**
-  (the per-species floor) and **Limit visits per species with photos and video**, each a switch
-  with its number beside it. The second keeps media for the newest configured number of visits of
-  each canonical species; favourites are exempt. Off means unlimited (stored as `0`). It removes
-  cached media, including alternate photos and clips, while keeping visits and counted-bird records. Favourites and their archive are protected; active work is deferred, so the
-  cache can temporarily exceed the budget, or stay above it if protected media alone exceed it.
+- **Show advanced options · Per-species limits**: two switches, each with its number beside it.
+  Both count captures, not visits, per canonical species. Off means unlimited (stored as `0`).
+  - **Keep photos of each species' newest captures** (the per-species floor,
+    `media_cache.per_species_minimum`) is age protection: those captures stay in history and
+    keep their snapshot files past age cleanup. Their clips still age out.
+  - **Limit captures per species with photos and video** (the per-species cap,
+    `media_cache.per_species_maximum`) keeps full cached media for the newest configured number of
+    captures; older ones lose their cached photos and video while history and counted-bird records
+    stay. Favourites are exempt and not counted.
+    Owner-confirmed captures and captures whose photograph the owner chose keep their main
+    photograph while their alternate photos and clips are removed; once only that photograph is
+    left they no longer count towards the number.
+
   Limits run at startup and every five minutes, and when **Clear cached files** is used. The budget
   and species maximum take priority over the minimum kept through age cleanup.
   Orphaned published files are retried on the same schedule even with both limits at
@@ -631,6 +645,20 @@ history, are in [Maintenance](#maintenance). Telemetry, what leaves this install
   `MEDIA_CACHE__BIRD_SCAN_MODE=standard|intensive`,
   `MEDIA_CACHE__PER_SPECIES_MAXIMUM=0..10000`, and `MEDIA_CACHE__MAX_SIZE_MB=0..1048576`.
   Models, backups, and archived favourites do not count towards the ordinary cache budget.
+
+  **Spare copies after an interrupted cleanup.** Age cleanup moves a capture's files aside before it
+  removes them, and puts them back if the capture is favourited or confirmed meanwhile. If YA-WAMF
+  stops part-way, or the disk fails, it puts them back at the next start or storage check. When
+  something else has taken a file's name by then, and it is not a photo you chose, both are kept:
+  the set-aside file stays in the same folder (`media_cache/snapshots`, `clips` or `previews`) as a
+  hidden spare copy named `.<file name>.<random>.kept.tmp`. Spare copies count towards
+  **Space used** and Health lists them while any exist. Deleting the capture removes its spare
+  copy with its other files, at the next storage check (every five minutes) or **Clear cached
+  files**, and **Delete all history** removes them all. The spare copy of a capture that still
+  exists is never removed automatically: **Clear cached files** and the storage limit leave it alone. To put one back, stop YA-WAMF, delete or move the file now at the name, and
+  rename the spare copy to the name shown between the leading dot and the random part (for example
+  `.abc.jpg.<random>.kept.tmp` becomes `abc.jpg`). A photo's `.meta.json` sidecar may have its own
+  spare copy; put that back the same way.
 
 ### Maintenance
 

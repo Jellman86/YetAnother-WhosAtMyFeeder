@@ -742,7 +742,7 @@ class MediaCacheSettings(BaseModel):
         default=0,
         ge=0,
         le=10000,
-        description="Maximum cached visits per species, excluding favourites (0 = unlimited). Detection history is kept.",
+        description="Maximum cached captures per species, excluding favourites (0 = unlimited). Detection history is kept.",
     )
     max_size_mb: int = Field(
         default=0,

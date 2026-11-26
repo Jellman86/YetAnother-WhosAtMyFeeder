@@ -419,6 +419,14 @@
       "title": "Die automatische Verlaufsbereinigung wurde pausiert, weil die Tageszählungen zuvor nicht gespeichert werden konnten.",
       "next": "Es wurden keine Besuche gelöscht. Prüfen Sie Datenbank und freien Speicher; beim nächsten Lauf erfolgt ein neuer Versuch."
     },
+    "media_set_aside_unreturned": {
+      "title": "Einige Fotos oder Videos, die bei der Bereinigung beiseitegelegt wurden, konnten noch nicht zurückgelegt werden.",
+      "next": "Es wurde nichts gelöscht. YA-WAMF versucht es bei der nächsten Speicherprüfung erneut. Wenn das wiederholt passiert, prüfen Sie, ob der Datenträger des Medienordners freien Speicher hat und beschreibbar ist."
+    },
+    "media_kept_copies": {
+      "title": "Einige Fotos oder Videos wurden als Ersatzkopien aufbewahrt, weil die Bereinigung sie nicht zurücklegen konnte.",
+      "next": "Es ging nichts verloren: Eine andere Datei hatte ihren Platz eingenommen, daher wurden beide behalten. Wenn Sie die Aufnahme löschen, wird auch ihre Ersatzkopie entfernt. Die Speicheranleitung erklärt, wie Sie eine zurücklegen."
+    },
     "notification_queue_full": {
       "title": "Eine Benachrichtigung wurde verworfen, weil die Warteschlange voll war.",
       "next": "Prüfen Sie unter Einstellungen → Benachrichtigungen, ob Ihre Kanäle zügig antworten."

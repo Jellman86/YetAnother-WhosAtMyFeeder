@@ -1618,6 +1618,38 @@ async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.As
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["manual_selection_preserved", "photo_settings_unreadable", "photo_set_aside"])
+async def test_generate_hq_bird_crop_snapshot_reports_a_kept_photo_instead_of_success(
+    client: httpx.AsyncClient, outcome
+):
+    original_cache_enabled = media_cache_module.media_cache._available
+    original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
+    original_hq_crop = settings.media_cache.high_quality_event_snapshot_bird_crop
+    media_cache_module.media_cache._available = True
+    settings.media_cache.high_quality_event_snapshots = True
+    settings.media_cache.high_quality_event_snapshot_bird_crop = True
+
+    with (
+        patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=b"crop")),
+        patch("app.services.media_cache.media_cache.get_snapshot_metadata", new=AsyncMock(return_value=None)),
+        patch(
+            "app.routers.proxy.frigate_client.get_snapshot_with_error",
+            new=AsyncMock(return_value=(None, "snapshot_not_found")),
+        ),
+        patch("app.routers.proxy.high_quality_snapshot_service.process_event", new=AsyncMock(return_value=outcome)),
+    ):
+        try:
+            response = await client.post("/api/frigate/test_event_id/snapshot/hq-bird-crop?regenerate=true")
+            assert response.status_code == 200
+            assert response.json()["status"] == outcome
+            assert response.json()["result"] == outcome
+        finally:
+            media_cache_module.media_cache._available = original_cache_enabled
+            settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
+            settings.media_cache.high_quality_event_snapshot_bird_crop = original_hq_crop
+
+
+@pytest.mark.asyncio
 async def test_generate_hq_bird_crop_snapshot_reports_preserved_existing_crop(client: httpx.AsyncClient):
     original_cache_enabled = media_cache_module.media_cache._available
     original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
@@ -1860,8 +1892,15 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(
         mock_db = AsyncMock()
         mock_get_db.return_value.__aenter__.return_value = mock_db
 
+        from io import BytesIO
+        from PIL import Image
+
+        candidate_buf = BytesIO()
+        Image.new("RGB", (16, 16), "green").save(candidate_buf, format="JPEG")
+        candidate_bytes = candidate_buf.getvalue()
+
         async def fake_get_snapshot(key):
-            return b"candidate-image" if key == "evt__cand-1__image" else b"existing-snapshot"
+            return candidate_bytes if key == "evt__cand-1__image" else b"existing-snapshot"
 
         mock_get_snapshot.side_effect = fake_get_snapshot
         import hashlib
@@ -1869,7 +1908,7 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(
         alignment = {
             "frame_time": 101.0,
             "box": [0.1, 0.2, 0.3, 0.4],
-            "image_sha256": hashlib.sha256(b"candidate-image").hexdigest(),
+            "image_sha256": hashlib.sha256(candidate_bytes).hexdigest(),
         }
         if alignment_case == "wrong_bytes":
             alignment["image_sha256"] = "another-photo"
@@ -1925,11 +1964,11 @@ async def test_proxy_snapshot_apply_candidate_promotes_cached_candidate_image(
     assert body["applied_candidate_id"] == "cand-1"
     mock_replace_snapshot.assert_awaited_once_with(
         "test_event_id",
-        b"candidate-image",
+        candidate_bytes,
         source="hq_candidate_model_crop",
         manual_selection=True,
         manual_candidate_id="cand-1",
-        **({"film_alignment": alignment} if alignment_case == "valid" else {}),
+        film_alignment=alignment if alignment_case == "valid" else None,
     )
     mock_repo.mark_selected_snapshot_candidate.assert_awaited_once_with("test_event_id", "cand-1")
 

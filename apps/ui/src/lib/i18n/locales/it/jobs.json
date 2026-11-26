@@ -419,6 +419,14 @@
       "title": "La pulizia automatica della cronologia è stata sospesa perché non è stato possibile salvare prima i totali giornalieri.",
       "next": "Nessuna visita è stata eliminata. Controlla database e spazio libero; riproverà alla prossima esecuzione."
     },
+    "media_set_aside_unreturned": {
+      "title": "Alcune foto o alcuni video messi da parte dalla pulizia non sono ancora stati rimessi al loro posto.",
+      "next": "Non è stato eliminato nulla. YA-WAMF riprova al prossimo controllo dello spazio. Se succede di nuovo, controlla che il disco della cartella dei contenuti multimediali abbia spazio libero e sia scrivibile."
+    },
+    "media_kept_copies": {
+      "title": "Alcune foto o alcuni video sono stati conservati come copie di riserva perché la pulizia non è riuscita a rimetterli al loro posto.",
+      "next": "Non è andato perso nulla: un altro file aveva preso il loro posto, quindi sono stati conservati entrambi. Eliminando la cattura si elimina anche la sua copia di riserva. La guida all'archiviazione spiega come rimetterne una al suo posto."
+    },
     "notification_queue_full": {
       "title": "Una notifica è stata scartata perché la coda di invio era piena.",
       "next": "Controlla che i canali di notifica rispondano prontamente in Impostazioni → Notifiche."

@@ -42,7 +42,7 @@
     import type { Detection } from '../api';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import FrameStrip from './FrameStrip.svelte';
-    import { MediaQuery } from 'svelte/reactivity';
+    import { MediaQuery, SvelteSet } from 'svelte/reactivity';
     import CountedBirds from './CountedBirds.svelte';
     import BirdScanControl from './BirdScanControl.svelte';
     import { BirdScan } from '../utils/bird-scan.svelte';
@@ -640,12 +640,17 @@
     });
     let snapshotCandidatesLoading = $state(false);
     let snapshotCandidatesError = $state(false);
-    let snapshotApplyPending = $state(false);
-    let snapshotGeneratePending = $state(false);
+    // Photo work belongs to the capture that asked for it: another record neither shows it as its
+    // own nor waits for it, and a request that finishes after a switch still clears its own mark.
+    const photoApplyEvents = new SvelteSet<string>();
+    const photoGenerateEvents = new SvelteSet<string>();
+    const snapshotApplyPending = $derived(photoApplyEvents.has(detection.frigate_event));
+    const snapshotGeneratePending = $derived(photoGenerateEvents.has(detection.frigate_event));
     let currentSnapshotCandidateId = $state<string | null>(null);
     let currentSnapshotSource = $state<string | null>(null);
     /** The strip moment being saved as the photograph, while the request is in flight. */
-    let applyingMomentKey = $state<string | null>(null);
+    let applyingMoment = $state<{ eventId: string; key: string } | null>(null);
+    const applyingMomentKey = $derived(applyingMoment?.eventId === detection.frigate_event ? applyingMoment.key : null);
     let snapshotRefreshToken = $state(Date.now());
     const settledMediaVersion = $derived(
         detectionsStore.settledMediaVersion(detection.frigate_event)
@@ -1411,6 +1416,36 @@
         await handleApplySnapshot('candidate', candidate.candidate_id);
     }
 
+    interface PhotoRequestRecord {
+        eventId: string;
+        species: string;
+        time: string;
+    }
+
+    /** The record a photo request is for, named while it is still the open one. */
+    function photoRequestRecord(): PhotoRequestRecord {
+        return {
+            eventId: detection.frigate_event,
+            species: $birdNames(detection, showCommon, preferSci).primary,
+            time: formatDateTime(detection.detection_time)
+        };
+    }
+
+    /** A failure is always reported; after a switch it names its record, so it is not read as the open one's. */
+    function reportPhotoRequestFailure(record: PhotoRequestRecord, error: unknown): void {
+        const message = getErrorMessage(error) || $_('common.error', { default: 'Action failed' });
+        if (detection?.frigate_event === record.eventId) {
+            toastStore.error(message);
+            return;
+        }
+        toastStore.error(
+            $_('detection.photo_request_failed_for_record', {
+                values: { species: record.species, time: record.time, message },
+                default: 'The photo of {species} at {time} was not changed. {message}'
+            })
+        );
+    }
+
     /** Removes or restores every candidate behind one strip choice, and says which removals changed. */
     async function removePhotoChoice(
         candidateIds: string[],
@@ -1419,8 +1454,9 @@
     ): Promise<SnapshotDismissalTarget[]> {
         const [candidateId, ...companionCandidateIds] = candidateIds;
         if (!candidateId || !hasOwnerDetectionActions || snapshotApplyPending) return [];
-        const eventId = detection.frigate_event;
-        snapshotApplyPending = true;
+        const record = photoRequestRecord();
+        const eventId = record.eventId;
+        photoApplyEvents.add(eventId);
         try {
             const response = await dismissSnapshotCandidate(eventId, candidateId, dismissed, {
                 companionCandidateIds,
@@ -1437,16 +1473,17 @@
             }
             return response.changed_dismissals ?? [];
         } catch (error) {
-            toastStore.error(getErrorMessage(error));
+            reportPhotoRequestFailure(record, error);
             throw error;
         } finally {
-            if (detection.frigate_event === eventId) snapshotApplyPending = false;
+            photoApplyEvents.delete(eventId);
         }
     }
 
     async function handleUseMoment(moment: FrameMoment) {
         if (!hasOwnerDetectionActions || snapshotApplyPending) return;
-        applyingMomentKey = moment.key;
+        const eventId = detection.frigate_event;
+        applyingMoment = { eventId, key: moment.key };
         try {
             if (moment.asRecorded) {
                 if (!originalFrigateSnapshotAvailable) return;
@@ -1457,7 +1494,7 @@
             if (!candidate) return;
             await handleApplySnapshot('candidate', candidate.candidate_id);
         } finally {
-            applyingMomentKey = null;
+            if (applyingMoment?.eventId === eventId) applyingMoment = null;
         }
     }
 
@@ -1466,23 +1503,27 @@
         candidateId?: string | null
     ) {
         if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotApplyPending) return;
-        snapshotApplyPending = true;
+        const record = photoRequestRecord();
+        const eventId = record.eventId;
+        photoApplyEvents.add(eventId);
         try {
-            const result = await applySnapshotCandidate(detection.frigate_event, {
+            const result = await applySnapshotCandidate(eventId, {
                 mode,
                 candidate_id: candidateId ?? null
             });
+            detectionsStore.notePhotoChanged(eventId);
+            if (!detection || detection.frigate_event !== eventId) return;
             snapshotStatus = result;
             snapshotRefreshToken = Date.now();
             currentSnapshotSource = result.source ?? null;
             currentSnapshotCandidateId = result.applied_candidate_id ?? null;
             resetMediaView();
             toastStore.success($_('detection.snapshot_apply_success', { default: 'Snapshot updated' }));
-            await refreshSnapshotControls(detection.frigate_event);
+            await refreshSnapshotControls(eventId);
         } catch (e) {
-            toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
+            reportPhotoRequestFailure(record, e);
         } finally {
-            snapshotApplyPending = false;
+            photoApplyEvents.delete(eventId);
         }
     }
 
@@ -1507,10 +1548,13 @@
 
     async function handleGenerateSnapshotCandidates() {
         if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotGeneratePending) return;
-        const eventId = detection.frigate_event;
-        snapshotGeneratePending = true;
+        const record = photoRequestRecord();
+        const eventId = record.eventId;
+        photoGenerateEvents.add(eventId);
         try {
             const result = await generateHighQualityBirdCropSnapshot(eventId);
+            // The photo changed whichever record is open now, so its thumbnails elsewhere refresh.
+            detectionsStore.notePhotoChanged(eventId);
             if (!detection || detection.frigate_event !== eventId) return;
             snapshotStatus = result;
             snapshotRefreshToken = Date.now();
@@ -1521,6 +1565,12 @@
             resetMediaView();
             if (result.status === 'existing_crop_preserved') {
                 toastStore.warning($_('detection.snapshot_existing_crop_preserved', { default: 'No reliable new crop was found; the existing crop was kept.' }));
+            } else if (result.status === 'manual_selection_preserved') {
+                toastStore.warning($_('detection.snapshot_manual_choice_kept', { default: 'Your chosen photo was kept, so no new photo was saved. Regenerate again or choose another photo to replace it.' }));
+            } else if (result.status === 'photo_set_aside') {
+                toastStore.warning($_('detection.snapshot_photo_set_aside', { default: "This capture's photo is being put back after a cleanup, so no new photo was saved. Health shows when it is back; try again then." }));
+            } else if (result.status === 'photo_settings_unreadable') {
+                toastStore.warning($_('detection.snapshot_settings_unreadable', { default: 'The photo was kept because its saved settings could not be read. Choose a photo for this record to replace it.' }));
             } else if (result.status === 'generated_hq_snapshot') {
                 toastStore.warning($_('detection.snapshot_generated_full_frame', { default: 'No reliable crop was found; the best full frame was saved.' }));
             } else if (snapshotCandidates.length > 0 && countedBirds.length > 0 && !snapshotCandidatesError) {
@@ -1534,9 +1584,9 @@
                 toastStore.warning($_('detection.snapshot_regenerate_no_candidates', { default: 'Snapshot regenerated, but no selectable candidates were produced.' }));
             }
         } catch (e) {
-            toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
+            reportPhotoRequestFailure(record, e);
         } finally {
-            snapshotGeneratePending = false;
+            photoGenerateEvents.delete(eventId);
         }
     }
 

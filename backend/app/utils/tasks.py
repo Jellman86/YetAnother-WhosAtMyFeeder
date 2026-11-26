@@ -6,6 +6,24 @@ import structlog
 log = structlog.get_logger()
 
 
+async def finish_started_operation[T](operation: Coroutine[Any, Any, T], *, name: str | None = None) -> T:
+    """Finish irreversible work before caller cancellation can release its locks."""
+    task = asyncio.create_task(operation, name=name)
+    cancellation = None
+    while not task.done():
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError as exc:
+            cancellation = exc
+        except BaseException:
+            break
+    if cancellation is not None:
+        if not task.cancelled():
+            task.exception()
+        raise cancellation
+    return task.result()
+
+
 def create_background_task(coro: Coroutine[Any, Any, Any], name: str | None = None) -> asyncio.Task:
     """Create a task that logs unhandled exceptions instead of failing silently."""
     task = asyncio.create_task(coro, name=name)

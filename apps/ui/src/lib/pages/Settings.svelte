@@ -2037,11 +2037,11 @@
             message: count === null
                 ? $_('settings.data.purge_confirm_uncounted', {
                     values: { days },
-                    default: "Permanently delete every detection and the BirdNET-Go audio older than {days} days? The number of detections could not be read. Favourites and each species' newest kept visits stay. This cannot be undone."
+                    default: "Permanently delete every detection and the BirdNET-Go audio older than {days} days? The number of detections could not be read. Favourites and each species' newest kept captures stay. This cannot be undone."
                 })
                 : $_('settings.data.purge_confirm', {
                     values: { count, days },
-                    default: "Permanently delete {count, plural, one {# detection} other {# detections}} and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept visits stay. This cannot be undone."
+                    default: "Permanently delete {count, plural, one {# detection} other {# detections}} and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept captures stay. This cannot be undone."
                 })
         };
     }
@@ -2159,7 +2159,7 @@
         const confirmed = await confirmAction({
             title: $_('settings.data.cache_clear_button', { default: 'Clear Cached Files' }),
             message: $_('settings.data.cache_cleanup_confirm', {
-                default: "Delete cached photos and clips older than the retention period, and cached files that no longer belong to a detection? Favourites and each species' newest kept visits stay. This cannot be undone."
+                default: "Delete cached photos and clips older than the retention period, and cached files that no longer belong to a detection? Favourites and each species' newest kept captures stay. This cannot be undone."
             }),
             confirmLabel: $_('settings.data.cache_clear_button', { default: 'Clear Cached Files' })
         });

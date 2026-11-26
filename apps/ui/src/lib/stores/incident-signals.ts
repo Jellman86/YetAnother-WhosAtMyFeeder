@@ -12,7 +12,9 @@ export const INCIDENT_SIGNAL_PATHS = [
     'ml.background_image.queued',
     'ml.worker_pools.live.circuit_open',
     'ml.worker_pools.background.circuit_open',
-    'mqtt.frigate_availability.status'
+    'mqtt.frigate_availability.status',
+    'media_storage.set_aside_pending',
+    'media_storage.kept_copies'
 ] as const;
 
 export type IncidentSignalPath = (typeof INCIDENT_SIGNAL_PATHS)[number];
@@ -71,6 +73,25 @@ export const STATEFUL_INCIDENTS: readonly StatefulIncident[] = [
             if (availability === 'online') return false;
             if (availability === 'offline') return true;
             return null;
+        }
+    },
+    {
+        // Photos or videos an interrupted cleanup set aside: open until the last one has gone back,
+        // measured from disk on every storage check, so it closes by itself.
+        component: 'media_cache',
+        reasons: ['media_set_aside_unreturned'],
+        isOpen: (read) => {
+            const pending = read('media_storage.set_aside_pending');
+            return typeof pending === 'number' ? pending > 0 : null;
+        }
+    },
+    {
+        // Recovery copies kept beside a newer file at their name: open while any are on disk.
+        component: 'media_cache',
+        reasons: ['media_kept_copies'],
+        isOpen: (read) => {
+            const kept = read('media_storage.kept_copies');
+            return typeof kept === 'number' ? kept > 0 : null;
         }
     }
 ];

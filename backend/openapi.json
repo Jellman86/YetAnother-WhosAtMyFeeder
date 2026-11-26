@@ -21114,7 +21114,7 @@
           },
           "media_cache_per_species_maximum": {
             "default": 0,
-            "description": "Maximum cached visits per species, excluding favourites; 0 is unlimited",
+            "description": "Maximum cached captures per species, excluding favourites; 0 is unlimited",
             "maximum": 10000.0,
             "minimum": 0.0,
             "title": "Media Cache Per Species Maximum",
@@ -22926,7 +22926,10 @@
               "already_hq_bird_crop",
               "generated_hq_bird_crop",
               "generated_hq_snapshot",
-              "existing_crop_preserved"
+              "existing_crop_preserved",
+              "manual_selection_preserved",
+              "photo_settings_unreadable",
+              "photo_set_aside"
             ],
             "title": "Status",
             "type": "string"

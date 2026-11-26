@@ -3363,6 +3363,13 @@ class DetectionRepository:
             rows = await cursor.fetchall()
             return {row[0] for row in rows}
 
+    async def get_owner_confirmed_frigate_event_ids(self) -> set[str]:
+        """Get Frigate event IDs whose species was confirmed by an owner."""
+        confirmed = await owner_confirmed_sql(self.db, "d")
+        async with self.db.execute(f"SELECT d.frigate_event FROM detections d WHERE {confirmed}") as cursor:
+            rows = await cursor.fetchall()
+            return {row[0] for row in rows}
+
     # The scan re-checks what might have changed and skips what cannot have.
     # `manual_%` events are an owner's own records with no Frigate event behind
     # them: asking would 404 and mark their own observation missing. A row
@@ -5155,22 +5162,30 @@ class DetectionRepository:
         return results
 
     async def list_cached_media_visits(self, event_ids: list[str]) -> list[dict]:
-        """Resolve ownership and canonical species in bounded SQLite parameter pages."""
+        """Resolve ownership, canonical species, favourite and owner-confirmed state in bounded pages."""
         key = self._canonical_key_sql()
         join = self._taxonomy_join_sql()
+        confirmed = await owner_confirmed_sql(self.db, "d")
         result = []
         for start in range(0, len(event_ids), 400):
             page = event_ids[start : start + 400]
             placeholders = ",".join("?" for _ in page)
             async with self.db.execute(
                 f"""SELECT d.frigate_event, {key}, d.detection_time,
-                    EXISTS(SELECT 1 FROM detection_favorites f WHERE f.detection_id=d.id)
+                    EXISTS(SELECT 1 FROM detection_favorites f WHERE f.detection_id=d.id),
+                    CASE WHEN {confirmed} THEN 1 ELSE 0 END
                     FROM detections d {join} WHERE d.frigate_event IN ({placeholders})""",
                 page,
             ) as cursor:
                 rows = await cursor.fetchall()
             result.extend(
-                {"event_id": row[0], "species_key": row[1], "detected_at": str(row[2]), "is_favorite": bool(row[3])}
+                {
+                    "event_id": row[0],
+                    "species_key": row[1],
+                    "detected_at": str(row[2]),
+                    "is_favorite": bool(row[3]),
+                    "owner_confirmed": bool(row[4]),
+                }
                 for row in rows
             )
         return result

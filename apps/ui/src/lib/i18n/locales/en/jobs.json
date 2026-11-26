@@ -419,6 +419,14 @@
       "title": "Automatic history cleanup paused because daily counts could not be saved first.",
       "next": "No visits were deleted. Check database health and free disk space; cleanup will retry on its next run."
     },
+    "media_set_aside_unreturned": {
+      "title": "Some photos or videos that cleanup set aside could not be put back yet.",
+      "next": "Nothing was deleted. YA-WAMF tries again at the next storage check. If this keeps happening, check that the disk holding the media folder has free space and can be written to."
+    },
+    "media_kept_copies": {
+      "title": "Some photos or videos were kept as spare copies after a cleanup could not put them back.",
+      "next": "Nothing was lost: another file had taken their place, so both were kept. Deleting the capture removes its spare copy. The storage guide explains how to put one back."
+    },
     "notification_queue_full": {
       "title": "A notification was dropped because the send queue was full.",
       "next": "Check that your notification channels respond promptly in Settings → Notifications."

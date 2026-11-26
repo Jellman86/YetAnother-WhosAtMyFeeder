@@ -72,7 +72,7 @@ unfinished and re-acquired if the visit is still a favourite.
 
 ## The per-species floor
 
-**Settings → Storage & upkeep → Per-species limits → Keep photos of each species' newest visits** protects the newest N stored
+**Settings → Storage & upkeep → Per-species limits → Keep photos of each species' newest captures** protects the newest N stored
 detections of each species, and their cached photographs, from age-based cleanup, however old
 they are. This is applied to stored captures, not the Explorer's grouping of captures into visits.
 It is off by default (stored as `0`). The floor is counted per canonical species, so a bird under two names has one floor, and
@@ -126,12 +126,12 @@ from which day their counts come from daily totals.
 - Downgrading YA-WAMF below the release that added daily totals deletes them, and they cannot be
   rebuilt: for days cleanup has already removed they are the only copy of the counts.
 
-The per-species floor is age protection, not reserved disk space. **Limit visits per species with
+The per-species floor is age protection, not reserved disk space. **Limit captures per species with
 photos and video** and **Limit the space photos and video use** can still evict ordinary cached media. Such eviction
 keeps detection history and leaves archived favourites alone. Removed bytes cannot be restored
 from YA-WAMF itself; do not assume Frigate still has them.
 
-![The Photos and video card with a storage limit and the per-species limits: keeping photos of each species' newest visits, and limiting visits per species with photos and video](../images/settings-media-retention.png)
+![The Photos and video card with a storage limit and the per-species limits: keeping photos of each species' newest captures, and limiting captures per species with photos and video](../images/settings-media-retention.png)
 
 ## Storage
 

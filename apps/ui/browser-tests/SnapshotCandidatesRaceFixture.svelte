@@ -2,6 +2,7 @@
     import DetectionModal from '../src/lib/components/DetectionModal.svelte';
     import { authStore } from '../src/lib/stores/auth.svelte';
     import { detectionsStore } from '../src/lib/stores/detections.svelte';
+    import { toastStore } from '../src/lib/stores/toast.svelte';
     import type { Detection } from '../src/lib/api';
 
     // Prop/auth boundary fixture. The actual modal owns all candidate loading and rendering.
@@ -19,6 +20,8 @@
         score: 0.9
     });
     window.snapshotRace = {
+        mediaVersion(id) { return detectionsStore.settledMediaVersion(id); },
+        toasts() { return toastStore.toasts.map(({ type, message }) => ({ type, message })); },
         completeAnalysis(id = 'A') {
             detectionsStore.startReclassification(id, 15, 'video');
             detectionsStore.completeReclassification(id, [], 'success');
