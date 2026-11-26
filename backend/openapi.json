@@ -22928,7 +22928,8 @@
               "generated_hq_snapshot",
               "existing_crop_preserved",
               "manual_selection_preserved",
-              "photo_settings_unreadable"
+              "photo_settings_unreadable",
+              "photo_set_aside"
             ],
             "title": "Status",
             "type": "string"

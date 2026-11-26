@@ -136,6 +136,7 @@
   "snapshot_existing_crop_preserved": "Não foi encontrado um novo recorte fiável; o recorte existente foi mantido.",
   "snapshot_manual_choice_kept": "A foto que você escolheu foi mantida, então nenhuma foto nova foi salva. Gere novamente ou escolha outra foto para substituí-la.",
   "snapshot_settings_unreadable": "A foto foi mantida porque as configurações salvas dela não puderam ser lidas. Escolha uma foto para este registro para substituí-la.",
+  "snapshot_photo_set_aside": "A foto desta captura está sendo devolvida após uma limpeza, então nenhuma foto nova foi salva. Tente novamente em alguns minutos.",
   "snapshot_generated_full_frame": "Nenhum recorte confiável foi encontrado; o melhor quadro completo foi salvo.",
   "snapshot_candidates_loading": "Carregando quadros candidatos…",
   "snapshot_candidates_empty": "Ainda não há quadros candidatos salvos.",

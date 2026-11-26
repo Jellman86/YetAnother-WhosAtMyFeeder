@@ -136,6 +136,7 @@
   "snapshot_existing_crop_preserved": "未找到可靠的新裁剪；已保留现有裁剪。",
   "snapshot_manual_choice_kept": "已保留你选择的照片，因此没有保存新照片。请重新生成或选择其他照片来替换它。",
   "snapshot_settings_unreadable": "由于无法读取已保存的设置，照片已保留。请为此记录选择一张照片来替换它。",
+  "snapshot_photo_set_aside": "此拍摄记录的照片正在清理后放回原处，因此没有保存新照片。请几分钟后再试。",
   "snapshot_generated_full_frame": "未找到可靠的裁剪；已保存最佳完整画面。",
   "snapshot_candidates_loading": "正在加载候选帧…",
   "snapshot_candidates_empty": "尚无已保存的候选帧。",

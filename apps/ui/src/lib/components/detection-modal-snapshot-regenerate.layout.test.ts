@@ -30,6 +30,8 @@ describe('DetectionModal snapshot regeneration', () => {
         expect(detectionModalSource).toContain('detection.snapshot_manual_choice_kept');
         expect(detectionModalSource).toContain("result.status === 'photo_settings_unreadable'");
         expect(detectionModalSource).toContain('detection.snapshot_settings_unreadable');
+        expect(detectionModalSource).toContain("result.status === 'photo_set_aside'");
+        expect(detectionModalSource).toContain('detection.snapshot_photo_set_aside');
     });
 
     it('exposes one regenerate control rather than duplicating it by candidate state', () => {

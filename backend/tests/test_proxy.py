@@ -1618,7 +1618,7 @@ async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.As
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("outcome", ["manual_selection_preserved", "photo_settings_unreadable"])
+@pytest.mark.parametrize("outcome", ["manual_selection_preserved", "photo_settings_unreadable", "photo_set_aside"])
 async def test_generate_hq_bird_crop_snapshot_reports_a_kept_photo_instead_of_success(
     client: httpx.AsyncClient, outcome
 ):

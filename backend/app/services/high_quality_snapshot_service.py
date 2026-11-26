@@ -525,7 +525,7 @@ class HighQualitySnapshotService:
             ),
         )
         if not replaced:
-            return self._record_outcome(event_id, "snapshot_replace_failed")
+            return self._record_outcome(event_id, self._refused_replace_outcome(event_id))
         # A favourite's archive follows the photograph the pipeline settles on (#178).
         from app.services.archive_service import archive_service
 
@@ -759,7 +759,7 @@ class HighQualitySnapshotService:
                 ),
             )
             if not replaced:
-                return self._record_outcome(event_id, "snapshot_replace_failed")
+                return self._record_outcome(event_id, self._refused_replace_outcome(event_id))
             # A favourite's archive follows the photograph the pipeline settles on (#178).
             from app.services.archive_service import archive_service
 
@@ -3782,6 +3782,11 @@ class HighQualitySnapshotService:
         if not math.isfinite(parsed):
             return None
         return parsed
+
+    @staticmethod
+    def _refused_replace_outcome(event_id: str) -> str:
+        """A photo an interrupted cleanup set aside is being put back, which is not a failed write."""
+        return "photo_set_aside" if media_cache._snapshot_set_aside(event_id) else "snapshot_replace_failed"
 
     @staticmethod
     async def _kept_photo_outcome(event_id: str) -> str | None:

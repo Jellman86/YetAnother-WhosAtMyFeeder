@@ -163,6 +163,29 @@ async def test_only_removed_photo_preserves_the_current_manual_photograph(tmp_pa
 
 
 @pytest.mark.asyncio
+async def test_generate_waits_honestly_while_the_photo_is_set_aside(tmp_path, monkeypatch):
+    event = "generate-set-aside"
+    cache = _make_cache_service(tmp_path, monkeypatch)
+    service, choices, _ = await _removed_photo_choices(monkeypatch, event)
+    photo = await cache.cache_snapshot(event, _jpeg_bytes("green", size=(200, 200)), source="frigate_snapshot")
+    before = await cache.get_snapshot(event)
+    monkeypatch.setattr(cache, "_set_aside_pending", {photo})
+    monkeypatch.setattr(service, "enabled", lambda: True)
+    monkeypatch.setattr(service, "_load_event_clip", AsyncMock(return_value=(b"clip", None)))
+    monkeypatch.setattr(service, "_load_event_data_for_crop", AsyncMock(return_value={}))
+    monkeypatch.setattr(service, "_persist_event_hints", AsyncMock())
+    monkeypatch.setattr(service, "_apply_classification_refinement", AsyncMock(return_value=False))
+
+    async def generate(*args, **kwargs):
+        return await service._score_and_select_snapshot_candidates(event, choices)
+
+    monkeypatch.setattr(service, "generate_snapshot_candidates_from_clip_bytes", generate)
+    # The owner's Generate without regenerate is an automatic write: it waits for the photo to go back.
+    assert await service._process_event_once(event, manual_override=False) == "photo_set_aside"
+    assert await cache.get_snapshot(event) == before
+
+
+@pytest.mark.asyncio
 async def test_regeneration_refused_by_an_unreadable_photo_sidecar_says_so(tmp_path, monkeypatch):
     event = "unreadable-sidecar-rescan"
     cache = _make_cache_service(tmp_path, monkeypatch)
@@ -3261,6 +3284,26 @@ async def test_replace_from_clip_path_replaces_cached_snapshot_when_enabled(tmp_
 
     assert result == "replaced"
     assert await cache_service.get_snapshot("evt_clip_bytes") == b"derived-bytes"
+
+
+@pytest.mark.asyncio
+async def test_clip_refinement_waits_honestly_while_the_photo_is_set_aside(tmp_path, monkeypatch):
+    event = "evt_clip_set_aside"
+    await _mock_supported_photo_bundle(monkeypatch, "generate_snapshot_candidates_from_clip_path", event)
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    photo = await cache_service.cache_snapshot(event, b"photo-being-put-back")
+    monkeypatch.setattr(cache_service, "_set_aside_pending", {photo})
+    settings.media_cache.high_quality_event_snapshots = True
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_extract_snapshot_from_clip_path",
+        lambda clip_path, *_args: b"derived-bytes",
+    )
+
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_path(event, _clip_file(tmp_path))
+
+    assert result == "photo_set_aside"
+    assert await cache_service.get_snapshot(event) == b"photo-being-put-back"
 
 
 @pytest.mark.asyncio

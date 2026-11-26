@@ -558,8 +558,8 @@ run can include `photo_outcome`, such as `replaced`, `matching_photo_preserved`,
 `manual_selection_preserved`, `owner_identification_preserved`, `primary_identity_preserved`,
 `storage_evicted`, `blocked_species`, `media_cache_disabled`, `snapshot_caching_disabled`,
 `media_cache_unavailable`, `bird_presence_unconfirmed`, `detector_error`, `classifier_error`,
-`inference_deferred`, `frame_extract_failed`, or
-`snapshot_replace_failed`. Owner, identity, storage and failure outcomes also enter processing
+`inference_deferred`, `frame_extract_failed`, `photo_set_aside` (the photo an interrupted cleanup
+set aside is being put back, so the video's photo waits), or `snapshot_replace_failed`. Owner, identity, storage and failure outcomes also enter processing
 diagnostics; routine replacements and matching photographs do not. Species success does not imply
 a photograph was replaced; existing owner choices remain protected. `bird_presence_unconfirmed`
 means no suitable photo had sufficiently confident detector localization inside its bounds.
@@ -1052,9 +1052,10 @@ other identifications for `needs_review`, and are excluded from personalization 
   made while regeneration runs stays protected. Empty regeneration preserves saved candidates
   and the chosen photo; unavailable media returns an error rather than claiming success.
   When the photo is kept rather than replaced, `status` says why: `existing_crop_preserved` (no
-  reliable new crop), `manual_selection_preserved` (a newer owner choice was kept) or
+  reliable new crop), `manual_selection_preserved` (a newer owner choice was kept),
   `photo_settings_unreadable` (the photo's sidecar could not be read, so it is kept as the owner's
-  choice; choosing a photo for the capture replaces it).
+  choice; choosing a photo for the capture replaces it) or `photo_set_aside` (the photo an
+  interrupted cleanup set aside is being put back; try again once Health no longer lists it).
 - `GET /api/frigate/{event_id}/clip.mp4`
 - `GET /api/frigate/{event_id}/recording-clip.mp4`
 - `GET /api/frigate/{event_id}/hls/{asset}`

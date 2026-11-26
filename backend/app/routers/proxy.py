@@ -692,6 +692,7 @@ class SnapshotGenerateResponse(SnapshotStatusResponse):
         "existing_crop_preserved",
         "manual_selection_preserved",
         "photo_settings_unreadable",
+        "photo_set_aside",
     ]
     result: str
 
@@ -1760,7 +1761,12 @@ async def generate_hq_bird_crop_snapshot(
             status = "generated_hq_bird_crop"
         elif result == "replaced":
             status = "generated_hq_snapshot"
-        elif result in {"existing_crop_preserved", "manual_selection_preserved", "photo_settings_unreadable"}:
+        elif result in {
+            "existing_crop_preserved",
+            "manual_selection_preserved",
+            "photo_settings_unreadable",
+            "photo_set_aside",
+        }:
             # The photo was kept, which is an answer rather than an error, so the record can say why.
             status = result
         else:
