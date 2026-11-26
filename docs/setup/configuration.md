@@ -652,8 +652,10 @@ history, are in [Maintenance](#maintenance). Telemetry, what leaves this install
   something else has taken a file's name by then, and it is not a photo you chose, both are kept:
   the set-aside file stays in the same folder (`media_cache/snapshots`, `clips` or `previews`) as a
   hidden spare copy named `.<file name>.<random>.kept.tmp`. Spare copies count towards
-  **Space used**, Health lists them while any exist, and deleting the capture or **Delete all
-  history** removes them; **Clear cached files** and the storage limit leave them alone. To put one back, stop YA-WAMF, delete or move the file now at the name, and
+  **Space used** and Health lists them while any exist. Deleting the capture removes its spare
+  copy with its other files, at the next storage check (every five minutes) or **Clear cached
+  files**, and **Delete all history** removes them all. The spare copy of a capture that still
+  exists is never removed automatically: **Clear cached files** and the storage limit leave it alone. To put one back, stop YA-WAMF, delete or move the file now at the name, and
   rename the spare copy to the name shown between the leading dot and the random part (for example
   `.abc.jpg.<random>.kept.tmp` becomes `abc.jpg`). A photo's `.meta.json` sidecar may have its own
   spare copy; put that back the same way.
