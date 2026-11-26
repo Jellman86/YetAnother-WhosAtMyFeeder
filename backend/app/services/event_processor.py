@@ -198,9 +198,7 @@ _DROP_ERROR_REASONS = frozenset(
 # recorded under its own reason. A follow-up to an event Frigate called a false
 # positive repeats Frigate's decision. Nest mode is the owner's setting, and the
 # same species was already saved on that camera inside its window.
-_DROP_HELD_BACK_REASONS = frozenset(
-    {"update_recovery_cooldown", "false_positive_tombstone_active", "nest_mode_dedupe"}
-)
+_DROP_HELD_BACK_REASONS = frozenset({"update_recovery_cooldown", "false_positive_tombstone_active", "nest_mode_dedupe"})
 
 
 def drop_reason_severity(reason: str) -> str:
