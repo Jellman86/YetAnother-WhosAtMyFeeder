@@ -1035,7 +1035,11 @@ other identifications for `needs_review`, and are excluded from personalization 
     available (Frigate no longer returns it, or the upload is missing).
   - `409`: the choice was removed and must be restored first; the candidate's retained image is
     missing; the image cannot be decoded; or the replacement could not be saved. The missing and
-    undecodable cases are refused before the cached snapshot is touched.
+    undecodable cases are refused before the cached snapshot is touched. When saving fails, the
+    previous photograph and its owner-choice marking are left as they were.
+  - Once the save starts it finishes, with the capture's selected candidate, even if the request is
+    cancelled. The owner-choice marking is written before the new photograph, so an interrupted save
+    never leaves the new photograph unprotected.
   - The applied photograph is held as the owner's choice. Automatic snapshot writes, the
     per-species limit, the storage limit and age cleanup keep it (its clips, previews and other
     photo choices can still be removed) until the owner chooses again or a regeneration replaces it.
