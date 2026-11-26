@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager, closing
 from datetime import datetime, timedelta
 from io import BytesIO
 import os
+from pathlib import Path
 import sqlite3
 from unittest.mock import AsyncMock
 
@@ -593,19 +594,75 @@ async def test_a_deleted_captures_spare_copy_goes_with_its_files_and_a_living_on
     async with database() as db:
         await DetectionRepository(db).delete_by_frigate_event("evt-deleted")
     if cleanup == "storage_sweep":
-        await storage_module.MediaStorageService().enforce_limits()
+        deleted_snapshots = (await storage_module.MediaStorageService().enforce_limits())["orphan_snapshots_deleted"]
     else:
         app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
         try:
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
-                assert (await client.post("/api/cache/cleanup")).status_code == 200
+                response = await client.post("/api/cache/cleanup")
         finally:
             app.dependency_overrides.pop(require_owner, None)
+        assert response.status_code == 200
+        deleted_snapshots = response.json()["snapshots_deleted"]
 
     kept = [path.name for path in cache_module.SNAPSHOTS_DIR.iterdir() if path.name.endswith(".kept.tmp")]
     assert [name.split(".jpg.")[0] for name in kept] == [".evt-living"]
     assert media.kept_copies_count == 1
     assert await media.get_snapshot("evt-deleted") is None
+    # The spare copy counts as a removed file, not only as freed space.
+    assert deleted_snapshots == 2
+
+
+async def _spare_copy_for(media, event_id: str) -> Path:
+    """A spare copy for this capture's photo, as a return leaves one beside an automatic re-cache."""
+    await media.cache_snapshot(event_id, _jpeg_bytes("navy"))
+    media._stage_paths_sync([cache_module.SNAPSHOTS_DIR / f"{event_id}.jpg"], cache_module._AGE_STAGED_SUFFIX)
+    (cache_module.SNAPSHOTS_DIR / f"{event_id}.jpg").write_bytes(_jpeg_bytes("gray"))
+    await media.return_age_staged_files()
+    [kept] = [
+        path
+        for path in cache_module.SNAPSHOTS_DIR.iterdir()
+        if path.name.startswith(f".{event_id}.jpg.") and path.name.endswith(".kept.tmp")
+    ]
+    return kept
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "case", ["manual_id", "active_write", "literal_candidate", "variant_literal", "stale_valid_ids"]
+)
+async def test_a_living_captures_spare_copy_survives_the_orphan_pass(storage_env, monkeypatch, case):
+    _, database, media = storage_env
+    monkeypatch.setattr(storage_module.settings.media_cache, "per_species_maximum", 0)
+    event_id = {
+        # The first id read leaves out manual_ rows, so only the locked recheck finds this one.
+        "manual_id": "manual_0123456789abcdef",
+        # Its row is gone, but a write for it is still running.
+        "active_write": "evt-busy",
+        # Named like a candidate of evt-lit, which has no row; the literal capture does.
+        "literal_candidate": "evt-lit__model_crop__f1__0123456789__image",
+        # Ends like a thumbnail of evt-var, which has no row; the literal capture does.
+        "variant_literal": "evt-var_thumb",
+        # The capture exists, but the id list read before the locks is stale.
+        "stale_valid_ids": "evt-stale",
+    }[case]
+    if case != "active_write":
+        async with database() as db:
+            await DetectionRepository(db).create(
+                Detection(datetime.now(), 1, 0.9, "Robin", "Robin", event_id, "feeder")
+            )
+    kept = await _spare_copy_for(media, event_id)
+    if case == "stale_valid_ids":
+        monkeypatch.setattr(DetectionRepository, "get_all_frigate_event_ids", AsyncMock(return_value=[]))
+
+    if case == "active_write":
+        async with media._media_write_lease(event_id):
+            await storage_module.MediaStorageService().enforce_limits()
+    else:
+        await storage_module.MediaStorageService().enforce_limits()
+
+    assert kept.exists()
+    assert media.kept_copies_count == 1
 
 
 @pytest.mark.asyncio

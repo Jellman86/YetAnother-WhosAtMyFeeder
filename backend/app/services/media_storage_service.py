@@ -161,22 +161,23 @@ class MediaStorageService:
                     stats["previews_deleted"] += deleted["previews_deleted"]
                 except OSError as exc:
                     log.warning("Orphaned media recovery failed; will retry", event_id=event_id, error=str(exc))
-        stats["bytes_freed"] += await self._remove_orphaned_kept_copies(valid_ids)
+        for key, value in (await self._remove_orphaned_kept_copies(valid_ids)).items():
+            stats[key] += value
         return stats
 
-    async def _remove_orphaned_kept_copies(self, valid_ids: set[str]) -> int:
+    async def _remove_orphaned_kept_copies(self, valid_ids: set[str]) -> dict[str, int]:
         """Spare copies whose capture no longer exists go with its other files; a living one stays.
 
         The inventory skips hidden names, so a capture deleted from history would otherwise leave
         its spare copy on disk for good. The caller holds the housekeeping lock.
         """
         media = cache_module.media_cache
+        removed = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
         if not media.kept_copies_count:
-            return 0
+            return removed
         by_owner: dict[str, list[Path]] = defaultdict(list)
         for kept in await asyncio.to_thread(media._kept_copies_sync):
             by_owner[cache_module.cache_name_event_id(cache_module.kept_copy_original(kept).name)].append(kept)
-        bytes_freed = 0
         for event_id, kept_copies in by_owner.items():
             possible_owners = self._possible_owners(
                 event_id, [cache_module.kept_copy_original(kept) for kept in kept_copies]
@@ -205,9 +206,17 @@ class MediaStorageService:
                             "Could not remove an orphaned spare copy; will retry", path=str(kept), error=str(exc)
                         )
                         continue
-                    bytes_freed += size
+                    # Counted like the file it was kept for, so a cleanup never reports freed space and no files.
+                    removed["bytes_freed"] += size
+                    original = cache_module.kept_copy_original(kept)
+                    if kept.parent == cache_module.SNAPSHOTS_DIR and original.name.endswith(".jpg"):
+                        removed["snapshots_deleted"] += 1
+                    elif kept.parent == cache_module.CLIPS_DIR and original.name.endswith(".mp4"):
+                        removed["clips_deleted"] += 1
+                    elif kept.parent == cache_module.PREVIEWS_DIR:
+                        removed["previews_deleted"] += 1
         await media._recount_kept_copies()
-        return bytes_freed
+        return removed
 
     @staticmethod
     async def _return_interrupted_age_cleanup() -> None:
