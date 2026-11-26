@@ -3,6 +3,7 @@ import eventsSource from './Events.svelte?raw';
 import filtersSource from '../components/ExplorerFilters.svelte?raw';
 import paginationSource from '../components/Pagination.svelte?raw';
 import sidebarSource from '../components/Sidebar.svelte?raw';
+import detectionSyncSource from '../utils/detection-sync.ts?raw';
 
 describe('Explorer page layout', () => {
     it('replaces the stacked selects with a token bar and counted facets', () => {
@@ -110,8 +111,10 @@ describe('Explorer page layout', () => {
     });
 
     it('treats AI analysis fields as part of selected-event sync state', () => {
-        expect(eventsSource).toContain('asText(d.ai_analysis)');
-        expect(eventsSource).toContain('asText(d.ai_analysis_timestamp)');
+        // The list and the open record share one sync signature.
+        expect(eventsSource).toContain("import { detectionSyncSignature } from '../utils/detection-sync';");
+        expect(detectionSyncSource).toContain('asText(d.ai_analysis)');
+        expect(detectionSyncSource).toContain('asText(d.ai_analysis_timestamp)');
     });
 
     it('refreshes filter metadata after delete and hide mutations', () => {

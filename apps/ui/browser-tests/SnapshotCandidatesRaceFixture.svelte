@@ -41,7 +41,6 @@
 <DetectionModal
     {detection}
     llmReady={false}
-    showVideoButton={false}
     onClose={() => {}}
     onViewSpecies={() => {}}
 />

@@ -16,6 +16,7 @@
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
     import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
     import type { SpeciesInCapture } from '../utils/visit-captures';
+    import { canWatchRecordVideo } from '../utils/record-access';
 
     interface Props {
         detection: Detection;
@@ -152,7 +153,7 @@
         }
     }
 
-    const canPlayVideo = $derived(!!onPlay && (detection.has_clip || fullVisitFetched));
+    const canPlayVideo = $derived(!!onPlay && canWatchRecordVideo(authStore) && (detection.has_clip || fullVisitFetched));
 </script>
 
 <div class="relative h-full rounded-4xl transition-all duration-300 ease-out">

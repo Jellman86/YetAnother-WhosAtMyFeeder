@@ -11,10 +11,11 @@
     import FeederPortrait from '../components/FeederPortrait.svelte';
     import FeederPortraitPlaceholder from '../components/FeederPortraitPlaceholder.svelte';
     import LazyModal from '../components/LazyModal.svelte';
-    import { loadDetectionModal, loadSpeciesDetailModal } from '../components/lazy-dialogs';
-    import { authStore } from '../stores/auth.svelte';
+    import { loadSpeciesDetailModal } from '../components/lazy-dialogs';
+    import RecordDialogs from '../components/RecordDialogs.svelte';
+    import type { RecordVideo } from '../components/record-video';
     import { detectionsStore } from '../stores/detections.svelte';
-    import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { toastStore } from '../stores/toast.svelte';
     import { logger } from '../utils/logger';
@@ -71,6 +72,7 @@
     let communityInstalls = $state<number | null>(null);
     let communityReadEnabled = $state<boolean | null>(null);
     let selectedEvent = $state<Detection | null>(null);
+    let video = $state.raw<RecordVideo | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let openingEvent = $state<string | null>(null);
     let portraitRefresh = $state(0);
@@ -336,26 +338,15 @@
     </section>
 </div>
 
-{#if selectedEvent}
-    <LazyModal loader={loadDetectionModal} onclose={() => (selectedEvent = null)}>
-        {#snippet children(DetectionModal)}
-            {#if selectedEvent}
-                <DetectionModal
-                    detection={selectedEvent}
-                    llmReady={settingsStore.llmReady}
-                    showVideoButton={false}
-                    readOnly={!authStore.hasOwnerAccess}
-                    onClose={() => (selectedEvent = null)}
-                    onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
-                    onDeleteSuccess={(frigateEvent: string) => forgetVisit(frigateEvent)}
-                    onHideSuccess={(frigateEvent: string, _time: string | undefined, isHidden: boolean) => {
-                        if (isHidden) forgetVisit(frigateEvent);
-                    }}
-                />
-            {/if}
-        {/snippet}
-    </LazyModal>
-{/if}
+<RecordDialogs
+    bind:record={selectedEvent}
+    bind:video
+    onViewSpecies={(species: string) => (selectedSpecies = species)}
+    onDeleteSuccess={(frigateEvent: string) => forgetVisit(frigateEvent)}
+    onHideSuccess={(frigateEvent: string, _time: string | undefined, isHidden: boolean) => {
+        if (isHidden) forgetVisit(frigateEvent);
+    }}
+/>
 {#if selectedSpecies}
     <LazyModal loader={loadSpeciesDetailModal} onclose={() => (selectedSpecies = null)}>
         {#snippet children(SpeciesDetailModal)}

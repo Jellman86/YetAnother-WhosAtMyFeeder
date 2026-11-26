@@ -14,9 +14,9 @@
      * (`recordClassificationKey`), and an answer that arrives for one it no longer shows is dropped,
      * so neither a failure nor a late note outlives a change of species.
      */
-    type Props = { detection: Detection; llmReady: boolean; readOnly: boolean };
+    type Props = { detection: Detection; llmReady: boolean };
 
-    let { detection, llmReady, readOnly }: Props = $props();
+    let { detection, llmReady }: Props = $props();
 
     let analysing = $state(false);
     /** What shows instead of the stored note: nothing while it regenerates, or why it failed. */
@@ -67,7 +67,7 @@
     }
 
     async function analyse(force = false): Promise<void> {
-        if (readOnly || !llmReady) return;
+        if (!authStore.canModify || !llmReady) return;
         analysing = true;
         if (force) {
             // A new note starts a new conversation, so the old thread goes with the old note.
@@ -133,7 +133,7 @@
         <span class="h-4 w-4 animate-spin rounded-full border-2 border-accent-line border-t-transparent motion-reduce:animate-none" aria-hidden="true"></span>
         {$_('detection.ai.analyzing')}
     </p>
-{:else if llmReady && authStore.canModify && !readOnly}
+{:else if llmReady && authStore.canModify}
     <button type="button" onclick={() => analyse()} class="btn btn-secondary min-h-11 w-full px-4 text-sm">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />

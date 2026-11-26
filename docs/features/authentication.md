@@ -101,7 +101,7 @@ medium is not shared rather than shown a broken image or an error.
 | **Show camera names** | On | Guests see each camera's name. Off shows a generic label instead. |
 | **Share audio with guests** | On | BirdNET-Go detections, spectrograms, and audio clips. Off means no audio surfaces at all. |
 | **Share photographs with guests** | On | Snapshots and thumbnails. Off means visitors see placeholders instead of images. |
-| **Share video with guests** | On | Clip playback. |
+| **Share video with guests** | On | Clip playback. Off hides the play button on every record, card and row, wherever it is opened. |
 | **Allow clip downloads** | **Off** | Whether a guest can save a clip file, rather than only stream it. |
 | **Show AI conversation threads** | **Off** | Whether guests can read the AI Naturalist conversation, not just the summary. |
 | **History window (days)** | **Same as retention policy** | How far back the public detection list reaches, capped at 365 days. In custom mode, `0` means today only. |

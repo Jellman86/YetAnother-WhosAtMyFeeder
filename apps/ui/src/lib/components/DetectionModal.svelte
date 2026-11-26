@@ -97,13 +97,13 @@
     import { fetchGardenDomesticBirds } from '../api/garden';
     import GardenDomesticSuggestion from './GardenDomesticSuggestion.svelte';
     import { domesticBirdForRecord, domesticBirdName, type DomesticBirdOption } from '../utils/domestic-birds';
+    import { canWatchRecordVideo } from '../utils/record-access';
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
 
     interface Props {
         detection: Detection;
         llmReady: boolean;
-        showVideoButton?: boolean;
         onClose: () => void;
         onReclassify?: (detection: Detection) => void;
         onPlayVideo?: (frigateEvent: string, playIntent?: 'auto' | 'user') => void;
@@ -112,7 +112,6 @@
         onHideSuccess?: (frigateEvent: string, detectionTime: string | undefined, isHidden: boolean) => void | Promise<void>;
         onViewSpecies: (speciesName: string) => void;
         onbirdschanged?: () => void;
-        readOnly?: boolean;
         fullVisitAvailable?: boolean;
         fullVisitFetched?: boolean;
         fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'partial' | 'failed';
@@ -121,7 +120,6 @@
     let {
         detection,
         llmReady,
-        showVideoButton = false,
         onClose,
         onReclassify,
         onPlayVideo,
@@ -130,7 +128,6 @@
         onHideSuccess,
         onViewSpecies,
         onbirdschanged,
-        readOnly = false,
         fullVisitAvailable = false,
         fullVisitFetched = false,
         fullVisitFetchState = 'idle'
@@ -139,7 +136,7 @@
     $effect(() => {
         const version = detectionsStore.publicHistoryVersion;
         const eventId = publicEventId;
-        if (!version || !authStore.isGuest || readOnly) return;
+        if (!version || !authStore.isGuest) return;
         const controller = new AbortController();
         untrack(() => {
             void fetchEvents({ eventId, limit: 1, fields: 'detail', signal: controller.signal,
@@ -463,7 +460,7 @@
     const ARCHIVE_POLL_LIMIT = 45;
     $effect(() => {
         const eventId = detection?.frigate_event;
-        const wanted = !!detection?.is_favorite && authStore.hasOwnerAccess && !readOnly;
+        const wanted = !!detection?.is_favorite && authStore.hasOwnerAccess;
         // Read so that a retry (which sets the record back to pending) restarts the poll.
         void detection?.archive_state;
         void archiveCheckAttempt;
@@ -668,7 +665,7 @@
     let reclassifyProgress = $derived(
         detectionsStore.progressMap.get(detection.frigate_event) || null
     );
-    let canPlayVideo = $derived(showVideoButton && !!onPlayVideo && (detection.has_clip || fullVisitFetched) && !reclassifyProgress);
+    let canPlayVideo = $derived(!!onPlayVideo && canWatchRecordVideo(authStore) && (detection.has_clip || fullVisitFetched) && !reclassifyProgress);
     let showFetchFullVisitAction = $derived(!!onFetchFullVisit && fullVisitAvailable && !fullVisitFetched && (fullVisitFetchState === 'partial' || fullVisitFetchState === 'failed') && !reclassifyProgress);
     let fullVisitFetchLabel = $derived.by(() => {
         if (fullVisitFetchState === 'fetching') {
@@ -806,8 +803,8 @@
     });
     const inatEnabled = $derived(settingsStore.settings?.inaturalist_enabled ?? authStore.inaturalistEnabled ?? false);
     const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
-    const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && !!inatConnectedUser);
-    const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess && !readOnly);
+    const canShowInat = $derived(authStore.canModify && inatEnabled && !!inatConnectedUser);
+    const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess);
     // A bird record of a domestic bird: moved to Garden when the owner keeps it, otherwise asked about.
     const gardenOwner = $derived(hasOwnerDetectionActions && settingsStore.settings?.beta_garden_animals === true);
     let domesticOptions = $state.raw<DomesticBirdOption[]>([]);
@@ -836,7 +833,6 @@
     const originalFrigateSnapshotUrl = $derived.by(() => withCacheBust(getOriginalFrigateSnapshotUrl(detection.frigate_event), String(snapshotRefreshToken)));
     let canShowFavoriteAction = $derived(
         authStore.canModify
-        && !readOnly
         && !reclassifyProgress
     );
     const originalFrigateSnapshotAvailable = $derived(
@@ -1277,7 +1273,6 @@
     });
     async function handleManualTag(selection: SearchResult) {
         if (!authStore.hasOwnerAccess) return;
-        if (readOnly) return;
         if (!detection) return;
         if (updatingTag) return;
 
@@ -1315,7 +1310,6 @@
 
     async function handleHide() {
         if (!authStore.hasOwnerAccess) return;
-        if (readOnly) return;
         if (!detection) return;
         try {
             const result = await hideDetection(detection.frigate_event);
@@ -1349,7 +1343,6 @@
 
     async function handleDelete() {
         if (!authStore.hasOwnerAccess) return;
-        if (readOnly) return;
         if (!detection) return;
         if (!(await confirmAction({
             title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
@@ -1368,7 +1361,7 @@
     }
 
     async function handleFavoriteToggle() {
-        if (readOnly) return;
+        if (!authStore.hasOwnerAccess) return;
         if (!detection) return;
         favoritePending = true;
         try {
@@ -1502,7 +1495,7 @@
         mode: 'candidate' | 'revert_original',
         candidateId?: string | null
     ) {
-        if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotApplyPending) return;
+        if (!authStore.hasOwnerAccess || !detection || snapshotApplyPending) return;
         const record = photoRequestRecord();
         const eventId = record.eventId;
         photoApplyEvents.add(eventId);
@@ -1547,7 +1540,7 @@
     }
 
     async function handleGenerateSnapshotCandidates() {
-        if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotGeneratePending) return;
+        if (!authStore.hasOwnerAccess || !detection || snapshotGeneratePending) return;
         const record = photoRequestRecord();
         const eventId = record.eventId;
         photoGenerateEvents.add(eventId);
@@ -1598,7 +1591,7 @@
 
     function handleReclassifyClick() {
         if (!authStore.hasOwnerAccess) return;
-        if (readOnly || !onReclassify) return;
+        if (!onReclassify) return;
         awaitingReclassifyOverlay = true;
         onReclassify(detection);
     }
@@ -2492,7 +2485,7 @@
 
             <!-- One panel per identification: a new species starts its AI note afresh. -->
             {#key recordClassificationKey(detection)}
-                <RecordAiAnalysis {detection} {llmReady} {readOnly} />
+                <RecordAiAnalysis {detection} {llmReady} />
             {/key}
 
             <!-- The identifiers, last on screen and last in the tab order. -->

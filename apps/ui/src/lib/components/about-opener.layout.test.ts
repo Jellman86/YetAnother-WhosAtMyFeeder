@@ -90,8 +90,9 @@ describe('the About page opens on a portrait of this feeder', () => {
     it('states measured facts beside the latest visit, which opens its record', () => {
         expect(aboutSource).toContain("import FeederPortrait from '../components/FeederPortrait.svelte';");
         expect(aboutSource).toContain('fetchEvents({ eventId: frigateEvent, limit: 1 })');
-        expect(aboutSource).toContain('<DetectionModal');
-        expect(aboutSource).toContain('readOnly={!authStore.hasOwnerAccess}');
+        // The record opens through the shared opener, so it offers what it offers everywhere.
+        expect(aboutSource).toContain('<RecordDialogs');
+        expect(aboutSource).not.toContain('readOnly');
         expect(portraitSource).toContain('onclick={() => onopenvisit(latest.frigate_event)}');
         expect(portraitSource).toContain('film={Boolean(latest.film_url)}');
         // The newest arrival opens the species by the label the history stores.

@@ -477,6 +477,15 @@ visit's frames, the analysis and facts, then the reference; held sideways on a p
 identification is on the first screen
 ```
 
+**One record, the same controls wherever it opens.** About, the Dashboard and the Explorer open a
+record and its video only through `RecordDialogs`, which wires the play button, the video player,
+the full visit, reclassification and the record's live updates the same way for each. Only access
+decides what a record offers: the owner sees every control, and a guest sees video only while
+**Share video with guests** is on and a download only while **Allow clip downloads** is also on
+(`utils/record-access.ts`). A page supplies only what is its own, such as removing a row from its
+list after a delete, and never takes a control away. `record-dialogs.layout.test.ts` and
+`browser-tests/record-parity.spec.ts` hold this.
+
 The decision sits with the picture it is made from, and the reference is a reading column of its
 own. Before this the record was three columns of three heights under one scroll, and the column
 that held only the photograph was half empty. The shape is decided from what the record holds when
@@ -746,7 +755,8 @@ busiest day in the viewer's own calendar days, and its newest arrival, which mus
 least three times or confirmed so a single misidentification is never announced. Beside them is
 the latest visit with a stored crop, which plays its film once one is made and opens its record. A
 guest sees the shared window only, and the heading says so, so a short window never reads as a
-young feeder. A shared-history change clears the guest's portrait immediately and reloads its facts
+young feeder. The latest visit opens the same record as everywhere else, with its video and full
+visit. A shared-history change clears the guest's portrait immediately and reloads its facts
 and latest visit; an older response cannot restore withdrawn media. The install count beneath is a cached read of the telemetry worker's public summary,
 off with update checks, and absent rather than zero when unknown.
 
@@ -777,7 +787,8 @@ column beside it; below that they follow it, the two history lists side by side 
 | `DeskContextCards` | Standing operational context | Put actions in it |
 | `TopVisitors` | A full-width band | Place it in the context rail; it lays out horizontally and compresses badly |
 | `InstancePipeline` | Deployment state as a flow | Use it as a settings surface |
-| `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
+| `RecordDialogs` | Opening a record and its video from any page: the record (`DetectionModal`), the player (`VideoPlayer`), the full visit and live updates, wired once | Render `DetectionModal` or `VideoPlayer` directly, or leave out a control on one page |
+| `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` through `RecordDialogs` |
 | `ActivityHeatmap` | A weekday by hour grid that reads a slot on hover, tap or arrow keys, with hour and day totals in its margins; `unit` names what a cell counts (captures on the Leaderboard, calls heard on Audio history) | Rely on native `title` tooltips; they arrive late and never on touch |
 | `HeatmapSpeciesChips` | The row above a weekday grid that shows one species instead of all: **All species** then up to five species, `aria-pressed` buttons with `min-h-11` targets; shared by the Leaderboard and Audio history, and hidden when there is only one species to choose | Hand-roll a second chip row for another grid, or keep a choice the window no longer offers |
 | `CameraWatchRow` | One Frigate camera in **Settings → Cameras & connection → Cameras to watch**, shaped as a settings row: the camera's name and Preview on the left; "Watch for" (Off, Birds, Garden animals or Both, as one select) and, while it watches birds, its role (select) in the control column; motion photos below while it watches Garden animals | Add a second camera list for one subject elsewhere; link to this list and summarise instead |
