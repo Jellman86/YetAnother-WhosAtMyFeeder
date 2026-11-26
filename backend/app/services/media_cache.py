@@ -212,8 +212,13 @@ def has_manual_snapshot_selection(event_id: str) -> bool:
 
 
 # A staged name is hidden and ends in ".tmp", so every cache reader and inventory already skips it.
+# Orphan cleanup stages files it has proved have no parent; the storage sweep may finish them.
 _STAGED_DELETION_SUFFIX = ".evicting.tmp"
 _STAGED_DELETION_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_STAGED_DELETION_SUFFIX))
+# Age cleanup stages files of captures that still exist, and only it may delete them. One left behind
+# by a crash goes back to its name, so the next age cleanup decides again with every check.
+_AGE_STAGED_SUFFIX = ".ageing.tmp"
+_AGE_STAGED_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_AGE_STAGED_SUFFIX))
 
 
 _HIDDEN_CLIP_WRITE_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}\.tmp\.mp4")
@@ -295,6 +300,9 @@ class MediaCacheService:
         self._snapshot_commit_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
         self._media_lifecycle_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
         self._active_media_writes: dict[str, int] = {}
+        # Age cleanup, orphan cleanup and the storage sweep never interleave, so each can tell its own
+        # staged files from ones an interrupted run left behind.
+        self.housekeeping_lock = asyncio.Lock()
         try:
             self._ensure_dirs()
         except Exception as e:
@@ -1431,11 +1439,11 @@ class MediaCacheService:
         """
         return self._stage_paths_sync(self._owned_visit_files_sync(event_id, paths))
 
-    def _stage_paths_sync(self, paths: list[Path]) -> list[tuple[Path, Path]]:
+    def _stage_paths_sync(self, paths: list[Path], suffix: str = _STAGED_DELETION_SUFFIX) -> list[tuple[Path, Path]]:
         staged: list[tuple[Path, Path]] = []
         try:
             for path in paths:
-                target = path.with_name(f".{path.name}.{uuid.uuid4().hex}{_STAGED_DELETION_SUFFIX}")
+                target = path.with_name(f".{path.name}.{uuid.uuid4().hex}{suffix}")
                 try:
                     path.rename(target)
                 except FileNotFoundError:
@@ -1459,7 +1467,7 @@ class MediaCacheService:
         """Unlink staged files. One that cannot be removed now stays staged for the next sweep."""
         stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
         for path in staged_paths:
-            match = _STAGED_DELETION_NAME.fullmatch(path.name)
+            match = _STAGED_DELETION_NAME.fullmatch(path.name) or _AGE_STAGED_NAME.fullmatch(path.name)
             original_name = match.group(1) if match else path.name
             try:
                 size = path.stat().st_size
@@ -1488,6 +1496,31 @@ class MediaCacheService:
             for path in directory.iterdir()
             if _STAGED_DELETION_NAME.fullmatch(path.name)
         ]
+
+    @staticmethod
+    def _return_age_staged_files_sync() -> int:
+        """Put back files an interrupted age cleanup staged. Call only while holding the housekeeping lock.
+
+        A newer file already written under the original name wins, and the stale staged copy goes.
+        """
+        returned = 0
+        for directory in (SNAPSHOTS_DIR, CLIPS_DIR, PREVIEWS_DIR):
+            if not directory.exists():
+                continue
+            for path in directory.iterdir():
+                match = _AGE_STAGED_NAME.fullmatch(path.name)
+                if not match:
+                    continue
+                original = path.with_name(match.group(1))
+                try:
+                    if original.exists():
+                        path.unlink()
+                    else:
+                        path.rename(original)
+                        returned += 1
+                except FileNotFoundError:
+                    continue
+        return returned
 
     def _delete_visit_files_sync(self, event_id: str, paths: list[Path] | None = None) -> int:
         owned = self._owned_visit_files_sync(event_id, paths)
@@ -1698,7 +1731,7 @@ class MediaCacheService:
         newest_write = max(info.st_mtime for info in (media_stats or [info for _, info in live_paths]))
         if newest_write >= cutoff:
             return []
-        return self._stage_paths_sync([path for path, _info in live_paths])
+        return self._stage_paths_sync([path for path, _info in live_paths], _AGE_STAGED_SUFFIX)
 
     @staticmethod
     async def _cached_media_visit_rows(possible_owners: set[str]) -> list[dict]:
@@ -1826,43 +1859,46 @@ class MediaCacheService:
         snapshot_protected = set(protected_snapshot_event_ids or ())
         canonical_protected = set(protected_canonical_photo_event_ids or ())
         cutoff = (datetime.now() - timedelta(days=retention_days)).timestamp()
-        groups = await asyncio.to_thread(self._collect_media_groups_sync, cutoff)
+        # Holding the housekeeping lock keeps the storage sweep from mistaking this run's staged files
+        # for ones an interrupted run left behind.
+        async with self.housekeeping_lock:
+            groups = await asyncio.to_thread(self._collect_media_groups_sync, cutoff)
 
-        for kind, media_suffix, event_id, paths in groups:
-            possible_owners = possible_cache_owners(event_id, paths)
-            active = high_quality_snapshot_service.get_active_event_ids() | self.get_active_write_event_ids()
-            exemptions = protected | active | (snapshot_protected if kind == "snapshots" else set())
-            if possible_owners & exemptions:
-                stats["protected_skipped"] += len(paths)
-                continue
-            async with (
-                self._snapshot_commit_lock(event_id),
-                self._recording_clip_commit_lock(event_id),
-                AsyncExitStack() as leases,
-            ):
-                owners = {self._media_write_owner(owner) for owner in possible_owners}
-                for owner in sorted(owners):
-                    await leases.enter_async_context(self._media_lifecycle_lock(owner))
-                try:
-                    deleted_count, bytes_freed, protected_skipped = await finish_started_operation(
-                        self._age_media_group(
-                            kind=kind,
-                            media_suffix=media_suffix,
-                            event_id=event_id,
-                            paths=paths,
-                            cutoff=cutoff,
-                            protected_event_ids=protected,
-                            protected_snapshot_event_ids=snapshot_protected,
-                            canonical_protected=canonical_protected,
-                        ),
-                        name="media_age_cleanup",
-                    )
-                except OSError as exc:
-                    log.warning("Failed to age cached visit media", event_id=event_id, kind=kind, error=str(exc))
+            for kind, media_suffix, event_id, paths in groups:
+                possible_owners = possible_cache_owners(event_id, paths)
+                active = high_quality_snapshot_service.get_active_event_ids() | self.get_active_write_event_ids()
+                exemptions = protected | active | (snapshot_protected if kind == "snapshots" else set())
+                if possible_owners & exemptions:
+                    stats["protected_skipped"] += len(paths)
                     continue
-                stats[f"{kind}_deleted"] += deleted_count
-                stats["bytes_freed"] += bytes_freed
-                stats["protected_skipped"] += protected_skipped
+                async with (
+                    self._snapshot_commit_lock(event_id),
+                    self._recording_clip_commit_lock(event_id),
+                    AsyncExitStack() as leases,
+                ):
+                    owners = {self._media_write_owner(owner) for owner in possible_owners}
+                    for owner in sorted(owners):
+                        await leases.enter_async_context(self._media_lifecycle_lock(owner))
+                    try:
+                        deleted_count, bytes_freed, protected_skipped = await finish_started_operation(
+                            self._age_media_group(
+                                kind=kind,
+                                media_suffix=media_suffix,
+                                event_id=event_id,
+                                paths=paths,
+                                cutoff=cutoff,
+                                protected_event_ids=protected,
+                                protected_snapshot_event_ids=snapshot_protected,
+                                canonical_protected=canonical_protected,
+                            ),
+                            name="media_age_cleanup",
+                        )
+                    except OSError as exc:
+                        log.warning("Failed to age cached visit media", event_id=event_id, kind=kind, error=str(exc))
+                        continue
+                    stats[f"{kind}_deleted"] += deleted_count
+                    stats["bytes_freed"] += bytes_freed
+                    stats["protected_skipped"] += protected_skipped
 
         log.info("Media cache cleanup complete", **stats)
         return stats

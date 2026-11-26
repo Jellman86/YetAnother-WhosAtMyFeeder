@@ -346,14 +346,14 @@ async def test_age_cleanup_returns_files_favourited_while_they_are_staged(budget
     await _age_cache_files(10)
     original_stage = media._stage_paths_sync
 
-    def favourite_then_stage(paths):
+    def favourite_then_stage(paths, *args):
         with closing(sqlite3.connect(file_path, timeout=0.1)) as db:
             db.execute(
                 "INSERT OR IGNORE INTO detection_favorites(detection_id,created_by) "
                 "SELECT id,'owner' FROM detections WHERE frigate_event='budget-old'"
             )
             db.commit()
-        return original_stage(paths)
+        return original_stage(paths, *args)
 
     monkeypatch.setattr(media, "_stage_paths_sync", favourite_then_stage)
     await media.cleanup_old_media(1)
@@ -377,17 +377,118 @@ async def test_age_cleanup_returns_the_main_photo_of_a_capture_confirmed_while_s
     await _age_cache_files(10)
     original_stage = media._stage_paths_sync
 
-    def confirm_then_stage(paths):
+    def confirm_then_stage(paths, *args):
         with closing(sqlite3.connect(file_path, timeout=0.1)) as db:
             db.execute("UPDATE detections SET manual_tagged = 1 WHERE frigate_event = 'budget-old'")
             db.commit()
-        return original_stage(paths)
+        return original_stage(paths, *args)
 
     monkeypatch.setattr(media, "_stage_paths_sync", confirm_then_stage)
     await media.cleanup_old_media(1)
     assert await media.get_snapshot("budget-old") == photo
     assert await media.get_snapshot("budget-new") is None
     assert media._staged_deletions_sync() == []
+
+
+class _ObservedLock(asyncio.Lock):
+    """A lock that says when a second caller has to wait for it."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.contended = asyncio.Event()
+
+    async def acquire(self) -> bool:
+        if self.locked():
+            self.contended.set()
+        return await super().acquire()
+
+
+def _owner_acts(file_path: str, change: str) -> None:
+    with closing(sqlite3.connect(file_path, timeout=1)) as db:
+        if change == "favourite":
+            db.execute(
+                "INSERT OR IGNORE INTO detection_favorites(detection_id,created_by) "
+                "SELECT id,'owner' FROM detections WHERE frigate_event='budget-old'"
+            )
+        else:
+            db.execute("UPDATE detections SET manual_tagged = 1 WHERE frigate_event = 'budget-old'")
+        db.commit()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", ["favourite", "confirm"])
+async def test_a_storage_sweep_during_age_cleanup_never_deletes_files_it_gives_back(
+    budget_visit_history, monkeypatch, change
+):
+    import app.database as db_module
+
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(db_module, "get_db", database)
+    monkeypatch.setattr(storage.settings.media_cache, "per_species_maximum", 0)
+    async with database() as db:
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    photo = await media.get_snapshot("budget-old")
+    await _age_cache_files(10)
+    housekeeping = _ObservedLock()
+    monkeypatch.setattr(media, "housekeeping_lock", housekeeping, raising=False)
+    sweeps: list[asyncio.Task] = []
+    original_settle = media._settle_staged_age_group
+
+    async def settle_while_a_sweep_runs(kind, event_id, owners, staged):
+        if event_id == "budget-old" and not sweeps:
+            # The owner acts after the first read, and the five-minute sweep starts meanwhile.
+            await asyncio.to_thread(_owner_acts, file_path, change)
+            sweep = asyncio.create_task(storage.MediaStorageService().enforce_limits())
+            sweeps.append(sweep)
+            contended = asyncio.create_task(housekeeping.contended.wait())
+            # Either the sweep runs to the end now, or it waits for age cleanup to finish.
+            await asyncio.wait({sweep, contended}, return_when=asyncio.FIRST_COMPLETED)
+            contended.cancel()
+        return await original_settle(kind, event_id, owners, staged)
+
+    monkeypatch.setattr(media, "_settle_staged_age_group", settle_while_a_sweep_runs)
+    await media.cleanup_old_media(1)
+    sweep_result = await sweeps[0]
+    assert await media.get_snapshot("budget-old") == photo
+    # A capture with a row is never counted as an orphan.
+    assert sweep_result["orphan_snapshots_deleted"] == 0
+    assert media._staged_deletions_sync() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("change", ["favourite", "confirm"])
+async def test_files_staged_by_age_cleanup_before_a_crash_come_back_on_the_next_sweep(
+    budget_visit_history, monkeypatch, change
+):
+    import app.database as db_module
+
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(db_module, "get_db", database)
+    monkeypatch.setattr(storage.settings.media_cache, "per_species_maximum", 0)
+    async with database() as db:
+        file_path = (await (await db.execute("PRAGMA database_list")).fetchone())[2]
+    photo = await media.get_snapshot("budget-old")
+    await _age_cache_files(10)
+
+    class ProcessDied(BaseException):
+        pass
+
+    with monkeypatch.context() as crash:
+        # A process that dies after staging restores nothing and finishes nothing.
+        crash.setattr(media, "_settle_staged_age_group", AsyncMock(side_effect=ProcessDied()))
+        crash.setattr(media, "_restore_staged_deletion_sync", lambda staged: None)
+        with pytest.raises(ProcessDied):
+            await media.cleanup_old_media(1)
+    assert await media.get_snapshot("budget-old") is None
+
+    await asyncio.to_thread(_owner_acts, file_path, change)
+    restarted = storage.MediaStorageService()
+    result = await restarted.enforce_limits()
+    assert result["orphan_snapshots_deleted"] == 0
+    assert await media.get_snapshot("budget-old") == photo
+    # The next age cleanup judges the returned files again, with every check.
+    await media.cleanup_old_media(1)
+    assert await media.get_snapshot("budget-old") == photo
 
 
 @pytest.mark.asyncio

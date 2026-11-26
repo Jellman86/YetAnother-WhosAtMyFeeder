@@ -1029,6 +1029,34 @@ async def test_empty_file_cleanup_skips_previews_during_publication(tmp_path, mo
 
 
 @pytest.mark.asyncio
+async def test_age_cleanup_waits_for_the_storage_sweep_before_staging_anything(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    _without_detection_history(service, monkeypatch)
+    await service.cache_snapshot("aged", b"aged-photo")
+    old_time = (datetime.now() - timedelta(days=5)).timestamp()
+    for path in snapshots.iterdir():
+        os.utime(path, (old_time, old_time))
+    waiting = asyncio.Event()
+
+    class ObservedLock(asyncio.Lock):
+        async def acquire(self) -> bool:
+            if self.locked():
+                waiting.set()
+            return await super().acquire()
+
+    service.housekeeping_lock = ObservedLock()
+    async with service.housekeeping_lock:
+        cleanup = asyncio.create_task(service.cleanup_old_media(1))
+        await asyncio.wait_for(waiting.wait(), 2)
+        # While the sweep holds the lock, age cleanup has staged nothing.
+        assert (snapshots / "aged.jpg").exists()
+        assert not [path for path in snapshots.iterdir() if path.name.startswith(".")]
+    stats = await cleanup
+    assert stats["snapshots_deleted"] == 1
+    assert not (snapshots / "aged.jpg").exists()
+
+
+@pytest.mark.asyncio
 async def test_cleanup_old_media_keeps_canonical_photo_for_owner_confirmed_and_manual_selection(tmp_path, monkeypatch):
     service, snapshots = _make_service(tmp_path, monkeypatch)
     clips = media_cache_module.CLIPS_DIR
