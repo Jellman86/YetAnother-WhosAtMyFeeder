@@ -28,8 +28,10 @@
   confirm while old media is being removed keeps its media, and its favourite archive waits for it
   rather than recording it as unavailable. If YA-WAMF stops part-way through, the media it had set
   aside goes back when it starts again, before anything reads the cache; where a newer file has
-  taken the name meanwhile, the newer file is kept. A long cleanup of old media no longer holds up
-  the storage limit or Clear cached files. Empty-file cleanup no
+  taken the name meanwhile, the newer file is kept, and one that cannot be put back yet stays set
+  aside for the next try and shows in Health. A long cleanup of old media no longer holds up the
+  storage limit. Clear cached files pressed while one is running shares that work and still takes
+  about as long. Empty-file cleanup no
   longer removes a clip, a recording clip that is still downloading, or a preview while it is being
   written.
 - **A photo change that fails after you switch records is reported:** If using, regenerating or
