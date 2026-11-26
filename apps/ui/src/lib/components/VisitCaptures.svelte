@@ -12,6 +12,8 @@
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import { captureFacts, hasCaptureTimeline, type CaptureFacts } from '../utils/visit-captures';
     import type { Detection } from '../api';
+    import { authStore } from '../stores/auth.svelte';
+    import { canWatchRecordVideo } from '../utils/record-access';
 
     interface Props {
         visit: DetectionVisit;
@@ -248,7 +250,7 @@
                             </div>
 
                             <div class="relative z-10 flex items-center gap-1">
-                                {#if onplay && capture.has_clip}
+                                {#if onplay && canWatchRecordVideo(authStore) && capture.has_clip}
                                     <button
                                         type="button"
                                         class="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-raised hover:text-accent-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"

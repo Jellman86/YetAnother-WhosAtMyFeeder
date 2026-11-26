@@ -18,6 +18,8 @@
     import { formatTime } from '../utils/datetime';
     import { birdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
+    import { authStore } from '../stores/auth.svelte';
+    import { canWatchRecordVideo } from '../utils/record-access';
     import { SCORE_FILL, SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import { FIELD_LOG_CELL as cell } from '../utils/field-log';
 
@@ -379,7 +381,7 @@
                         {percent(captureScore)}%
                     </BadgeHint>
                     <span class="flex justify-end {cell.action}">
-                        {#if onplay && capture.has_clip}
+                        {#if onplay && canWatchRecordVideo(authStore) && capture.has_clip}
                             <button
                                 type="button"
                                 class="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface-raised hover:text-accent-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"

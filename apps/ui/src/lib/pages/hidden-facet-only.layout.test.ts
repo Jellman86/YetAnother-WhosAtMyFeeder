@@ -23,7 +23,11 @@ describe('the Hidden facet shows only the hidden visits (#347)', () => {
     it('unhiding a visit while viewing only hidden removes it from the list', () => {
         // A row that stops qualifying for the active filter must leave the
         // view, or the list claims a state the database no longer holds.
+        // The record's hide is the one path that unhides, through the shared opener's callback.
         const removals = eventsPageSource.split('In the hidden-only view an unhidden row no longer qualifies.').length - 1;
-        expect(removals).toBe(2);
+        expect(removals).toBe(1);
+        const onHide = eventsPageSource.slice(eventsPageSource.indexOf('onHideSuccess={'));
+        expect(onHide.indexOf('In the hidden-only view an unhidden row no longer qualifies.')).toBeGreaterThan(-1);
+        expect(onHide).toContain('? events.filter((event) => event.frigate_event !== hiddenEventId)');
     });
 });

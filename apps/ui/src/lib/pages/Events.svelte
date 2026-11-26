@@ -25,15 +25,11 @@
         fetchVisits,
         fetchEventFilters,
         getThumbnailUrl,
-        hideDetection,
-        deleteDetection,
         bulkDeleteDetections,
         reclassifyDetection,
-        updateDetectionSpecies,
         bulkUpdateDetectionSpecies,
         fetchHiddenCount,
         fetchEventsCount,
-        analyzeDetection,
         searchSpecies,
         fetchFeederSpecies,
         type Detection,
@@ -65,11 +61,15 @@
     import DetectionCard from '../components/DetectionCard.svelte';
     import DetectionRow from '../components/DetectionRow.svelte';
     import LazyModal from '../components/LazyModal.svelte';
-    import { loadDetectionModal, loadGardenCaptureModal, loadSpeciesDetailModal, loadVideoPlayer } from '../components/lazy-dialogs';
+    import { loadGardenCaptureModal, loadSpeciesDetailModal } from '../components/lazy-dialogs';
+    import RecordDialogs from '../components/RecordDialogs.svelte';
+    import type { RecordVideo } from '../components/record-video';
+    import { canWatchRecordVideo, recordingClipsOn } from '../utils/record-access';
+    import { withLiveFields } from '../utils/detection-sync';
+    import { fetchFullVisitAndReport } from '../utils/full-visit-fetch';
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
     import { toLocalYMD } from '../utils/date-only';
     import { getErrorMessage } from '../utils/error-handling';
-    import { selectReclassificationStrategy } from '../utils/reclassification';
     import { speciesPickerNames } from '../utils/species-picker';
     import { explanation } from '../utils/explanation';
     import { explorerPane } from '../utils/explorer-results';
@@ -79,7 +79,7 @@
     import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
 
     import { birdNames } from '../naming';
-    import { videoHeadingFor, type VideoHeading } from '../components/video-heading';
+    import { videoHeadingFor } from '../components/video-heading';
     import { createEventMetadataRefresh } from './event-metadata-refresh';
     import { EVENTS_PAGE_REQUEST_KEYS } from './events-request-keys';
     import { createLatestRequest } from '../utils/latest-request';
@@ -99,8 +99,6 @@
     /** A read has finished since the results were last cleared, so a count and an empty page mean something. */
     let measured = $state(false);
     let countElement = $state<HTMLElement | null>(null);
-    let deleting = $state(false);
-    let hiding = $state(false);
 
     // Filters and state
     let showHidden = $state(false);
@@ -135,10 +133,6 @@
     let pendingEventId = $state<string | null>(null);
     /** A Garden capture a notification links to, opened once Garden is known to be readable here. */
     let pendingGardenCaptureId = $state<string | null>(null);
-    let lastModalEventId = $state<string | null>(null);
-    let tagSearchQuery = $state('');
-    let showTagDropdown = $state(false);
-    let updatingTag = $state(false);
     const explorerView = $derived(explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view ?? authStore.explorerView));
     let selectionMode = $state(false);
     let groupVisits = $state(true);
@@ -191,22 +185,8 @@
     let fullVisitAvailability = $derived(fullVisitStore.availability);
     let fullVisitFetchState = $derived(fullVisitStore.fetchState);
     let recordingClipFetchEnabled = $derived(
-        (settingsStore.settings?.recording_clip_enabled ?? publicSettingsStore.settings?.recording_clip_enabled ?? false) &&
-        (settingsStore.settings?.clips_enabled ?? publicSettingsStore.settings?.clips_enabled ?? false)
+        recordingClipsOn(settingsStore.settings, publicSettingsStore.settings) && canWatchRecordVideo(authStore)
     );
-    let selectedEventFullVisitHandler = $derived.by(() => {
-        const current = selectedEvent;
-        if (!current || !recordingClipFetchEnabled) return undefined;
-        return () => handleFetchFullVisit(current);
-    });
-
-    let analyzingAI = $state(false);
-    let aiAnalysis = $state<string | null>(null);
-
-    let llmReady = $state(false);
-    $effect(() => {
-        llmReady = settingsStore.llmReady;
-    });
 
     let eventsSyncFrame: number | null = null;
     let reclassifyCompletionRefreshTimeout: number | null = null;
@@ -214,43 +194,6 @@
     const eventsLoad = createLatestRequest();
     let handledVisibleReclassifyCompletions = $state<Record<string, number>>({});
     let refreshingFilterOptions = $state(false);
-
-    // Naming logic
-    let naming = $derived.by(() => {
-        if (!selectedEvent) return { primary: '', secondary: null };
-        const showCommon = settingsStore.displayCommonNames;
-        const preferSci = settingsStore.scientificNamePrimary;
-        return $birdNames(selectedEvent, showCommon, preferSci);
-    });
-
-    let modalReclassifyProgress = $derived(selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined);
-    let modalPrimaryName = $derived(naming.primary);
-    let modalSubName = $derived(naming.secondary);
-
-    function detectionSyncSignature(d: Detection): string {
-        const asText = (value: unknown) => {
-            if (value === null || value === undefined) return '';
-            return String(value);
-        };
-        const asNumber = (value: unknown) => {
-            const parsed = Number(value);
-            return Number.isFinite(parsed) ? String(parsed) : '';
-        };
-        const asFlag = (value: unknown) => (value ? '1' : '0');
-        return [
-            asText(d.frigate_event),
-            asText(d.display_name),
-            asNumber(d.score),
-            asFlag(d.manual_tagged),
-            asFlag(d.is_hidden),
-            asFlag(d.is_favorite),
-            asText(d.video_classification_status),
-            asText(d.video_classification_label),
-            asNumber(d.video_classification_score),
-            asText(d.ai_analysis),
-            asText(d.ai_analysis_timestamp),
-        ].join('|');
-    }
 
     function speciesOptionNames(item: EventFilterSpecies): { primary: string; secondary: string | null } {
         const naming = $birdNames({
@@ -655,10 +598,7 @@
         const videoParam = params.get('video');
         const deepLinkWantsVideo = videoParam === '1' || videoParam === 'true';
         if (deepLinkedEvent && deepLinkWantsVideo) {
-            videoEventId = deepLinkedEvent;
-            videoShareToken = deepLinkedShare;
-            videoPlayIntent = 'auto';
-            showVideo = true;
+            video = { frigateEvent: deepLinkedEvent, heading: null, shareToken: deepLinkedShare, playIntent: 'auto' };
             if (!deepLinkedShare) {
                 clearEventVideoDeepLinkParams();
             }
@@ -688,35 +628,8 @@
         return pageRefreshAction.register(refreshCurrentEventsPage);
     });
 
-    // Reset state when switching events
     $effect(() => {
-        if (selectedEvent) {
-            showTagDropdown = false;
-            tagSearchQuery = '';
-            aiAnalysis = null;
-            analyzingAI = false;
-        }
-    });
-
-    $effect(() => {
-        if (!selectedEvent) return;
-        const updated = detectionsStore.detections.find(
-            (d) => d.frigate_event === selectedEvent?.frigate_event
-        );
-        // Avoid proxy-identity churn causing a self-triggering effect loop.
-        if (updated) {
-            const definedPatch = Object.fromEntries(
-                Object.entries(updated).filter(([, value]) => value !== undefined)
-            ) as Partial<Detection>;
-            const merged = { ...selectedEvent, ...definedPatch } as Detection;
-            if (detectionSyncSignature(merged) !== detectionSyncSignature(selectedEvent)) {
-                selectedEvent = merged;
-            }
-        }
-    });
-
-    $effect(() => {
-        if (selectedEvent || showVideo) {
+        if (selectedEvent || video) {
             selectionMode = false;
             selectedEventIds = [];
         }
@@ -774,18 +687,11 @@
         let changed = false;
         const unnamed = new Set(unnamedSinceVisitRead);
         const nextEvents = events.map((event) => {
-            const updated = detectionsStore.getDetectionPatch(event.frigate_event);
-            if (!updated) return event;
-            const definedPatch = Object.fromEntries(
-                Object.entries(updated).filter(([, value]) => value !== undefined)
-            ) as Partial<Detection>;
-            const merged = { ...event, ...definedPatch } as Detection;
-            if (detectionSyncSignature(merged) !== detectionSyncSignature(event)) {
-                changed = true;
-                if (lostSpecies(event, merged)) unnamed.add(event.frigate_event);
-                return merged;
-            }
-            return event;
+            const merged = withLiveFields(event, detectionsStore.getDetectionPatch(event.frigate_event));
+            if (merged === event) return event;
+            changed = true;
+            if (lostSpecies(event, merged)) unnamed.add(event.frigate_event);
+            return merged;
         });
         if (changed) {
             events = nextEvents;
@@ -972,128 +878,7 @@
         }
     });
 
-    async function handleAIAnalysis() {
-        if (!selectedEvent) return;
-        analyzingAI = true;
-        aiAnalysis = null;
-        try {
-            const result = await analyzeDetection(selectedEvent.frigate_event);
-            aiAnalysis = result.analysis;
-        } catch (e) {
-            toastStore.show(getErrorMessage(e), 'error');
-            console.error('AI Analysis failed', e);
-        } finally {
-            analyzingAI = false;
-        }
-    }
-
-    async function handleReclassify() {
-        if (!selectedEvent) return;
-        const eventId = selectedEvent.frigate_event;
-        const requestedStrategy = selectReclassificationStrategy(
-            selectedEvent.has_clip,
-            fullVisitFetchState[eventId]
-        );
-        try {
-            const result = await reclassifyDetection(eventId, requestedStrategy);
-
-            if (result.status === 'queued') return;
-            if (!result.updated) {
-                toastStore.warning($_('notifications.reclassify_no_result'));
-                return;
-            }
-
-            // Check if backend used a different strategy (fallback occurred)
-            if (result.actual_strategy && result.actual_strategy !== requestedStrategy) {
-                toastStore.warning($_('notifications.reclassify_fallback'));
-            }
-        } catch (e) {
-            const message = getErrorMessage(e);
-            detectionsStore.dismissReclassification(eventId);
-            console.error('Failed to start reclassification', message);
-            toastStore.error($_('notifications.reclassify_failed', { values: { message } }));
-        }
-    }
-
-    async function handleManualTag(newSpecies: string) {
-        if (!selectedEvent) return;
-        updatingTag = true;
-        try {
-            const eventId = selectedEvent.frigate_event;
-            await updateDetectionSpecies(eventId, newSpecies);
-            selectedEvent.display_name = newSpecies;
-            selectedEvent.category_name = newSpecies;
-            selectedEvent.manual_tagged = true;
-            // Update local list
-            events = events.map(e => e.frigate_event === eventId ? { ...e, display_name: newSpecies, category_name: newSpecies, manual_tagged: true } : e);
-            detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies, category_name: newSpecies, manual_tagged: true });
-            if (recordingClipFetchEnabled) {
-                await fullVisitStore.ensureAvailability(eventId, { refresh: true });
-            }
-            showTagDropdown = false;
-        } catch (e) {
-            toastStore.show(getErrorMessage(e), 'error');
-            console.error('Failed to update species', e);
-        } finally {
-            updatingTag = false;
-        }
-    }
-
-    async function handleHide() {
-        if (!selectedEvent) return;
-        hiding = true;
-        try {
-            const result = await hideDetection(selectedEvent.frigate_event);
-            const eventId = selectedEvent.frigate_event;
-            const detectionTime = selectedEvent.detection_time;
-            if (result.is_hidden) {
-                if (showHidden) {
-                    events = events.map(e => e.frigate_event === eventId ? { ...e, is_hidden: true } : e);
-                } else {
-                    events = events.filter(e => e.frigate_event !== eventId);
-                    detectionsStore.removeDetection(eventId, detectionTime);
-                }
-                selectedEvent = null;
-                hiddenCount++;
-            } else {
-                // In the hidden-only view an unhidden row no longer qualifies.
-                events = showHidden
-                    ? events.filter(e => e.frigate_event !== eventId)
-                    : events.map(e => e.frigate_event === eventId ? { ...e, is_hidden: false } : e);
-                hiddenCount = Math.max(0, hiddenCount - 1);
-                selectedEvent = null;
-            }
-            await refreshEventMetadata(true, false);
-        } catch (e) {
-            toastStore.error($_('notifications.hide_failed', { values: { message: getErrorMessage(e) } }));
-        } finally { hiding = false; }
-    }
-
-    async function handleDelete() {
-        if (!selectedEvent) return;
-        const target = selectedEvent;
-        if (!(await confirmAction({
-            title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
-            message: $_('actions.confirm_delete', { values: { species: target.display_name } }),
-            confirmLabel: $_('dashboard.review_session.delete', { default: 'Delete permanently' })
-        }))) return;
-        deleting = true;
-        try {
-            await deleteDetection(target.frigate_event);
-            events = events.filter(e => e.frigate_event !== target.frigate_event);
-            detectionsStore.removeDetection(target.frigate_event, target.detection_time);
-            selectedEvent = null;
-            await refreshEventMetadata(true, false);
-        } catch (e) {
-            toastStore.error($_('notifications.delete_failed', { values: { message: getErrorMessage(e) } }));
-        } finally { deleting = false; }
-    }
-
-    let showVideo = $state(false);
-    let videoEventId = $state<string | null>(null);
-    let videoHeading = $state<VideoHeading | null>(null);
-    let videoShareToken = $state<string | null>(null);
-    let videoPlayIntent = $state<'auto' | 'user'>('auto');
+    let video = $state.raw<RecordVideo | null>(null);
 
     let selectedTimelineBucket = $state<string>('all');
 
@@ -1161,24 +946,6 @@
     });
 
     $effect(() => {
-        if (!recordingClipFetchEnabled || !selectedEvent) {
-            return;
-        }
-        const eventId = selectedEvent.frigate_event;
-        const isNewOpen = eventId !== lastModalEventId;
-        if (isNewOpen) {
-            lastModalEventId = eventId;
-            // Force fresh probe: a cached 'unavailable' from a previous check may
-            // now be wrong if the clip was fetched in another session or tab.
-            void fullVisitStore.ensureAvailability(eventId, { refresh: true, autoFetch: true });
-        } else {
-            // Same event still open (SSE update to selectedEvent while modal is open).
-            // Non-refresh probe respects the current cache — no redundant round-trips.
-            void fullVisitStore.ensureAvailability(eventId, { autoFetch: true });
-        }
-    });
-
-    $effect(() => {
         if (selectedTimelineBucket === 'all') return;
         if (!timelineBuckets.some((bucket) => bucket.key === selectedTimelineBucket)) {
             selectedTimelineBucket = 'all';
@@ -1204,7 +971,7 @@
         const target = event.target as HTMLElement | null;
         const tag = target?.tagName?.toLowerCase();
         if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
-        if (selectedEvent || showVideo) return;
+        if (selectedEvent || video) return;
 
         if (event.key === '[' || (event.altKey && event.key === 'ArrowLeft')) {
             event.preventDefault();
@@ -1324,35 +1091,23 @@
      */
     function playGardenClip(capture: GardenCapture, title?: string): void {
         if (!capture.clip_event) return;
-        videoEventId = capture.clip_event;
-        videoHeading = { name: title || $_('garden.explorer.eyebrow_capture', { default: 'Garden capture' }), at: capture.observed_at };
-        videoShareToken = null;
-        videoPlayIntent = 'user';
-        showVideo = true;
+        video = {
+            frigateEvent: capture.clip_event,
+            heading: { name: title || $_('garden.explorer.eyebrow_capture', { default: 'Garden capture' }), at: capture.observed_at },
+            shareToken: null,
+            playIntent: 'user'
+        };
         selectedEvent = null;
     }
 
     function playClip(detection: Detection) {
-        videoEventId = detection.frigate_event;
-        videoHeading = videoHeadingFor(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames);
-        videoShareToken = null;
-        videoPlayIntent = 'user';
-        showVideo = true;
+        video = {
+            frigateEvent: detection.frigate_event,
+            heading: videoHeadingFor(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames),
+            shareToken: null,
+            playIntent: 'user'
+        };
         selectedEvent = null;
-    }
-
-    async function handleFetchFullVisit(event: Detection) {
-        try {
-            const complete = await fullVisitStore.fetchFullVisit(event.frigate_event);
-            if (complete) {
-                toastStore.success($_('video_player.full_visit_ready', { default: 'Full visit clip ready' }));
-            } else {
-                toastStore.warning($_('video_player.partial_visit_ready', { default: 'A partial visit is ready; retry shortly for the complete clip.' }));
-            }
-        } catch (e) {
-            const message = e instanceof Error ? e.message : $_('video_player.full_visit_failed', { default: 'Could not fetch full visit clip' });
-            toastStore.error(message);
-        }
     }
 
     async function applyBulkManualTag(selection: SearchResult) {
@@ -2076,7 +1831,7 @@
         species={displaySpecies}
         cameras={cameraOptions.cameras}
         cameraCounts={cameraOptions.counts}
-        shortcutEnabled={!selectedEvent && !showVideo && !selectedGarden && !showBulkTagModal}
+        shortcutEnabled={!selectedEvent && !video && !selectedGarden && !showBulkTagModal}
         onchoose={handleSearchChoice}
     />
 {/snippet}
@@ -2655,7 +2410,7 @@
                         {index}
                         onclick={() => handleEventCardClick(event)}
                         onPlay={() => playClip(event)}
-                        onFetchFullVisit={recordingClipFetchEnabled ? () => handleFetchFullVisit(event) : undefined}
+                        onFetchFullVisit={recordingClipFetchEnabled ? () => fetchFullVisitAndReport(event.frigate_event) : undefined}
                         fullVisitAvailable={fullVisitAvailability[event.frigate_event] === 'available'}
                         fullVisitFetched={fullVisitFetchState[event.frigate_event] === 'ready'}
                         fullVisitFetchState={fullVisitFetchState[event.frigate_event] ?? 'idle'}
@@ -2691,61 +2446,38 @@
     </div>
 </div>
 
-{#if selectedEvent}
-    <LazyModal loader={loadDetectionModal} onclose={() => (selectedEvent = null)}>
-        {#snippet children(DetectionModal)}
-            {#if selectedEvent}
-                <DetectionModal
-                    detection={selectedEvent}
-                    llmReady={llmReady}
-                    showVideoButton={true}
-                    fullVisitAvailable={fullVisitAvailability[selectedEvent.frigate_event] === 'available'}
-                    fullVisitFetched={fullVisitFetchState[selectedEvent.frigate_event] === 'ready'}
-                    fullVisitFetchState={fullVisitFetchState[selectedEvent.frigate_event] ?? 'idle'}
-                    onClose={() => selectedEvent = null}
-                    onReclassify={handleReclassify}
-                    onFetchFullVisit={selectedEventFullVisitHandler}
-                    onDeleteSuccess={async (deletedEventId: string, detectionTime?: string) => {
-                        events = events.filter((event) => event.frigate_event !== deletedEventId);
-                        detectionsStore.removeDetection(deletedEventId, detectionTime);
-                        selectedEvent = null;
-                        await refreshEventMetadata(true, false);
-                        await loadEvents();
-                    }}
-                    onHideSuccess={async (hiddenEventId: string, detectionTime: string | undefined, isHidden: boolean) => {
-                        if (isHidden) {
-                            if (showHidden) {
-                                events = events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: true } : event);
-                            } else {
-                                events = events.filter((event) => event.frigate_event !== hiddenEventId);
-                                detectionsStore.removeDetection(hiddenEventId, detectionTime);
-                            }
-                            hiddenCount++;
-                        } else {
-                            // In the hidden-only view an unhidden row no longer qualifies.
-                            events = showHidden
-                                ? events.filter((event) => event.frigate_event !== hiddenEventId)
-                                : events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: false } : event);
-                            hiddenCount = Math.max(0, hiddenCount - 1);
-                        }
-                        selectedEvent = null;
-                        await refreshEventMetadata(true, false);
-                        await loadEvents();
-                    }}
-                    onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
-                        videoEventId = frigateEvent;
-                        videoHeading = selectedEvent ? videoHeadingFor(selectedEvent, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames) : null;
-                        videoShareToken = null;
-                        videoPlayIntent = playIntent;
-                        showVideo = true;
-                        selectedEvent = null;
-                    }}
-                    onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
-                />
-            {/if}
-        {/snippet}
-    </LazyModal>
-{/if}
+<RecordDialogs
+    bind:record={selectedEvent}
+    bind:video
+    onViewSpecies={(species: string) => (selectedSpecies = species)}
+    onDeleteSuccess={async (deletedEventId: string, detectionTime?: string) => {
+        events = events.filter((event) => event.frigate_event !== deletedEventId);
+        detectionsStore.removeDetection(deletedEventId, detectionTime);
+        selectedEvent = null;
+        await refreshEventMetadata(true, false);
+        await loadEvents();
+    }}
+    onHideSuccess={async (hiddenEventId: string, detectionTime: string | undefined, isHidden: boolean) => {
+        if (isHidden) {
+            if (showHidden) {
+                events = events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: true } : event);
+            } else {
+                events = events.filter((event) => event.frigate_event !== hiddenEventId);
+                detectionsStore.removeDetection(hiddenEventId, detectionTime);
+            }
+            hiddenCount++;
+        } else {
+            // In the hidden-only view an unhidden row no longer qualifies.
+            events = showHidden
+                ? events.filter((event) => event.frigate_event !== hiddenEventId)
+                : events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: false } : event);
+            hiddenCount = Math.max(0, hiddenCount - 1);
+        }
+        selectedEvent = null;
+        await refreshEventMetadata(true, false);
+        await loadEvents();
+    }}
+/>
 {#if selectedGarden && gardenAvailable}
     <LazyModal loader={loadGardenCaptureModal} onclose={closeGardenRecord}>
         {#snippet children(GardenCaptureModal)}
@@ -2856,24 +2588,4 @@
             </div>
         </div>
     </div>
-{/if}
-{#if showVideo && videoEventId}
-    <LazyModal loader={loadVideoPlayer} onclose={() => { showVideo = false; videoEventId = null; videoShareToken = null; }}>
-        {#snippet children(VideoPlayer)}
-            {#if videoEventId}
-                <VideoPlayer
-                    frigateEvent={videoEventId}
-                    heading={videoHeading}
-                    shareToken={videoShareToken}
-                    playIntent={videoPlayIntent}
-                    initialFullVisitPromoted={fullVisitFetchState[videoEventId] === 'ready'}
-                    onClose={() => {
-                        showVideo = false;
-                        videoEventId = null;
-                        videoShareToken = null;
-                    }}
-                />
-            {/if}
-        {/snippet}
-    </LazyModal>
 {/if}

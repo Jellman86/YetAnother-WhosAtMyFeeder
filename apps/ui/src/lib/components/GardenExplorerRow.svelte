@@ -13,6 +13,7 @@
     import type { GardenCapture } from '../api/garden';
     import { gardenEntryText, gardenEntryView, gardenRowDetail, gardenVisitLabel, type GardenVisit } from '../utils/garden-explorer';
     import { authStore } from '../stores/auth.svelte';
+    import { canWatchRecordVideo } from '../utils/record-access';
     import { formatTime } from '../utils/datetime';
     import { relativeDayLabel } from '../utils/day-label';
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
@@ -32,7 +33,7 @@
     const view = $derived(gardenEntryView(capture));
     const text = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), authStore.hasOwnerAccess ? 'owner' : 'visitor'));
     const detail = $derived(gardenRowDetail(capture, view));
-    const canPlay = $derived(Boolean(onplay && capture.clip_event));
+    const canPlay = $derived(Boolean(onplay && canWatchRecordVideo(authStore) && capture.clip_event));
     const day = $derived(relativeDayLabel(capture.observed_at, $_));
     const grouped = $derived(gardenVisitLabel(visit, (key, fallback, values) => get(_)(key, { values, default: fallback })));
     const score = $derived(view.score === null ? null : Math.round(view.score * 100));
