@@ -25,15 +25,11 @@
         fetchVisits,
         fetchEventFilters,
         getThumbnailUrl,
-        hideDetection,
-        deleteDetection,
         bulkDeleteDetections,
         reclassifyDetection,
-        updateDetectionSpecies,
         bulkUpdateDetectionSpecies,
         fetchHiddenCount,
         fetchEventsCount,
-        analyzeDetection,
         searchSpecies,
         fetchFeederSpecies,
         type Detection,
@@ -69,7 +65,8 @@
     import RecordDialogs from '../components/RecordDialogs.svelte';
     import type { RecordVideo } from '../components/record-video';
     import { canWatchRecordVideo, recordingClipsOn } from '../utils/record-access';
-    import { detectionSyncSignature } from '../utils/detection-sync';
+    import { withLiveFields } from '../utils/detection-sync';
+    import { fetchFullVisitAndReport } from '../utils/full-visit-fetch';
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
     import { toLocalYMD } from '../utils/date-only';
     import { getErrorMessage } from '../utils/error-handling';
@@ -102,8 +99,6 @@
     /** A read has finished since the results were last cleared, so a count and an empty page mean something. */
     let measured = $state(false);
     let countElement = $state<HTMLElement | null>(null);
-    let deleting = $state(false);
-    let hiding = $state(false);
 
     // Filters and state
     let showHidden = $state(false);
@@ -138,9 +133,6 @@
     let pendingEventId = $state<string | null>(null);
     /** A Garden capture a notification links to, opened once Garden is known to be readable here. */
     let pendingGardenCaptureId = $state<string | null>(null);
-    let tagSearchQuery = $state('');
-    let showTagDropdown = $state(false);
-    let updatingTag = $state(false);
     const explorerView = $derived(explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view ?? authStore.explorerView));
     let selectionMode = $state(false);
     let groupVisits = $state(true);
@@ -196,27 +188,12 @@
         recordingClipsOn(settingsStore.settings, publicSettingsStore.settings) && canWatchRecordVideo(authStore)
     );
 
-    let analyzingAI = $state(false);
-    let aiAnalysis = $state<string | null>(null);
-
     let eventsSyncFrame: number | null = null;
     let reclassifyCompletionRefreshTimeout: number | null = null;
     let eventMetadataRefreshTimeout: number | null = null;
     const eventsLoad = createLatestRequest();
     let handledVisibleReclassifyCompletions = $state<Record<string, number>>({});
     let refreshingFilterOptions = $state(false);
-
-    // Naming logic
-    let naming = $derived.by(() => {
-        if (!selectedEvent) return { primary: '', secondary: null };
-        const showCommon = settingsStore.displayCommonNames;
-        const preferSci = settingsStore.scientificNamePrimary;
-        return $birdNames(selectedEvent, showCommon, preferSci);
-    });
-
-    let modalReclassifyProgress = $derived(selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined);
-    let modalPrimaryName = $derived(naming.primary);
-    let modalSubName = $derived(naming.secondary);
 
     function speciesOptionNames(item: EventFilterSpecies): { primary: string; secondary: string | null } {
         const naming = $birdNames({
@@ -651,16 +628,6 @@
         return pageRefreshAction.register(refreshCurrentEventsPage);
     });
 
-    // Reset state when switching events
-    $effect(() => {
-        if (selectedEvent) {
-            showTagDropdown = false;
-            tagSearchQuery = '';
-            aiAnalysis = null;
-            analyzingAI = false;
-        }
-    });
-
     $effect(() => {
         if (selectedEvent || video) {
             selectionMode = false;
@@ -720,18 +687,11 @@
         let changed = false;
         const unnamed = new Set(unnamedSinceVisitRead);
         const nextEvents = events.map((event) => {
-            const updated = detectionsStore.getDetectionPatch(event.frigate_event);
-            if (!updated) return event;
-            const definedPatch = Object.fromEntries(
-                Object.entries(updated).filter(([, value]) => value !== undefined)
-            ) as Partial<Detection>;
-            const merged = { ...event, ...definedPatch } as Detection;
-            if (detectionSyncSignature(merged) !== detectionSyncSignature(event)) {
-                changed = true;
-                if (lostSpecies(event, merged)) unnamed.add(event.frigate_event);
-                return merged;
-            }
-            return event;
+            const merged = withLiveFields(event, detectionsStore.getDetectionPatch(event.frigate_event));
+            if (merged === event) return event;
+            changed = true;
+            if (lostSpecies(event, merged)) unnamed.add(event.frigate_event);
+            return merged;
         });
         if (changed) {
             events = nextEvents;
@@ -917,95 +877,6 @@
             bulkSearchTimeout = null;
         }
     });
-
-    async function handleAIAnalysis() {
-        if (!selectedEvent) return;
-        analyzingAI = true;
-        aiAnalysis = null;
-        try {
-            const result = await analyzeDetection(selectedEvent.frigate_event);
-            aiAnalysis = result.analysis;
-        } catch (e) {
-            toastStore.show(getErrorMessage(e), 'error');
-            console.error('AI Analysis failed', e);
-        } finally {
-            analyzingAI = false;
-        }
-    }
-
-    async function handleManualTag(newSpecies: string) {
-        if (!selectedEvent) return;
-        updatingTag = true;
-        try {
-            const eventId = selectedEvent.frigate_event;
-            await updateDetectionSpecies(eventId, newSpecies);
-            selectedEvent.display_name = newSpecies;
-            selectedEvent.category_name = newSpecies;
-            selectedEvent.manual_tagged = true;
-            // Update local list
-            events = events.map(e => e.frigate_event === eventId ? { ...e, display_name: newSpecies, category_name: newSpecies, manual_tagged: true } : e);
-            detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies, category_name: newSpecies, manual_tagged: true });
-            if (recordingClipFetchEnabled) {
-                await fullVisitStore.ensureAvailability(eventId, { refresh: true });
-            }
-            showTagDropdown = false;
-        } catch (e) {
-            toastStore.show(getErrorMessage(e), 'error');
-            console.error('Failed to update species', e);
-        } finally {
-            updatingTag = false;
-        }
-    }
-
-    async function handleHide() {
-        if (!selectedEvent) return;
-        hiding = true;
-        try {
-            const result = await hideDetection(selectedEvent.frigate_event);
-            const eventId = selectedEvent.frigate_event;
-            const detectionTime = selectedEvent.detection_time;
-            if (result.is_hidden) {
-                if (showHidden) {
-                    events = events.map(e => e.frigate_event === eventId ? { ...e, is_hidden: true } : e);
-                } else {
-                    events = events.filter(e => e.frigate_event !== eventId);
-                    detectionsStore.removeDetection(eventId, detectionTime);
-                }
-                selectedEvent = null;
-                hiddenCount++;
-            } else {
-                // In the hidden-only view an unhidden row no longer qualifies.
-                events = showHidden
-                    ? events.filter(e => e.frigate_event !== eventId)
-                    : events.map(e => e.frigate_event === eventId ? { ...e, is_hidden: false } : e);
-                hiddenCount = Math.max(0, hiddenCount - 1);
-                selectedEvent = null;
-            }
-            await refreshEventMetadata(true, false);
-        } catch (e) {
-            toastStore.error($_('notifications.hide_failed', { values: { message: getErrorMessage(e) } }));
-        } finally { hiding = false; }
-    }
-
-    async function handleDelete() {
-        if (!selectedEvent) return;
-        const target = selectedEvent;
-        if (!(await confirmAction({
-            title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
-            message: $_('actions.confirm_delete', { values: { species: target.display_name } }),
-            confirmLabel: $_('dashboard.review_session.delete', { default: 'Delete permanently' })
-        }))) return;
-        deleting = true;
-        try {
-            await deleteDetection(target.frigate_event);
-            events = events.filter(e => e.frigate_event !== target.frigate_event);
-            detectionsStore.removeDetection(target.frigate_event, target.detection_time);
-            selectedEvent = null;
-            await refreshEventMetadata(true, false);
-        } catch (e) {
-            toastStore.error($_('notifications.delete_failed', { values: { message: getErrorMessage(e) } }));
-        } finally { deleting = false; }
-    }
 
     let video = $state.raw<RecordVideo | null>(null);
 
@@ -1237,20 +1108,6 @@
             playIntent: 'user'
         };
         selectedEvent = null;
-    }
-
-    async function handleFetchFullVisit(event: Detection) {
-        try {
-            const complete = await fullVisitStore.fetchFullVisit(event.frigate_event);
-            if (complete) {
-                toastStore.success($_('video_player.full_visit_ready', { default: 'Full visit clip ready' }));
-            } else {
-                toastStore.warning($_('video_player.partial_visit_ready', { default: 'A partial visit is ready; retry shortly for the complete clip.' }));
-            }
-        } catch (e) {
-            const message = e instanceof Error ? e.message : $_('video_player.full_visit_failed', { default: 'Could not fetch full visit clip' });
-            toastStore.error(message);
-        }
     }
 
     async function applyBulkManualTag(selection: SearchResult) {
@@ -2553,7 +2410,7 @@
                         {index}
                         onclick={() => handleEventCardClick(event)}
                         onPlay={() => playClip(event)}
-                        onFetchFullVisit={recordingClipFetchEnabled ? () => handleFetchFullVisit(event) : undefined}
+                        onFetchFullVisit={recordingClipFetchEnabled ? () => fetchFullVisitAndReport(event.frigate_event) : undefined}
                         fullVisitAvailable={fullVisitAvailability[event.frigate_event] === 'available'}
                         fullVisitFetched={fullVisitFetchState[event.frigate_event] === 'ready'}
                         fullVisitFetchState={fullVisitFetchState[event.frigate_event] ?? 'idle'}

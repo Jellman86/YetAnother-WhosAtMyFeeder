@@ -7,6 +7,10 @@ import { replayFeeder, settled } from './accessibility-mock';
  * and the Explorer; only access (owner, or a guest under the owner's switches) changes what it offers.
  */
 const READY = { timeout: 15_000 };
+// A cold dev server compiles each route on its first request, so a first paint can take far longer
+// than a warm one. The tests wait for what they need to be drawn, never for a fixed time.
+const FIRST_PAINT = { timeout: 60_000 };
+test.describe.configure({ timeout: 120_000 });
 // The newest recorded visit, which has a clip.
 const EVENT = '1794671895.363257-to87lz';
 
@@ -66,19 +70,21 @@ function record(page: Page): Locator {
 
 /** The record is a lazy chunk; it is open once its close button and its photograph are drawn. */
 async function recordOpen(page: Page): Promise<void> {
-    await expect(record(page).locator('[data-detection-modal-close]')).toBeVisible(READY);
+    await expect(record(page).locator('[data-detection-modal-close]')).toBeVisible(FIRST_PAINT);
     await expect(record(page).locator('[data-detection-photograph]')).toBeVisible(READY);
 }
 
 async function openFromAbout(page: Page): Promise<void> {
     await page.goto('/about');
-    await page.locator('[data-feeder-portrait-visit]').click(READY);
+    const visit = page.locator('[data-feeder-portrait-visit]');
+    await expect(visit).toBeVisible(FIRST_PAINT);
+    await visit.click();
     await recordOpen(page);
 }
 
 async function openFromDashboard(page: Page): Promise<void> {
     await page.goto('/');
-    await expect(page.locator('[data-field-log-row]').first()).toBeVisible(READY);
+    await expect(page.locator('[data-field-log-row]').first()).toBeVisible(FIRST_PAINT);
     await page.locator('[data-field-log-row] [data-field-log-action]').first().click();
     await recordOpen(page);
 }
@@ -155,6 +161,27 @@ test.describe('the same record from each page', () => {
             expect(fromDashboard).toEqual(fromAbout);
             expect(fromExplorer).toEqual(fromAbout);
             expect(fromAbout.some((name) => /^Play (?:video|full visit clip) of /.test(name))).toBe(!viewer.guest || viewer.showClips === true);
+        });
+    }
+});
+
+test.describe('the Explorer\'s own play buttons', () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    for (const showClips of [true, false]) {
+        test(`follow the guest switch with clips ${showClips ? 'shared' : 'private'}, on cards and in the list`, async ({ page }) => {
+            await openFeeder(page, { guest: true, showClips });
+            await page.goto('/events');
+            await expect(page.locator('[data-detection-card]').first()).toBeVisible(FIRST_PAINT);
+            await settled(page);
+            const play = page.getByRole('button', { name: /^Play video of / });
+            if (showClips) await expect(play.first()).toBeVisible();
+            else await expect(play).toHaveCount(0);
+            await page.getByRole('button', { name: 'List', exact: true }).click();
+            await expect(page.locator('[data-detection-row]').first()).toBeVisible(READY);
+            await settled(page);
+            if (showClips) await expect(play.first()).toBeVisible();
+            else await expect(play).toHaveCount(0);
         });
     }
 });

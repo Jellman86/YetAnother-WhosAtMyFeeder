@@ -14,6 +14,7 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { withLiveFields } from '../utils/detection-sync';
+    import { fetchFullVisitAndReport } from '../utils/full-visit-fetch';
     import { getErrorMessage } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import { canWatchRecordVideo, recordingClipsOn } from '../utils/record-access';
@@ -49,7 +50,7 @@
     const fullVisitHandler = $derived.by(() => {
         const current = record;
         if (!current || !fullVisitsOn) return undefined;
-        return () => fetchFullVisit(current);
+        return () => fetchFullVisitAndReport(current.frigate_event);
     });
 
     // Not view state: it only tells a new open from a live update to the record already open.
@@ -66,9 +67,11 @@
         }
     });
 
-    // The live store is outside this component: a reclassification or a correction that arrives while
-    // the record is open is shown in it. `withLiveFields` keeps the same object when nothing shown
-    // changed, so this never writes back what it just read.
+    // A reclassification or correction reaches `detectionsStore` from the server's event stream while
+    // the record is open. This stays an effect, not a `$derived` copy, because the dialog edits the
+    // bound record in place (a species change, an AI note): a derived merge would hand it a fresh,
+    // unproxied object on every store change and lose those edits. `withLiveFields` keeps the same
+    // object when nothing shown changed, so this never writes back what it just read.
     $effect(() => {
         const current = record;
         if (!current) return;
@@ -115,19 +118,6 @@
         }
     }
 
-    async function fetchFullVisit(detection: Detection): Promise<void> {
-        try {
-            const complete = await fullVisitStore.fetchFullVisit(detection.frigate_event);
-            if (complete) {
-                toastStore.success($_('video_player.full_visit_ready', { default: 'Full visit clip ready' }));
-            } else {
-                toastStore.warning($_('video_player.partial_visit_ready', { default: 'A partial visit is ready; retry shortly for the complete clip.' }));
-            }
-        } catch (error) {
-            const message = error instanceof Error ? error.message : $_('video_player.full_visit_failed', { default: 'Could not fetch full visit clip' });
-            toastStore.error(message);
-        }
-    }
 </script>
 
 {#if record}

@@ -112,7 +112,7 @@ describe('Explorer page layout', () => {
 
     it('treats AI analysis fields as part of selected-event sync state', () => {
         // The list and the open record share one sync signature.
-        expect(eventsSource).toContain("import { detectionSyncSignature } from '../utils/detection-sync';");
+        expect(eventsSource).toContain("import { withLiveFields } from '../utils/detection-sync';");
         expect(detectionSyncSource).toContain('asText(d.ai_analysis)');
         expect(detectionSyncSource).toContain('asText(d.ai_analysis_timestamp)');
     });

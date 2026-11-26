@@ -1,7 +1,7 @@
 import type { Detection } from '../api';
 
 /** The fields a shown detection draws from, so a live update that changes none of them changes nothing. */
-export function detectionSyncSignature(d: Detection): string {
+function detectionSyncSignature(d: Detection): string {
     const asText = (value: unknown) => (value === null || value === undefined ? '' : String(value));
     const asNumber = (value: unknown) => {
         const parsed = Number(value);

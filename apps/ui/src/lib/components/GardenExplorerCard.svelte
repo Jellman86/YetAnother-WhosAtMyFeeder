@@ -15,6 +15,7 @@
     import { withAuthParams } from '../api/core';
     import { gardenEntryText, gardenEntryView, gardenRowDetail, gardenVisitLabel, type GardenVisit } from '../utils/garden-explorer';
     import { authStore } from '../stores/auth.svelte';
+    import { canWatchRecordVideo } from '../utils/record-access';
     import { formatDate, formatTime } from '../utils/datetime';
     import { relativeDayLabel } from '../utils/day-label';
     import { SCORE_FILL, scoreBand } from '../utils/score-tone';
@@ -37,7 +38,7 @@
     const view = $derived(gardenEntryView(capture));
     const text = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), authStore.hasOwnerAccess ? 'owner' : 'visitor'));
     const detail = $derived(gardenRowDetail(capture, view));
-    const canPlay = $derived(Boolean(onplay && capture.clip_event));
+    const canPlay = $derived(Boolean(onplay && canWatchRecordVideo(authStore) && capture.clip_event));
     const cropPhoto = $derived(capture.crop_url ? withAuthParams(capture.crop_url) : null);
     const fullPhoto = $derived(capture.snapshot_url ? withAuthParams(capture.snapshot_url) : null);
     const photo = $derived(cropPhoto && cropPhoto !== failedCropUrl ? cropPhoto : fullPhoto);
