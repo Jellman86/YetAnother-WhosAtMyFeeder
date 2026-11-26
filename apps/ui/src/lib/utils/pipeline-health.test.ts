@@ -172,7 +172,18 @@ describe('recent filtered detections', () => {
         expect(recentFaultDetections({ recent_outcomes: withHeldBack }).map(entry => entry.eventId)).toEqual(['f', 'c']);
         expect(recentFilteredDetections({ recent_outcomes: withHeldBack }).map(entry => entry.eventId)).toEqual(['d', 'b']);
         expect(recentHeldBackDetections({ recent_outcomes: withHeldBack })).toEqual([
-            { eventId: 'e', reason: 'update_recovery_cooldown', label: null, score: null, timestamp: '2026-08-15T06:16:30Z' }
+            { eventId: 'e', reason: 'update_recovery_cooldown', label: null, score: null, timestamp: '2026-08-15T06:16:30Z', camera: null }
+        ]);
+    });
+
+    it('says which camera a skipped event came from and names the species nest mode already saved', () => {
+        const skipped = [
+            { event_id: 'p', outcome: 'dropped', reason: 'update_recovery_cooldown', severity: 'info', camera: 'patiocam', timestamp: '2026-08-15T06:16:30Z' },
+            { event_id: 'n', outcome: 'dropped', reason: 'nest_mode_dedupe', severity: 'info', camera: 'nestbox', species: 'Parus major', dedupe_minutes: 30, timestamp: '2026-08-15T06:17:00Z' }
+        ];
+        expect(recentHeldBackDetections({ recent_outcomes: skipped })).toEqual([
+            { eventId: 'n', reason: 'nest_mode_dedupe', label: 'Parus major', score: null, timestamp: '2026-08-15T06:17:00Z', camera: 'nestbox' },
+            { eventId: 'p', reason: 'update_recovery_cooldown', label: null, score: null, timestamp: '2026-08-15T06:16:30Z', camera: 'patiocam' }
         ]);
     });
 

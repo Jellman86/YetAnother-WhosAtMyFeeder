@@ -92,18 +92,25 @@ export interface FilteredDetection {
 }
 
 export type FaultDetection = FilteredDetection;
-export type HeldBackDetection = FilteredDetection;
+/**
+ * Work held back on purpose carries no score, and usually no species: a paused retry or a
+ * follow-up to a withdrawn Frigate event says only which camera it came from. Nest mode records
+ * the species it already saved as `species`.
+ */
+export interface HeldBackDetection extends FilteredDetection {
+    camera: string | null;
+}
 
 /**
  * An event can have several pipeline attempts. Give each attempt a stable key,
  * retaining even indistinguishable records instead of silently hiding history.
  * Count duplicates from the oldest end so a new attempt does not rename older rows.
  */
-export function keyedPipelineDetections(
-    detections: readonly FilteredDetection[]
-): { key: string; entry: FilteredDetection }[] {
+export function keyedPipelineDetections<T extends FilteredDetection>(
+    detections: readonly T[]
+): { key: string; entry: T }[] {
     const occurrences = new Map<string, number>();
-    const keyed: { key: string; entry: FilteredDetection }[] = [];
+    const keyed: { key: string; entry: T }[] = [];
     for (let index = detections.length - 1; index >= 0; index--) {
         const entry = detections[index];
         const identity = JSON.stringify([
@@ -139,17 +146,18 @@ function dropKind(record: Record<string, unknown>, reason: string): DropKind {
 }
 
 /**
- * The most recent dropped outcomes of one kind, newest first. Entries without an event id are
- * skipped: an unidentifiable row helps nobody diagnose anything.
+ * The most recent dropped outcomes of one kind, newest first, each read by `read`. Entries without
+ * an event id are skipped: an unidentifiable row helps nobody diagnose anything.
  */
-function recentDrops(
+function recentDrops<T>(
     pipeline: EventPipelineHealth | null | undefined,
     kind: DropKind,
-    limit: number
-): FilteredDetection[] {
+    limit: number,
+    read: (record: Record<string, unknown>, drop: FilteredDetection) => T
+): T[] {
     const outcomes = pipeline?.recent_outcomes;
     if (!Array.isArray(outcomes)) return [];
-    const drops: FilteredDetection[] = [];
+    const drops: T[] = [];
     for (const entry of outcomes) {
         if (!entry || typeof entry !== 'object') continue;
         const record = entry as Record<string, unknown>;
@@ -158,15 +166,19 @@ function recentDrops(
         if (!reason || dropKind(record, reason) !== kind) continue;
         const eventId = toText(record.event_id);
         if (!eventId) continue;
-        drops.push({
+        drops.push(read(record, {
             eventId,
             reason,
             label: toText(record.label),
             score: toScore(record.score),
             timestamp: toText(record.timestamp)
-        });
+        }));
     }
     return drops.reverse().slice(0, Math.max(0, limit));
+}
+
+function asDetection(_record: Record<string, unknown>, drop: FilteredDetection): FilteredDetection {
+    return drop;
 }
 
 /**
@@ -177,7 +189,7 @@ export function recentFilteredDetections(
     pipeline: EventPipelineHealth | null | undefined,
     limit = 5
 ): FilteredDetection[] {
-    return recentDrops(pipeline, 'filtered', limit);
+    return recentDrops(pipeline, 'filtered', limit, asDetection);
 }
 
 /**
@@ -191,7 +203,7 @@ export function recentFaultDetections(
     pipeline: EventPipelineHealth | null | undefined,
     limit = 5
 ): FaultDetection[] {
-    return recentDrops(pipeline, 'fault', limit);
+    return recentDrops(pipeline, 'fault', limit, asDetection);
 }
 
 /**
@@ -202,7 +214,11 @@ export function recentHeldBackDetections(
     pipeline: EventPipelineHealth | null | undefined,
     limit = 5
 ): HeldBackDetection[] {
-    return recentDrops(pipeline, 'held_back', limit);
+    return recentDrops(pipeline, 'held_back', limit, (record, drop) => ({
+        ...drop,
+        label: drop.label ?? toText(record.species),
+        camera: toText(record.camera)
+    }));
 }
 
 /**

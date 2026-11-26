@@ -60,6 +60,32 @@
         return $_(`jobs.diagnostic_words.${diagnosticWordsKey(reason)}.title`, { default: reasonFallback(reason) });
     }
 
+    /**
+     * What a skipped row is about: the species when one is known (nest mode keeps it), otherwise
+     * the Frigate event and its camera. "Species not named" would claim an identification failed.
+     */
+    function heldBackSubject(row: Extract<HealthTimelineRow, { kind: 'held_back' }>): string {
+        if (row.drop.label) return row.drop.label;
+        if (row.drop.camera) {
+            return $_('jobs.errors_held_back_subject_camera', {
+                values: { camera: row.drop.camera },
+                default: 'Frigate event on {camera}'
+            });
+        }
+        return $_('jobs.errors_held_back_subject', { default: 'Frigate event' });
+    }
+
+    function dropSubject(row: Exclude<HealthTimelineRow, { kind: 'visit' }>): string {
+        if (row.kind === 'held_back') return heldBackSubject(row);
+        return row.drop.label ?? $_('common.unknown_species', { default: 'Species not named' });
+    }
+
+    function dropSubjectClass(row: Exclude<HealthTimelineRow, { kind: 'visit' }>): string {
+        if (row.kind === 'fault') return 'text-strong';
+        // A species name is set in italics; a Frigate event and its camera are not.
+        return row.kind === 'held_back' && !row.drop.label ? 'text-ink' : 'italic text-ink';
+    }
+
     const hasHeldBack = $derived(rows.some((row) => row.kind === 'held_back'));
 </script>
 
@@ -204,14 +230,14 @@
                                 })
                                 : isHeldBack
                                     ? $_('jobs.errors_held_back_preview', {
-                                        values: { species: drop.label ?? $_('common.unknown_species', { default: 'Species not named' }) },
-                                        default: 'Preview the frame for {species}'
+                                        values: { subject: dropSubject(row) },
+                                        default: 'Preview the frame for {subject}'
                                     })
                                     : null}
                         />
                         <div class="min-w-0">
-                            <p class="flex min-w-0 items-baseline justify-between gap-2 text-sm font-semibold {isFault ? 'text-strong' : 'italic text-ink'}">
-                                <span class="truncate">{drop.label ?? $_('common.unknown_species', { default: 'Species not named' })}</span>
+                            <p class="flex min-w-0 items-baseline justify-between gap-2 text-sm font-semibold {dropSubjectClass(row)}">
+                                <span class="truncate">{dropSubject(row)}</span>
                                 {#if drop.score !== null}
                                     <span class="shrink-0 text-xs font-bold not-italic tabular-nums text-muted sm:hidden">{Math.round(drop.score * 100)}%</span>
                                 {/if}
@@ -222,9 +248,10 @@
                                     <Separator />
                                     <span>{$_(`jobs.errors_drop_reason.${drop.reason}`, { default: reasonFallback(drop.reason) })}</span>
                                 {:else if isHeldBack}
-                                    <span class="font-semibold">{$_('jobs.errors_activity_held_back', { default: 'Skipped on purpose' })}</span>
-                                    <Separator />
-                                    <span>{heldBackTitle(drop.reason)}</span>
+                                    <!-- The reason is a full sentence that wraps, so it takes its own line
+                                         rather than hanging a separator after the label. -->
+                                    <span class="w-full font-semibold">{$_('jobs.errors_activity_held_back', { default: 'Skipped on purpose' })}</span>
+                                    <span class="w-full">{heldBackTitle(drop.reason)}</span>
                                 {:else}
                                     {$_(`jobs.errors_drop_reason_row.${drop.reason}`, {
                                         default: $_('jobs.errors_drop_reason_row.filter_low_confidence', {

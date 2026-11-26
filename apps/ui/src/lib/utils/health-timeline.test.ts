@@ -69,7 +69,7 @@ describe('health timeline', () => {
         const rows = buildHealthTimeline({
             visits: [visit('a', '2026-08-15T06:12:04Z')],
             faults: [{ eventId: 'fault', reason: 'classify_snapshot_timeout', label: null, score: null, timestamp: '2026-08-15T06:14:00Z' }],
-            heldBack: [{ eventId: 'paused', reason: 'update_recovery_cooldown', label: null, score: null, timestamp: '2026-08-15T06:13:00Z' }]
+            heldBack: [{ eventId: 'paused', reason: 'update_recovery_cooldown', label: null, score: null, timestamp: '2026-08-15T06:13:00Z', camera: 'patiocam' }]
         });
         expect(rows.map(row => row.kind)).toEqual(['fault', 'held_back', 'visit']);
         expect(representedEventCount(rows)).toBe(3);

@@ -1308,7 +1308,7 @@
             <Panel
                 title={$_('jobs.errors_activity_title', { default: 'What happened' })}
                 description={$_('jobs.errors_activity_subtitle', {
-                    default: 'Recorded visits, filtered events and faults, in the order they happened'
+                    default: 'Recorded visits, filtered events, work skipped on purpose and faults, in the order they happened'
                 })}
                 data-health-timeline
             >
@@ -1339,7 +1339,7 @@
                             rows={timelineRows}
                             emptyMessage={$_('jobs.errors_activity_empty', {
                                 values: { started: startedAgoText() },
-                                default: 'No visits, filtered events or faults have been reported since this instance started {started} ago.'
+                                default: 'No visits, filtered events, work skipped on purpose or faults have been reported since this instance started {started} ago.'
                             })}
                             hiddenCount={timelineHidden}
                             hiddenLabel={$_('jobs.errors_activity_earlier', {

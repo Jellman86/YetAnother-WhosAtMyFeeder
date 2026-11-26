@@ -46,6 +46,12 @@ test('a retry paused on purpose stays on the record in words without reading as 
     await expect(row).toContainText('Skipped on purpose');
     await expect(row).toContainText('Retrying a Frigate update was paused briefly to avoid repeating work.');
     await expect(row).not.toContainText('Fault');
+    // Nothing was identified, so the row is about the Frigate event and its camera, not a species.
+    await expect(row).toContainText('Frigate event on patiocam');
+    await expect(row).not.toContainText('Species not named');
+    await expect(row.getByRole('button', { name: 'Preview the frame for Frigate event on patiocam' })).toHaveCount(1);
+    // The reason wraps onto its own line, so no separator is left hanging after the label.
+    await expect(row.locator('[data-separator]')).toHaveCount(0);
     await expect(page.locator('[data-health-activity-timeline] [role="group"]')).toContainText('Skipped on purpose');
 });
 
