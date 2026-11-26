@@ -223,6 +223,16 @@ _AGE_STAGED_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_AGE_STAGED_SU
 # A set-aside copy whose name a newer file took is kept under this name rather than deleted.
 _KEPT_BESIDE_SUFFIX = ".kept.tmp"
 _KEPT_BESIDE_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_KEPT_BESIDE_SUFFIX))
+
+
+def kept_copy_original(kept: Path) -> Path:
+    """The cache file a spare copy was kept for."""
+    match = _KEPT_BESIDE_NAME.fullmatch(kept.name)
+    if match is None:
+        raise ValueError(f"Not a spare copy: {kept.name}")
+    return kept.with_name(match.group(1))
+
+
 # A volume without hard links (some network and FUSE mounts) reports one of these.
 _NO_HARD_LINK_ERRNOS = frozenset(
     code
@@ -1443,6 +1453,9 @@ class MediaCacheService:
                 # A missing-parent visit will be retried by mandatory orphan recovery.
                 return
             await self._complete_file_operation(self._delete_visit_files_sync, event_id)
+            if not self._kept_copies:
+                # Every return pass counts spare copies on disk, and only a return creates one.
+                return
             # A capture deleted from history takes its recovery copies with it.
             try:
                 safe_id = sanitize_event_id(event_id)
@@ -1450,7 +1463,8 @@ class MediaCacheService:
                 return
             for kept in await asyncio.to_thread(self._kept_copies_sync, safe_id):
                 await self._complete_file_operation(_unlink_if_present, kept)
-        await self._recount_kept_copies()
+        if self._kept_copies:
+            await self._recount_kept_copies()
 
     @_tracks_media_write
     async def set_manual_snapshot_selection(self, event_id: str, selected: bool) -> None:

@@ -161,7 +161,53 @@ class MediaStorageService:
                     stats["previews_deleted"] += deleted["previews_deleted"]
                 except OSError as exc:
                     log.warning("Orphaned media recovery failed; will retry", event_id=event_id, error=str(exc))
+        stats["bytes_freed"] += await self._remove_orphaned_kept_copies(valid_ids)
         return stats
+
+    async def _remove_orphaned_kept_copies(self, valid_ids: set[str]) -> int:
+        """Spare copies whose capture no longer exists go with its other files; a living one stays.
+
+        The inventory skips hidden names, so a capture deleted from history would otherwise leave
+        its spare copy on disk for good. The caller holds the housekeeping lock.
+        """
+        media = cache_module.media_cache
+        if not media.kept_copies_count:
+            return 0
+        by_owner: dict[str, list[Path]] = defaultdict(list)
+        for kept in await asyncio.to_thread(media._kept_copies_sync):
+            by_owner[cache_module.cache_name_event_id(cache_module.kept_copy_original(kept).name)].append(kept)
+        bytes_freed = 0
+        for event_id, kept_copies in by_owner.items():
+            possible_owners = self._possible_owners(
+                event_id, [cache_module.kept_copy_original(kept) for kept in kept_copies]
+            )
+            if possible_owners & (valid_ids | self._protected_event_ids()):
+                continue
+            async with (
+                media._snapshot_commit_lock(event_id),
+                media._recording_clip_commit_lock(event_id),
+                AsyncExitStack() as leases,
+            ):
+                for owner in sorted({media._media_write_owner(owner) for owner in possible_owners}):
+                    await leases.enter_async_context(media._media_lifecycle_lock(owner))
+                if possible_owners & self._protected_event_ids() or await self._has_cached_media_parent(
+                    possible_owners
+                ):
+                    continue
+                for kept in kept_copies:
+                    try:
+                        size = (await asyncio.to_thread(kept.stat)).st_size
+                        await media._complete_file_operation(kept.unlink)
+                    except FileNotFoundError:
+                        continue
+                    except OSError as exc:
+                        log.warning(
+                            "Could not remove an orphaned spare copy; will retry", path=str(kept), error=str(exc)
+                        )
+                        continue
+                    bytes_freed += size
+        await media._recount_kept_copies()
+        return bytes_freed
 
     @staticmethod
     async def _return_interrupted_age_cleanup() -> None:

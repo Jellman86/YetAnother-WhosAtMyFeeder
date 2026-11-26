@@ -562,6 +562,53 @@ async def test_age_cleanup_rechecks_db_and_protects_literal_candidate_shaped_eve
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("cleanup", ["storage_sweep", "clear_cached_files"])
+async def test_a_deleted_captures_spare_copy_goes_with_its_files_and_a_living_one_stays(
+    storage_env, monkeypatch, cleanup
+):
+    import app.database as db_module
+    from app.routers import settings as settings_router
+    from app.services import garden_media_cache as garden_module
+
+    _, database, media = storage_env
+    monkeypatch.setattr(db_module, "get_db", database)
+    monkeypatch.setattr(settings_router, "get_db", database)
+    monkeypatch.setattr(settings_router, "media_cache", media)
+    monkeypatch.setattr(storage_module.settings.media_cache, "per_species_maximum", 0)
+    monkeypatch.setattr(settings_router.settings.media_cache, "retention_days", 0)
+    monkeypatch.setattr(garden_module.garden_media_cache, "apply_retention", AsyncMock())
+    async with database() as db:
+        for event_id in ("evt-deleted", "evt-living"):
+            await DetectionRepository(db).create(
+                Detection(datetime.now(), 1, 0.9, "Robin", "Robin", event_id, "feeder")
+            )
+    for event_id in ("evt-deleted", "evt-living"):
+        await media.cache_snapshot(event_id, _jpeg_bytes("navy"))
+        media._stage_paths_sync([cache_module.SNAPSHOTS_DIR / f"{event_id}.jpg"], cache_module._AGE_STAGED_SUFFIX)
+        (cache_module.SNAPSHOTS_DIR / f"{event_id}.jpg").write_bytes(_jpeg_bytes("gray"))
+    await media.return_age_staged_files()
+    assert media.kept_copies_count == 2
+
+    # What deleting a capture in the UI does: the row goes now, its files with the next orphan pass.
+    async with database() as db:
+        await DetectionRepository(db).delete_by_frigate_event("evt-deleted")
+    if cleanup == "storage_sweep":
+        await storage_module.MediaStorageService().enforce_limits()
+    else:
+        app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+        try:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                assert (await client.post("/api/cache/cleanup")).status_code == 200
+        finally:
+            app.dependency_overrides.pop(require_owner, None)
+
+    kept = [path.name for path in cache_module.SNAPSHOTS_DIR.iterdir() if path.name.endswith(".kept.tmp")]
+    assert [name.split(".jpg.")[0] for name in kept] == [".evt-living"]
+    assert media.kept_copies_count == 1
+    assert await media.get_snapshot("evt-deleted") is None
+
+
+@pytest.mark.asyncio
 async def test_cache_cleanup_route_protects_owner_confirmed_and_sweeps_orphans(storage_env, monkeypatch):
     import app.database as db_module
     from app.routers import settings as settings_router
