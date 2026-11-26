@@ -746,6 +746,49 @@ async def test_health_not_degraded_by_historical_event_pipeline_failures(
 
 
 @pytest.mark.asyncio
+async def test_health_stays_ok_after_a_paused_update_retry(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):
+    """A retry the update cooldown paused is the pipeline avoiding repeat work, not a fault."""
+    from unittest.mock import MagicMock
+
+    from app.services.event_processor import EventProcessor
+
+    app.state.startup_warnings = []
+    processor = EventProcessor(MagicMock())
+    processor._started_events = 2
+    processor._completed_events = 1
+    processor._record_drop("evt-paused-retry", "update_recovery_cooldown", camera="patiocam")
+    monkeypatch.setattr(
+        main_module,
+        "get_classifier",
+        lambda: _ClassifierReporting(check_health=lambda: {"status": "ok", "runtimes": {}, "models": {}}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        main_module, "mqtt_service", SimpleNamespace(get_status=lambda: {"pressure_level": "normal"}), raising=False
+    )
+    monkeypatch.setattr(
+        main_module, "auto_video_classifier", SimpleNamespace(get_status=lambda: {"status": "ok"}), raising=False
+    )
+    monkeypatch.setattr(
+        main_module,
+        "notification_dispatcher",
+        SimpleNamespace(get_status=lambda: {"running": True, "queue_size": 0, "queue_max": 100, "dropped_jobs": 0}),
+        raising=False,
+    )
+    monkeypatch.setattr(main_module, "get_db_pool_status", lambda: {"acquire_wait_max_ms": 0.0}, raising=False)
+    monkeypatch.setattr(main_module, "event_processor", processor, raising=False)
+
+    response = await client.get("/health")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["event_pipeline"]["status"] == "ok"
+    assert body["event_pipeline"]["fault_drops"] == 0
+    assert body["event_pipeline"]["expected_drop_reasons"] == {"update_recovery_cooldown": 1}
+
+
+@pytest.mark.asyncio
 async def test_health_includes_live_image_classifier_pressure(
     client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ):

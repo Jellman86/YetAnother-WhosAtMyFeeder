@@ -193,17 +193,27 @@ _DROP_ERROR_REASONS = frozenset(
     {"classify_snapshot_unavailable", "classify_snapshot_timeout", "save_and_notify_failed"}
 )
 
+# Work held back on purpose that cannot cost a visit by itself. A retry the update
+# cooldown pauses leaves the end event its own recovery attempt, whose failure is
+# recorded under its own reason. A follow-up to an event Frigate called a false
+# positive repeats Frigate's decision. Nest mode is the owner's setting, and the
+# same species was already saved on that camera inside its window.
+_DROP_HELD_BACK_REASONS = frozenset(
+    {"update_recovery_cooldown", "false_positive_tombstone_active", "nest_mode_dedupe"}
+)
+
 
 def drop_reason_severity(reason: str) -> str:
     """Classify why an event was dropped.
 
-    `info` is expected, config-driven filtering (low confidence, blocked labels
-    and species). It is the pipeline working, so it must never be counted as a
+    `info` is the pipeline working: expected, config-driven filtering (low
+    confidence, blocked labels and species), and work it held back on purpose
+    when a later step still gets its chance. It must never be counted as a
     fault: a feeder that rejects a blurry rabbit is healthy. `warning` and
     `error` are real faults that cost the user a detection.
     """
     reason_key = str(reason or "unknown")
-    if reason_key.startswith("filter_"):
+    if reason_key.startswith("filter_") or reason_key in _DROP_HELD_BACK_REASONS:
         return "info"
     if reason_key in _DROP_ERROR_REASONS:
         return "error"
@@ -317,7 +327,7 @@ class EventProcessor:
             event_id=event_id,
             context=dict(details) if details else None,
         )
-        self._record_recent_outcome(event_id, "dropped", reason=reason_key, **details)
+        self._record_recent_outcome(event_id, "dropped", reason=reason_key, severity=severity, **details)
 
     def _record_completed(self, event_id: str, duration_ms: float) -> None:
         self._completed_events += 1
