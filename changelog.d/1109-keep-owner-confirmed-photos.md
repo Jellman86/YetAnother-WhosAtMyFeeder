@@ -26,7 +26,10 @@
   no longer pushes out an older bird photo. When a capture is confirmed while cleanup runs, cleanup
   goes on to the next oldest capture until space used is under the limit. A capture you favourite or
   confirm while old media is being removed keeps its media, and its favourite archive waits for it
-  rather than recording it as unavailable. Empty-file cleanup no
+  rather than recording it as unavailable. If YA-WAMF stops part-way through, the media it had set
+  aside goes back when it starts again, before anything reads the cache; where a newer file has
+  taken the name meanwhile, the newer file is kept. A long cleanup of old media no longer holds up
+  the storage limit or Clear cached files. Empty-file cleanup no
   longer removes a clip, a recording clip that is still downloading, or a preview while it is being
   written.
 - **A photo change that fails after you switch records is reported:** If using, regenerating or
