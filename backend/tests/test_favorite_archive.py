@@ -152,6 +152,55 @@ async def test_a_cached_photograph_and_clip_become_durable_without_asking_frigat
     assert await service.snapshot_path("fav_cached") == event_dir / SNAPSHOT_NAME
 
 
+class _ObservedLock(asyncio.Lock):
+    """A commit lock that says when someone has to wait for it."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.waiting = asyncio.Event()
+
+    async def acquire(self) -> bool:
+        if self.locked():
+            self.waiting.set()
+        return await super().acquire()
+
+
+@pytest.mark.asyncio
+async def test_a_favourite_archived_while_age_cleanup_has_its_files_staged_waits_for_them(seeded_db, dirs):
+    event_id = "fav_cached"
+    _cache_snapshot(dirs, event_id)
+    _cache_clip(dirs, event_id)
+    await _favorite(event_id)
+    cache = archive_module.media_cache
+    # Age cleanup holds both commit locks from staging until it restores or removes the files.
+    snapshot_lock, clip_lock = _ObservedLock(), _ObservedLock()
+    cache._snapshot_commit_locks[event_id] = snapshot_lock
+    cache._recording_clip_commit_locks[event_id] = clip_lock
+    photo = dirs["cache"] / "snapshots" / f"{event_id}.jpg"
+    clip = dirs["cache"] / "clips" / f"{event_id}.mp4"
+    staged_photo = photo.with_name(f".{photo.name}.{'a' * 32}.ageing.tmp")
+    staged_clip = clip.with_name(f".{clip.name}.{'b' * 32}.ageing.tmp")
+    service = ArchiveService()
+    snapshot_patch, clip_patch = _frigate()
+    with snapshot_patch as snapshot_mock, clip_patch as clip_mock:
+        async with snapshot_lock, clip_lock:
+            photo.rename(staged_photo)
+            clip.rename(staged_clip)
+            archiving = asyncio.create_task(service.archive_event(event_id))
+            await asyncio.wait_for(snapshot_lock.waiting.wait(), 2)
+            # The new favourite's final check gives the files back.
+            staged_photo.rename(photo)
+            staged_clip.rename(clip)
+        result = await archiving
+    assert result["state"] == "durable"
+    snapshot_mock.assert_not_awaited()
+    clip_mock.assert_not_awaited()
+    row = await _archive_row(event_id)
+    assert (row["snapshot_state"], row["clip_state"]) == ("durable", "durable")
+    assert (dirs["archive"] / event_id / SNAPSHOT_NAME).read_bytes() == b"jpegdata"
+    assert (dirs["archive"] / event_id / CLIP_NAME).read_bytes() == CLIP_BYTES
+
+
 @pytest.mark.asyncio
 async def test_frigate_without_a_clip_is_unavailable_and_the_favourite_is_still_durable(seeded_db, dirs):
     await _favorite("fav_frigate")

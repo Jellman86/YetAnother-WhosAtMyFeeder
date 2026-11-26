@@ -201,24 +201,27 @@ class ArchiveService:
         the archive: that is how a re-chosen frame reaches the archive.
         """
         target = event_dir / SNAPSHOT_NAME
-        cached = await media_cache.get_snapshot_path(event_id)
-        if cached is None and event_id.startswith("manual_"):
-            # Without a chosen photo an upload shows its own; Frigate never had it.
-            from app.services.manual_observation_service import manual_observation_service
+        # Cache cleanup holds this lock while a visit's files are briefly out of place, so the
+        # archive never mistakes a photo about to come back for one that is gone for good.
+        async with media_cache._snapshot_commit_lock(event_id):
+            cached = await media_cache.get_snapshot_path(event_id)
+            if cached is None and event_id.startswith("manual_"):
+                # Without a chosen photo an upload shows its own; Frigate never had it.
+                from app.services.manual_observation_service import manual_observation_service
 
-            cached = await manual_observation_service.path_for_event(event_id, preview=True)
-            if cached is None:
-                return "unavailable", None, 0
-        if cached is None and await aiofiles.os.path.exists(target):
-            return "durable", None, int((await aiofiles.os.stat(target)).st_size)
-        if cached is not None:
-            size = await self._copy_file(cached, target)
-            metadata = await media_cache.get_snapshot_metadata(event_id) or {}
-            await self._write_bytes(
-                event_dir / SNAPSHOT_META_NAME,
-                json.dumps({"source": metadata.get("source") or "media_cache"}).encode("utf-8"),
-            )
-            return "durable", None, size
+                cached = await manual_observation_service.path_for_event(event_id, preview=True)
+                if cached is None:
+                    return "unavailable", None, 0
+            if cached is None and await aiofiles.os.path.exists(target):
+                return "durable", None, int((await aiofiles.os.stat(target)).st_size)
+            if cached is not None:
+                size = await self._copy_file(cached, target)
+                metadata = await media_cache.get_snapshot_metadata(event_id) or {}
+                await self._write_bytes(
+                    event_dir / SNAPSHOT_META_NAME,
+                    json.dumps({"source": metadata.get("source") or "media_cache"}).encode("utf-8"),
+                )
+                return "durable", None, size
         data, error = await frigate_client.get_snapshot_with_error(event_id, crop=True, timeout=30.0)
         if data:
             size = await self._write_bytes(target, data)
@@ -241,9 +244,11 @@ class ArchiveService:
         target = event_dir / CLIP_NAME
         if await aiofiles.os.path.exists(target):
             return "durable", None, int((await aiofiles.os.stat(target)).st_size)
-        cached = media_cache.get_clip_path(event_id)
-        if cached is not None:
-            return "durable", None, await self._copy_file(cached, target)
+        # As for the photo: a clip briefly out of place during cache cleanup is waited for.
+        async with media_cache._recording_clip_commit_lock(event_id):
+            cached = media_cache.get_clip_path(event_id)
+            if cached is not None:
+                return "durable", None, await self._copy_file(cached, target)
         tmp = target.with_name(f".{target.name}.{uuid.uuid4().hex}.tmp")
         try:
             ok, error = await frigate_client.download_clip_to_file(
@@ -271,14 +276,15 @@ class ArchiveService:
         target = event_dir / RECORDING_NAME
         if await aiofiles.os.path.exists(target):
             return int((await aiofiles.os.stat(target)).st_size)
-        cached = media_cache.get_recording_clip_path(event_id)
-        if cached is None:
-            return 0
-        try:
-            return await self._copy_file(cached, target)
-        except Exception as exc:  # the recording is a bonus, never a failure
-            log.debug("Recording not copied into archive", event_id=event_id, error=str(exc))
-            return 0
+        async with media_cache._recording_clip_commit_lock(event_id):
+            cached = media_cache.get_recording_clip_path(event_id)
+            if cached is None:
+                return 0
+            try:
+                return await self._copy_file(cached, target)
+            except Exception as exc:  # the recording is a bonus, never a failure
+                log.debug("Recording not copied into archive", event_id=event_id, error=str(exc))
+                return 0
 
     async def archive_event(self, event_id: str) -> dict:
         """Bring one favourite's archive to an end state, or record why it could not."""
