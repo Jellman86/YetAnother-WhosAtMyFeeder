@@ -419,6 +419,10 @@
       "title": "Le nettoyage automatique de l'historique s'est mis en pause car les totaux quotidiens n'ont pas pu être enregistrés.",
       "next": "Aucune visite n'a été supprimée. Vérifiez la base de données et l'espace disque ; le nettoyage réessaiera au prochain passage."
     },
+    "media_set_aside_unreturned": {
+      "title": "Certaines photos ou vidéos mises de côté par le nettoyage n’ont pas encore pu être remises en place.",
+      "next": "Rien n’a été supprimé. YA-WAMF réessaie à la prochaine vérification du stockage. Si cela se reproduit, vérifiez que le disque du dossier des médias a de l’espace libre et est accessible en écriture."
+    },
     "notification_queue_full": {
       "title": "Une notification a été ignorée car la file d'envoi était pleine.",
       "next": "Vérifiez que vos canaux répondent rapidement dans Paramètres → Notifications."

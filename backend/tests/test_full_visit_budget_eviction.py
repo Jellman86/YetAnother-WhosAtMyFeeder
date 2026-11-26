@@ -506,6 +506,30 @@ async def test_files_staged_by_age_cleanup_before_a_crash_come_back(
 
 
 @pytest.mark.asyncio
+async def test_a_left_over_file_that_cannot_be_returned_does_not_stop_the_storage_sweep(
+    budget_visit_history, monkeypatch
+):
+    database, media, _ = budget_visit_history
+    monkeypatch.setattr(storage.settings.media_cache, "per_species_maximum", 0)
+    stuck = media._stage_paths_sync([cache.SNAPSHOTS_DIR / "budget-new.jpg"], cache._AGE_STAGED_SUFFIX)[0][1]
+    async with database() as db:
+        await DetectionRepository(db).delete_by_frigate_event("budget-old")
+
+    def failing_disk(*args, **kwargs):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(cache.os, "link", failing_disk)
+    # The orphan pass still runs: one stuck file must not switch off cleanup and the storage limit.
+    result = await storage.MediaStorageService().enforce_limits()
+    assert result["orphan_snapshots_deleted"] == 1
+    assert await media.get_snapshot("budget-old") is None
+    assert stuck.exists()
+    recovered = await storage.MediaStorageService().recover_orphaned_media()
+    assert recovered["bytes_freed"] == 0
+    assert stuck.exists()
+
+
+@pytest.mark.asyncio
 async def test_temporary_recording_candidates_are_never_orphan_eviction_inventory(budget_visit_history, monkeypatch):
     _, media, _ = budget_visit_history
     monkeypatch.setattr(clips.settings.media_cache, "per_species_maximum", 0)

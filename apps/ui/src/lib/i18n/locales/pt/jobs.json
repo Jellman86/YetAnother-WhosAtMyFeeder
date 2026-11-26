@@ -419,6 +419,10 @@
       "title": "A limpeza automática do histórico pausou porque os totais diários não puderam ser salvos antes.",
       "next": "Nenhuma visita foi excluída. Verifique o banco de dados e o espaço em disco; a limpeza tentará novamente na próxima execução."
     },
+    "media_set_aside_unreturned": {
+      "title": "Algumas fotos ou vídeos que a limpeza separou ainda não puderam ser devolvidos.",
+      "next": "Nada foi excluído. O YA-WAMF tenta novamente na próxima verificação de armazenamento. Se isso continuar acontecendo, verifique se o disco da pasta de mídia tem espaço livre e permite gravação."
+    },
     "notification_queue_full": {
       "title": "Uma notificação foi descartada porque a fila de envio estava cheia.",
       "next": "Verifique se seus canais de notificação respondem rapidamente em Configurações → Notificações."

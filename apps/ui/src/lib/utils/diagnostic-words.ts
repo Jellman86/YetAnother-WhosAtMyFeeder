@@ -46,6 +46,7 @@ const WORDED = new Set([
     'worker_recovering',
     'hardware_decode_fallback',
     'retention_paused_daily_totals',
+    'media_set_aside_unreturned',
     'notification_queue_full',
     'notification_loop_reset'
 ]);

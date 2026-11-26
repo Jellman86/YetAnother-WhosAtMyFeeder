@@ -1162,6 +1162,94 @@ async def test_without_hard_links_a_left_over_file_is_renamed_back_under_its_vis
     assert locked_during_rename and all(locked_during_rename)
 
 
+class _ObservedLock(asyncio.Lock):
+    """A lock that says when a second caller has to wait for it."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.contended = asyncio.Event()
+
+    async def acquire(self) -> bool:
+        if self.locked():
+            self.contended.set()
+        return await super().acquire()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("capture_id", ["x", "lit_thumb", "lit_recording", "lit_preview"])
+async def test_without_hard_links_a_left_over_file_never_overwrites_an_owner_choice(tmp_path, monkeypatch, capture_id):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.cache_snapshot(capture_id, b"old-automatic-photo")
+    photo = snapshots / f"{capture_id}.jpg"
+    _leave_age_staged(service, photo)
+
+    def no_hard_links(*args, **kwargs):
+        raise PermissionError(errno.EPERM, "hard links are not supported on this volume")
+
+    monkeypatch.setattr(media_cache_module.os, "link", no_hard_links)
+    # The owner's Apply takes this capture's own commit lock, whatever its ID ends with.
+    owner_lock = _ObservedLock()
+    service._snapshot_commit_locks[capture_id] = owner_lock
+    loop = asyncio.get_running_loop()
+    checked, release = asyncio.Event(), threading.Event()
+    original_exists = Path.exists
+
+    def exists_then_wait(self, *args, **kwargs):
+        result = original_exists(self, *args, **kwargs)
+        if self == photo and not release.is_set():
+            loop.call_soon_threadsafe(checked.set)
+            assert release.wait(5)
+        return result
+
+    monkeypatch.setattr(Path, "exists", exists_then_wait)
+    returning = asyncio.create_task(service.return_age_staged_files())
+    await asyncio.wait_for(checked.wait(), 5)
+    apply = asyncio.create_task(service.replace_snapshot(capture_id, b"owner-chosen-photo", manual_selection=True))
+    contended = asyncio.create_task(owner_lock.contended.wait())
+    # Either the Apply publishes inside the check-then-rename window, or it waits for the return.
+    await asyncio.wait({apply, contended}, return_when=asyncio.FIRST_COMPLETED)
+    contended.cancel()
+    release.set()
+    await returning
+    await apply
+
+    assert (await service.get_snapshot_metadata(capture_id))["manual_selection"] is True
+    assert await service.get_snapshot(capture_id) == b"owner-chosen-photo"
+
+
+@pytest.mark.asyncio
+async def test_a_left_over_file_that_cannot_be_returned_does_not_stop_the_others(tmp_path, monkeypatch):
+    from app.services.error_diagnostics import error_diagnostics_history
+
+    error_diagnostics_history.clear()
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.cache_snapshot("stuck", b"stuck-photo")
+    await service.cache_snapshot("fine", b"fine-photo")
+    stuck = _leave_age_staged(service, snapshots / "stuck.jpg")
+    _leave_age_staged(service, snapshots / "fine.jpg")
+    original_link = os.link
+
+    def failing_disk(source, target, *args, **kwargs):
+        if Path(target).name == "stuck.jpg":
+            raise OSError(errno.EIO, "Input/output error")
+        return original_link(source, target, *args, **kwargs)
+
+    monkeypatch.setattr(media_cache_module.os, "link", failing_disk)
+    assert await service.return_age_staged_files() == 1
+
+    assert await service.get_snapshot("fine") == b"fine-photo"
+    # The stuck file stays set aside, unharmed, for the next try.
+    assert stuck.read_bytes() == b"stuck-photo"
+    [diagnostic] = [
+        event
+        for event in error_diagnostics_history.snapshot()["events"]
+        if event["reason_code"] == "media_set_aside_unreturned"
+    ]
+    assert diagnostic["component"] == "media_cache"
+    assert diagnostic["context"] == {"files": 1}
+    error_diagnostics_history.clear()
+
+
 @pytest.mark.asyncio
 async def test_cleanup_old_media_keeps_canonical_photo_for_owner_confirmed_and_manual_selection(tmp_path, monkeypatch):
     service, snapshots = _make_service(tmp_path, monkeypatch)

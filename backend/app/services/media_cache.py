@@ -1562,22 +1562,52 @@ class MediaCacheService:
             return False
         return True
 
+    async def _return_age_staged_file(self, staged: Path) -> bool:
+        outcome = await self._complete_file_operation(self._link_age_staged_file_back_sync, staged)
+        if outcome is not None:
+            return outcome
+        # Without hard links the move is a check and a rename, so every visit the name could
+        # belong to is locked, in sorted order: a literal ID can end in _thumb, _recording or _preview.
+        original = self._age_staged_original(staged)
+        owners = sorted(possible_cache_owners(cache_name_event_id(original.name), [original]))
+        async with AsyncExitStack() as locks:
+            for owner in owners:
+                await locks.enter_async_context(self._snapshot_commit_lock(owner))
+                await locks.enter_async_context(self._recording_clip_commit_lock(owner))
+            return await self._complete_file_operation(self._rename_age_staged_file_back_sync, staged)
+
     async def return_age_staged_files(self) -> int:
         """Put back files an interrupted age cleanup staged, so the next age cleanup decides again.
 
         Run at startup before any media service, and by the storage sweep under the housekeeping lock,
-        when no age cleanup can be running. A newer file at a file's name always wins.
+        when no age cleanup can be running. A newer file at a file's name always wins. A file that
+        cannot be moved now stays set aside, unharmed, for the next try, and Health says so.
         """
         returned = 0
+        unreturned = 0
         for staged in await asyncio.to_thread(self._age_staged_leftovers_sync):
-            outcome = await self._complete_file_operation(self._link_age_staged_file_back_sync, staged)
-            if outcome is None:
-                event_id = cache_name_event_id(self._age_staged_original(staged).name)
-                async with self._snapshot_commit_lock(event_id), self._recording_clip_commit_lock(event_id):
-                    outcome = await self._complete_file_operation(self._rename_age_staged_file_back_sync, staged)
-            returned += int(outcome)
+            try:
+                returned += int(await self._return_age_staged_file(staged))
+            except OSError as exc:
+                unreturned += 1
+                log.warning(
+                    "Could not return a file an interrupted age cleanup set aside; will retry",
+                    path=str(staged),
+                    error=str(exc),
+                )
         if returned:
             log.info("Returned files an interrupted age cleanup had set aside", files=returned)
+        if unreturned:
+            from app.services.error_diagnostics import error_diagnostics_history
+
+            error_diagnostics_history.record(
+                source="media_cache",
+                component="media_cache",
+                reason_code="media_set_aside_unreturned",
+                message="Cached media set aside by an interrupted cleanup could not be returned yet.",
+                severity="warning",
+                context={"files": unreturned},
+            )
         return returned
 
     def _delete_visit_files_sync(self, event_id: str, paths: list[Path] | None = None) -> int:

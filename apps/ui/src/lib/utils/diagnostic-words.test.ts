@@ -63,6 +63,7 @@ describe('diagnosticWordsKey', () => {
             'hardware_decode_fallback_repeated',
             'hardware_decode_decode_failed',
             'retention_paused_daily_totals',
+            'media_set_aside_unreturned',
             'queue_full',
             'queue_full_race',
             'loop_reset_drop'

@@ -419,6 +419,10 @@
       "title": "La limpieza automática del historial se pausó porque no se pudieron guardar antes los totales diarios.",
       "next": "No se eliminó ninguna visita. Revisa la base de datos y el espacio libre; se reintentará en la siguiente ejecución."
     },
+    "media_set_aside_unreturned": {
+      "title": "Algunas fotos o vídeos que la limpieza apartó aún no se han podido devolver.",
+      "next": "No se eliminó nada. YA-WAMF lo vuelve a intentar en la próxima comprobación de almacenamiento. Si se repite, comprueba que el disco de la carpeta de medios tiene espacio libre y permite escribir."
+    },
     "notification_queue_full": {
       "title": "Se descartó una notificación porque la cola de envío estaba llena.",
       "next": "Comprueba que tus canales de notificación respondan con rapidez en Configuración → Notificaciones."
