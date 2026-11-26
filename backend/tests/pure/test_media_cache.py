@@ -1504,6 +1504,49 @@ async def test_an_owner_apply_or_regeneration_still_writes_a_held_name(tmp_path,
     assert await service.get_snapshot("held") == b"regenerated"
 
 
+async def _leave_a_kept_copy(service, snapshots: Path, event_id: str, content: bytes) -> Path:
+    """A set-aside photo whose name an automatic file took, so the return kept it beside."""
+    await service.cache_snapshot(event_id, content)
+    _leave_age_staged(service, snapshots / f"{event_id}.jpg")
+    (snapshots / f"{event_id}.jpg").write_bytes(b"automatic-photo")
+    await service.return_age_staged_files()
+    [kept] = [path for path in snapshots.iterdir() if path.name.endswith(".kept.tmp")]
+    return kept
+
+
+@pytest.mark.asyncio
+async def test_a_kept_copy_counts_towards_space_used_and_shows_until_it_is_gone(tmp_path, monkeypatch):
+    from app.services.error_diagnostics import error_diagnostics_history
+
+    error_diagnostics_history.clear()
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    kept = await _leave_a_kept_copy(service, snapshots, "spare", b"k" * 5000)
+    assert service.kept_copies_count == 1
+    assert (await service.get_cache_stats())["total_size_bytes"] >= 5000
+    [warning] = [e for e in error_diagnostics_history.snapshot()["events"] if e["reason_code"] == "media_kept_copies"]
+    assert warning["severity"] == "warning" and warning["context"] == {"files": 1}
+
+    kept.unlink()
+    await service.return_age_staged_files()
+    assert service.kept_copies_count == 0
+    error_diagnostics_history.clear()
+
+
+@pytest.mark.asyncio
+async def test_deleting_a_capture_or_clearing_the_cache_removes_its_kept_copies(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    gone = await _leave_a_kept_copy(service, snapshots, "deleted", b"one")
+    await service.delete_cached_media("deleted")
+    assert not gone.exists()
+    assert service.kept_copies_count == 0
+
+    cleared = await _leave_a_kept_copy(service, snapshots, "cleared", b"three")
+    assert service.kept_copies_count == 1
+    await service.clear_all()
+    assert not cleared.exists()
+    assert service.kept_copies_count == 0
+
+
 @pytest.mark.asyncio
 async def test_cleanup_old_media_keeps_canonical_photo_for_owner_confirmed_and_manual_selection(tmp_path, monkeypatch):
     service, snapshots = _make_service(tmp_path, monkeypatch)

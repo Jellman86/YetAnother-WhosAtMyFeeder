@@ -59,7 +59,7 @@ def incident_health_media_storage() -> dict[str, int]:
     """The media-storage values an incident is resolved from, read the way /health reports them."""
     from app.services.media_cache import media_cache
 
-    return {"set_aside_pending": media_cache.set_aside_pending_count}
+    return {"set_aside_pending": media_cache.set_aside_pending_count, "kept_copies": media_cache.kept_copies_count}
 
 
 class SystemStatusReadings:

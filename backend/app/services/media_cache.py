@@ -222,6 +222,7 @@ _AGE_STAGED_SUFFIX = ".ageing.tmp"
 _AGE_STAGED_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_AGE_STAGED_SUFFIX))
 # A set-aside copy whose name a newer file took is kept under this name rather than deleted.
 _KEPT_BESIDE_SUFFIX = ".kept.tmp"
+_KEPT_BESIDE_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_KEPT_BESIDE_SUFFIX))
 # A volume without hard links (some network and FUSE mounts) reports one of these.
 _NO_HARD_LINK_ERRNOS = frozenset(
     code
@@ -321,6 +322,8 @@ class MediaCacheService:
         self.housekeeping_lock = asyncio.Lock()
         # Names whose set-aside copy could not go back yet. Every return rebuilds it from disk.
         self._set_aside_pending: set[Path] = set()
+        # Recovery copies kept beside a newer file at their name, as last counted on disk.
+        self._kept_copies = 0
         try:
             self._ensure_dirs()
         except Exception as e:
@@ -1440,6 +1443,14 @@ class MediaCacheService:
                 # A missing-parent visit will be retried by mandatory orphan recovery.
                 return
             await self._complete_file_operation(self._delete_visit_files_sync, event_id)
+            # A capture deleted from history takes its recovery copies with it.
+            try:
+                safe_id = sanitize_event_id(event_id)
+            except ValueError:
+                return
+            for kept in await asyncio.to_thread(self._kept_copies_sync, safe_id):
+                await self._complete_file_operation(_unlink_if_present, kept)
+        await self._recount_kept_copies()
 
     @_tracks_media_write
     async def set_manual_snapshot_selection(self, event_id: str, selected: bool) -> None:
@@ -1653,6 +1664,38 @@ class MediaCacheService:
                 await locks.enter_async_context(self._recording_clip_commit_lock(owner))
             return await self._complete_file_operation(self._rename_age_staged_file_back_sync, staged)
 
+    @staticmethod
+    def _kept_copies_sync(event_id: str | None = None) -> list[Path]:
+        """Recovery copies on disk, all of them or one capture's."""
+        kept = []
+        for directory in (SNAPSHOTS_DIR, CLIPS_DIR, PREVIEWS_DIR):
+            if not directory.exists():
+                continue
+            for path in directory.iterdir():
+                match = _KEPT_BESIDE_NAME.fullmatch(path.name)
+                if match and (event_id is None or cache_name_event_id(match.group(1)) == event_id):
+                    kept.append(path)
+        return kept
+
+    @property
+    def kept_copies_count(self) -> int:
+        """Recovery copies kept beside a newer file at their name; Health shows them while any exist."""
+        return self._kept_copies
+
+    async def _recount_kept_copies(self) -> None:
+        self._kept_copies = len(await asyncio.to_thread(self._kept_copies_sync))
+        if self._kept_copies:
+            from app.services.error_diagnostics import error_diagnostics_history
+
+            error_diagnostics_history.record(
+                source="media_cache",
+                component="media_cache",
+                reason_code="media_kept_copies",
+                message="Cached media kept as recovery copies beside newer files at their names.",
+                severity="warning",
+                context={"files": self._kept_copies},
+            )
+
     @property
     def set_aside_pending_count(self) -> int:
         """Files set aside by an interrupted cleanup that have not gone back yet, as last read from disk."""
@@ -1705,6 +1748,7 @@ class MediaCacheService:
                 )
         # Rebuilt from what is on disk now, so it is the same after a restart.
         self._set_aside_pending = pending
+        await self._recount_kept_copies()
         if returned:
             log.info("Returned files an interrupted age cleanup had set aside", files=returned)
         if pending:
@@ -2115,11 +2159,22 @@ class MediaCacheService:
         return stats
 
     async def clear_all(self) -> dict:
-        return await asyncio.to_thread(self._clear_all_sync)
+        stats = await asyncio.to_thread(self._clear_all_sync)
+        await self._recount_kept_copies()
+        return stats
 
     def _clear_all_sync(self) -> dict:
         """Delete ALL cached media files."""
         stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
+
+        # Recovery copies go with everything else.
+        for path in self._kept_copies_sync():
+            try:
+                size = path.stat().st_size
+                path.unlink()
+                stats["bytes_freed"] += size
+            except Exception as e:
+                log.warning("Failed to delete a recovery copy", path=str(path), error=str(e))
 
         # Clean all snapshots and metadata sidecars
         for path in SNAPSHOTS_DIR.glob("*.jpg"):
@@ -2226,6 +2281,19 @@ class MediaCacheService:
                     snapshot_size += size
                 else:
                     clip_size += size
+
+        # A recovery copy is cached bytes on this disk, so it counts towards Space used.
+        for path in self._kept_copies_sync():
+            try:
+                size = path.stat().st_size
+            except Exception:
+                continue
+            if path.parent == SNAPSHOTS_DIR:
+                snapshot_size += size
+            elif path.parent == CLIPS_DIR:
+                clip_size += size
+            else:
+                preview_size += size
 
         for path in PREVIEWS_DIR.glob("*"):
             if not path.is_file() or path.name.endswith(".tmp"):

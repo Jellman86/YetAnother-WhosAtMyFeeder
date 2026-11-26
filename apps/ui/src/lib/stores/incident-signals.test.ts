@@ -15,13 +15,25 @@ describe('incident signals', () => {
     });
 
     it('keeps the set-aside media incident open until the last file has gone back', () => {
-        const incident = STATEFUL_INCIDENTS.find((candidate) => candidate.component === 'media_cache');
+        const incident = STATEFUL_INCIDENTS.find(
+            (candidate) => candidate.component === 'media_cache' && candidate.reasons.includes('media_set_aside_unreturned')
+        );
         const reading = (pending: unknown) => (path: IncidentSignalPath) =>
             path === 'media_storage.set_aside_pending' ? pending : undefined;
         expect(incident?.reasons).toEqual(['media_set_aside_unreturned']);
         expect(incident?.isOpen(reading(2))).toBe(true);
         expect(incident?.isOpen(reading(0))).toBe(false);
         // An older backend that does not report the count leaves the incident as recorded.
+        expect(incident?.isOpen(reading(undefined))).toBeNull();
+    });
+
+    it('keeps the kept-copies incident open while any recovery copy is on disk', () => {
+        const incident = STATEFUL_INCIDENTS.find(
+            (candidate) => candidate.component === 'media_cache' && candidate.reasons.includes('media_kept_copies')
+        );
+        const reading = (kept: unknown) => (path: IncidentSignalPath) => (path === 'media_storage.kept_copies' ? kept : undefined);
+        expect(incident?.isOpen(reading(1))).toBe(true);
+        expect(incident?.isOpen(reading(0))).toBe(false);
         expect(incident?.isOpen(reading(undefined))).toBeNull();
     });
 

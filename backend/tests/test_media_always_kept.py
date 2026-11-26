@@ -32,7 +32,7 @@ async def test_health_reports_media_storage_and_degrades_when_it_cannot_be_writt
     from app import main as main_module
 
     healthy = await main_module.collect_health_payload()
-    assert healthy["media_storage"] == {"available": True, "error": None, "set_aside_pending": 0}
+    assert healthy["media_storage"] == {"available": True, "error": None, "set_aside_pending": 0, "kept_copies": 0}
 
     monkeypatch.setattr(media_cache_module.media_cache, "_available", False)
     monkeypatch.setattr(media_cache_module.media_cache, "_init_error", "Permission denied: '/config/media_cache'")
@@ -42,6 +42,7 @@ async def test_health_reports_media_storage_and_degrades_when_it_cannot_be_writt
         "available": False,
         "error": "Permission denied: '/config/media_cache'",
         "set_aside_pending": 0,
+        "kept_copies": 0,
     }
     assert broken["status"] == "degraded"
     # Never a startup warning: that would fail readiness and restart a container that otherwise works.
@@ -118,8 +119,12 @@ async def test_health_and_the_incident_signals_count_media_still_set_aside(monke
     media = media_cache_module.media_cache
     monkeypatch.setattr(media, "_set_aside_pending", {tmp_path / "stuck.jpg"})
     assert (await main_module.collect_health_payload())["media_storage"]["set_aside_pending"] == 1
-    assert incident_health_media_storage() == {"set_aside_pending": 1}
+    assert incident_health_media_storage() == {"set_aside_pending": 1, "kept_copies": 0}
 
     monkeypatch.setattr(media, "_set_aside_pending", set())
     assert (await main_module.collect_health_payload())["media_storage"]["set_aside_pending"] == 0
-    assert incident_health_media_storage() == {"set_aside_pending": 0}
+    assert incident_health_media_storage() == {"set_aside_pending": 0, "kept_copies": 0}
+    assert "media_storage.kept_copies" in INCIDENT_SIGNAL_PATHS
+    monkeypatch.setattr(media, "_kept_copies", 2)
+    assert (await main_module.collect_health_payload())["media_storage"]["kept_copies"] == 2
+    assert incident_health_media_storage() == {"set_aside_pending": 0, "kept_copies": 2}

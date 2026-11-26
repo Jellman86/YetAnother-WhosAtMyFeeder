@@ -646,6 +646,18 @@ history, are in [Maintenance](#maintenance). Telemetry, what leaves this install
   `MEDIA_CACHE__PER_SPECIES_MAXIMUM=0..10000`, and `MEDIA_CACHE__MAX_SIZE_MB=0..1048576`.
   Models, backups, and archived favourites do not count towards the ordinary cache budget.
 
+  **Spare copies after an interrupted cleanup.** Age cleanup moves a capture's files aside before it
+  removes them, and puts them back if the capture is favourited or confirmed meanwhile. If YA-WAMF
+  stops part-way, or the disk fails, it puts them back at the next start or storage check. When
+  something else has taken a file's name by then, and it is not a photo you chose, both are kept:
+  the set-aside file stays in the same folder (`media_cache/snapshots`, `clips` or `previews`) as a
+  hidden spare copy named `.<file name>.<random>.kept.tmp`. Spare copies count towards
+  **Space used**, Health lists them while any exist, and deleting the capture or **Delete all
+  history** removes them; **Clear cached files** and the storage limit leave them alone. To put one back, stop YA-WAMF, delete or move the file now at the name, and
+  rename the spare copy to the name shown between the leading dot and the random part (for example
+  `.abc.jpg.<random>.kept.tmp` becomes `abc.jpg`). A photo's `.meta.json` sidecar may have its own
+  spare copy; put that back the same way.
+
 ### Maintenance
 
 Under **More options**: jobs that repair or fill in the history. The actions that delete it are

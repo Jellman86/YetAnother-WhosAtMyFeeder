@@ -1351,6 +1351,8 @@ def build_health_payload(files: HealthFileReadings) -> dict[str, object]:
             # Files an interrupted cleanup set aside that have not gone back yet; Health's incident
             # for them is open while this is above zero and closes by itself at zero.
             "set_aside_pending": media_cache.set_aside_pending_count,
+            # Recovery copies kept beside a newer file at their name; open while above zero.
+            "kept_copies": media_cache.kept_copies_count,
         },
         "mqtt": mqtt_health,
         "frigate_api": {"state": frigate_reachability.state, "last_failure": frigate_reachability.last_failure},

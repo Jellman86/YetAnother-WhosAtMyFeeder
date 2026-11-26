@@ -423,6 +423,10 @@
       "title": "Certaines photos ou vidéos mises de côté par le nettoyage n’ont pas encore pu être remises en place.",
       "next": "Rien n’a été supprimé. YA-WAMF réessaie à la prochaine vérification du stockage. Si cela se reproduit, vérifiez que le disque du dossier des médias a de l’espace libre et est accessible en écriture."
     },
+    "media_kept_copies": {
+      "title": "Certaines photos ou vidéos ont été gardées en copies de secours, car le nettoyage n’a pas pu les remettre en place.",
+      "next": "Rien n’a été perdu : un autre fichier avait pris leur place, les deux ont donc été conservés. Supprimer la capture supprime aussi sa copie de secours. Le guide du stockage explique comment en remettre une en place."
+    },
     "notification_queue_full": {
       "title": "Une notification a été ignorée car la file d'envoi était pleine.",
       "next": "Vérifiez que vos canaux répondent rapidement dans Paramètres → Notifications."

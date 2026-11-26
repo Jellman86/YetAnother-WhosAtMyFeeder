@@ -13,7 +13,8 @@ export const INCIDENT_SIGNAL_PATHS = [
     'ml.worker_pools.live.circuit_open',
     'ml.worker_pools.background.circuit_open',
     'mqtt.frigate_availability.status',
-    'media_storage.set_aside_pending'
+    'media_storage.set_aside_pending',
+    'media_storage.kept_copies'
 ] as const;
 
 export type IncidentSignalPath = (typeof INCIDENT_SIGNAL_PATHS)[number];
@@ -82,6 +83,15 @@ export const STATEFUL_INCIDENTS: readonly StatefulIncident[] = [
         isOpen: (read) => {
             const pending = read('media_storage.set_aside_pending');
             return typeof pending === 'number' ? pending > 0 : null;
+        }
+    },
+    {
+        // Recovery copies kept beside a newer file at their name: open while any are on disk.
+        component: 'media_cache',
+        reasons: ['media_kept_copies'],
+        isOpen: (read) => {
+            const kept = read('media_storage.kept_copies');
+            return typeof kept === 'number' ? kept > 0 : null;
         }
     }
 ];
