@@ -3264,6 +3264,27 @@ async def test_replace_from_clip_path_replaces_cached_snapshot_when_enabled(tmp_
 
 
 @pytest.mark.asyncio
+async def test_clip_refinement_kept_by_an_unreadable_photo_sidecar_says_so(tmp_path, monkeypatch):
+    event = "evt_clip_unreadable_sidecar"
+    await _mock_supported_photo_bundle(monkeypatch, "generate_snapshot_candidates_from_clip_path", event)
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    assert await cache_service.replace_snapshot(event, b"owner-photo", manual_selection=True)
+    cache_service._snapshot_metadata_path(event).write_bytes(b"{unreadable")
+    settings.media_cache.high_quality_event_snapshots = True
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_extract_snapshot_from_clip_path",
+        lambda clip_path, *_args: b"derived-bytes",
+    )
+
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_path(event, _clip_file(tmp_path))
+
+    # The automatic write refused, so the job must not record a replacement that never happened.
+    assert result == "photo_settings_unreadable"
+    assert await cache_service.get_snapshot(event) == b"owner-photo"
+
+
+@pytest.mark.asyncio
 async def test_replace_from_clip_path_is_disabled_when_feature_flag_off(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_clip_disabled", b"frigate-bytes")

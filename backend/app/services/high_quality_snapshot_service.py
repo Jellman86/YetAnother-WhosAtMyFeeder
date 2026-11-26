@@ -532,12 +532,8 @@ class HighQualitySnapshotService:
         await archive_service.refresh_photograph(event_id)
 
         await self._apply_classification_refinement(event_id, classification_candidates)
-        # replace_snapshot keeps a live owner choice, and fails closed when its sidecar cannot be read.
-        # Either way nothing was written, so the outcome must not claim a new photo.
-        if await media_cache.has_live_manual_selection(event_id):
-            if await media_cache.get_snapshot_metadata(event_id) is None:
-                return self._record_outcome(event_id, "photo_settings_unreadable")
-            return self._record_outcome(event_id, "manual_selection_preserved")
+        if kept := await self._kept_photo_outcome(event_id):
+            return self._record_outcome(event_id, kept)
         if manual_override and initial_metadata.get("manual_selection"):
             async with media_cache._snapshot_commit_lock(event_id):
                 if not (await media_cache.get_snapshot_metadata(event_id) or {}).get("manual_selection"):
@@ -781,10 +777,9 @@ class HighQualitySnapshotService:
                 size=len(image_bytes),
                 source=snapshot_source,
             )
-            manual = (await media_cache.get_snapshot_metadata(event_id) or {}).get("manual_selection")
             result = self._record_outcome(
                 event_id,
-                "manual_selection_preserved" if manual else "bird_crop_replaced" if crop_applied else "replaced",
+                await self._kept_photo_outcome(event_id) or ("bird_crop_replaced" if crop_applied else "replaced"),
             )
             await self._persist_processing_outcome(event_id, result, expected_revision=revision)
             return result
@@ -3787,6 +3782,19 @@ class HighQualitySnapshotService:
         if not math.isfinite(parsed):
             return None
         return parsed
+
+    @staticmethod
+    async def _kept_photo_outcome(event_id: str) -> str | None:
+        """Why a replace_snapshot call kept the photo, or None when it wrote the new one.
+
+        It keeps a live owner choice, and fails closed when the choice's sidecar cannot be read.
+        Either way nothing was written, so the outcome must not claim a new photo.
+        """
+        if not await media_cache.has_live_manual_selection(event_id):
+            return None
+        if await media_cache.get_snapshot_metadata(event_id) is None:
+            return "photo_settings_unreadable"
+        return "manual_selection_preserved"
 
     def _record_outcome(self, event_id: str, result: str) -> str:
         self._outcomes[result] += 1
