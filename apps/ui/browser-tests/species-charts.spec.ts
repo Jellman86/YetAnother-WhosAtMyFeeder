@@ -450,6 +450,52 @@ test('a wall picture that fails keeps its cell, so nothing on the wall moves', a
     expect(broken).toBe(0);
 });
 
+test('expanding Show more visits loads revealed tiles and hover poster, and retries after transient failure', async ({ page }) => {
+    const requestedUrls: string[] = [];
+    let transientWallFailure = false;
+    await page.route(url => url.pathname.startsWith('/api/about/showcase/') && url.pathname.endsWith('.jpg'), async route => {
+        requestedUrls.push(route.request().url());
+        const id = Number(route.request().url().match(/wall-(\d+)\.jpg/)?.[1] ?? -1);
+        if (transientWallFailure && id >= 50) {
+            await route.fulfill({ status: 503, headers: { 'Retry-After': '5' }, contentType: 'text/plain', body: 'busy' });
+            return;
+        }
+        await route.fulfill({ contentType: 'image/svg+xml', body: pixel });
+    });
+
+    wallCaptures = captures(80);
+    transientWallFailure = true;
+    await page.reload();
+    await expect(page.locator('[data-capture-wall-tile]').first()).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    const initialCount = await page.locator('[data-capture-wall-tile]').count();
+    expect(initialCount).toBeGreaterThan(0);
+
+    // Expanding while the backend is transiently unavailable shows missing cells for failed tiles without breaking layout.
+    await page.locator('[data-capture-wall-more]').click();
+    await expect.poll(() => page.locator('[data-capture-wall-tile]').count()).toBeGreaterThan(initialCount);
+    await expect(page.locator('[data-capture-wall-missing]').first()).toBeVisible();
+
+    // Once the upstream recovers, collapsing and re-expanding clears stale failures and loads all expanded tiles.
+    transientWallFailure = false;
+    await page.locator('[data-capture-wall-more]').click();
+    await page.locator('[data-capture-wall-more]').click();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-capture-wall-missing]')).toHaveCount(0);
+
+    const lastTile = page.locator('[data-capture-wall-tile]').last();
+    await lastTile.scrollIntoViewIfNeeded();
+    await expect.poll(() => lastTile.locator('img').evaluate(img => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
+
+    // Focusing the last expanded tile opens its popout and loads its card-sized poster.
+    await page.locator('[data-capture-wall-tile][tabindex="0"]').focus();
+    await page.keyboard.press('End');
+    const popout = page.locator('[data-capture-wall-popout]');
+    await expect(popout).toBeVisible();
+    await expect.poll(() => popout.locator('img').evaluate(img => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
+    expect(requestedUrls.some(url => /\/api\/about\/showcase\/wall-\d+\.jpg$/.test(new URL(url).pathname) && !url.includes('size=tile'))).toBe(true);
+});
+
 test('the chart says from which day its counts come from daily totals, and nothing when none do', async ({ page }) => {
     // The default fixture counts stored captures only.
     await expect(page.locator('canvas[aria-label^="Captures over time"]')).toBeVisible();

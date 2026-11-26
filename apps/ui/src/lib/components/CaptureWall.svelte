@@ -95,6 +95,12 @@
     function markFailed(event: string): void {
         failed = new Set([...failed, event]);
     }
+    // Clear stale tile load failures whenever a fresh tile set arrives so visits that failed
+    // transiently (for example during a Frigate hiccup) can recover on refresh or span switch.
+    $effect(() => {
+        void tiles;
+        failed = new Set();
+    });
     // A visit whose picture fails keeps its cell: the wall is packed once and nothing moves after load.
     const usable = $derived(tiles.slice(0, maxTiles ?? tiles.length));
     const shown = $derived(width === 0 ? [] : packTiles(usable, columns, rowCount));
@@ -531,7 +537,17 @@
                     {$_('leaderboard.wall_footer', { values: { count: shown.length }, default: '{count, plural, one {# recent visit. It opens its species.} other {# recent visits. Each opens its species.}}' })}
                 </p>
                 {#if hasMore || opened}
-                    <button type="button" class="btn btn-ghost text-xs" aria-expanded={opened} onclick={() => (opened = !opened)} data-capture-wall-more>
+                    <button
+                        type="button"
+                        class="btn btn-ghost text-xs"
+                        aria-expanded={opened}
+                        onclick={() => {
+                            const next = !opened;
+                            opened = next;
+                            if (next && failed.size > 0) failed = new Set();
+                        }}
+                        data-capture-wall-more
+                    >
                         {opened ? $_('leaderboard.wall_less', { default: 'Show fewer visits' }) : $_('leaderboard.wall_more', { default: 'Show more visits' })}
                     </button>
                 {/if}

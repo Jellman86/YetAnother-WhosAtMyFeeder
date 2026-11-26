@@ -647,6 +647,14 @@ class MediaCacheService:
             return None
         return path if await aiofiles.os.path.exists(path) else None
 
+    async def get_thumbnail_path(self, event_id: str) -> Optional[Path]:
+        """Where a cached thumbnail lives, or None when there is none."""
+        try:
+            path = self._thumbnail_path(event_id)
+        except ValueError:
+            return None
+        return path if await aiofiles.os.path.exists(path) else None
+
     async def get_snapshot_metadata(self, event_id: str) -> Optional[dict]:
         """Read cached snapshot metadata, if present and valid."""
         try:

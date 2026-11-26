@@ -824,6 +824,9 @@
       "app/services/recording_snapshot_input.py": [
         "app/services/frigate_client.py"
       ],
+      "app/services/reel_image_service.py": [
+        "app/services/frigate_client.py"
+      ],
       "app/services/service_connections.py": [
         "app/services/frigate_client.py",
         "app/services/mqtt_service.py"
