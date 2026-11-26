@@ -1443,6 +1443,68 @@ async def test_the_whole_chain_of_disk_errors_never_deletes_a_confirmed_photo(tm
 
 
 @pytest.mark.asyncio
+async def test_clip_recording_and_preview_writers_leave_a_held_name_alone(tmp_path, monkeypatch):
+    service, _ = _make_service(tmp_path, monkeypatch)
+    clip = service._clip_path("held")
+    recording = service._recording_clip_path("held")
+    sprite, manifest = service._preview_sprite_path("held"), service._preview_manifest_path("held")
+    monkeypatch.setattr(service, "_set_aside_pending", {clip, recording, sprite, manifest})
+    data = b"\x00\x00\x00\x18ftypmp42" + b"a" * 1024
+
+    async def chunks():
+        yield data
+
+    monkeypatch.setattr(media_cache_module, "_clip_duration_seconds", lambda _path: 5.0)
+    assert await service.cache_clip("held", data) is None
+    assert await service.cache_clip_streaming("held", chunks()) is None
+    assert await service.cache_recording_clip("held", data) is None
+    assert await service.cache_preview_assets("held", b"sprite", "{}") is False
+    assert list(media_cache_module.CLIPS_DIR.iterdir()) == []
+    assert list(media_cache_module.PREVIEWS_DIR.iterdir()) == []
+
+
+@pytest.mark.asyncio
+async def test_the_hint_refresh_leaves_a_held_sidecar_alone(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    await service.cache_snapshot("hinted", b"photo")
+    sidecar = snapshots / "hinted.jpg.meta.json"
+    before = sidecar.read_bytes()
+    monkeypatch.setattr(service, "_set_aside_pending", {sidecar})
+    assert not await service.update_snapshot_event_hints("hinted", {"snapshot": {"frame_time": 2.0}})
+    assert sidecar.read_bytes() == before
+
+
+@pytest.mark.asyncio
+async def test_age_cleanup_leaves_a_visit_alone_while_part_of_it_is_set_aside(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    _without_detection_history(service, monkeypatch)
+    await service.cache_snapshot("partly", b"aged-photo")
+    old_time = (datetime.now() - timedelta(days=5)).timestamp()
+    for path in snapshots.iterdir():
+        os.utime(path, (old_time, old_time))
+    # Its thumbnail could not go back yet, so the visit is judged only once it has.
+    monkeypatch.setattr(service, "_set_aside_pending", {snapshots / "partly_thumb.jpg"})
+    await service.cleanup_old_media(1)
+    assert await service.get_snapshot("partly") == b"aged-photo"
+
+
+@pytest.mark.asyncio
+async def test_an_owner_apply_or_regeneration_still_writes_a_held_name(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    photo = snapshots / "held.jpg"
+    monkeypatch.setattr(service, "_set_aside_pending", {photo})
+    assert await service.replace_snapshot("held", b"owner-chosen", manual_selection=True)
+    assert await service.get_snapshot("held") == b"owner-chosen"
+    assert await service.replace_snapshot(
+        "held",
+        b"regenerated",
+        clear_manual_selection=True,
+        expected_manual_selection_updated_at=(await service.get_snapshot_metadata("held"))["updated_at"],
+    )
+    assert await service.get_snapshot("held") == b"regenerated"
+
+
+@pytest.mark.asyncio
 async def test_cleanup_old_media_keeps_canonical_photo_for_owner_confirmed_and_manual_selection(tmp_path, monkeypatch):
     service, snapshots = _make_service(tmp_path, monkeypatch)
     clips = media_cache_module.CLIPS_DIR
