@@ -431,7 +431,7 @@ async def test_byte_budget_continues_when_late_owner_protection_reduces_actual_b
             if event_id != "evt-next" or not next_is_garden:
                 await media.cache_snapshot(event_id, photo if event_id != "evt-latest" else _jpeg_bytes("red"))
     clip_path = await media.cache_clip("evt-oldest", b"\x00\x00\x00\x18ftypmp42" + b"a" * 50_000)
-    evict_garden = AsyncMock(return_value=len(photo))
+    evict_garden = AsyncMock(return_value={"b" * 32: len(photo)})
     if next_is_garden:
         from app.services.garden_media_cache import garden_media_cache
 
@@ -463,6 +463,39 @@ async def test_byte_budget_continues_when_late_owner_protection_reduces_actual_b
         evict_garden.assert_awaited_once_with(["b" * 32])
     else:
         assert await media.get_snapshot("evt-next") is None
+
+
+@pytest.mark.asyncio
+async def test_byte_budget_counts_garden_bytes_only_once_they_are_removed(storage_env, monkeypatch):
+    from app.services.garden_media_cache import garden_media_cache
+
+    _, database, media = storage_env
+    monkeypatch.setattr(storage_module.settings.media_cache, "per_species_maximum", 0)
+    monkeypatch.setattr(storage_module.settings.media_cache, "max_size_mb", 1)
+    photo = _jpeg_bytes("teal") + b"\x00" * 300_000
+    async with database() as db:
+        for minutes, event_id in ((20, "evt-older"), (10, "evt-newer")):
+            await DetectionRepository(db).create(
+                Detection(datetime.now() - timedelta(minutes=minutes), 1, 0.9, "Robin", "Robin", event_id, "camera")
+            )
+            await media.cache_snapshot(event_id, photo)
+    capture_id = "c" * 32
+    garden_id = storage_module.eviction_key(capture_id)
+    garden_visit = storage_module.CachedVisit(
+        garden_id, garden_id, (datetime.now() - timedelta(minutes=30)).isoformat(sep=" "), 600_000
+    )
+    monkeypatch.setattr(storage_module.MediaStorageService, "_garden_visits", AsyncMock(return_value=[garden_visit]))
+    # The capture was confirmed or deleted meanwhile, so releasing it removes nothing from disk.
+    evict_garden = AsyncMock(return_value={capture_id: 0})
+    monkeypatch.setattr(garden_media_cache, "evict", evict_garden)
+
+    result = await storage_module.MediaStorageService().enforce_limits()
+
+    evict_garden.assert_awaited_once_with([capture_id])
+    assert await media.get_snapshot("evt-older") is None
+    assert await media.get_snapshot("evt-newer") == photo
+    assert result["visits_evicted"] == 1
+    assert 0 < result["bytes_freed"] < 600_000
 
 
 @pytest.mark.asyncio

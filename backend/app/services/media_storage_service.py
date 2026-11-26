@@ -212,29 +212,14 @@ class MediaStorageService:
                 await db.rollback()
                 raise
 
-    @staticmethod
-    def _garden_bytes_on_disk(capture_ids: list[str]) -> dict[str, int]:
-        """A kept file that has gone missing frees nothing, so only bytes really on disk are weighed."""
-        from app.services.garden_media_cache import kept_path
-
-        sizes: dict[str, int] = {}
-        for capture_id in capture_ids:
-            total = 0
-            for kind in ("photo", "clip"):
-                try:
-                    total += kept_path(capture_id, kind).stat().st_size
-                except (OSError, ValueError):
-                    continue
-            sizes[capture_id] = total
-        return sizes
-
     @classmethod
     async def _garden_visits(cls) -> list[CachedVisit]:
         """Garden's kept media shares the byte budget, oldest first. A per-species maximum counts birds only."""
-        from app.services.garden_media_cache import garden_media_cache
+        from app.services.garden_media_cache import garden_media_cache, kept_bytes_on_disk
 
+        # A kept file that has gone missing frees nothing, so only bytes really on disk are weighed.
         entries = await garden_media_cache.entries()
-        on_disk = await asyncio.to_thread(cls._garden_bytes_on_disk, [entry.capture_id for entry in entries])
+        on_disk = await asyncio.to_thread(kept_bytes_on_disk, [entry.capture_id for entry in entries])
         return [
             CachedVisit(
                 event_id=eviction_key(entry.capture_id),
@@ -348,28 +333,37 @@ class MediaStorageService:
                     if capture_id_from_eviction_key(visit.event_id)
                 }
                 garden_batch: list[str] = []
+                garden_batch_bytes = 0
+
+                async def release_garden_batch() -> None:
+                    # Garden captures are released together; only the bytes really removed count.
+                    nonlocal garden_batch, garden_batch_bytes, remaining_bytes
+                    if not garden_batch:
+                        return
+                    freed_by_capture = await garden_media_cache.evict(garden_batch)
+                    garden_batch, garden_batch_bytes = [], 0
+                    result["visits_evicted"] += sum(1 for freed in freed_by_capture.values() if freed > 0)
+                    result["bytes_freed"] += sum(freed_by_capture.values())
+                    remaining_bytes -= sum(freed_by_capture.values())
+
                 for event_id in evictions:
-                    if max_bytes > 0 and event_id not in species_cap_ids and remaining_bytes <= max_bytes:
-                        break
+                    if max_bytes > 0 and event_id not in species_cap_ids:
+                        if remaining_bytes - garden_batch_bytes <= max_bytes:
+                            break
                     attempted.add(event_id)
                     capture_id = capture_id_from_eviction_key(event_id)
                     if capture_id:
                         garden_batch.append(capture_id)
-                        result["visits_evicted"] += 1
-                        result["bytes_freed"] += garden_sizes[event_id]
-                        remaining_bytes -= garden_sizes[event_id]
+                        garden_batch_bytes += garden_sizes[event_id]
                         continue
-                    if garden_batch:
-                        await garden_media_cache.evict(garden_batch)
-                        garden_batch = []
+                    await release_garden_batch()
                     freed = await self._evict_bird_visit(event_id, files[event_id], owners[event_id])
                     if freed is None:
                         continue
                     result["visits_evicted"] += 1
                     result["bytes_freed"] += freed
                     remaining_bytes -= freed
-                if garden_batch:
-                    await garden_media_cache.evict(garden_batch)
+                await release_garden_batch()
                 if max_bytes <= 0 or remaining_bytes <= max_bytes:
                     break
                 # A visit protected late, or refused at its final check, freed less than planned.

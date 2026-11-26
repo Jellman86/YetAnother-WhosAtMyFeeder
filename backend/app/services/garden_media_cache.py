@@ -77,6 +77,20 @@ def kept_path(capture_id: str, kind: MediaKind) -> Path:
     return Path(candidate)
 
 
+def kept_bytes_on_disk(capture_ids: list[str]) -> dict[str, int]:
+    """Each capture's kept photo and clip bytes really on disk; a file that has gone counts nothing."""
+    sizes: dict[str, int] = {}
+    for capture_id in capture_ids:
+        total = 0
+        for kind in _SUFFIX:
+            try:
+                total += kept_path(capture_id, kind).stat().st_size
+            except (OSError, ValueError):
+                continue
+        sizes[capture_id] = total
+    return sizes
+
+
 def _temporary_path(capture_id: str, kind: MediaKind) -> Path:
     final = kept_path(capture_id, kind)
     return final.with_name(f".{final.stem}.{uuid.uuid4().hex}.tmp")
@@ -539,10 +553,15 @@ class GardenMediaCache:
         async with get_db() as db:
             return await GardenRepository(db).kept_media_entries()
 
-    async def evict(self, capture_ids: list[str]) -> None:
+    async def evict(self, capture_ids: list[str]) -> dict[str, int]:
+        """Release kept media. Returns the bytes each capture really freed on disk, which may be none."""
+        valid = [value for value in capture_ids if valid_capture_id(value)]
+        before = await asyncio.to_thread(kept_bytes_on_disk, valid)
         async with get_db() as db:
-            await GardenRepository(db).evict_kept_media([value for value in capture_ids if valid_capture_id(value)])
+            await GardenRepository(db).evict_kept_media(valid)
         await self.sweep()
+        after = await asyncio.to_thread(kept_bytes_on_disk, valid)
+        return {capture_id: max(0, before[capture_id] - after[capture_id]) for capture_id in valid}
 
 
 garden_media_cache = GardenMediaCache()
