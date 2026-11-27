@@ -412,3 +412,22 @@ async def test_an_mqtt_message_cannot_claim_to_be_a_recording_frame_replay(monke
     assert slept == [pytest.approx(4.0)]
     processor._classify_snapshot.assert_awaited_once()
     assert processor.get_status()["drop_reasons"]["update_recovery_cooldown"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("claimed_received_at", [NOW - 3600.0, NOW + 3600.0, "not-a-time"])
+async def test_an_mqtt_message_cannot_set_its_own_received_time(claimed_received_at):
+    """YA-WAMF stamps when a message arrived; a message that claims a time is neither dropped as stale nor kept fresh."""
+    processor, _slept, _gate = _processor()
+    seen: list[float] = []
+
+    async def capture(data):
+        seen.append(data["__received_at_ts"])
+
+    processor._process_event_payload = capture
+    forged = json.loads(_payload("new", frame_time=None))
+    forged["__received_at_ts"] = claimed_received_at
+
+    await processor.process_mqtt_message(json.dumps(forged).encode())
+
+    assert seen == [NOW]

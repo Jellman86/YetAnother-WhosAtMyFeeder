@@ -568,9 +568,10 @@ class EventProcessor:
         try:
             data = json.loads(payload)
             if isinstance(data, dict):
-                data.setdefault("__received_at_ts", time.time())
-                # Only YA-WAMF marks its own recording-frame replay; a message that claims to be one
-                # would skip the wait and the update cooldown.
+                # Only YA-WAMF stamps when a message arrived and marks its own recording-frame replay. A
+                # message that set its own time could be dropped as stale or held fresh past the live
+                # deadline, and one that claimed to be a replay would skip the wait and the update cooldown.
+                data["__received_at_ts"] = time.time()
                 data.pop("__recording_wait_done", None)
                 after = data.get("after")
                 if isinstance(after, dict):
