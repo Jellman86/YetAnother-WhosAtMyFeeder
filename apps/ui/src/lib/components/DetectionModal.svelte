@@ -106,6 +106,8 @@
         detection: Detection;
         /** The visit this capture is part of, when the record was opened from that visit. */
         visit?: RecordVisit | null;
+        /** The full clip's length as the server measured it; null until it has. */
+        fullClipSeconds?: number | null;
         llmReady: boolean;
         onClose: () => void;
         onReclassify?: (detection: Detection) => void;
@@ -123,6 +125,7 @@
     let {
         detection,
         visit = null,
+        fullClipSeconds = null,
         llmReady,
         onClose,
         onReclassify,
@@ -690,16 +693,12 @@
         const captures = $_('visits.captures', { values: { count: visit.captureCount }, default: '{count, plural, one {# capture} other {# captures}}' });
         return `${captures}, ${span}`;
     });
-    // The full clip is cut from Frigate's recordings around this capture, by the owner's settings.
-    const fullClipSeconds = $derived.by(() => {
-        const before = settingsStore.settings?.recording_clip_before_seconds;
-        const after = settingsStore.settings?.recording_clip_after_seconds;
-        return typeof before === 'number' && typeof after === 'number' && before + after > 0 ? before + after : null;
-    });
+    // The length is the one the server measured on the clip itself. Settings say what a new clip
+    // would be cut to, not what an older one is, so without a measurement no length is stated.
     const fullClipTitle = $derived(
         fullClipSeconds === null
-            ? $_('video_player.full_visit_ready', { default: 'Full clip ready' })
-            : $_('detection.full_clip_seconds', { values: { seconds: fullClipSeconds }, default: "This capture's full clip, {seconds, plural, one {# second} other {# seconds}}" })
+            ? $_('detection.full_clip_title', { default: "This capture's full clip" })
+            : $_('detection.full_clip_seconds', { values: { seconds: Math.round(fullClipSeconds) }, default: "This capture's full clip, {seconds, plural, one {# second} other {# seconds}}" })
     );
     let awaitingReclassifyOverlay = $state(false);
     let videoAnalysisStatus = $derived(detection.video_classification_status ?? null);

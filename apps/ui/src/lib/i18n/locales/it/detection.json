@@ -365,6 +365,7 @@
   "play_video": "Riproduci video di {species}",
   "play_full_visit": "Riproduci il clip completo di questa acquisizione, {species}",
   "full_clip_seconds": "Clip completo di questa acquisizione, {seconds, plural, one {# secondo} other {# secondi}}",
+  "full_clip_title": "Clip completo di questa acquisizione",
   "reclassify": "Riclassifica rilevamento di {species}",
   "retag": "Tag manuale rilevamento di {species}",
   "audio_detected": "Audio rilevato",

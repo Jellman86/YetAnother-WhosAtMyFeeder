@@ -1,9 +1,9 @@
 <script lang="ts">
     /**
      * Another species seen in one capture of a visit. The visit keeps its own species' name; this
-     * note is secondary, and it opens the capture whose photo holds the other bird, so the owner
-     * can see the evidence rather than take a name on trust. "One photo" says it is not every
-     * photo of the visit; "this photo" says it is the one on screen.
+     * note is secondary, and it opens the capture that holds the other bird, so the owner can see the
+     * evidence rather than take a name on trust. It says capture, never photo: a card's thumbnail is
+     * usually a crop of one bird, so the other is in the capture's whole scene, not in that picture.
      */
     import { _, locale } from 'svelte-i18n';
     import type { Detection } from '../api';
@@ -30,14 +30,14 @@
     );
     const note = $derived(
         companions.shown
-            ? $_('events.also_in_this_photo', { values: { species: names }, default: 'Also in this photo: {species}' })
-            : $_('events.also_in_one_photo', { values: { species: names }, default: 'Also in one photo: {species}' })
+            ? $_('events.also_in_this_capture', { values: { species: names }, default: 'Also in this capture: {species}' })
+            : $_('events.also_in_one_capture', { values: { species: names }, default: 'Also in one capture: {species}' })
     );
     const captureTime = $derived(
         formatTime(companions.capture.detection_time, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     );
     const label = $derived(
-        $_('events.also_in_photo_open', { values: { note, time: captureTime }, default: '{note}. Open the capture at {time}' })
+        $_('events.also_in_capture_open', { values: { note, time: captureTime }, default: '{note}. Open the capture at {time}' })
     );
 </script>
 

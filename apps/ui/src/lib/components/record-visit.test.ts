@@ -19,6 +19,9 @@ describe('the visit a record states beside its capture', () => {
 
     it('reaches the record through the shared opener, and only for the capture it was opened on', () => {
         expect(recordDialogsSource).toContain('visit={visit?.frigateEvent === record.frigate_event ? visit : null}');
-        for (const page of [eventsSource, dashboardSource]) expect(page).toContain('visit={openedVisit}');
+        for (const page of [eventsSource, dashboardSource]) expect(page).toContain('bind:visit={openedVisit}');
+        // Closing the record, or swapping it for the player, takes the visit with it.
+        expect(recordDialogsSource).toContain('visit = $bindable(null)');
+        expect(recordDialogsSource.match(/\brecord = null\b/g)).toHaveLength(1);
     });
 });

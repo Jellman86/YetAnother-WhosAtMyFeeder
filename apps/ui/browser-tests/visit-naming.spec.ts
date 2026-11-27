@@ -43,7 +43,16 @@ function candidates(event: string) {
     };
 }
 
-async function openExplorer(page: Page, { theme = 'light', fonts = false }: { theme?: 'light' | 'dark'; fonts?: boolean } = {}) {
+interface ExplorerOptions {
+    theme?: 'light' | 'dark';
+    fonts?: boolean;
+    /** The length the server measured on the full clip; absent when it has not measured one. */
+    clipSeconds?: string | null;
+    /** Further address, such as a link to one capture. */
+    query?: string;
+}
+
+async function openExplorer(page: Page, { theme = 'light', fonts = false, clipSeconds = '30.2', query = '' }: ExplorerOptions = {}) {
     const errors: string[] = [];
     const requests: string[] = [];
     page.on('pageerror', error => { if (!error.message.includes('ResizeObserver loop')) errors.push(error.message); });
@@ -58,10 +67,18 @@ async function openExplorer(page: Page, { theme = 'light', fonts = false }: { th
         if (path === '/api/settings') {
             return route.fulfill({ json: {
                 enrichment_summary_provider: 'disabled', clips_enabled: true, recording_clip_enabled: true,
-                recording_clip_before_seconds: 15, recording_clip_after_seconds: 15, display_common_names: true
+                // Today's settings would cut a 120-second clip; the clips on file were cut at 30.
+                recording_clip_before_seconds: 30, recording_clip_after_seconds: 90, display_common_names: true
             } });
         }
         if (path === '/api/events') return route.fulfill({ json: [shown] });
+        if (path === '/api/explorer/search') {
+            const asked = new URL(request.url()).searchParams.get('q');
+            const record = asked === SHOWN
+                ? { kind: 'detection', id: SHOWN, observed_at: shown.detection_time, display_name: 'Eurasian Blue Tit', scientific_name: 'Cyanistes caeruleus', common_name: 'Eurasian Blue Tit', camera: 'birdcam', hidden: false }
+                : null;
+            return route.fulfill({ json: { taxa: [], truncated: false, record } });
+        }
         if (path === '/api/visits') {
             return route.fulfill({ json: { total: 1, gap_seconds: 60, visits: [{
                 visit_id: PEAK, start_time: START, end_time: END, capture_count: 6, best_score: 0.99, needs_review: false,
@@ -69,7 +86,9 @@ async function openExplorer(page: Page, { theme = 'light', fonts = false }: { th
             }] } });
         }
         if (path.endsWith('/recording-clip.mp4') && request.method() === 'HEAD') {
-            return route.fulfill({ status: 200, headers: { 'X-YAWAMF-Recording-Clip-State': 'complete', 'X-YAWAMF-Recording-Clip-Duration': '30.2' }, body: '' });
+            const headers: Record<string, string> = { 'X-YAWAMF-Recording-Clip-State': 'complete' };
+            if (clipSeconds !== null) headers['X-YAWAMF-Recording-Clip-Duration'] = clipSeconds;
+            return route.fulfill({ status: 200, headers, body: '' });
         }
         if (path.endsWith('/snapshot/status')) return route.fulfill({ json: { available: true, high_quality_bird_crop_enabled: true, source: 'hq_candidate_model_crop', original_frigate_snapshot_available: false } });
         if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: candidates(decodeURIComponent(path.split('/')[3])) });
@@ -81,8 +100,8 @@ async function openExplorer(page: Page, { theme = 'light', fonts = false }: { th
         if (path.startsWith('/api/audio/context/') || path.endsWith('/labels') || path.endsWith('/species')) return route.fulfill({ json: [] });
         return route.fulfill({ json: { count: 0 } });
     });
-    await page.goto(`/browser-tests/owner-history.html?surface=explorer&settings=late${theme === 'dark' ? '&theme=dark' : ''}`);
-    await expect(page.locator(`[data-explorer-visit="${PEAK}"] [data-detection-card]`)).toBeVisible();
+    await page.goto(`/browser-tests/owner-history.html?surface=explorer&settings=late${theme === 'dark' ? '&theme=dark' : ''}${query}`);
+    if (!query) await expect(page.locator(`[data-explorer-visit="${PEAK}"] [data-detection-card]`)).toBeVisible();
     if (fonts) {
         // The owner reads the app in Classic, which the theme store sets on <html>.
         await page.evaluate(async () => {
@@ -105,12 +124,16 @@ test('a Blue Tit visit keeps its name, and the pigeon in one capture is a note t
     await expect(card.locator('[data-detection-score]')).toHaveCount(1);
 
     const note = card.locator(`[data-visit-companions="${PEAK}"]`);
-    await expect(note).toHaveText('Also in one photo: Common Wood-Pigeon');
-    await expect(note).toHaveAccessibleName(/^Also in one photo: Common Wood-Pigeon\. Open the capture at \d{2}:\d{2}:\d{2}$/);
+    // A capture, not a photo: the card's thumbnail is a crop of one bird, so the pigeon is not in it.
+    await expect(note).toHaveText('Also in one capture: Common Wood-Pigeon');
+    await expect(note).toHaveAccessibleName(/^Also in one capture: Common Wood-Pigeon\. Open the capture at \d{2}:\d{2}:\d{2}$/);
     await note.click();
-    await expect(page.getByRole('dialog')).toBeVisible();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
     await expect.poll(() => openedRecord(requests, PEAK)).toBe(true);
     expect(openedRecord(requests, SHOWN)).toBe(false);
+    // The pigeon capture is one of this visit's six, so the record says so with this visit's span.
+    await expect(dialog.locator('[data-detection-visit-span]')).toContainText(/6 captures, \d{2}:\d{2}–\d{2}:\d{2}/);
     expect(errors).toEqual([]);
 });
 
@@ -171,4 +194,40 @@ test('review screenshots of the visit card and the record', async ({ page }) => 
         }
         await page.unrouteAll({ behavior: 'ignoreErrors' });
     }
+});
+
+test('the full clip states the length measured on it, never one from settings, and none before it is measured', async ({ page }) => {
+    const { errors } = await openExplorer(page, { clipSeconds: null });
+    await page.getByRole('button', { name: 'Eurasian Blue Tit detected at birdcam', exact: true }).click();
+    const play = page.getByRole('dialog').getByRole('button', { name: "Play this capture's full clip, Eurasian Blue Tit", exact: true });
+    await expect(play).toBeVisible();
+    await expect(play).toHaveAttribute('title', "This capture's full clip");
+    expect(errors).toEqual([]);
+});
+
+test('a record opened by its link says nothing of a visit it was not opened from', async ({ page }) => {
+    const { errors, requests } = await openExplorer(page, { query: `&event=${SHOWN}` });
+    const dialog = page.getByRole('dialog');
+    await expect.poll(() => openedRecord(requests, SHOWN)).toBe(true);
+    await expect(dialog.locator('[data-detection-facts]')).toBeVisible();
+    await expect(dialog.locator('[data-detection-visit-span]')).toHaveCount(0);
+    expect(errors).toEqual([]);
+});
+
+test('a closed record takes its visit with it: the same capture found by search states no visit', async ({ page }) => {
+    const { errors } = await openExplorer(page);
+    await page.getByRole('button', { name: 'Eurasian Blue Tit detected at birdcam', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.locator('[data-detection-visit-span]')).toContainText('6 captures');
+    await dialog.locator('[data-detection-modal-close]').click();
+    await expect(dialog).toHaveCount(0);
+
+    // Search opens one capture, not a visit: whatever the Explorer read before, it states none.
+    const search = page.getByRole('combobox', { name: 'Search the Explorer' });
+    await search.fill(SHOWN);
+    await expect(page.getByRole('option', { name: /Eurasian Blue Tit/ })).toContainText('Open record');
+    await search.press('Enter');
+    await expect(dialog.locator('[data-detection-facts]')).toBeVisible();
+    await expect(dialog.locator('[data-detection-visit-span]')).toHaveCount(0);
+    expect(errors).toEqual([]);
 });

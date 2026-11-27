@@ -112,7 +112,7 @@ describe('visitCompanionSpecies', () => {
         expect(companions?.capture.frigate_event).toBe('hqfh0o');
         expect(companions?.shown).toBe(false);
         expect(companions?.species).toEqual([
-            { species: 'Columba palumbus', count: 1, common_name: 'Common Wood-Pigeon', scientific_name: 'Columba palumbus' }
+            { species: 'Columba palumbus', count: 1, common_name: 'Common Wood-Pigeon', scientific_name: 'Columba palumbus', species_id: null }
         ]);
     });
 
@@ -131,11 +131,40 @@ describe('visitCompanionSpecies', () => {
         expect(visitCompanionSpecies(withPeak(species))?.species.map((entry) => entry.species)).toEqual(['Erithacus rubecula']);
     });
 
+    it('matches the visit species by catalogue id, whatever either side is labelled', () => {
+        // A legacy capture stored the classifier's "Blue Tit"; the counted box resolved to the catalogue name.
+        const legacy = { ...visit(6, blueTit('cforck', { display_name: 'Blue Tit', category_name: 'Blue Tit', scientific_name: null, common_name: null, species_id: 7275 })) };
+        const species: Summary['species'] = [
+            { species: 'Cyanistes caeruleus', count: 1, common_name: 'Eurasian Blue Tit', scientific_name: 'Cyanistes caeruleus', species_id: 7275 },
+            { species: 'Columba palumbus', count: 1, common_name: 'Common Wood-Pigeon', scientific_name: 'Columba palumbus', species_id: 4410 }
+        ];
+        const companions = visitCompanionSpecies({ ...legacy, peak_capture: blueTit('hqfh0o', { bird_summary: summary(2, { species }) }) });
+        expect(companions?.species.map((entry) => entry.species)).toEqual(['Columba palumbus']);
+    });
+
+    it('trusts two different catalogue ids over a shared label', () => {
+        const representative = blueTit('cforck', { species_id: 7275 });
+        const species: Summary['species'] = [
+            { species: 'Cyanistes caeruleus', count: 1, species_id: 7275 },
+            { species: 'Eurasian Blue Tit', count: 1, species_id: 9999 }
+        ];
+        const companions = visitCompanionSpecies({ ...visit(6, representative), peak_capture: blueTit('hqfh0o', { bird_summary: summary(2, { species }) }) });
+        expect(companions?.species.map((entry) => entry.species_id)).toEqual([9999]);
+    });
+
+    it('treats two labels of one catalogue species as one species', () => {
+        const species: Summary['species'] = [
+            { species: 'Columba palumbus', count: 1, species_id: 4410 },
+            { species: 'Wood Pigeon', count: 1, species_id: 4410 }
+        ];
+        expect(visitCompanionSpecies(withPeak(species))).toBeNull();
+    });
+
     it('names every other species when the visit species is not among them, busiest first', () => {
         const species: Summary['species'] = [{ species: 'European Robin', count: 1 }, { species: 'Dunnock', count: 2 }];
         expect(visitCompanionSpecies(withPeak(species))?.species).toEqual([
-            { species: 'Dunnock', count: 2, common_name: null, scientific_name: null },
-            { species: 'European Robin', count: 1, common_name: null, scientific_name: null }
+            { species: 'Dunnock', count: 2, common_name: null, scientific_name: null, species_id: null },
+            { species: 'European Robin', count: 1, common_name: null, scientific_name: null, species_id: null }
         ]);
     });
 

@@ -444,6 +444,7 @@ export interface components {
     count: number;
     scientific_name?: string | null;
     species: string;
+    species_id?: number | null;
 };
     BirdWeatherTestRequest: {
     token?: string | null;
@@ -944,6 +945,7 @@ export interface components {
     observation_source?: string;
     scientific_name?: string | null;
     score: number;
+    species_id?: number | null;
     sub_label?: string | null;
     taxa_id?: number | null;
     temperature?: number | null;
@@ -1041,6 +1043,7 @@ export interface components {
     observation_source?: string;
     scientific_name?: string | null;
     score: number;
+    species_id?: number | null;
     sub_label?: string | null;
     taxa_id?: number | null;
     temperature?: number | null;

@@ -365,6 +365,7 @@
   "play_video": "播放 {species} 的视频",
   "play_full_visit": "播放本次拍摄的完整片段：{species}",
   "full_clip_seconds": "本次拍摄的完整片段，{seconds, plural, other {# 秒}}",
+  "full_clip_title": "本次拍摄的完整片段",
   "reclassify": "重新分类 {species} 检测",
   "retag": "手动标记 {species} 检测",
   "audio_detected": "检测到音频",

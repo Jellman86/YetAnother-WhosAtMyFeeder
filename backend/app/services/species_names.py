@@ -43,6 +43,8 @@ class SpeciesIdentityNames:
 
     display: Optional[str]
     scientific: Optional[str]
+    # The catalogue identity the names belong to, when the caller resolved one.
+    species_id: Optional[int] = None
 
 
 # Joining words stay lowercase inside a name, as the catalogue's cased names write them.

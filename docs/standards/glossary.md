@@ -34,14 +34,19 @@ enforced, or enforced and not listed here.
 **Detection is internal only.** It is the database row and the Frigate concept, and it stays in
 code, logs, API fields and developer docs. In the UI it is a visit, a capture, a record or a call,
 whichever the sentence is about; "audio detection" is a call. A frame is one image inside a clip,
-before anything is stored, and is not a capture. A capture's clip and its photo options are that
-capture's own: "9 photo options from this capture", never "from this visit", and a record opened
-from a longer visit says so beside them ("Part of a visit: 6 captures, 12:44–12:46").
+before anything is stored, and is not a capture. "Event" is Frigate's word for what it sends: use
+it only when the sentence is about Frigate ("Frigate no longer has this event").
+
+**A capture's media is its own.** Its clip and its photo options belong to that capture: "9 photo
+options from this capture", never "from this visit", and a record opened from a longer visit says
+so beside them ("Part of a visit: 6 captures, 12:44–12:46"). For everything in a visit, say "whole
+visit"; "full visit" and "partial visit" are reserved words the lint rejects, because they were
+once the full clip's name.
 
 **A visit is named by its own species.** Another species in one of its captures is a note under the
-name ("Also in one photo: Wood Pigeon") that opens that capture, never a replacement name such as
-"Multiple species". "Event" is Frigate's word for what it sends: use
-it only when the sentence is about Frigate ("Frigate no longer has this event").
+name ("Also in one capture: Wood Pigeon") that opens that capture, never a replacement name such as
+"Multiple species". It says capture, not photo: the photo on a card is usually a crop of one bird,
+and the other bird is in the capture's whole scene.
 
 **Counting.** Two counts exist and they are never interchanged
 ([`layout-patterns.md`](layout-patterns.md), Standing):

@@ -66,9 +66,9 @@
   "empty_filtered_title": "このフィルターに一致する訪問はありません",
   "empty_filtered_desc": "履歴は残っています。期間を広げるかフィルターを外すと表示されます。",
   "empty_filtered_clear": "すべてのフィルターを解除",
-  "also_in_one_photo": "1 枚の写真に別の鳥も: {species}",
-  "also_in_this_photo": "この写真に別の鳥も: {species}",
-  "also_in_photo_open": "{note}。{time} の撮影を開く",
+  "also_in_one_capture": "1 件の撮影に別の鳥も: {species}",
+  "also_in_this_capture": "この撮影に別の鳥も: {species}",
+  "also_in_capture_open": "{note}。{time} の撮影を開く",
   "heard": {
     "toggle": "聞こえた鳴き声",
     "toggle_hint": "カメラの訪問の間に BirdNET-Go の鳴き声を表示します。オンにするまでオフです。この端末が選択を記憶します。",

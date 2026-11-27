@@ -766,7 +766,7 @@ test('a list row keeps its visit species, and names another species in one captu
     // The visit's own photo, alone: a stack of another capture's photo claimed several birds it did not show.
     await expect(row.locator('[data-detection-preview-stack]')).toHaveCount(0);
     const note = row.locator('[data-visit-companions="busy"]');
-    await expect(note).toHaveText('Also in one photo: Brown Rat');
+    await expect(note).toHaveText('Also in one capture: Brown Rat');
     await expect(note).not.toContainText('Rattus norvegicus');
     if (shots) await page.screenshot({ path: `${shots}/explorer-mixed-row.png` });
     expect(errors).toEqual([]);

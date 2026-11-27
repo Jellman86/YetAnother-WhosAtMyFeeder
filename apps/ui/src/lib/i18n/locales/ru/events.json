@@ -66,9 +66,9 @@
   "empty_filtered_title": "Ни один визит не подходит под эти фильтры",
   "empty_filtered_desc": "Ваша история на месте. Расширьте период или уберите фильтр, чтобы её увидеть.",
   "empty_filtered_clear": "Сбросить все фильтры",
-  "also_in_one_photo": "Также на одном фото: {species}",
-  "also_in_this_photo": "Также на этом фото: {species}",
-  "also_in_photo_open": "{note}. Открыть снимок в {time}",
+  "also_in_one_capture": "Также на одном снимке: {species}",
+  "also_in_this_capture": "Также на этом снимке: {species}",
+  "also_in_capture_open": "{note}. Открыть снимок в {time}",
   "heard": {
     "toggle": "Услышанные голоса",
     "toggle_hint": "Показывать голоса из BirdNET-Go между визитами камеры. Выключено, пока вы не включите; это устройство запомнит выбор.",

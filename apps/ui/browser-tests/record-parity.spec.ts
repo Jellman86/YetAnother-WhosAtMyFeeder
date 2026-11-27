@@ -123,6 +123,13 @@ test.describe('the record opened from About', () => {
         await expect(page.getByRole('dialog').getByRole('button', { name: 'Share link' })).toBeVisible(READY);
     });
 
+    test('states no visit: About opens one capture, not a visit of several', async ({ page }) => {
+        await openFeeder(page, { guest: false });
+        await openFromAbout(page);
+        await expect(record(page).locator('[data-detection-facts]')).toBeVisible(READY);
+        await expect(record(page).locator('[data-detection-visit-span]')).toHaveCount(0);
+    });
+
     test('offers a guest the video while the owner shares clips', async ({ page }) => {
         await openFeeder(page, { guest: true, showClips: true });
         await openFromAbout(page);

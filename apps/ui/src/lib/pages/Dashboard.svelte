@@ -962,7 +962,7 @@
 <RecordDialogs
     bind:record={selectedEvent}
     bind:video
-    visit={openedVisit}
+    bind:visit={openedVisit}
     onViewSpecies={(species: string) => (selectedSpecies = species)}
     onbirdschanged={handleBirdsChanged}
 />

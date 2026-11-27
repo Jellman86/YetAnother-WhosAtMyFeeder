@@ -44,12 +44,12 @@ def resolve_label_names(
         found = names.get(species_id)
         if found:
             display = vernacular_case(found.display) if found.display else None
-            resolved[key] = SpeciesIdentityNames(display=display, scientific=found.scientific)
+            resolved[key] = SpeciesIdentityNames(display=display, scientific=found.scientific, species_id=species_id)
     return resolved
 
 
 def name_summaries(summaries: Mapping[str, dict], names: Mapping[str, SpeciesIdentityNames]) -> dict[str, dict]:
-    """Copies of the summaries with each species' common and scientific name beside its label."""
+    """Copies of the summaries with each species' names and catalogue id beside its label."""
     named: dict[str, dict] = {}
     for event, summary in summaries.items():
         species = []
@@ -60,6 +60,7 @@ def name_summaries(summaries: Mapping[str, dict], names: Mapping[str, SpeciesIde
                     **entry,
                     "common_name": found.display if found else None,
                     "scientific_name": found.scientific if found else None,
+                    "species_id": found.species_id if found else None,
                 }
             )
         named[event] = {**summary, "species": species}

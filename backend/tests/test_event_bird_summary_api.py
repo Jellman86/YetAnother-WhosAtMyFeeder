@@ -123,7 +123,9 @@ async def test_owner_summary_counts_stored_decisions_and_keeps_absent_evidence_n
         "counted": 4,
         "unknown": 2,
         "excluded": 1,
-        "species": [{"species": "House Finch", "count": 2, "common_name": None, "scientific_name": None}],
+        "species": [
+            {"species": "House Finch", "count": 2, "common_name": None, "scientific_name": None, "species_id": None}
+        ],
         "hint_only": False,
     }
     # No stored observations is not a measured zero.
@@ -136,7 +138,7 @@ async def test_owner_summary_counts_stored_decisions_and_keeps_absent_evidence_n
         "hint_only": False,
     }
     assert rows["corrected"]["bird_summary"]["species"] == [
-        {"species": "Blue Jay", "count": 1, "common_name": None, "scientific_name": None}
+        {"species": "Blue Jay", "count": 1, "common_name": None, "scientific_name": None, "species_id": None}
     ]
     assert rows["corrected"]["bird_summary"]["unknown"] == 0
     assert rows["hint-only"]["bird_summary"]["hint_only"] is True
@@ -163,6 +165,7 @@ async def test_owner_summary_names_each_species_in_the_reader_language(history, 
             "count": 2,
             "common_name": "Roselin du Mexique",
             "scientific_name": "Haemorhous mexicanus",
+            "species_id": None,
         }
     ]
     assert asked and asked[0][1] == "fr"
@@ -291,3 +294,26 @@ async def test_summary_follows_current_parents_after_deletion_and_ignores_orphan
             }
         }
         assert await BirdObservationRepository(db).summaries_for_events([]) == {}
+
+
+@pytest.mark.asyncio
+async def test_a_capture_and_its_counted_species_carry_their_catalogue_identity(history, monkeypatch):
+    from app.services.species_names import SpeciesIdentityNames
+
+    with closing(sqlite3.connect(history[0])) as db:
+        db.execute("UPDATE detections SET species_id = 4321 WHERE frigate_event = 'flock'")
+        db.commit()
+    monkeypatch.setattr(
+        detection_presenter,
+        "resolve_label_names",
+        lambda labels, language: {
+            "house finch": SpeciesIdentityNames(
+                display="House Finch", scientific="Haemorhous mexicanus", species_id=4321
+            )
+        },
+    )
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        response = await client.get("/api/events", headers=OWNER)
+    flock = _by_event(response.json())["flock"]
+    assert flock["species_id"] == 4321
+    assert flock["bird_summary"]["species"][0]["species_id"] == 4321

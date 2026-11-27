@@ -66,9 +66,9 @@
   "empty_filtered_title": "Nessuna visita corrisponde a questi filtri",
   "empty_filtered_desc": "La tua cronologia è ancora qui. Allarga il periodo o rimuovi un filtro per vederla.",
   "empty_filtered_clear": "Rimuovi tutti i filtri",
-  "also_in_one_photo": "Anche in una foto: {species}",
-  "also_in_this_photo": "Anche in questa foto: {species}",
-  "also_in_photo_open": "{note}. Apri l’acquisizione delle {time}",
+  "also_in_one_capture": "Anche in un’acquisizione: {species}",
+  "also_in_this_capture": "Anche in questa acquisizione: {species}",
+  "also_in_capture_open": "{note}. Apri l’acquisizione delle {time}",
   "heard": {
     "toggle": "Canti uditi",
     "toggle_hint": "Mostra i canti di BirdNET-Go tra le visite della telecamera. Disattivato finché non lo attivi; questo dispositivo ricorda la scelta.",

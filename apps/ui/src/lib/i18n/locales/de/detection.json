@@ -365,6 +365,7 @@
   "play_video": "Video von {species} abspielen",
   "play_full_visit": "Vollständigen Clip dieser Aufnahme abspielen, {species}",
   "full_clip_seconds": "Vollständiger Clip dieser Aufnahme, {seconds, plural, one {# Sekunde} other {# Sekunden}}",
+  "full_clip_title": "Vollständiger Clip dieser Aufnahme",
   "reclassify": "Diese {species}-Aufnahme neu klassifizieren",
   "retag": "Diese {species}-Aufnahme selbst benennen",
   "audio_detected": "Audio erkannt",

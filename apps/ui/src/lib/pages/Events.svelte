@@ -366,7 +366,7 @@
             if (pendingEventId) {
                 const target = newEvents.find((event) => event.frigate_event === pendingEventId);
                 if (target) {
-                    selectedEvent = target;
+                    showRecord(target);
                     pendingEventId = null;
                     clearEventVideoDeepLinkParams();
                 } else {
@@ -402,7 +402,7 @@
                 requestKey: EVENTS_PAGE_REQUEST_KEYS.deepLink
             });
             if (!target || pendingEventId !== eventId) return;
-            selectedEvent = target;
+            showRecord(target);
             pendingEventId = null;
             clearEventVideoDeepLinkParams();
         } catch (e) {
@@ -1070,22 +1070,28 @@
         }
     }
 
-    function handleEventCardClick(event: Detection) {
+    function handleEventCardClick(event: Detection, visit: RecordVisit | null = null) {
         if (selectionMode) {
             toggleEventSelection(event.frigate_event);
             return;
         }
-        selectedEvent = event;
+        showRecord(event, visit);
     }
 
     // The visit a record was opened from, so the record can say it is one capture of that visit.
+    // Every opener sets it, a search or a link to none, and the shared opener clears it on close,
+    // so a count read earlier is never shown again.
     let openedVisit = $state<RecordVisit | null>(null);
 
+    function showRecord(detection: Detection, visit: RecordVisit | null = null): void {
+        openedVisit = visit;
+        selectedEvent = detection;
+    }
+
     function openCaptureOfVisit(capture: Detection, visit: DetectionVisit | undefined): void {
-        openedVisit = visit
+        handleEventCardClick(capture, visit
             ? recordVisit(capture.frigate_event, { captureCount: visit.capture_count, startTime: visit.start_time, endTime: visit.end_time })
-            : null;
-        handleEventCardClick(capture);
+            : null);
     }
 
     function closeGardenRecord(): void {
@@ -1611,7 +1617,7 @@
             });
             if (signal.aborted) return;
             if (!target) throw new Error('The searched detection was not returned');
-            selectedEvent = target;
+            showRecord(target);
         } catch (failure) {
             if (signal.aborted) return;
             console.error('Failed to open the searched detection', failure);
@@ -2456,7 +2462,7 @@
 <RecordDialogs
     bind:record={selectedEvent}
     bind:video
-    visit={openedVisit}
+    bind:visit={openedVisit}
     onViewSpecies={(species: string) => (selectedSpecies = species)}
     onDeleteSuccess={async (deletedEventId: string, detectionTime?: string) => {
         events = events.filter((event) => event.frigate_event !== deletedEventId);

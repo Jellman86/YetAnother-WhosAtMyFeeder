@@ -365,6 +365,7 @@
   "play_video": "Play video of {species}",
   "play_full_visit": "Play this capture's full clip, {species}",
   "full_clip_seconds": "This capture's full clip, {seconds, plural, one {# second} other {# seconds}}",
+  "full_clip_title": "This capture's full clip",
   "reclassify": "Reclassify this {species} capture",
   "retag": "Name this {species} capture yourself",
   "audio_detected": "Audio detected",

@@ -32,7 +32,7 @@ persistent volume. One directory per visit, named by its event id:
     snapshot.jpg          the photograph as stored at the time (the crop, when there is one)
     snapshot.meta.json    where that photograph came from
     clip.mp4              Frigate's event clip, when Frigate still had it
-    recording.mp4         the full-visit recording, only if it was already cached
+    recording.mp4         the full clip recording, only if it was already cached
     manifest.json         what is here and when it was written
 ```
 

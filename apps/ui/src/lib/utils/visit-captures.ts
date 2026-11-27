@@ -50,13 +50,15 @@ interface SpeciesInCapture {
     /** Catalogue names, when the label resolved, so the row names it as it names a visit. */
     common_name: string | null;
     scientific_name: string | null;
+    /** Catalogue identity, when the label resolved: the surest way to tell two species apart. */
+    species_id: number | null;
 }
 
 /** Other species seen in one capture of a visit, and the capture that shows them. */
 export interface CompanionSpecies {
-    /** The capture whose photo holds them; the note about them opens it. */
+    /** The capture that holds them; the note about them opens it. */
     capture: Detection;
-    /** That capture is the one the visit shows, so the note is about the photo on screen. */
+    /** That capture is the one the visit shows. */
     shown: boolean;
     /** Species other than the visit's own, most counted first. */
     species: SpeciesInCapture[];
@@ -66,11 +68,29 @@ function speciesKey(label: string | null | undefined): string {
     return (label ?? '').trim().toLocaleLowerCase();
 }
 
+/** One key per species: its catalogue id when it resolved, its label otherwise. */
+function entryKey(entry: { species: string; species_id?: number | null }): string {
+    return entry.species_id != null ? `id:${entry.species_id}` : `label:${speciesKey(entry.species)}`;
+}
+
+/**
+ * Whether a counted species is the visit's own. Catalogue ids decide when both sides have one, so a
+ * capture stored as "Blue Tit" still matches a box resolved to "Cyanistes caeruleus"; labels decide
+ * only when an id is missing.
+ */
+function isVisitSpecies(entry: SpeciesInCapture, shown: Detection): boolean {
+    if (entry.species_id != null && shown.species_id != null) return entry.species_id === shown.species_id;
+    const labels = new Set(
+        [shown.display_name, shown.category_name, shown.scientific_name, shown.common_name].map(speciesKey).filter(Boolean)
+    );
+    return [entry.species, entry.scientific_name, entry.common_name].some((label) => labels.has(speciesKey(label)));
+}
+
 /**
  * A visit is one species coming to the feeder, so it keeps that species' name. When its busiest
- * capture also holds other named species, they are a fact about that one capture's photo, which
- * may not be the photo the visit shows: the note names them and opens that capture. The rule
- * matches the "Multiple bird species" filter: two or more named species in one analyzed capture.
+ * capture also holds other named species, they are a fact about that one capture, which may not be
+ * the one the visit shows: the note names them and opens that capture. The rule matches the
+ * "Multiple bird species" filter: two or more named species in one analyzed capture.
  * Owner-only evidence: a guest's visit carries no bird summary and has no note.
  */
 export function visitCompanionSpecies(visit: DetectionVisit | undefined): CompanionSpecies | null {
@@ -78,24 +98,22 @@ export function visitCompanionSpecies(visit: DetectionVisit | undefined): Compan
     if (!visit || !capture) return null;
     const merged = new Map<string, SpeciesInCapture>();
     for (const entry of capture.bird_summary?.species ?? []) {
-        const key = speciesKey(entry.species);
-        if (!key || entry.count <= 0) continue;
+        if (!speciesKey(entry.species) || entry.count <= 0) continue;
+        const key = entryKey(entry);
         const known = merged.get(key);
         if (known) known.count += entry.count;
         else merged.set(key, {
             species: entry.species,
             count: entry.count,
             common_name: entry.common_name ?? null,
-            scientific_name: entry.scientific_name ?? null
+            scientific_name: entry.scientific_name ?? null,
+            species_id: entry.species_id ?? null
         });
     }
     if (merged.size < 2) return null;
     const shown = visit.representative;
-    const visitSpecies = new Set(
-        [shown.display_name, shown.category_name, shown.scientific_name, shown.common_name].map(speciesKey).filter(Boolean)
-    );
     const others = [...merged.values()]
-        .filter((entry) => ![entry.species, entry.scientific_name, entry.common_name].some((label) => visitSpecies.has(speciesKey(label))))
+        .filter((entry) => !isVisitSpecies(entry, shown))
         .sort((a, b) => b.count - a.count || a.species.localeCompare(b.species));
     if (others.length === 0) return null;
     return { capture, shown: capture.frigate_event === shown.frigate_event, species: others };

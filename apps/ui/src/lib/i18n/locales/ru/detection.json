@@ -365,6 +365,7 @@
   "play_video": "Воспроизвести видео {species}",
   "play_full_visit": "Воспроизвести полный клип этого снимка: {species}",
   "full_clip_seconds": "Полный клип этого снимка, {seconds, plural, one {# секунда} few {# секунды} many {# секунд} other {# секунды}}",
+  "full_clip_title": "Полный клип этого снимка",
   "reclassify": "Реклассифицировать обнаружение {species}",
   "retag": "Вручную отметить обнаружение {species}",
   "audio_detected": "Аудио обнаружено",
