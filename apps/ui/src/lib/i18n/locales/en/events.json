@@ -19,6 +19,8 @@
     "hidden_detections": "Show hidden visits",
     "refresh_options": "Refresh options",
     "refreshing_options": "Refreshing options…",
+    "counting": "Counting…",
+    "counts_unavailable": "The counts for these filters could not be read. Refresh options tries again.",
     "title": "Filters",
     "clear_all": "Clear all",
     "page_controls": "View",

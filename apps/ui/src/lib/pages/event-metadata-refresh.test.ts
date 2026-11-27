@@ -36,3 +36,34 @@ it('preserves owner options during a transient metadata failure', async () => {
     expect(clear).not.toHaveBeenCalled();
     expect(apply).not.toHaveBeenCalled();
 });
+
+it('asks for the options counted under the chosen filters', async () => {
+    const fetch = vi.fn().mockResolvedValue(filters('Blackbird'));
+    const loader = createEventMetadataRefresh({ fetch, apply: () => undefined, clear: () => undefined, isGuest: () => false });
+    await loader.load(false, { unit: 'visits', startDate: '2033-10-03', endDate: '2033-10-03', camera: 'patio' });
+    expect(fetch).toHaveBeenCalledWith({ unit: 'visits', startDate: '2033-10-03', endDate: '2033-10-03', camera: 'patio', forceRefresh: false });
+});
+
+it('discards an answer once the read it belongs to was replaced, before the next one starts', async () => {
+    let state: EventFilters | null = filters('Shown');
+    let release: (value: EventFilters) => void = () => undefined;
+    const fetch = vi.fn().mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+    const loader = createEventMetadataRefresh({ fetch, apply: (value) => { state = value; }, clear: () => { state = null; }, isGuest: () => true });
+    const old = loader.load(false);
+    // A newer read is scheduled; it has not started yet.
+    loader.invalidate();
+    release(filters('Revoked'));
+    expect(await old).toBeNull();
+    expect(state?.species[0].value).toBe('Shown');
+});
+
+it('applies nothing, and clears nothing, for a read its caller no longer wants', async () => {
+    const apply = vi.fn();
+    const clear = vi.fn();
+    const loader = createEventMetadataRefresh({ fetch: vi.fn().mockResolvedValue(filters('Late')), apply, clear, isGuest: () => true });
+    expect(await loader.load(false, {}, () => false)).toBeNull();
+    const failing = createEventMetadataRefresh({ fetch: vi.fn().mockRejectedValue(new Error('503')), apply, clear, isGuest: () => true });
+    expect(await failing.load(false, {}, () => false)).toBeNull();
+    expect(apply).not.toHaveBeenCalled();
+    expect(clear).not.toHaveBeenCalled();
+});

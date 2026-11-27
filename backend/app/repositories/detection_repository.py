@@ -88,6 +88,97 @@ def clear_species_alias_cache() -> None:
     _SPECIES_ALIAS_CACHE.clear()
 
 
+@dataclass(frozen=True)
+class SpeciesMatch:
+    """What a species filter matches, as terms each compared with one or more columns.
+
+    A filter renders the terms as one condition (``species_match_sql``); the Explorer's facet
+    counts join every option's terms at once. Both read the same terms, so a count beside a
+    species and the results of choosing it cannot match different records.
+    """
+
+    #: ``taxa_id`` equals the id.
+    taxa_ids: tuple[int, ...] = ()
+    #: ``taxa_id``, or for a record with none the id the taxonomy cache gives its names, equals the id.
+    cached_taxa_ids: tuple[int, ...] = ()
+    #: ``LOWER(scientific_name) = LOWER(name)``.
+    scientific_names: tuple[str, ...] = ()
+    #: Already lower case; any of the display, scientific or common name equals it.
+    names: tuple[str, ...] = ()
+    #: ``LOWER(display_name) = LOWER(name)``: the last resort when nothing else resolves.
+    display_names: tuple[str, ...] = ()
+    #: Already lower case; any of the display, category, scientific or common name equals it.
+    labels: tuple[str, ...] = ()
+    #: Already lower case ``LIKE`` patterns over the same four columns as ``labels``.
+    label_patterns: tuple[str, ...] = ()
+
+    def merged(self, other: "SpeciesMatch") -> "SpeciesMatch":
+        """Records either match finds, as several names chosen together find them."""
+        return SpeciesMatch(
+            **{
+                field: tuple(dict.fromkeys((*getattr(self, field), *getattr(other, field))))
+                for field in self.__dataclass_fields__
+            }
+        )
+
+
+def capture_taxon_match(taxa_id: int) -> SpeciesMatch:
+    """A capture filter by taxon id also finds a record with no id of its own through the taxonomy cache."""
+    return SpeciesMatch(cached_taxa_ids=(taxa_id,))
+
+
+def visit_taxon_match(taxa_id: int) -> SpeciesMatch:
+    """A visit filter by taxon id finds only the records that store it."""
+    return SpeciesMatch(taxa_ids=(taxa_id,))
+
+
+def _label_columns(alias: str) -> tuple[str, ...]:
+    return (
+        f"LOWER({alias}.display_name)",
+        f"LOWER({alias}.category_name)",
+        f"LOWER(COALESCE({alias}.scientific_name, ''))",
+        f"LOWER(COALESCE({alias}.common_name, ''))",
+    )
+
+
+def species_match_sql(match: SpeciesMatch, alias: str = "d", *, taxonomy_joined: bool = False) -> tuple[str, list]:
+    """The terms as one condition on ``alias``; a cached taxon id reads ``tc_filter`` when it is joined."""
+    clauses: list[str] = []
+    params: list = []
+    if match.labels:
+        placeholders = ",".join("?" * len(match.labels))
+        for column in _label_columns(alias):
+            clauses.append(f"{column} IN ({placeholders})")
+            params.extend(match.labels)
+    for pattern in match.label_patterns:
+        for column in _label_columns(alias):
+            clauses.append(f"{column} LIKE ?")
+            params.append(pattern)
+    for taxa_id in match.taxa_ids:
+        clauses.append(f"{alias}.taxa_id = ?")
+        params.append(taxa_id)
+    for taxa_id in match.cached_taxa_ids:
+        clauses.append(
+            f"COALESCE({alias}.taxa_id, tc_filter.taxa_id) = ?" if taxonomy_joined else f"{alias}.taxa_id = ?"
+        )
+        params.append(taxa_id)
+    for name in match.scientific_names:
+        clauses.append(f"LOWER({alias}.scientific_name) = LOWER(?)")
+        params.append(name)
+    if match.names:
+        placeholders = ",".join("?" * len(match.names))
+        clauses.append(
+            f"(LOWER({alias}.display_name) IN ({placeholders}) "
+            f"OR LOWER({alias}.scientific_name) IN ({placeholders}) "
+            f"OR LOWER({alias}.common_name) IN ({placeholders}))"
+        )
+        params.extend([*match.names, *match.names, *match.names])
+    for name in match.display_names:
+        clauses.append(f"LOWER({alias}.display_name) = LOWER(?)")
+        params.append(name)
+    return "(" + " OR ".join(clauses or ["0"]) + ")", params
+
+
 def _history_bounds_sql(start_date: datetime | None, end_date: datetime | None, column: str) -> tuple[str, list]:
     """Optional history bounds, applied before grouping or pagination."""
     sql, params = "", []
@@ -1050,91 +1141,38 @@ class DetectionRepository:
         species_name: str,
         has_taxonomy_cache: bool,
     ) -> tuple[str, list]:
+        match = await self.species_match(species_name)
+        return species_match_sql(match, detection_alias, taxonomy_joined=has_taxonomy_cache)
+
+    async def species_match(self, species_name: str) -> SpeciesMatch:
+        """The terms a filter for one species name matches, from ``resolve_species_aliases``.
+
+        A hidden label (Unknown Bird and its kin) matches by label across four columns; any other
+        name by its resolved taxon id, scientific name and the names it is known by.
+        """
         if should_hide_species_label(species_name):
             exact_labels = [str(label).strip().lower() for label in hidden_species_exact_labels() if str(label).strip()]
-            exact_labels = list(dict.fromkeys(exact_labels))
             fragments = [
                 str(fragment).strip().lower() for fragment in hidden_species_substrings() if str(fragment).strip()
             ]
-            columns = (
-                f"LOWER({detection_alias}.display_name)",
-                f"LOWER({detection_alias}.category_name)",
-                f"LOWER(COALESCE({detection_alias}.scientific_name, ''))",
-                f"LOWER(COALESCE({detection_alias}.common_name, ''))",
-            )
-            clauses: list[str] = []
-            params: list = []
-
-            if exact_labels:
-                placeholders = ",".join(["?"] * len(exact_labels))
-                for column in columns:
-                    clauses.append(f"{column} IN ({placeholders})")
-                    params.extend(exact_labels)
-
-            for fragment in fragments:
-                pattern = f"%{fragment}%"
-                for column in columns:
-                    clauses.append(f"{column} LIKE ?")
-                    params.append(pattern)
-
-            if clauses:
-                return "(" + " OR ".join(clauses) + ")", params
+            if exact_labels or fragments:
+                return SpeciesMatch(
+                    labels=tuple(dict.fromkeys(exact_labels)),
+                    label_patterns=tuple(f"%{fragment}%" for fragment in fragments),
+                )
 
         alias_info = await self.resolve_species_aliases(species_name)
-        clauses: list[str] = []
-        params: list = []
-
         taxa_id = alias_info.get("taxa_id")
-        if taxa_id is not None:
-            if has_taxonomy_cache:
-                clauses.append(f"COALESCE({detection_alias}.taxa_id, tc_filter.taxa_id) = ?")
-            else:
-                clauses.append(f"{detection_alias}.taxa_id = ?")
-            params.append(taxa_id)
-
         scientific_name = alias_info.get("scientific_name")
-        if scientific_name:
-            if has_taxonomy_cache:
-                clauses.append(
-                    f"LOWER(COALESCE({detection_alias}.scientific_name, tc_filter.scientific_name)) = LOWER(?)"
-                )
-            else:
-                clauses.append(f"LOWER({detection_alias}.scientific_name) = LOWER(?)")
-            params.append(scientific_name)
-
         match_names = [str(name).strip() for name in (alias_info.get("match_names") or []) if str(name).strip()]
-        lowered_names = []
-        seen_names: set[str] = set()
-        for name in match_names:
-            lowered = name.lower()
-            if lowered in seen_names:
-                continue
-            seen_names.add(lowered)
-            lowered_names.append(lowered)
-
-        if lowered_names:
-            placeholders = ",".join(["?"] * len(lowered_names))
-            if has_taxonomy_cache:
-                clauses.append(
-                    f"(LOWER({detection_alias}.display_name) IN ({placeholders}) "
-                    f"OR LOWER(COALESCE({detection_alias}.scientific_name, tc_filter.scientific_name)) IN ({placeholders}) "
-                    f"OR LOWER(COALESCE({detection_alias}.common_name, tc_filter.common_name)) IN ({placeholders}))"
-                )
-            else:
-                clauses.append(
-                    f"(LOWER({detection_alias}.display_name) IN ({placeholders}) "
-                    f"OR LOWER({detection_alias}.scientific_name) IN ({placeholders}) "
-                    f"OR LOWER({detection_alias}.common_name) IN ({placeholders}))"
-                )
-            params.extend(lowered_names)
-            params.extend(lowered_names)
-            params.extend(lowered_names)
-
-        if not clauses:
-            clauses.append(f"LOWER({detection_alias}.display_name) = LOWER(?)")
-            params.append(species_name)
-
-        return "(" + " OR ".join(clauses) + ")", params
+        match = SpeciesMatch(
+            taxa_ids=(taxa_id,) if taxa_id is not None else (),
+            scientific_names=(scientific_name,) if scientific_name else (),
+            names=tuple(dict.fromkeys(name.lower() for name in match_names)),
+        )
+        if match == SpeciesMatch():
+            return SpeciesMatch(display_names=(species_name,))
+        return match
 
     async def _canonical_species_query_parts(
         self,
@@ -2932,6 +2970,58 @@ class DetectionRepository:
         species_ids: Collection[int] | None = None,
     ) -> int:
         """Get total count of detections, optionally filtered."""
+        joins, conditions, params = await self.capture_filter_sql(
+            start_date=start_date,
+            end_date=end_date,
+            species=species,
+            species_any=species_any,
+            taxa_id=taxa_id,
+            camera=camera,
+            include_hidden=include_hidden,
+            hidden_only=hidden_only,
+            favorite_only=favorite_only,
+            exclude_favorites=exclude_favorites,
+            audio_confirmed_only=audio_confirmed_only,
+            public_audio_evidence=public_audio_evidence,
+            exclude_species_floor=exclude_species_floor,
+            multiple_species_only=multiple_species_only,
+            owner_confirmed_only=owner_confirmed_only,
+            species_ids=species_ids,
+        )
+        # The taxonomy join can match a detection more than once.
+        counted = "COUNT(DISTINCT d.id)" if "tc_filter" in joins else "COUNT(*)"
+        query = f"SELECT {counted} FROM detections d {joins}"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        async with self.db.execute(query, params) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
+
+    async def capture_filter_sql(
+        self,
+        *,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        species: str | None = None,
+        species_any: list[str] | None = None,
+        taxa_id: int | None = None,
+        camera: str | None = None,
+        include_hidden: bool = False,
+        hidden_only: bool = False,
+        favorite_only: bool = False,
+        exclude_favorites: bool = False,
+        audio_confirmed_only: bool = False,
+        public_audio_evidence: bool = False,
+        exclude_species_floor: int = 0,
+        multiple_species_only: bool = False,
+        owner_confirmed_only: bool = False,
+        species_ids: Collection[int] | None = None,
+    ) -> tuple[str, list[str], list]:
+        """The joins and conditions on ``detections d`` that the capture count applies.
+
+        Join parameters are never needed, so every parameter belongs to the conditions.
+        """
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
         # The join is kept only for a `taxa_id` filter, which still reads the
         # cached taxon id for a detection that has none of its own. Species
@@ -2939,13 +3029,9 @@ class DetectionRepository:
         # the join used to reach, and the join cost a scan of the whole
         # taxonomy cache per detection row plus a DISTINCT over every column.
         needs_taxonomy_cache = bool(has_taxonomy_cache and taxa_id is not None)
-        query = f"""
-            SELECT {"COUNT(DISTINCT d.id)" if needs_taxonomy_cache else "COUNT(*)"}
-            FROM detections d
-            LEFT JOIN detection_favorites f ON f.detection_id = d.id
-        """
+        joins = "LEFT JOIN detection_favorites f ON f.detection_id = d.id"
         if needs_taxonomy_cache:
-            query += """
+            joins += """
             LEFT JOIN taxonomy_cache tc_filter
                 ON ((d.scientific_name IS NOT NULL AND LOWER(tc_filter.scientific_name) = LOWER(d.scientific_name))
                     OR (d.scientific_name IS NULL AND (LOWER(tc_filter.scientific_name) = LOWER(d.display_name)
@@ -2990,11 +3076,11 @@ class DetectionRepository:
                 conditions.append("(" + " OR ".join(any_clauses) + ")")
                 params.extend(any_params)
         if taxa_id is not None:
-            if needs_taxonomy_cache:
-                conditions.append("COALESCE(d.taxa_id, tc_filter.taxa_id) = ?")
-            else:
-                conditions.append("d.taxa_id = ?")
-            params.append(taxa_id)
+            taxa_condition, taxa_params = species_match_sql(
+                capture_taxon_match(taxa_id), "d", taxonomy_joined=needs_taxonomy_cache
+            )
+            conditions.append(taxa_condition)
+            params.extend(taxa_params)
         if camera:
             conditions.append("d.camera_name = ?")
             params.append(camera)
@@ -3028,12 +3114,7 @@ class DetectionRepository:
             params.extend(values)
         if owner_confirmed_only:
             conditions.append(await owner_confirmed_sql(self.db, "d"))
-        if conditions:
-            query += " WHERE " + " AND ".join(conditions)
-
-        async with self.db.execute(query, params) as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else 0
+        return joins, conditions, params
 
     async def get_unique_species(self) -> list[str]:
         """Get list of unique species names, sorted alphabetically."""
@@ -3045,7 +3126,9 @@ class DetectionRepository:
         self,
         start_date: datetime | None = None,
         end_date: datetime | None = None,
-    ) -> list[tuple[str, str | None, str | None, int | None, int]]:
+        *,
+        hidden: bool = False,
+    ) -> list[tuple[str, str | None, str | None, int | None]]:
         """Get unique species, pre-grouped to avoid duplicates from display_name variants.
 
         Strategy:
@@ -3060,9 +3143,12 @@ class DetectionRepository:
 
         This means "Great tit", "Great tit (Parus major)", "Parus major (Great tit)"
         all collapse to a single row before Python taxonomy resolution runs, removing
-        the source of duplicate entries in the Explorer species filter.
+        the source of duplicate entries in the Explorer species filter. ``hidden``
+        lists the species of hidden records instead, for a view of only those.
         """
         start_filter, params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        visibility = "d.is_hidden = 1" if hidden else "(d.is_hidden = 0 OR d.is_hidden IS NULL)"
+        species_key = "COALESCE(CAST(taxa_id AS TEXT), LOWER(scientific_name), LOWER(display_name))"
         async with self.db.execute(
             f"""
             WITH species_rows AS (
@@ -3082,32 +3168,13 @@ class DetectionRepository:
                 LEFT JOIN taxonomy_cache tc
                     ON d.scientific_name IS NOT NULL
                     AND LOWER(tc.scientific_name) = LOWER(d.scientific_name)
-                WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                WHERE {visibility}
                   {start_filter}
             ),
             -- The id a filter can safely be keyed on: one some detection row
             -- actually stores, per species group.
             group_stored AS (
-                SELECT
-                    COALESCE(
-                        CAST(taxa_id AS TEXT),
-                        LOWER(scientific_name),
-                        LOWER(display_name)
-                    ) AS species_key,
-                    MAX(stored_taxa_id) AS stored_taxa_id
-                FROM species_rows
-                GROUP BY species_key
-            ),
-            -- The filter bar shows how many detections each option would return, so the
-            -- count has to be taken over the same grouping the options are built from.
-            group_counts AS (
-                SELECT
-                    COALESCE(
-                        CAST(taxa_id AS TEXT),
-                        LOWER(scientific_name),
-                        LOWER(display_name)
-                    ) AS species_key,
-                    COUNT(*) AS detection_count
+                SELECT {species_key} AS species_key, MAX(stored_taxa_id) AS stored_taxa_id
                 FROM species_rows
                 GROUP BY species_key
             ),
@@ -3121,20 +3188,12 @@ class DetectionRepository:
                     scientific_name,
                     common_name,
                     taxa_id,
-                    COALESCE(
-                        CAST(taxa_id AS TEXT),
-                        LOWER(scientific_name),
-                        LOWER(display_name)
-                    ) AS species_key,
+                    {species_key} AS species_key,
                     ROW_NUMBER() OVER (
                         -- Group all name variants for the same species together:
                         -- first by taxa_id (most canonical), then by scientific_name,
                         -- then by the raw display_name as a last resort.
-                        PARTITION BY COALESCE(
-                            CAST(taxa_id AS TEXT),
-                            LOWER(scientific_name),
-                            LOWER(display_name)
-                        )
+                        PARTITION BY {species_key}
                         ORDER BY
                             (taxa_id IS NOT NULL) DESC,
                             (scientific_name IS NOT NULL) DESC,
@@ -3147,10 +3206,8 @@ class DetectionRepository:
                 ranked.display_name,
                 ranked.scientific_name,
                 ranked.common_name,
-                group_stored.stored_taxa_id AS taxa_id,
-                COALESCE(group_counts.detection_count, 0) AS detection_count
+                group_stored.stored_taxa_id AS taxa_id
             FROM ranked
-            LEFT JOIN group_counts ON group_counts.species_key = ranked.species_key
             LEFT JOIN group_stored ON group_stored.species_key = ranked.species_key
             WHERE ranked.rn = 1
             ORDER BY ranked.display_name ASC
@@ -3159,71 +3216,21 @@ class DetectionRepository:
         ) as cursor:
             return await cursor.fetchall()
 
-    async def get_camera_counts(
-        self, start_date: datetime | None = None, *, end_date: datetime | None = None
-    ) -> dict[str, int]:
-        """Detections per camera, for the Explorer camera facet."""
-        start_filter, params = _history_bounds_sql(start_date, end_date, "detection_time")
-        async with self.db.execute(
-            f"""
-            SELECT camera_name, COUNT(*)
-            FROM detections
-            WHERE (is_hidden = 0 OR is_hidden IS NULL)
-              {start_filter}
-            GROUP BY camera_name
-            ORDER BY camera_name ASC
-            """,
-            params,
-        ) as cursor:
-            rows = await cursor.fetchall()
-            return {row[0]: row[1] for row in rows if row[0]}
-
-    async def get_facet_totals(
-        self,
-        start_date: datetime | None = None,
-        *,
-        end_date: datetime | None = None,
-        public_audio_evidence: bool = False,
-    ) -> dict[str, int]:
-        """Counts for the facets that are a flag rather than a value."""
-        start_filter, params = _history_bounds_sql(start_date, end_date, "d.detection_time")
-        evidence_sql, evidence_params = (
-            await public_audio_evidence_sql(self.db) if public_audio_evidence else ("1 = 1", [])
-        )
-        async with self.db.execute(
-            f"""
-            SELECT
-                COUNT(*),
-                SUM(CASE WHEN f.detection_id IS NOT NULL THEN 1 ELSE 0 END),
-                SUM(CASE WHEN d.audio_confirmed = 1 AND {evidence_sql} THEN 1 ELSE 0 END),
-                SUM(CASE WHEN d.video_classification_status = 'completed' THEN 1 ELSE 0 END)
-            FROM detections d
-            LEFT JOIN detection_favorites f ON f.detection_id = d.id
-            WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
-              {start_filter}
-            """,
-            [*evidence_params, *params],
-        ) as cursor:
-            row = await cursor.fetchone()
-            if not row:
-                return {"total": 0, "favorites": 0, "audio_matched": 0, "video_analysed": 0}
-            return {
-                "total": row[0] or 0,
-                "favorites": row[1] or 0,
-                "audio_matched": row[2] or 0,
-                "video_analysed": row[3] or 0,
-            }
+    async def has_hidden_detections(self) -> bool:
+        async with self.db.execute("SELECT 1 FROM detections WHERE is_hidden = 1 LIMIT 1") as cursor:
+            return await cursor.fetchone() is not None
 
     async def get_unique_cameras(
-        self, start_date: datetime | None = None, *, end_date: datetime | None = None
+        self, start_date: datetime | None = None, *, end_date: datetime | None = None, hidden: bool = False
     ) -> list[str]:
-        """Get list of unique camera names, sorted alphabetically."""
+        """Get list of unique camera names, sorted alphabetically; of hidden records with ``hidden``."""
         start_filter, params = _history_bounds_sql(start_date, end_date, "detection_time")
+        visibility = "is_hidden = 1" if hidden else "(is_hidden = 0 OR is_hidden IS NULL)"
         async with self.db.execute(
             f"""
             SELECT DISTINCT camera_name
             FROM detections
-            WHERE (is_hidden = 0 OR is_hidden IS NULL)
+            WHERE {visibility}
               {start_filter}
             ORDER BY camera_name ASC
             """,

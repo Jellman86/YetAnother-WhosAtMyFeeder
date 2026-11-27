@@ -810,7 +810,7 @@ test('the rail offers the cameras of the chosen subjects, and counts only what i
 
     await page.locator('[data-explorer-subjects-option="birds"]').click();
     await expect(cameras.getByRole('button')).toHaveCount(1);
-    await expect(cameras.getByRole('button', { name: 'birdcam 12', exact: true })).toBeVisible();
+    await expect(cameras.getByRole('button', { name: /^birdcam 12 (visits?|captures?)$/ })).toBeVisible();
 
     await page.locator('[data-explorer-subjects-option="garden"]').click();
     await expect(cameras.getByRole('button')).toHaveText(['greenhousecam', 'patio']);

@@ -88,13 +88,41 @@ export async function fetchEventClassificationStatus(frigateEventId: string): Pr
 export type EventFilters = paths['/api/events/filters']['get']['response'];
 export type EventFilterSpecies = EventFilters['species'][number];
 
+/** The options are every species and camera the viewer may see; their counts follow these filters. */
 export interface FetchEventFiltersOptions {
     forceRefresh?: boolean;
+    /** What each count counts; captures when not given. */
+    unit?: 'visits' | 'captures';
+    startDate?: string;
+    endDate?: string;
+    startTime?: string;
+    endTime?: string;
+    species?: string;
+    taxon?: number;
+    camera?: string;
+    favoritesOnly?: boolean;
+    audioConfirmedOnly?: boolean;
+    multipleSpeciesOnly?: boolean;
+    ownerConfirmedOnly?: boolean;
+    onlyHidden?: boolean;
 }
 
 export async function fetchEventFilters(options: FetchEventFiltersOptions = {}): Promise<EventFilters> {
     const params = new URLSearchParams();
     if (options.forceRefresh) params.set('force_refresh', 'true');
+    if (options.unit) params.set('unit', options.unit);
+    if (options.startDate) params.set('start_date', options.startDate);
+    if (options.endDate) params.set('end_date', options.endDate);
+    if (options.startTime) params.set('start_time', options.startTime);
+    if (options.endTime) params.set('end_time', options.endTime);
+    if (options.species) params.set('species', options.species);
+    if (options.taxon) params.set('taxon', String(options.taxon));
+    if (options.camera) params.set('camera', options.camera);
+    if (options.favoritesOnly) params.set('favorites', 'true');
+    if (options.audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
+    if (options.multipleSpeciesOnly) params.set('multiple_species_only', 'true');
+    if (options.ownerConfirmedOnly) params.set('owner_confirmed_only', 'true');
+    if (options.onlyHidden) params.set('only_hidden', 'true');
     const query = params.toString();
     const response = await apiFetch(`${API_BASE}/events/filters${query ? `?${query}` : ''}`);
     return handleResponse<EventFilters>(response);

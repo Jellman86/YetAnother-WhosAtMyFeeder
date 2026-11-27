@@ -8977,7 +8977,7 @@
         "type": "object"
       },
       "EventFilterTotals": {
-        "description": "Counts for the facets that are a flag rather than a value.",
+        "description": "Counts for the facets that are a flag rather than a value, in the response's `unit`.",
         "properties": {
           "audio_matched": {
             "default": 0,
@@ -8987,6 +8987,11 @@
           "favorites": {
             "default": 0,
             "title": "Favorites",
+            "type": "integer"
+          },
+          "hidden": {
+            "default": 0,
+            "title": "Hidden",
             "type": "integer"
           },
           "total": {
@@ -9004,7 +9009,7 @@
         "type": "object"
       },
       "EventFilters": {
-        "description": "Available filter options for events.",
+        "description": "Available filter options for events, each counted as choosing it would show.",
         "properties": {
           "camera_counts": {
             "additionalProperties": {
@@ -9021,6 +9026,17 @@
             "title": "Cameras",
             "type": "array"
           },
+          "gap_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gap Seconds"
+          },
           "species": {
             "items": {
               "$ref": "#/components/schemas/EventFilterSpecies"
@@ -9033,9 +9049,19 @@
             "default": {
               "audio_matched": 0,
               "favorites": 0,
+              "hidden": 0,
               "total": 0,
               "video_analysed": 0
             }
+          },
+          "unit": {
+            "default": "captures",
+            "enum": [
+              "captures",
+              "visits"
+            ],
+            "title": "Unit",
+            "type": "string"
           }
         },
         "required": [
@@ -31380,7 +31406,7 @@
     },
     "/api/events/filters": {
       "get": {
-        "description": "Get available filter options (species and cameras) from the database.",
+        "description": "Filter options (species and cameras), each counted as choosing it would show.\n\nCounts follow the window and the other filters, the way the events or visits list reads them;\na facet is never narrowed by its own choice, and a species is counted by its own filter. A\nvisitor's counts keep their history window.",
         "operationId": "get_event_filters_api_events_filters_get",
         "parameters": [
           {
@@ -31392,6 +31418,227 @@
               "default": false,
               "description": "Bypass short-lived filter cache and fetch fresh species/camera options",
               "title": "Force Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What each count counts: single captures (when not given), or visits grouped by the shared visit rule",
+            "in": "query",
+            "name": "unit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "captures",
+                    "visits"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "What each count counts: single captures (when not given), or visits grouped by the shared visit rule",
+              "title": "Unit"
+            }
+          },
+          {
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
+            "in": "query",
+            "name": "start_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
+              "title": "Start Date"
+            }
+          },
+          {
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
+            "in": "query",
+            "name": "end_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
+              "title": "End Date"
+            }
+          },
+          {
+            "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
+              "title": "End Time"
+            }
+          },
+          {
+            "description": "Chosen species; counts every facet but the species list",
+            "in": "query",
+            "name": "species",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Chosen species; counts every facet but the species list",
+              "title": "Species"
+            }
+          },
+          {
+            "description": "Chosen catalogue taxon; counts every facet but the species list",
+            "in": "query",
+            "name": "taxon",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Chosen catalogue taxon; counts every facet but the species list",
+              "title": "Taxon"
+            }
+          },
+          {
+            "description": "Chosen camera; counts every facet but the camera list",
+            "in": "query",
+            "name": "camera",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Chosen camera; counts every facet but the camera list",
+              "title": "Camera"
+            }
+          },
+          {
+            "description": "Count only favourites",
+            "in": "query",
+            "name": "favorites",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Count only favourites",
+              "title": "Favorites",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Count only audio matches",
+            "in": "query",
+            "name": "audio_confirmed_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Count only audio matches",
+              "title": "Audio Confirmed Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Owner: count only captures with at least two named bird species",
+            "in": "query",
+            "name": "multiple_species_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: count only captures with at least two named bird species",
+              "title": "Multiple Species Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+            "in": "query",
+            "name": "owner_confirmed_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+              "title": "Owner Confirmed Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Owner: count only hidden records, and offer the species and cameras they hold",
+            "in": "query",
+            "name": "only_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: count only hidden records, and offer the species and cameras they hold",
+              "title": "Only Hidden",
               "type": "boolean"
             }
           }

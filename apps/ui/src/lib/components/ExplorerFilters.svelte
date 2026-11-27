@@ -11,6 +11,7 @@
     import Segmented from './ui/Segmented.svelte';
     import type { ExplorerDatePreset as DatePreset } from '../utils/explorer-query';
     import { savedVisitGapMs } from '../stores/public_settings.svelte';
+    import type { ExplorerFacetCounts } from '../utils/explorer-facets';
 
     /** A species option, named as the owner names birds: a primary name and, when shown, the other. */
     type ExplorerSpeciesOption = EventFilterSpecies & { display_secondary?: string | null };
@@ -46,11 +47,16 @@
         groupingLocked?: boolean;
         /** Owner-only: hidden detections are soft-deleted, not gone. */
         showHidden: boolean;
+        /** Hidden records in all of history: whether the Hidden choice is offered, not its count. */
         hiddenCount: number;
         canSeeHidden: boolean;
         customStartDate: string;
         customEndDate: string;
         refreshing?: boolean;
+        /** Whether the counts beside each choice describe the results on screen. */
+        counts?: ExplorerFacetCounts;
+        /** The counts are visits rather than captures, as the read they came from counted them. */
+        countsVisits?: boolean;
         /** Garden animals are on and readable here: the rail can show them instead of, or beside, birds. */
         gardenAvailable?: boolean;
         /** Owner-only: visitors see confirmed animals, so there is no review state to choose. */
@@ -103,6 +109,8 @@
         customStartDate,
         customEndDate,
         refreshing = false,
+        counts = 'current',
+        countsVisits = true,
         gardenAvailable = false,
         gardenReviewAvailable = true,
         subjects = 'birds',
@@ -145,6 +153,23 @@
         previousCollapsed = current;
     });
     const totals = $derived(filters?.totals ?? null);
+    /** A count read aloud with its unit, as the heading beside the list shows it. */
+    function spokenCount(count: number): string {
+        return countsVisits
+            ? $_('visits.total', { values: { count }, default: '{count, plural, one {# visit} other {# visits}}' })
+            : $_('events.search.detections', { values: { count }, default: '{count, plural, one {# capture} other {# captures}}' });
+    }
+    const busy = $derived(counts === 'pending' || counts === 'updating');
+    // The note names what the numbers count, or says why none are shown.
+    const countNote = $derived(
+        counts === 'pending' || counts === 'updating'
+            ? $_('events.filters.counting', { default: 'Counting…' })
+            : counts === 'unavailable'
+              ? ''
+              : countsVisits
+                ? $_('events.filters.show_visits_short', { default: 'Visits' })
+                : $_('events.filters.show_captures_short', { default: 'Captures' })
+    );
 
     const datePresets: DatePreset[] = ['all', '24h', 'today', 'week', 'month', 'custom'];
     const DATE_PRESET_LABELS: Record<DatePreset, { key: string; fallback: string }> = {
@@ -282,15 +307,25 @@
 </script>
 
 {#snippet chosenEnd(chosen: boolean, count?: number)}
-    <!-- Right-aligned, so a choice never shifts its name; the count stays at the end of the line. -->
+    <!-- Right-aligned, so a choice never shifts its name; the count stays at the end of the line.
+         A count read for other filters is never shown as this one's: it waits in a fixed slot. -->
     <span class="flex shrink-0 items-center gap-2">
         {#if chosen}
             <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" data-explorer-chosen-mark>
                 <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 10.5 3.5 3.5 7.5-8" />
             </svg>
         {/if}
-        {#if count !== undefined}
-            <span class="tabular-nums font-normal text-muted">{count}</span>
+        <!-- One slot width for a number and its placeholder, so a count arriving never rewraps a name. -->
+        {#if count !== undefined && (counts === 'current' || counts === 'updating')}
+            <!-- While the same filters are read again, the last number stays at full contrast; the list says it is counting. -->
+            <span class="min-w-12 text-right tabular-nums font-normal text-muted" data-explorer-facet-slot>
+                <span aria-hidden="true" data-explorer-facet-count>{count}</span>
+                <span class="sr-only">{spokenCount(count)}</span>
+            </span>
+        {:else if count !== undefined && counts === 'pending'}
+            <span class="inline-flex min-w-12 justify-end" aria-hidden="true" data-explorer-facet-slot>
+                <span class="h-3 w-4 rounded-sm bg-line animate-pulse motion-reduce:animate-none" data-explorer-facet-count-pending></span>
+            </span>
         {/if}
     </span>
 {/snippet}
@@ -472,11 +507,21 @@
 
             {#if !gardenOnly}
             <div class="min-w-0 shrink-0" data-explorer-species-facet>
-                <p class="eyebrow">
-                    {$_('events.filters.all_species')}
+                <!-- The numbers count what the Show choice above shows, so the list names that unit. -->
+                <div class="flex items-baseline justify-between gap-2">
+                    <p class="eyebrow">
+                        {$_('events.filters.all_species')}
+                    </p>
+                    <p class="text-2xs text-muted" data-explorer-facet-unit>{countNote}</p>
+                </div>
+                <!-- Always present, so a failure is announced when it happens rather than only seen. -->
+                <p role="status" class="px-1 text-2xs leading-4 text-muted {counts === 'unavailable' ? 'mt-1' : ''}" data-explorer-facet-counts-unavailable>
+                    {#if counts === 'unavailable'}
+                        {$_('events.filters.counts_unavailable', { default: 'The counts for these filters could not be read. Refresh options tries again.' })}
+                    {/if}
                 </p>
                 <!-- One scrolling rail: the list grows in place rather than scrolling inside it. -->
-                <div id="explorer-species-list" class="mt-2 space-y-0.5" data-explorer-species-list>
+                <div id="explorer-species-list" class="mt-2 space-y-0.5" aria-busy={busy} data-explorer-species-list>
                     {#each shownSpecies.items as item (item.value)}
                         {@const chosen = speciesFilter === item.value}
                         <button
@@ -494,9 +539,12 @@
                             {@render chosenEnd(chosen, item.count ?? 0)}
                         </button>
                     {:else}
-                        <p class="px-2 py-2 text-xs text-muted">
-                            {$_('events.filters.no_species', { default: 'No species recorded yet.' })}
-                        </p>
+                        <!-- Said only once a read has found none: before then the list is still counting, or failed. -->
+                        {#if counts === 'current' || counts === 'updating'}
+                            <p class="px-2 py-2 text-xs text-muted" data-explorer-no-species>
+                                {$_('events.filters.no_species', { default: 'No species recorded yet.' })}
+                            </p>
+                        {/if}
                     {/each}
                 </div>
                 {#if shownSpecies.more > 0 || speciesExpanded}
@@ -525,7 +573,7 @@
                 class="shrink-0 border-t border-line-soft pt-1"
                 data-explorer-camera-facet
             >
-                <div class="space-y-0.5">
+                <div class="space-y-0.5" aria-busy={cameraCounts !== null && busy}>
                     {#each cameras as camera (camera)}
                         {@const chosen = cameraFilter === camera}
                         <button
@@ -549,7 +597,7 @@
                 class="shrink-0 border-t border-line-soft pt-1"
                 data-explorer-only-facet
             >
-                <div class="space-y-1">
+                <div class="space-y-1" aria-busy={busy}>
                     {#if canSeeHidden}
                         <button
                             type="button"
@@ -606,7 +654,7 @@
                             data-explorer-hidden-facet
                         >
                             <span>{$_('events.filters.hidden', { default: 'Hidden' })}</span>
-                            {@render chosenEnd(showHidden, hiddenCount)}
+                            {@render chosenEnd(showHidden, totals?.hidden ?? 0)}
                         </button>
                     {/if}
                 </div>

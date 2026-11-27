@@ -66,6 +66,16 @@ stored call information remain available. A call-loading failure does not remove
 - **Cards** and **List** change how visits are drawn. A card shows the photograph, the time, the
   confidence, the names, the day and the camera. Weather is in the record, which you open from the
   card.
+- **The numbers beside the filters** count what choosing each one would show: in the chosen
+  period, as **Visits** or **Captures** (the unit is named beside **All species**, and read out with
+  each number), and under the other filters you have chosen. A list is never narrowed by its own
+  choice, so every species stays listed while one is chosen, with **0** for a species not seen in
+  the period. **Hidden** appears once anything has been hidden, counts the hidden records under the
+  other filters, and lists the species and cameras those records hold. The numbers are read after
+  the results, so they never slow the page. While they are read the list says **Counting…**: under
+  new filters each number waits in a placeholder; on another page of the same filters the last
+  numbers stay in view until the new ones arrive. If they cannot be read, the list says so and
+  **Refresh options** tries again.
 - **Filters**, on a phone or with the desktop rail hidden, opens the filters as a sheet over the
   page. Each choice applies at once; **Close**, `Escape` or a tap outside returns you to the
   results, with keyboard focus back on **Filters**.

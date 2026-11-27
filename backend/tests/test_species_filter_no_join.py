@@ -45,13 +45,18 @@ def test_the_events_list_joins_only_for_a_taxon_id_filter():
 
 
 def test_a_species_filter_asks_for_no_join_in_either_read_path():
-    for method in (DetectionRepository.get_all, DetectionRepository.get_count):
+    # The count builds its conditions in `capture_filter_sql`, which the Explorer's facet counts share.
+    assert "self.capture_filter_sql(" in inspect.getsource(DetectionRepository.get_count)
+    for method in (DetectionRepository.get_all, DetectionRepository.capture_filter_sql):
         source = inspect.getsource(method)
         assert "has_taxonomy_cache=needs_taxonomy_cache" not in source
         assert "has_taxonomy_cache=False" in source
 
 
 def test_the_alias_resolver_is_still_what_supplies_the_names():
-    """The names the join used to reach are resolved up front instead."""
-    source = inspect.getsource(DetectionRepository._build_canonical_species_condition)
-    assert "resolve_species_aliases" in source
+    """The names the join used to reach are resolved up front instead.
+
+    The filter renders the terms ``species_match`` resolves, which the Explorer's counts join too.
+    """
+    assert "self.species_match(" in inspect.getsource(DetectionRepository._build_canonical_species_condition)
+    assert "resolve_species_aliases" in inspect.getsource(DetectionRepository.species_match)

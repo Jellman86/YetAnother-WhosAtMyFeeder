@@ -447,10 +447,24 @@ taxon or one without matching history returns no matches. This is the catalogue 
 not an iNaturalist taxon ID. The parameter is optional; existing requests keep their
 current behaviour.
 
-- `GET /api/events/filters` Species and camera options, each with a detection count, plus totals
-  for the favourites, audio-matched and video-analysed facets. Counts exclude hidden detections;
-  for public guests, they also use the configured public-history window so filter metadata cannot
-  reveal older private visits.
+- `GET /api/events/filters` Species and camera options, each counted as choosing it would show,
+  plus totals for the favourites, audio-matched, video-analysed and (owner) hidden facets. The
+  options are every species and camera in the viewer's visible history; with `only_hidden` (owner)
+  they are the ones hidden records hold. The counts follow the window (`start_date`/`end_date` or
+  `start_time`/`end_time`, as on `GET /api/visits`) and the filters `species`, `taxon`, `camera`,
+  `favorites`, `audio_confirmed_only`, `multiple_species_only`, `owner_confirmed_only` and
+  `only_hidden`. A facet is never narrowed by its own choice: species counts ignore `species` and
+  `taxon`, camera counts ignore `camera`, and each flag total counts the results with that flag
+  turned on. Each species is counted with the filter its option's `value` applies, so its count is
+  the `total` of `GET /api/visits` or the `count` of `GET /api/events/count` for that `species`
+  over the same window and filters. `unit=visits` counts visits by the shared visit rule and reports
+  the `gap_seconds` used; `unit=captures` (the default) counts single captures. Counts exclude
+  hidden detections unless `only_hidden` is set. For public guests the counts keep the guest's
+  history window and never count hidden records, owner-only filters, or cameras and audio not
+  shared with guests, so filter metadata cannot reveal older private visits. Counts under a `unit`,
+  a window or a filter are read afresh on every request, as the results are. Only an owner's request
+  with none of them is kept for up to a minute, as before; the species and camera lists behind every
+  answer are kept for up to a minute too. `force_refresh=true` reads both again.
 - `GET /api/events/hidden-count` (owner)
 - `GET /api/events/new-species` (owner) — species that appeared recently with no confirmed
   history, each represented by its latest sighting.

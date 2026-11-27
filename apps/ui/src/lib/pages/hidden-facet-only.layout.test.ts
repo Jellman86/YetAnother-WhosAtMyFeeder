@@ -13,9 +13,10 @@ describe('the Hidden facet shows only the hidden visits (#347)', () => {
         expect(eventsPageSource).not.toContain('includeHidden: showHidden');
     });
 
-    it('the API layer carries only_hidden to both the list and the count', () => {
+    it('the API layer carries only_hidden to the list, the count and the filter counts', () => {
         const occurrences = eventsApiSource.split("params.set('only_hidden', 'true')").length - 1;
-        expect(occurrences).toBe(2);
+        expect(occurrences).toBe(3);
+        expect(eventsApiSource).toContain("if (options.onlyHidden) params.set('only_hidden', 'true');");
         // Distinct cache keys, or a toggle would replay the other view's rows.
         expect(eventsApiSource).toContain("onlyHidden ? 'only-hidden' : includeHidden ? 'hidden' : 'visible'");
     });
