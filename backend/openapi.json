@@ -5884,6 +5884,11 @@
             "title": "Total Count",
             "type": "integer"
           },
+          "unknown_visit_count": {
+            "default": 0,
+            "title": "Unknown Visit Count",
+            "type": "integer"
+          },
           "unresolved_count": {
             "default": 0,
             "title": "Unresolved Count",

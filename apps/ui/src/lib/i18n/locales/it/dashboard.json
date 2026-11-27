@@ -84,6 +84,8 @@
     "birds_found": "Uccelli trovati",
     "birds_scope": "Da {count, plural, one {# acquisizione analizzata} other {# acquisizioni analizzate}}; alcuni uccelli potrebbero sfuggire",
     "visits": "Visite",
+    "visits_unknown_short": "{count, plural, one {# Uccello sconosciuto} other {# Uccelli sconosciuti}}",
+    "visits_unknown": "{count, plural, one {# di queste visite è un Uccello sconosciuto.} other {# di queste visite sono Uccelli sconosciuti.}} Un Uccello sconosciuto di solito conta come una visita a sé. Una volta identificato, dal modello o a mano, può unirsi a una visita della stessa specie sulla stessa telecamera entro l'intervallo tra visite, quindi le visite possono calare. Nessuna acquisizione viene rimossa.",
     "unresolved": "Non risolte",
     "calls_heard": "Richiami uditi",
     "cross_confirmed": "Confermati da entrambi",

@@ -84,6 +84,8 @@
     "birds_found": "見つかった鳥",
     "birds_scope": "{count, plural, other {解析済みの撮影 # 件から集計。見逃した鳥がいる場合があります}}",
     "visits": "回の訪問",
+    "visits_unknown_short": "{count, plural, other {不明な鳥 # 件}}",
+    "visits_unknown": "{count, plural, other {このうち # 件の訪問は不明な鳥です。}}不明な鳥はふつうそれぞれ 1 回の訪問として数えます。モデルまたは手動で名前が付くと、同じカメラに写った同じ種の訪問から訪問の間隔以内であればその訪問にまとまるため、訪問数が減ることがあります。撮影は削除されません。",
     "unresolved": "未確定",
     "calls_heard": "件の鳴き声",
     "cross_confirmed": "件が相互確認済み",

@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import BadgeHint from './BadgeHint.svelte';
     import Segmented from './ui/Segmented.svelte';
     import type { DayBarSlots } from '../utils/day-bar';
     import type { DeskWindowKind } from '../utils/desk-window';
@@ -9,6 +10,8 @@
     /** A null figure has not been measured: it is never shown as zero. */
     interface Props {
         visitCount: number | null;
+        /** Of the visits, those that are Unknown birds: usually each its own visit until it is named, then able to join another. */
+        unknownVisitCount?: number | null;
         countedBirds: number | null;
         countedCaptures: number | null;
         speciesCount: number | null;
@@ -37,6 +40,7 @@
 
     let {
         visitCount,
+        unknownVisitCount = null,
         countedBirds,
         countedCaptures,
         speciesCount,
@@ -64,6 +68,26 @@
         { value: 'today', label: $_('dashboard.day_bar.window_today', { default: 'Today' }) },
         { value: 'rolling', label: $_('dashboard.day_bar.window', { default: 'Last 24 hours' }) }
     ]);
+
+    // Naming an Unknown bird can join it to a visit of its species, so Visits can fall while no capture
+    // is lost (#1096). The bar says how many of its visits are Unknown birds, in one line so the card
+    // never grows when they arrive, and the reason opens from that line on hover, focus or tap.
+    const unknownVisitsNote = $derived(
+        unknownVisitCount !== null && unknownVisitCount > 0
+            ? $_('dashboard.day_bar.visits_unknown_short', {
+                  values: { count: unknownVisitCount },
+                  default: '{count, plural, one {# Unknown bird} other {# Unknown birds}}'
+              })
+            : ''
+    );
+    const unknownVisitsExplanation = $derived(
+        unknownVisitsNote
+            ? $_('dashboard.day_bar.visits_unknown', {
+                  values: { count: unknownVisitCount },
+                  default: '{count, plural, one {# of these visits is an Unknown bird.} other {# of these visits are Unknown birds.}} An Unknown bird is usually its own visit. Once it is named, by the model or by hand, it can join a visit of the same species on the same camera within the visit gap, so Visits can fall. No capture is removed.'
+              })
+            : ''
+    );
 
     const feedTone = $derived(feed === 'live' ? 'live' : feed === 'broker_down' || feed === 'frigate_down' ? 'attention' : 'neutral');
     const feedLabel = $derived.by(() => {
@@ -150,11 +174,16 @@
         </p>
     </div>
 
-    <dl class="day-bar-figures card-base grid overflow-hidden">
+    <dl class="day-bar-figures card-base grid">
         <!-- A figure that can carry a note holds its line while it is read and after, whether or not a
              note arrives, so neither the note arriving nor its absence changes the band's height. -->
-        {#snippet figure(hook: string, label: string, value: number | null, pending: boolean, tone: 'plain' | 'attention' | 'clear' = 'plain', note: string = '', title: string = '', noted: boolean = false)}
-            <div class="flex min-w-0 flex-col gap-1.5 px-5 py-4" {title} data-day-bar-figure={hook}>
+        <!-- A note with a `hint` is a button that opens the reason on hover, focus or tap. It is one line,
+             exactly as tall as the held one, so the note arriving never moves the band; words too long
+             for a narrow column end in an ellipsis, while the button keeps them whole as its name and
+             the reason holds the rest. An invisible 44px target overflows the line for a finger, and
+             the band does not clip it; the focus ring stays around the words. -->
+        {#snippet figure(hook: string, label: string, value: number | null, pending: boolean, tone: 'plain' | 'attention' | 'clear' = 'plain', note: string = '', title: string = '', noted: boolean = false, hint: string = '')}
+            <div class="flex min-w-0 flex-col gap-1.5 px-5 py-4" title={title || undefined} data-day-bar-figure={hook}>
                 <dt class="wrap-break-word text-sm text-muted">{label}</dt>
                 <dd class="flex min-w-0 flex-col gap-1">
                     <span
@@ -164,7 +193,15 @@
                     >
                         {#if value === null}{@render unmeasured(pending)}{:else}{value}{/if}
                     </span>
-                    {#if note && value !== null}
+                    {#if note && value !== null && hint}
+                        <span class="flex h-4 min-w-0 items-center">
+                            <BadgeHint
+                                text={hint}
+                                class="relative flex h-4 min-w-0 max-w-full items-center rounded-sm text-left text-xs text-muted focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                                data-day-bar-note-hint
+                            ><span class="absolute inset-x-0 top-1/2 h-11 -translate-y-1/2" aria-hidden="true"></span><span class="truncate underline decoration-dotted underline-offset-2" data-day-bar-note-words>{note}</span></BadgeHint>
+                        </span>
+                    {:else if note && value !== null}
                         <span class="min-w-0 wrap-break-word text-xs {tone === 'clear' ? 'text-status-ok' : 'text-muted'}">{note}</span>
                     {:else if noted}
                         <span class="flex h-4 items-center" aria-hidden="true">
@@ -177,7 +214,17 @@
             </div>
         {/snippet}
 
-        {@render figure('visits', $_('dashboard.day_bar.visits', { default: 'Visits' }), visitCount, loading)}
+        {@render figure(
+            'visits',
+            $_('dashboard.day_bar.visits', { default: 'Visits' }),
+            visitCount,
+            loading,
+            'plain',
+            unknownVisitsNote,
+            '',
+            true,
+            unknownVisitsExplanation
+        )}
         {#if slots.countedBirds}
             {@render figure(
                 'counted-birds',

@@ -1284,7 +1284,26 @@ stores it (parentheses included when the source writes them), or null when unrec
   same canonical species was on the same camera within the visit gap, `visit_gap_seconds`, of the running latest verified event end, or capture time when the end is unavailable): `visit_count`, `hourly_visits`
   (24 hour buckets by when each visit began), `camera_visits` (visits and last sighting per
   camera; `null` for a guest who may not see camera names) and `visit_count` on each `top_species`
-  entry, which is now ordered by visits. `unresolved_count` counts visible undecided captures inside
+  entry, which is now ordered by visits. `unknown_visit_count` is how many of `visit_count` are
+  Unknown birds. An Unknown bird is usually its own visit until it is named, and once named it can
+  join a visit of the same species on the same camera within the visit gap, so `visit_count` can
+  fall while `total_count` does not. Each visit is judged by its own first capture, with the rule
+  that shows a bird as "Unknown bird" everywhere: an Unknown or configured unknown label, a legacy
+  group label from an older model ("Great tit and allies"), an Unknown category behind a kept species
+  name, or no name at all. Visits, `unknown_visit_count` and every `top_species` row come from one
+  read of the window's captures: the captures of an Unknown visit are counted only in the row named
+  "Unknown Bird", even when they kept a species' catalogue id or scientific name, so the rows'
+  `visit_count` values add up to `visit_count` and the Unknown row's equals `unknown_visit_count`.
+  The captures of named visits are grouped by catalogue key into buckets, and buckets that are the
+  same bird (same taxon, or same name when a taxon is missing) are merged into one row. A capture
+  shown as Unknown bird inside a named visit never makes a bucket of its own: it joins its key's
+  bucket when named captures fill it, and otherwise the bucket of its visit's first capture. Names
+  and taxonomy come only from named captures: within a bucket, from its newest named capture, with a
+  missing taxon or common name taken from its other named captures when they agree. A merge keeps
+  the name of the bucket with more captures (ties by catalogue key), so a row can carry another
+  bucket's name. A row's `latest_event` is its newest capture of any kind. Rows are ordered by visits, then captures.
+  A legacy group label is grouped like a species by the visit rule, so naming one of its captures
+  can split its visit instead, and a record added by hand stays its own visit even once named. `unresolved_count` counts visible undecided captures inside
   the same effective window (unknown species or scored below the naming threshold, excluding manually
   tagged captures) for both owners and guests, respecting a guest's shared history cutoff.
   `total_count` and `hourly_distribution` still count frames.

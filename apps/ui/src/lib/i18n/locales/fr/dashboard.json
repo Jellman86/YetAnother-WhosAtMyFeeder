@@ -84,6 +84,8 @@
     "birds_found": "Oiseaux repérés",
     "birds_scope": "Sur {count, plural, one {# capture analysée} other {# captures analysées}} ; des oiseaux peuvent être manqués",
     "visits": "Visites",
+    "visits_unknown_short": "{count, plural, one {# Oiseau inconnu} other {# Oiseaux inconnus}}",
+    "visits_unknown": "{count, plural, one {# de ces visites est un Oiseau inconnu.} other {# de ces visites sont des Oiseaux inconnus.}} Un Oiseau inconnu compte généralement comme une visite à part. Une fois identifié, par le modèle ou à la main, il peut rejoindre une visite de la même espèce sur la même caméra dans l'écart entre visites ; les visites peuvent donc baisser. Aucune capture n'est supprimée.",
     "unresolved": "Non résolues",
     "calls_heard": "Chants entendus",
     "cross_confirmed": "Confirmés par les deux",

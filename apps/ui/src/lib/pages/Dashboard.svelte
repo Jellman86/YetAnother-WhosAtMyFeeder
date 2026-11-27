@@ -806,6 +806,7 @@
 <div class="space-y-6">
     <DayBar
         visitCount={summary ? windowVisitCount : null}
+        unknownVisitCount={summary ? (summary.unknown_visit_count ?? 0) : null}
         countedBirds={summary ? (summary.counted_birds ?? 0) : null}
         countedCaptures={summary ? (summary.counted_captures ?? 0) : null}
         speciesCount={summary ? windowSpeciesCount : null}

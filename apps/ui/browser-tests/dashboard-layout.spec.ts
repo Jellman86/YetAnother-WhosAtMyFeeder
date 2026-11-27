@@ -37,7 +37,7 @@ function readings() {
         visits: { total: 21, gap_seconds: 60, visits },
         summary: {
             audio_confirmations: 13, counted_birds: 74, counted_captures: 46, hourly_distribution: hourly,
-            hourly_visits: hourly, latest_detection: reps[0], total_count: 57, visit_count: 21, unresolved_count: 1,
+            hourly_visits: hourly, latest_detection: reps[0], total_count: 57, visit_count: 21, unknown_visit_count: 1, unresolved_count: 1,
             camera_visits: [{ camera: 'birdcam', visits: 21, last_seen: reps[0].detection_time }],
             top_species: SPECIES.map(([common, scientific], index) => ({
                 species: common, common_name: common, scientific_name: scientific, count: 9 - index,
@@ -367,6 +367,160 @@ for (const [visitor, status] of [['owner', owner], ['guest', guest]] as const) {
         await settled(page);
         const figure = page.locator('[data-day-bar-figure="unresolved"]');
         await expect(figure.locator('.figure')).toHaveText('128');
+    });
+}
+
+const UNKNOWN_REASON = /^3 of these visits are Unknown birds\. An Unknown bird is usually its own visit\. .* so Visits can fall\. No capture is removed\.$/;
+
+test('the Visits figure counts its Unknown birds and gives the reason on keyboard focus, closing on Escape (#1096)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openDashboard(page, { status: owner, summaryOverrides: { unknown_visit_count: 3, unresolved_count: 3 }, queueTotal: 3 });
+    await settled(page);
+    const figure = page.locator('[data-day-bar-figure="visits"]');
+    await expect(figure.locator('.figure')).toHaveText('21');
+    // The reason is never a native tooltip on the figure, which a keyboard or a finger cannot open.
+    await expect(figure).not.toHaveAttribute('title');
+    const hint = figure.getByRole('button', { name: '3 Unknown birds' });
+    await expect(hint).toBeVisible();
+
+    // Tab reaches it, focus opens the reason as its description, and Escape closes it.
+    await hint.focus();
+    await expect(hint).toBeFocused();
+    await expect(page.getByRole('tooltip')).toHaveText(UNKNOWN_REASON);
+    await expect(hint).toHaveAccessibleDescription(UNKNOWN_REASON);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
+    await expect(hint).not.toHaveAttribute('aria-describedby');
+
+    // A window with no Unknown bird has nothing to explain and offers no control.
+    await openDashboard(page, { status: owner, summaryOverrides: { unknown_visit_count: 0, unresolved_count: 0 } });
+    await settled(page);
+    await expect(figure).not.toContainText('Unknown bird');
+    await expect(figure.getByRole('button')).toHaveCount(0);
+});
+
+test.describe('the Visits reason on a touch screen (#1096)', () => {
+    test.use({ hasTouch: true, viewport: { width: 390, height: 900 } });
+
+    test('a tap opens the reason and a second tap closes it', async ({ page }) => {
+        await openDashboard(page, { status: owner, summaryOverrides: { unknown_visit_count: 3, unresolved_count: 3 }, queueTotal: 3 });
+        await settled(page);
+        const hint = page.locator('[data-day-bar-figure="visits"]').getByRole('button', { name: '3 Unknown birds' });
+        // A full 44px touch target, though the line it sits in is one line of small text: a touch
+        // 20px above or below the words' middle still lands on it.
+        expect(await hint.evaluate(node => {
+            const box = node.getBoundingClientRect();
+            const x = box.left + box.width / 2;
+            const middle = box.top + box.height / 2;
+            return [middle - 20, middle + 20].every(y => node.contains(document.elementFromPoint(x, y)));
+        })).toBe(true);
+        await hint.tap();
+        await expect(page.getByRole('tooltip')).toHaveText(UNKNOWN_REASON);
+        await hint.tap();
+        await expect(page.getByRole('tooltip')).toHaveCount(0);
+    });
+});
+
+const ENLARGE_ROOT = () => {
+    document.addEventListener('DOMContentLoaded', () => {
+        const style = document.createElement('style');
+        style.textContent = 'html{font-size:200%!important}';
+        document.head.append(style);
+    });
+};
+
+for (const { name, width, enlarged, language, count, words } of [
+    { name: 'English at 320px with a 200% root font size', width: 320, enlarged: true, language: 'en', count: 3, words: '3 Unknown birds' },
+    { name: 'German at 320px with a 200% root font size', width: 320, enlarged: true, language: 'de', count: 3, words: '3 Unbekannte Vögel' },
+    { name: 'German at 320px with a 200% root font size and a four-digit count', width: 320, enlarged: true, language: 'de', count: 1234, words: '1.234 Unbekannte Vögel' },
+    { name: 'Russian at 320px with a 200% root font size', width: 320, enlarged: true, language: 'ru', count: 3, words: '3 Неизвестные птицы' },
+    { name: 'Russian at 360px', width: 360, enlarged: false, language: 'ru', count: 3, words: '3 Неизвестные птицы' },
+    { name: 'English at 390px', width: 390, enlarged: false, language: 'en', count: 3, words: '3 Unknown birds' },
+    { name: 'English at 1440px', width: 1440, enlarged: false, language: 'en', count: 3, words: '3 Unknown birds' }
+]) {
+    test(`the Unknown birds line stays one line inside its control and never moves the band, in ${name} (#1096)`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 1000 });
+        if (enlarged) await page.addInitScript(ENLARGE_ROOT);
+        if (language !== 'en') await page.addInitScript(code => localStorage.setItem('preferred-language', code), language);
+        const figure = page.locator('[data-day-bar-figure="visits"]');
+        const band = page.locator('[data-dashboard-day-bar] dl');
+        // The figure's own content, its value and its note line; the cell itself stretches to the
+        // tallest figure in its row, such as Birds found's two-line note.
+        const content = figure.locator('dd');
+        const measure = async () => ({
+            figure: (await content.boundingBox())?.height ?? 0,
+            note: (await content.locator(':scope > :last-child').boundingBox())?.height ?? 0,
+            band: (await band.boundingBox())?.height ?? 0
+        });
+
+        await openDashboard(page, { status: owner, readingDelayMs: 1500, summaryOverrides: { unknown_visit_count: count, unresolved_count: 3 }, queueTotal: 3 });
+        await expect(figure.locator('[data-loading-placeholder]').first()).toBeVisible();
+        const reading = await measure();
+        await settled(page);
+        const hint = figure.locator('[data-day-bar-note-hint]');
+        await expect(hint).toBeVisible();
+        // However the words are cut on screen, the button is named by all of them.
+        await expect(hint).toHaveAccessibleName(words);
+
+        // Every line of the words sits inside the button, the button inside its cell and the screen,
+        // and nothing reaches up into the value above it.
+        const placement = await hint.evaluate(node => {
+            const button = node.getBoundingClientRect();
+            const cell = node.closest('[data-day-bar-figure]')?.getBoundingClientRect();
+            const value = node.closest('[data-day-bar-figure]')?.querySelector('.figure')?.getBoundingClientRect();
+            const wordsNode = node.querySelector('[data-day-bar-note-words]');
+            const range = document.createRange();
+            if (wordsNode) range.selectNodeContents(wordsNode);
+            const lines = [...range.getClientRects()].filter(rect => rect.width > 0 && rect.height > 0);
+            return {
+                // An ellipsis can split one line into several rectangles; lines are distinct tops.
+                lines: new Set(lines.map(rect => Math.round(rect.top))).size,
+                linesInside: lines.every(rect => rect.top >= button.top - 1 && rect.bottom <= button.bottom + 1),
+                wordsInside: !!wordsNode && wordsNode.getBoundingClientRect().right <= button.right + 0.5,
+                inCell: !!cell && button.left >= cell.left - 0.5 && button.right <= cell.right + 0.5 && button.right <= innerWidth,
+                belowValue: !!value && button.top >= value.bottom - 0.5
+            };
+        });
+        expect(placement).toEqual({ lines: 1, linesInside: true, wordsInside: true, inCell: true, belowValue: true });
+        const noted = await measure();
+
+        // Only the Unknown birds differ, so any change in the band is theirs.
+        await openDashboard(page, { status: owner, summaryOverrides: { unknown_visit_count: 0, unresolved_count: 3 }, queueTotal: 3 });
+        await settled(page);
+        await expect(figure.locator('[data-day-bar-note-hint]')).toHaveCount(0);
+        const plain = await measure();
+
+        expect(noted.figure).toBeGreaterThan(0);
+        expect(Math.abs(noted.note - reading.note)).toBeLessThan(1);
+        expect(Math.abs(noted.note - plain.note)).toBeLessThan(1);
+        expect(Math.abs(noted.figure - reading.figure)).toBeLessThan(1);
+        expect(Math.abs(noted.figure - plain.figure)).toBeLessThan(1);
+        expect(Math.abs(noted.band - plain.band)).toBeLessThan(1);
+    });
+}
+
+for (const { name, width, textSize } of [
+    { name: 'the Smallest text size at 1440px, one row of figures', width: 1440, textSize: 'smallest' },
+    { name: 'the Smaller text size at 1440px, one row of figures', width: 1440, textSize: 'smaller' },
+    { name: 'the Smallest text size at 1024px', width: 1024, textSize: 'smallest' },
+    { name: 'the Standard text size at 390px', width: 390, textSize: 'standard' }
+]) {
+    test(`the Unknown birds line keeps its whole 44px touch target at ${name} (#1096)`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await page.addInitScript(size => localStorage.setItem('text_size', size), textSize);
+        await openDashboard(page, { status: owner, summaryOverrides: { unknown_visit_count: 3, unresolved_count: 3 }, queueTotal: 3 });
+        await settled(page);
+        const hint = page.locator('[data-day-bar-figure="visits"] [data-badge-hint]');
+        await expect(hint).toBeVisible();
+        // A touch anywhere 21px above or below the words' middle lands on the button: nothing clips it.
+        const missed = await hint.evaluate(node => {
+            const box = node.getBoundingClientRect();
+            const middle = box.top + box.height / 2;
+            return [box.left + 2, box.left + box.width / 2, box.right - 2].flatMap(x =>
+                [-21, -10, 0, 10, 21].filter(offset => !node.contains(document.elementFromPoint(x, middle + offset))).map(offset => `${Math.round(x)},${offset}`)
+            );
+        });
+        expect(missed).toEqual([]);
     });
 }
 
