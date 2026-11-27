@@ -994,6 +994,8 @@ class EventProcessor:
             entry = self._recording_waits.pop(event_id, None)
         end_data = entry.get("end_data") if entry else None
         if end_data is not None:
+            # Held behind the same deliberate wait, so it is no staler than the replay it follows.
+            end_data["__received_at_ts"] = time.time()
             await self._process_payload_durably(end_data)
 
     async def _process_payload_durably(self, data: Dict[str, Any]) -> None:
