@@ -67,6 +67,73 @@ as the runtime `sourceId`. This is easier to maintain than copying a generated h
 camera contribute independent audio context. See BirdNET-Go's
 [RTSP/multiple-source guide](https://github.com/tphakala/birdnet-go/wiki/BirdNET%E2%80%90Go-Guide#live-audio-streaming).
 
+#### Renaming a source in BirdNET-Go
+
+BirdNET-Go gives every source an id made from a hash of its connection string, and sends it with
+each call as `sourceId`: the stream address for a network stream (`rtsp_3af0d74c`; also `http_`,
+`hls_`, `rtmp_` and `udp_`), the device name for a sound card (`audio_card_22a9b331`) or a file
+(`file_`). Its detection messages also carry the install's node name as `SourceNode` (Settings, Main,
+Name in BirdNET-Go, `BirdNET-Go` unless you changed it). YA-WAMF identifies a source by that id on
+that install, not by its name. Both are compared exactly as sent, case included, once spaces and
+line breaks at either end are trimmed: `Shed` and `shed` are two installs.
+
+- **One id is one source per install.** The hash covers only the connection string, so two installs
+  that each read their own `rtsp://localhost:8554/audio`, or their own `default` sound card, send
+  the same id for two different microphones. Give each install its own node name in BirdNET-Go so
+  YA-WAMF can keep them apart.
+- **A call that names no install** (an older BirdNET-Go, or a message without `SourceNode`) is kept
+  apart from every install's sources, and also by its name, because two unknown installs can send
+  the same id. YA-WAMF cannot follow a rename of such a source, or tell two unknown installs apart
+  when their sources share both id and name: nothing in the message connects them.
+- **A source's name** is the one BirdNET-Go sent, even when that is its id. When BirdNET-Go sent no
+  name, the source is shown by its id.
+
+So:
+
+- **Renaming a source keeps one source in Audio history.** Its **Sources** list shows the source
+  once, under its newest name, with all of its calls, and the source filter finds its whole history
+  by its old name, its new name or its id. Each call in the list of calls keeps the name it arrived
+  with.
+- **A camera mapping still matches names and ids literally.** A camera mapped by a source's old
+  name does not hear the source under its new name: after renaming a source in BirdNET-Go, update
+  the camera's mapping under **Settings → Integrations → BirdNET-Go → Audio buffer & sensor
+  mapping**, as before. Following a rename in camera mappings is planned as a follow-up.
+- **Mapping a camera by the source's id survives a rename,** with three limits:
+  - it only works for a source whose calls carry `sourceId`;
+  - calls from before BirdNET-Go sent ids are not matched by the id, so keep their name in the
+    mapping too (for example `rtsp_3af0d74c, birdcam`);
+  - **Add detected source…** inserts the source's name, so type the id into the mapping yourself.
+
+  A mapping by id also hears every install that sends the same id, as it always has.
+- **Changing a source's address makes a new source.** A new RTSP URL hashes to a new id in
+  BirdNET-Go, so YA-WAMF lists it separately, even under the same name. When two sources share a
+  name, the **Sources** list shows each one's BirdNET-Go id, and its install when that is what
+  tells them apart.
+- **Calls from before BirdNET-Go sent ids** carry only a name. They join the source that carried
+  the same name later, as long as only one source ever did (on the same install, when the call names
+  one), counting calls you have hidden: hiding a call never moves an older call to another
+  microphone. If two sources have carried that name, the older calls stay a separate entry, marked as
+  calls without a usable BirdNET-Go id, rather than being credited to the wrong stream.
+- **Guests** see only what the shared history holds: a source is named, filtered and counted from
+  the calls inside the window you share, never from an older name.
+
+Tracking sources changes nothing about how YA-WAMF recognises a call BirdNET-Go delivers again:
+it still knows one by its source name and BirdNET-Go's detection number, as before. Two installs
+whose sources share a name and send the same detection number therefore still count as one call,
+as they did before this change.
+
+YA-WAMF keeps at most 200 characters of a node name, source id or source name. A longer id, or one
+with control characters, spaces inside it, `,`, `;`, `|` or `*`, is not used rather than shortened,
+so two ids are never cut into one. A call whose id is not used is not one from before ids, so its
+name is not used to join it to a source either: it is listed as an unknown source on its own
+install, never under another install's source.
+
+The upgrade that adds source tracking reads every stored call's payload once and records its
+source. A call whose payload names no source, such as one from a BirdNET-Go version that sent
+neither a source name nor an id, is listed as an unknown source, and its payload is not read again.
+If you go back to an older release for a while, the calls it stores are read the same way the next
+time this release starts, in small batches in the background.
+
 ### 4. Dynamic Sensor IDs (Wildcard)
 If your audio source (like a re-streaming camera) generates a new Sensor ID every time it restarts, you can use a **wildcard** to allow any source for that camera. The species and time-window checks still apply.
 
@@ -95,7 +162,8 @@ and buffer entry so a diagnostic can never appear in history or confirm a real v
 
 YA-WAMF is compatible with multiple BirdNET message formats:
 - **CamelCase (Original):** `comName`, `score`, `ts`
-- **PascalCase (New BirdNET-Go):** `CommonName`, `Confidence`, `Source -> id`
+- **PascalCase (New BirdNET-Go):** `CommonName`, `Confidence`, with the source as `sourceId` and
+  `sourceName` (older builds sent `Source -> id` and `Source -> displayName`, or `src` and `nm`)
 
 The system ignores "Sound Level" messages (`birdnet/soundlevel`) and focuses only on valid species identifications.
 

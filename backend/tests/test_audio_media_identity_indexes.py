@@ -20,6 +20,10 @@ REVISION = "e98a7230bd14"
 PREVIOUS = "e8b2c4d6f0a1"
 
 
+# The stored history itself; columns later revisions add are not this revision's to keep.
+HISTORY = "SELECT id, timestamp, species, confidence, sensor_id, raw_data, is_hidden FROM audio_detections ORDER BY id"
+
+
 @pytest.fixture
 def indexed_history(tmp_path):
     path = tmp_path / "history.db"
@@ -65,7 +69,7 @@ async def test_actual_media_identity_query_uses_three_guarded_indexes(indexed_hi
 async def test_identity_index_upgrade_downgrade_upgrade_is_idempotent_and_preserves_malformed_history(indexed_history):
     query = await actual_media_query(indexed_history)
     with closing(sqlite3.connect(indexed_history)) as db:
-        before = db.execute("SELECT * FROM audio_detections ORDER BY id").fetchall()
+        before = db.execute(HISTORY).fetchall()
     env = os.environ.copy()
     env.update(DB_PATH=str(indexed_history), PYTHONPATH=str(BACKEND))
 
@@ -88,7 +92,7 @@ async def test_identity_index_upgrade_downgrade_upgrade_is_idempotent_and_preser
     migrate(REVISION)
     migrate(REVISION)
     with closing(sqlite3.connect(indexed_history)) as db:
-        assert db.execute("SELECT * FROM audio_detections ORDER BY id").fetchall() == before
+        assert db.execute(HISTORY).fetchall() == before
         plan = [row[3] for row in db.execute("EXPLAIN QUERY PLAN " + query)]
         assert any("MULTI-INDEX OR" in row for row in plan), plan
         names = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='index'")}
@@ -114,6 +118,6 @@ async def test_identity_index_upgrade_downgrade_upgrade_is_idempotent_and_preser
                 module.downgrade()
                 module.upgrade()
         with closing(sqlite3.connect(indexed_history)) as db:
-            assert db.execute("SELECT * FROM audio_detections ORDER BY id").fetchall() == before
+            assert db.execute(HISTORY).fetchall() == before
     finally:
         engine.dispose()

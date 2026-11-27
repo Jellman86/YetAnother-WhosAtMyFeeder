@@ -1305,9 +1305,31 @@
             "title": "Last Heard",
             "type": "string"
           },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
           "source_name": {
             "title": "Source Name",
             "type": "string"
+          },
+          "source_node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Node"
           }
         },
         "required": [

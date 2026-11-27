@@ -90,7 +90,11 @@
   },
   "sources": {
     "title": "来源",
-    "empty": "尚无来源。"
+    "empty": "尚无来源。",
+    "source_id": "BirdNET-Go 的 ID：{id}",
+    "source_id_on_node": "{node} 上的 BirdNET-Go ID：{id}",
+    "no_source_id": "没有可用 BirdNET-Go ID 的鸣叫",
+    "no_source_id_on_node": "{node} 上没有可用 BirdNET-Go ID 的鸣叫"
   },
   "not_shared_title": "音频未公开共享",
   "not_shared_body": "此实例的所有者已为访客关闭音频。",

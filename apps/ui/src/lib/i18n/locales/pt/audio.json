@@ -90,7 +90,11 @@
   },
   "sources": {
     "title": "Fontes",
-    "empty": "Ainda não há fontes."
+    "empty": "Ainda não há fontes.",
+    "source_id": "ID do BirdNET-Go {id}",
+    "source_id_on_node": "ID do BirdNET-Go {id} em {node}",
+    "no_source_id": "Cantos sem um ID do BirdNET-Go utilizável",
+    "no_source_id_on_node": "Cantos sem um ID do BirdNET-Go utilizável em {node}"
   },
   "not_shared_title": "O áudio não é compartilhado publicamente",
   "not_shared_body": "O proprietário desta instância desativou o áudio para convidados.",

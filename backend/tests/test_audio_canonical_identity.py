@@ -88,7 +88,11 @@ async def _audio_table(db: aiosqlite.Connection) -> None:
             scientific_name VARCHAR,
             source_event_id VARCHAR(512),
             species_id INTEGER,
-            is_hidden BOOLEAN NOT NULL DEFAULT 0
+            is_hidden BOOLEAN NOT NULL DEFAULT 0,
+            source_node VARCHAR,
+            source_id VARCHAR,
+            source_name VARCHAR,
+            source_resolved BOOLEAN NOT NULL DEFAULT 0
         )
         """
     )

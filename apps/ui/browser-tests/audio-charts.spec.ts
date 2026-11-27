@@ -515,3 +515,39 @@ test('a refresh keeps the chosen species’ grid on screen, dimmed, until its ne
     await expect(frame).toHaveAttribute('aria-busy', 'false');
     await expect(page.getByRole('grid', { name: /Robin\.$/ })).toBeVisible();
 });
+
+test('a renamed source is one entry, and two sources that share a name show their BirdNET-Go ids', async ({ page }) => {
+    await page.route('**/api/audio/summary*', route => route.fulfill({
+        json: {
+            ...summary,
+            source_count: 8,
+            sources: [
+                { source_name: 'Feeder', source_id: 'rtsp_3af0d74c', count: 40, last_heard: '2026-09-26T12:00:00Z' },
+                { source_name: 'nestcam', source_id: 'rtsp_0d6c2ad3', count: 20, last_heard: '2026-09-26T11:00:00Z' },
+                { source_name: 'nestcam', source_id: 'rtsp_9e1b77a0', count: 9, last_heard: '2026-09-20T11:00:00Z' },
+                { source_name: 'nestcam', source_id: null, count: 4, last_heard: '2026-08-30T11:00:00Z' },
+                { source_name: 'Default Audio Device', source_id: 'audio_card_22a9b331', source_node: 'Shed', count: 3, last_heard: '2026-08-29T11:00:00Z' },
+                { source_name: 'Default Audio Device', source_id: 'audio_card_22a9b331', source_node: 'House', count: 2, last_heard: '2026-08-28T11:00:00Z' },
+                { source_name: 'Unknown source', source_id: null, source_node: 'Shed', count: 1, last_heard: '2026-08-27T11:00:00Z' },
+                { source_name: 'Unknown source', source_id: null, source_node: 'House', count: 1, last_heard: '2026-08-26T11:00:00Z' },
+            ],
+        },
+    }));
+    await page.reload();
+
+    const sources = page.getByRole('heading', { name: 'Sources', exact: true }).locator('xpath=following-sibling::div[1]');
+    await expect(sources.getByText('Feeder', { exact: true })).toHaveCount(1);
+    await expect(sources.getByText('nestcam', { exact: true })).toHaveCount(3);
+    // A name only one source carries needs no id beside it.
+    await expect(sources.locator('[data-audio-source-id]')).toHaveText([
+        'BirdNET-Go id rtsp_0d6c2ad3',
+        'BirdNET-Go id rtsp_9e1b77a0',
+        'Calls without a usable BirdNET-Go id',
+        // Two installs whose sound cards share a name and an id are told apart by the install.
+        'BirdNET-Go id audio_card_22a9b331 on Shed',
+        'BirdNET-Go id audio_card_22a9b331 on House',
+        // Calls with no id that share a name are told apart by their install.
+        'Calls without a usable BirdNET-Go id on Shed',
+        'Calls without a usable BirdNET-Go id on House',
+    ]);
+});

@@ -194,7 +194,9 @@ export interface components {
     AudioSourceSummaryResponse: {
     count: number;
     last_heard: string;
+    source_id?: string | null;
     source_name: string;
+    source_node?: string | null;
 };
     AudioSpeciesLeaderboardItemResponse: {
     avg_confidence: number;

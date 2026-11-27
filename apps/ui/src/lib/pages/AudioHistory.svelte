@@ -63,6 +63,7 @@
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import { audioReading } from './audio-history-state';
     import { dailySeries } from './audio-chart-series';
+    import { namesListedMoreThanOnce, sourceNameKey } from './audio-source-names';
     import { whenNearViewport } from '../actions/near-viewport';
 
     const PAGE_SIZE = 25;
@@ -510,6 +511,9 @@
         measured && authStore.isGuest ? narrowedWindowStart(shownRequest?.aggregate.start_date, summary?.window_start) : null
     );
     const nothingNarrows = $derived(!applied.species && !applied.source && applied.minConfidence <= 0 && !appliedSearch);
+
+    const listedSources = $derived((summary?.sources ?? []).slice(0, 8));
+    const sharedSourceNames = $derived(namesListedMoreThanOnce(listedSources));
 
     function callsHeard(count: number): string {
         return $_('audio.calls_heard', { values: { count }, default: '{count, plural, one {# call heard} other {# calls heard}}' });
@@ -1256,10 +1260,23 @@
                             {reading === 'failed' ? $_('audio.chart.unavailable', { default: 'Not available while the history cannot be read.' }) : $_('common.loading', { default: 'Loading' })}
                         </p>
                     {:else}
-                    {#each (summary?.sources ?? []).slice(0, 8) as item}
+                    {#each listedSources as item}
                         <div class="flex items-center justify-between gap-3 py-3">
                             <div class="min-w-0">
                                 <p class="wrap-break-word text-sm font-bold text-strong">{item.source_name}</p>
+                                {#if sharedSourceNames.has(sourceNameKey(item.source_name))}
+                                    <p class="mt-0.5 break-all text-xs text-muted" data-audio-source-id>
+                                        {#if item.source_id && item.source_node}
+                                            {$_('audio.sources.source_id_on_node', { values: { id: item.source_id, node: item.source_node }, default: 'BirdNET-Go id {id} on {node}' })}
+                                        {:else if item.source_id}
+                                            {$_('audio.sources.source_id', { values: { id: item.source_id }, default: 'BirdNET-Go id {id}' })}
+                                        {:else if item.source_node}
+                                            {$_('audio.sources.no_source_id_on_node', { values: { node: item.source_node }, default: 'Calls without a usable BirdNET-Go id on {node}' })}
+                                        {:else}
+                                            {$_('audio.sources.no_source_id', { default: 'Calls without a usable BirdNET-Go id' })}
+                                        {/if}
+                                    </p>
+                                {/if}
                                 <p class="mt-0.5 wrap-break-word text-xs text-muted">{$_('audio.card.last_heard', { default: 'Last heard' })} {formatDateTime(item.last_heard)}</p>
                             </div>
                             <span class="flex-none text-sm font-bold tabular-nums text-ink">{item.count.toLocaleString()}</span>

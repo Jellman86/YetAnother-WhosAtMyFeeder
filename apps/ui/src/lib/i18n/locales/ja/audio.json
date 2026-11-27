@@ -90,7 +90,11 @@
   },
   "sources": {
     "title": "音源",
-    "empty": "音源はまだありません。"
+    "empty": "音源はまだありません。",
+    "source_id": "BirdNET-Go の ID: {id}",
+    "source_id_on_node": "{node} の BirdNET-Go ID: {id}",
+    "no_source_id": "使える BirdNET-Go ID のない鳴き声",
+    "no_source_id_on_node": "{node} の使える BirdNET-Go ID のない鳴き声"
   },
   "not_shared_title": "音声は公開されていません",
   "not_shared_body": "このインスタンスの所有者はゲスト向けの音声をオフにしています。",
