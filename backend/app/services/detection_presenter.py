@@ -364,6 +364,7 @@ async def present_detections(
             scientific_name=scientific_name,
             common_name=common_name,
             taxa_id=taxa_id,
+            species_id=getattr(event, "species_id", None),
             frigate_status=event.frigate_status,
             frigate_missing_since=event.frigate_missing_since,
             frigate_last_checked_at=event.frigate_last_checked_at,

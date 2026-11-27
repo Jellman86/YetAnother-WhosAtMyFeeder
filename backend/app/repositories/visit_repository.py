@@ -9,6 +9,7 @@ from app.repositories.detection_repository import (
 )
 from app.repositories.catalogue_identity import species_ids_condition
 from app.repositories.audio_history_repository import public_audio_evidence_sql
+from app.repositories.bird_observation_repository import BirdObservationRepository, events_condition
 from app.config import settings
 from app.services.visit_grouping import valid_event_bounds
 from app.utils.canonical_species import hidden_species_exact_labels
@@ -164,11 +165,7 @@ class VisitRepository(DetectionRepository):
         favorites: bool = False,
         audio_only: bool = False,
         public_audio: bool = False,
-        multiple_species_only: bool = False,
-        start: datetime | None = None,
-        end: datetime | None = None,
-        camera: str | None = None,
-        hidden_only: bool = False,
+        mixed_events: list[str] | None = None,
         species_ids: Collection[int] | None = None,
     ) -> tuple[str, list]:
         clauses = []
@@ -192,12 +189,8 @@ class VisitRepository(DetectionRepository):
         if species_ids_clause:
             clauses.append(species_ids_clause)
             params.extend(species_ids_params)
-        if multiple_species_only:
-            from app.repositories.bird_observation_repository import BirdObservationRepository
-
-            clause, values = await BirdObservationRepository(self.db).multiple_species_condition(
-                start=start, end=end, camera=camera, hidden_only=hidden_only
-            )
+        if mixed_events is not None:
+            clause, values = events_condition("d", mixed_events)
             clauses.append(clause)
             params.extend(values)
         if favorites:
@@ -236,6 +229,13 @@ class VisitRepository(DetectionRepository):
         cte, params = await self.grouping_cte(
             start=start, end=end, camera=camera, hidden_only=hidden_only, gap_seconds=gap_seconds
         )
+        mixed_events = (
+            await BirdObservationRepository(self.db).multiple_species_events(
+                start=start, end=end, camera=camera, hidden_only=hidden_only
+            )
+            if multiple_species_only
+            else None
+        )
         condition, values = await self._matching_condition(
             species_ids=species_ids,
             species=species,
@@ -244,11 +244,7 @@ class VisitRepository(DetectionRepository):
             favorites=favorites,
             audio_only=audio_only,
             public_audio=public_audio,
-            multiple_species_only=multiple_species_only,
-            start=start,
-            end=end,
-            camera=camera,
-            hidden_only=hidden_only,
+            mixed_events=mixed_events,
         )
         confirmed_sql = await owner_confirmed_sql(self.db, "v")
         if owner_confirmed_only:
@@ -266,15 +262,22 @@ class VisitRepository(DetectionRepository):
         ), matched_members AS (
             SELECT v.* FROM visit_members v WHERE v.visit_id IN (SELECT visit_id FROM matching_visits)
         )"""
+        peak_params: list = []
         if not public_audio and await self._table_exists("bird_observations"):
-            cte += """, bird_counts AS (
+            # Under the "Multiple bird species" filter the visit points at a capture that holds
+            # them, so the species it was found for are the ones its card names and opens.
+            mixed_first = ""
+            if mixed_events is not None:
+                mixed_clause, peak_params = events_condition("v", mixed_events)
+                mixed_first = f"CASE WHEN {mixed_clause} THEN 0 ELSE 1 END, "
+            cte += f""", bird_counts AS (
                 SELECT frigate_event, COUNT(*) AS counted FROM bird_observations
                 WHERE is_hidden = 0
                     AND frigate_event IN (SELECT frigate_event FROM matched_members)
                 GROUP BY frigate_event
             ), header_members AS (
                 SELECT v.*, b.counted, ROW_NUMBER() OVER (
-                    PARTITION BY v.visit_id ORDER BY COALESCE(b.counted, 0) DESC, v.score DESC, v.id DESC
+                    PARTITION BY v.visit_id ORDER BY {mixed_first}COALESCE(b.counted, 0) DESC, v.score DESC, v.id DESC
                 ) AS peak_position FROM matched_members v
                 LEFT JOIN bird_counts b ON b.frigate_event = v.frigate_event
             )"""
@@ -293,7 +296,7 @@ class VisitRepository(DetectionRepository):
                 MAX(CASE WHEN v.audio_confirmed = 1 AND {audio_sql} THEN 1 ELSE 0 END) AS audio_confirmed
             FROM header_members v GROUP BY v.visit_id
         )"""
-        params.extend([*values, *audio_params])
+        params.extend([*values, *peak_params, *audio_params])
         order = {
             "newest": "latest_time DESC",
             "oldest": "start_time ASC",

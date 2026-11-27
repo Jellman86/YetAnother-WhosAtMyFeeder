@@ -424,7 +424,9 @@ captures without verified bounds continue to use their stored capture time.
 `GET /api/events`, `GET /api/events/count` and `GET /api/visits` accept the owner-only
 `multiple_species_only=true` filter. It matches at least two distinct resolved, named species
 among visible counted birds in a capture. Aliases of one species and unknown/excluded birds do
-not satisfy it. A visit matches if one of its captures qualifies. Guest requests ignore the flag.
+not satisfy it. A visit matches if one of its captures qualifies, and under the flag its
+`peak_capture` is a qualifying capture (the most counted one), so a client can open the capture
+that holds the species. Guest requests ignore the flag.
 
 The same three reads accept the owner-only `owner_confirmed_only=true` filter. A capture matches
 when it has `manual_tagged` set and a named species: an owner's species pick, an owner-confirmed
@@ -494,7 +496,10 @@ the counted named birds by their stored (owner-corrected) species, and `hint_onl
 every bird came from Frigate's tracked box. Repeated species stay separate observations; they are
 birds located in one analysed frame, not unique animals. `null` means no observations are stored,
 which is not a measured zero. Guests never receive the field. Other routes that return detections
-leave it unset.
+leave it unset. Each `species` entry carries its catalogue `common_name`, `scientific_name` and
+`species_id` when its label resolves, and `null` otherwise. A detection's own `species_id` is the
+same catalogue identity, so a client compares the two ids, not labels, to tell whether a counted
+bird is the capture's own species.
 
 `PATCH /api/events/{event_id}` accepts `{"display_name": "Blue Tit"}`. A successful response
 always includes `manual_tagged: true` and the retained taxonomy fields. If the requested name is
@@ -1100,13 +1105,13 @@ tolerance. Full-frame and detector-crop evidence remain available when tracking 
 
 Notes:
 - Browser playback first requests `hls/master.m3u8`, or `recording-hls/master.m3u8` for a promoted
-  full visit. YA-WAMF proxies only Frigate's expected relative playlist, init-fragment and media-
+  full clip. YA-WAMF proxies only Frigate's expected relative playlist, init-fragment and media-
   fragment names; it carries a share token or legacy API key into those relative asset URLs but
   never forwards browser query strings to Frigate. A Frigate version without VOD HLS returns 404
   and the player falls back to the canonical MP4 route.
 - `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted recording exists for the event, this route serves it before falling back to the shorter Frigate event clip. Recording responses expose `X-YAWAMF-Clip-Variant: recording`, `X-YAWAMF-Recording-Clip-State: complete|partial`, and the measured `X-YAWAMF-Recording-Clip-Duration` when available.
-- `GET` and `HEAD /api/frigate/{event_id}/recording-clip.mp4` remain available as explicit full-visit routes and use the same persisted `{event_id}_recording.mp4` cache file. `X-YAWAMF-Recording-Clip-Ready` is `cached` for a complete file and `partial` for a usable shorter file.
-- `POST /api/frigate/{event_id}/recording-clip/fetch` remains available as a manual recovery/warm endpoint. Its response reports `status: ready|partial` and `recording_state: complete|partial`; with recording clips enabled and writable local media storage, YA-WAMF also generates and upgrades full-visit clips automatically for eligible completed detections.
+- `GET` and `HEAD /api/frigate/{event_id}/recording-clip.mp4` remain available as explicit full clip routes and use the same persisted `{event_id}_recording.mp4` cache file. `X-YAWAMF-Recording-Clip-Ready` is `cached` for a complete file and `partial` for a usable shorter file.
+- `POST /api/frigate/{event_id}/recording-clip/fetch` remains available as a manual recovery/warm endpoint. Its response reports `status: ready|partial` and `recording_state: complete|partial`; with recording clips enabled and writable local media storage, YA-WAMF also generates and upgrades full clips automatically for eligible completed detections.
 
 ### Species and Leaderboard
 

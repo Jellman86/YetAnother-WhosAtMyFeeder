@@ -3,6 +3,7 @@
     import LazyModal from './LazyModal.svelte';
     import { loadDetectionModal, loadVideoPlayer } from './lazy-dialogs';
     import type { RecordVideo } from './record-video';
+    import type { RecordVisit } from './record-visit';
     import { videoHeadingFor } from './video-heading';
     import type { Detection } from '../api';
     import { reclassifyDetection } from '../api';
@@ -28,6 +29,8 @@
     interface Props {
         record: Detection | null;
         video: RecordVideo | null;
+        /** The visit the record's capture belongs to, when the page opened it from that visit. Cleared on close. */
+        visit?: RecordVisit | null;
         onViewSpecies: (speciesName: string) => void;
         onDeleteSuccess?: (frigateEvent: string, detectionTime?: string) => void | Promise<void>;
         onHideSuccess?: (frigateEvent: string, detectionTime: string | undefined, isHidden: boolean) => void | Promise<void>;
@@ -38,6 +41,7 @@
     let {
         record = $bindable(),
         video = $bindable(),
+        visit = $bindable(null),
         onViewSpecies,
         onDeleteSuccess,
         onHideSuccess,
@@ -80,6 +84,13 @@
         if (next !== current) record = next;
     });
 
+    // A visit belongs to the record it was opened with; a closed record takes it along, so the next
+    // record a page opens never shows a visit read for an earlier one.
+    function closeRecord(): void {
+        record = null;
+        visit = null;
+    }
+
     function play(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto'): void {
         const shown = record;
         video = {
@@ -89,11 +100,11 @@
             playIntent
         };
         // One overlay at a time: the player replaces the record.
-        record = null;
+        closeRecord();
     }
 
     function viewSpecies(speciesName: string): void {
-        record = null;
+        closeRecord();
         onViewSpecies(speciesName);
     }
 
@@ -121,16 +132,18 @@
 </script>
 
 {#if record}
-    <LazyModal loader={loadDetectionModal} onclose={() => (record = null)}>
+    <LazyModal loader={loadDetectionModal} onclose={closeRecord}>
         {#snippet children(DetectionModal)}
             {#if record}
                 <DetectionModal
                     detection={record}
+                    visit={visit?.frigateEvent === record.frigate_event ? visit : null}
+                    fullClipSeconds={fullVisitStore.getDurationSeconds(record.frigate_event)}
                     llmReady={settingsStore.llmReady}
                     fullVisitAvailable={fullVisitStore.availability[record.frigate_event] === 'available'}
                     fullVisitFetched={fullVisitStore.fetchState[record.frigate_event] === 'ready'}
                     fullVisitFetchState={fullVisitStore.fetchState[record.frigate_event] ?? 'idle'}
-                    onClose={() => (record = null)}
+                    onClose={closeRecord}
                     onReclassify={reclassify}
                     onFetchFullVisit={fullVisitHandler}
                     onPlayVideo={play}

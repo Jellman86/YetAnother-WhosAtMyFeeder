@@ -12,7 +12,7 @@ history, filtered by category: **Everything**, **Birds**, **Updates**, **Jobs**,
 for ten seconds, which puts the cleared items back beside anything that arrived meanwhile.
 
 The **Jobs** category separates queued, running, and recent work. Video analysis, best-quality
-snapshots, full-visit clips, and backfills stay distinct, so a queued item is never presented as a
+snapshots, full clips, and backfills stay distinct, so a queued item is never presented as a
 running worker. A job that stops reporting for three quarters of an hour is shown as **stopped**,
 with how far it got and when it went quiet, a grey bar that no longer moves, and its own
 **Remove from this list**; it leaves the history a day after it stopped. The top progress bar counts such a job

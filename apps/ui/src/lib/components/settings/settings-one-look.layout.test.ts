@@ -135,7 +135,7 @@ describe('Settings has one look across tabs', () => {
     it('names a disclosure "Show advanced options · title", never in nested brackets', () => {
         expect(advancedSource).toContain("{' · '}");
         expect(advancedSource).not.toContain('({title})');
-        expect(connectionSource).toContain("default: 'Full-visit clips' })");
+        expect(connectionSource).toContain("default: 'Full clips' })");
     });
 
     it('shows no "Advanced" chip: a disclosure is named by its own title', () => {

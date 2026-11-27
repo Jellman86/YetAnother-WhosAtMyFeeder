@@ -11,23 +11,23 @@ const { fetchFullVisitAndReport } = await import('./full-visit-fetch');
 register('en', () => Promise.resolve({}));
 await init({ fallbackLocale: 'en', initialLocale: 'en' });
 
-describe('fetching a full visit says how it went', () => {
+describe("fetching a capture's full clip says how it went", () => {
     beforeEach(() => {
         fetchFullVisit.mockReset();
         for (const say of Object.values(toast)) say.mockReset();
     });
 
-    it('says the clip is ready when the whole visit arrived', async () => {
+    it('says the full clip is ready when the whole recording arrived', async () => {
         fetchFullVisit.mockResolvedValue(true);
         await fetchFullVisitAndReport('evt-1');
         expect(fetchFullVisit).toHaveBeenCalledWith('evt-1');
-        expect(toast.success).toHaveBeenCalledWith('Full visit clip ready');
+        expect(toast.success).toHaveBeenCalledWith('Full clip ready');
     });
 
     it('says only part arrived, and to retry, when the recording is still being written', async () => {
         fetchFullVisit.mockResolvedValue(false);
         await fetchFullVisitAndReport('evt-1');
-        expect(toast.warning).toHaveBeenCalledWith('A partial visit is ready; retry shortly for the complete clip.');
+        expect(toast.warning).toHaveBeenCalledWith('A partial clip is ready; retry shortly for the complete clip.');
     });
 
     it('states the cause when the fetch fails, and never throws', async () => {

@@ -287,6 +287,23 @@ async def test_multiple_species_filter_matches_full_visit_and_named_species_only
 
 
 @pytest.mark.asyncio
+async def test_multiple_species_filter_points_the_visit_at_the_capture_that_holds_them(repo):
+    busiest = await capture(repo, 0, 0)
+    mixed = await capture(repo, 1, 10)
+    await birds(repo, busiest, ["Turdus merula", "Turdus merula", "Turdus merula"])
+    await birds(repo, mixed, ["Turdus merula", "Erithacus rubecula"])
+    window = {"start": START, "end": START + timedelta(minutes=5)}
+
+    unfiltered, _ = await repo.list_visits(**window)
+    assert unfiltered[0]["peak_event"] == busiest
+
+    filtered, total = await repo.list_visits(**window, multiple_species_only=True)
+    assert total == 1
+    assert filtered[0]["capture_count"] == 2
+    assert filtered[0]["peak_event"] == mixed
+
+
+@pytest.mark.asyncio
 async def test_removed_photo_is_reversible_and_keeps_counting_evidence(repo):
     event = await capture(repo, 0, 0)
     await birds(repo, event, ["Turdus merula"])

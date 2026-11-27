@@ -37,6 +37,6 @@ describe('video player canonical full-visit wiring', () => {
         expect(mediaApiSource).toContain('RECORDING_CLIP_STATE_HEADER');
         expect(videoPlayerSource).toContain("'partial'");
         expect(videoPlayerSource).toContain("video_player.partial_visit_badge");
-        expect(videoPlayerSource).toContain("default: 'Partial visit'");
+        expect(videoPlayerSource).toContain("default: 'Partial clip'");
     });
 });

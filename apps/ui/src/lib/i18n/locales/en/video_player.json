@@ -48,15 +48,15 @@
   "shared_watermark": "Shared clip",
   "clip_badge": "Clip",
   "detection_clip_title": "Capture clip",
-  "full_visit_title": "Full visit clip",
-  "full_visit_badge": "Full visit",
-  "partial_visit_badge": "Partial visit",
+  "full_visit_title": "Full clip",
+  "full_visit_badge": "Full clip",
+  "partial_visit_badge": "Partial clip",
   "fetch_full_visit": "Fetch full clip",
   "fetching_full_visit": "Fetching…",
   "fetch_full_visit_retry": "Retry full clip",
   "no_video_support": "Your browser does not support video playback.",
-  "full_visit_ready": "Full visit clip ready",
-  "full_visit_action": "Full visit",
-  "partial_visit_ready": "A partial visit is ready; retry shortly for the complete clip.",
-  "full_visit_failed": "Could not fetch full visit clip"
+  "full_visit_ready": "Full clip ready",
+  "full_visit_action": "Full clip",
+  "partial_visit_ready": "A partial clip is ready; retry shortly for the complete clip.",
+  "full_visit_failed": "Could not fetch the full clip"
 }

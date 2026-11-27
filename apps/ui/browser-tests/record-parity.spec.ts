@@ -95,7 +95,7 @@ async function openFromExplorer(page: Page): Promise<void> {
 }
 
 function playButton(page: Page): Locator {
-    return record(page).getByRole('button', { name: /^Play (?:video|full visit clip) of / });
+    return record(page).getByRole('button', { name: /^Play (?:video of |this capture's full clip, )/ });
 }
 
 /** The names of every control the open record offers, its menu of further actions included. */
@@ -121,6 +121,13 @@ test.describe('the record opened from About', () => {
         await expect(page.locator('#video-player-title')).toBeVisible(READY);
         await expect(record(page)).toHaveCount(0);
         await expect(page.getByRole('dialog').getByRole('button', { name: 'Share link' })).toBeVisible(READY);
+    });
+
+    test('states no visit: About opens one capture, not a visit of several', async ({ page }) => {
+        await openFeeder(page, { guest: false });
+        await openFromAbout(page);
+        await expect(record(page).locator('[data-detection-facts]')).toBeVisible(READY);
+        await expect(record(page).locator('[data-detection-visit-span]')).toHaveCount(0);
     });
 
     test('offers a guest the video while the owner shares clips', async ({ page }) => {
@@ -160,7 +167,7 @@ test.describe('the same record from each page', () => {
             expect(fromAbout.length).toBeGreaterThan(0);
             expect(fromDashboard).toEqual(fromAbout);
             expect(fromExplorer).toEqual(fromAbout);
-            expect(fromAbout.some((name) => /^Play (?:video|full visit clip) of /.test(name))).toBe(!viewer.guest || viewer.showClips === true);
+            expect(fromAbout.some((name) => /^Play (?:video of |this capture's full clip, )/.test(name))).toBe(!viewer.guest || viewer.showClips === true);
         });
     }
 });

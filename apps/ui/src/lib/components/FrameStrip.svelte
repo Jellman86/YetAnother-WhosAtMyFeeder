@@ -581,11 +581,11 @@
             {#if loading}
                 {$_('detection.snapshot_candidates_loading', { default: 'Loading frames...' })}
             {:else if moments.length === 0}
-                {emptyText ?? $_('detection.frame_strip_empty', { default: 'No frames kept from this visit yet.' })}
+                {emptyText ?? $_('detection.frame_strip_empty', { default: 'No frames kept from this capture yet.' })}
             {:else}
                 {$_(offersPhotoOptions ? 'detection.photo_option_count' : 'detection.frame_strip_count', {
                     values: { count: moments.length },
-                    default: offersPhotoOptions ? '{count, plural, one {# photo option from this visit} other {# photo options from this visit}}' : '{count, plural, one {# frame from this visit} other {# frames from this visit}}'
+                    default: offersPhotoOptions ? '{count, plural, one {# photo option from this capture} other {# photo options from this capture}}' : '{count, plural, one {# frame from this capture} other {# frames from this capture}}'
                 })}
             {/if}
         </span>
@@ -709,7 +709,7 @@
                                 <MediaImage
                                     sources={imageSources(moment)}
                                     alt={offersPhotoOptions
-                                        ? $_('detection.photo_option_image_alt', { default: 'Candidate photograph from this visit' })
+                                        ? $_('detection.photo_option_image_alt', { default: 'Candidate photograph from this capture' })
                                         : primaryName}
                                     decoding="async"
                                     class="w-full bg-media object-contain {anchor.sheet ? 'h-56' : 'h-40'}"

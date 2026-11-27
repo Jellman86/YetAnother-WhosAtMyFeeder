@@ -2947,6 +2947,18 @@
             "description": "The stored label, usually the classifier's scientific name",
             "title": "Species",
             "type": "string"
+          },
+          "species_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Catalogue species id, when the label resolves; compare it with a capture's species_id",
+            "title": "Species Id"
           }
         },
         "required": [
@@ -6499,6 +6511,17 @@
             "title": "Score",
             "type": "number"
           },
+          "species_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species Id"
+          },
           "sub_label": {
             "anyOf": [
               {
@@ -7333,6 +7356,17 @@
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "species_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species Id"
           },
           "sub_label": {
             "anyOf": [

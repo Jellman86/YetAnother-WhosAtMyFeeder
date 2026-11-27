@@ -29,6 +29,7 @@
     import { birdNames } from '../naming';
     import { videoHeadingFor } from '../components/video-heading';
     import RecordDialogs from '../components/RecordDialogs.svelte';
+    import { recordVisit, type RecordVisit } from '../components/record-visit';
     import type { RecordVideo } from '../components/record-video';
     import { canWatchRecordVideo, recordingClipsOn } from '../utils/record-access';
     import { settingsStore } from '../stores/settings.svelte';
@@ -45,7 +46,7 @@
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
 
-    import { fromServerVisit, withinDeskWindow } from '../utils/visit-grouping';
+    import { fromServerVisit, withinDeskWindow, type DetectionVisit as VisitGroup } from '../utils/visit-grouping';
     import {
         DayTurnedError,
         deskWindowStart,
@@ -127,9 +128,13 @@
         recordingClipsOn(settingsStore.settings, publicSettingsStore.settings) && canWatchRecordVideo(authStore)
     );
 
+    // The visit a record was opened from, so the record can say it is one capture of that visit.
+    let openedVisit = $state<RecordVisit | null>(null);
+
     /** Opening a record closes any video still playing, so one overlay is shown at a time. */
-    function openRecord(detection: Detection): void {
+    function openRecord(detection: Detection, visit?: VisitGroup): void {
         video = null;
+        openedVisit = recordVisit(detection.frigate_event, visit);
         selectedEvent = detection;
     }
 
@@ -957,6 +962,7 @@
 <RecordDialogs
     bind:record={selectedEvent}
     bind:video
+    bind:visit={openedVisit}
     onViewSpecies={(species: string) => (selectedSpecies = species)}
     onbirdschanged={handleBirdsChanged}
 />

@@ -73,7 +73,7 @@ describe('one record, the same controls wherever it opens', () => {
             .filter((path) => path.startsWith('../components/'));
         // The field log only hands its handler on to its rows, which decide.
         const forwards = ['../components/FieldLog.svelte'];
-        expect(sources['../components/FieldLog.svelte']).toContain('<FieldLogVisitRow visit={row.visit} {grid} {showCamera} {canIdentify} {onselect} {onidentify} {onplay} />');
+        expect(sources['../components/FieldLog.svelte']).toContain('<FieldLogVisitRow visit={row.visit} {grid} {showCamera} {canIdentify} onselect={onselect ? (detection) => onselect(detection, row.visit) : undefined} {onidentify} {onplay} />');
         expect(takesPlay.sort()).toEqual([...Object.keys(gated), ...forwards].sort());
     });
 

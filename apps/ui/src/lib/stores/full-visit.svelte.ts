@@ -11,6 +11,8 @@ interface FullVisitStoreOptions {
 export class FullVisitStore {
     availability = $state<Record<string, FullVisitAvailabilityState>>({});
     fetchState = $state<Record<string, FullVisitFetchState>>({});
+    /** The full clip's length as the server measured it; absent until a probe reports one. */
+    durationSeconds = $state<Record<string, number>>({});
 
     private probePromises = new Map<string, Promise<boolean>>();
     private fetchPromises = new Map<string, Promise<boolean>>();
@@ -35,6 +37,7 @@ export class FullVisitStore {
         if (this.recentEvents.size <= this.maxEntries) return;
         const nextAvailability = { ...this.availability };
         const nextFetchState = { ...this.fetchState };
+        const nextDurations = { ...this.durationSeconds };
         let changed = false;
 
         while (this.recentEvents.size > this.maxEntries) {
@@ -43,6 +46,7 @@ export class FullVisitStore {
             this.recentEvents.delete(oldestEventId);
             delete nextAvailability[oldestEventId];
             delete nextFetchState[oldestEventId];
+            delete nextDurations[oldestEventId];
             this.cancelReprobe(oldestEventId);
             this.reprobeAttempted.delete(oldestEventId);
             changed = true;
@@ -51,7 +55,13 @@ export class FullVisitStore {
         if (changed) {
             this.availability = nextAvailability;
             this.fetchState = nextFetchState;
+            this.durationSeconds = nextDurations;
         }
+    }
+
+    private setDuration(eventId: string, seconds: number | null): void {
+        const { [eventId]: _previous, ...rest } = this.durationSeconds;
+        this.durationSeconds = seconds !== null && seconds > 0 ? { ...rest, [eventId]: seconds } : rest;
     }
 
     private setAvailability(eventId: string, state: FullVisitAvailabilityState): void {
@@ -84,6 +94,11 @@ export class FullVisitStore {
 
     getFetchState(eventId: string): FullVisitFetchState {
         return this.fetchState[eventId] ?? 'idle';
+    }
+
+    /** Null until the server has measured this capture's full clip: no length is guessed. */
+    getDurationSeconds(eventId: string): number | null {
+        return this.durationSeconds[eventId] ?? null;
     }
 
     isFetched(eventId: string): boolean {
@@ -137,8 +152,9 @@ export class FullVisitStore {
 
         const probePromise = (async () => {
             try {
-                const { available, fetched } = await checkRecordingClipAvailable(eventId);
+                const { available, fetched, durationSeconds } = await checkRecordingClipAvailable(eventId);
                 this.setAvailability(eventId, available ? 'available' : 'unavailable');
+                this.setDuration(eventId, available ? durationSeconds : null);
                 if (available && fetched) {
                     this.markFetched(eventId);
                     this.cancelReprobe(eventId);

@@ -14,8 +14,16 @@ it is not a count of distinct individual birds.
 3. Each heard band gives its time span and species counts. Choose **Show calls** for the strongest
    call of each species, then play it or move through its spectrogram. Arrow keys move the
    playhead one second.
-4. Open a visit to inspect its captures. A capture with several species says **Multiple species**
-   and shows a chip for each species; open it to inspect each bird.
+4. Open a visit to inspect its captures. A visit is always named by its own species. When one of
+   its captures also holds another species, a note under the name says so, for example **Also in
+   one capture: Common Wood-Pigeon**; choose it to open that capture and inspect each bird. The
+   **Multiple bird species** filter points each visit at a capture that holds them.
+5. A record is one capture. Its photo options and its **Full clip** (the recording Frigate kept
+   around that capture, by the seconds set under **Settings → Cameras & connection**) belong to
+   that capture alone. The full clip states its length once YA-WAMF has measured it; a clip cut
+   before the seconds were changed keeps its own length. When the capture is part of a longer visit, the record says **Part of a
+   visit** with the visit's number of captures and its time span, whether it was opened here or
+   from the Dashboard field log.
 
 ![A heard band between camera visits showing three European Robin calls from 08:30 to 08:34 and a Show calls control; the count tile appears when no spectrogram is retained](../images/explorer-heard-calls.png)
 

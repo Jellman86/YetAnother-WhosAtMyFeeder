@@ -6,7 +6,7 @@
     import VisitCaptures from '../components/VisitCaptures.svelte';
     import HeardBandRow from '../components/HeardBandRow.svelte';
     import HeardBandCard from '../components/HeardBandCard.svelte';
-    import { hasCaptureFooter, visitSpeciesMix } from '../utils/visit-captures';
+    import { hasCaptureFooter, visitCompanionSpecies } from '../utils/visit-captures';
     import { fetchHeardGroups, type HeardGroup, type HeardVisitCalls } from '../api/audio';
     import { buildHeardTimeline, heardWindow, type HeardBand } from '../utils/heard-timeline';
     import { explorerHeardStore } from '../stores/explorer_heard.svelte';
@@ -63,6 +63,7 @@
     import LazyModal from '../components/LazyModal.svelte';
     import { loadGardenCaptureModal, loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import RecordDialogs from '../components/RecordDialogs.svelte';
+    import { recordVisit, type RecordVisit } from '../components/record-visit';
     import type { RecordVideo } from '../components/record-video';
     import { canWatchRecordVideo, recordingClipsOn } from '../utils/record-access';
     import { withLiveFields } from '../utils/detection-sync';
@@ -365,7 +366,7 @@
             if (pendingEventId) {
                 const target = newEvents.find((event) => event.frigate_event === pendingEventId);
                 if (target) {
-                    selectedEvent = target;
+                    showRecord(target);
                     pendingEventId = null;
                     clearEventVideoDeepLinkParams();
                 } else {
@@ -401,7 +402,7 @@
                 requestKey: EVENTS_PAGE_REQUEST_KEYS.deepLink
             });
             if (!target || pendingEventId !== eventId) return;
-            selectedEvent = target;
+            showRecord(target);
             pendingEventId = null;
             clearEventVideoDeepLinkParams();
         } catch (e) {
@@ -1069,12 +1070,28 @@
         }
     }
 
-    function handleEventCardClick(event: Detection) {
+    function handleEventCardClick(event: Detection, visit: RecordVisit | null = null) {
         if (selectionMode) {
             toggleEventSelection(event.frigate_event);
             return;
         }
-        selectedEvent = event;
+        showRecord(event, visit);
+    }
+
+    // The visit a record was opened from, so the record can say it is one capture of that visit.
+    // Every opener sets it, a search or a link to none, and the shared opener clears it on close,
+    // so a count read earlier is never shown again.
+    let openedVisit = $state<RecordVisit | null>(null);
+
+    function showRecord(detection: Detection, visit: RecordVisit | null = null): void {
+        openedVisit = visit;
+        selectedEvent = detection;
+    }
+
+    function openCaptureOfVisit(capture: Detection, visit: DetectionVisit | undefined): void {
+        handleEventCardClick(capture, visit
+            ? recordVisit(capture.frigate_event, { captureCount: visit.capture_count, startTime: visit.start_time, endTime: visit.end_time })
+            : null);
     }
 
     function closeGardenRecord(): void {
@@ -1600,7 +1617,7 @@
             });
             if (signal.aborted) return;
             if (!target) throw new Error('The searched detection was not returned');
-            selectedEvent = target;
+            showRecord(target);
         } catch (failure) {
             if (signal.aborted) return;
             console.error('Failed to open the searched detection', failure);
@@ -1818,10 +1835,6 @@
     const multiSelectAvailable = $derived(authStore.hasOwnerAccess && !gardenOnly);
     const pane = $derived(explorerPane({ loading, failed: error !== null, measured, entries: entries.length, filtered: hasActiveExplorerFilters }));
 
-    function openPeakCapture(visit: DetectionVisit | undefined): (() => void) | undefined {
-        const capture = visit?.peak_capture;
-        return capture ? () => handleEventCardClick(capture) : undefined;
-    }
 </script>
 
 <svelte:window onkeydown={handleTimelineKeydown} />
@@ -2366,18 +2379,17 @@
                         <div class="*:data-detection-row:border-b-0" data-explorer-visit={visit?.visit_id}>
                         <DetectionRow
                             detection={event}
-                            onclick={() => handleEventCardClick(event)}
+                            onclick={() => openCaptureOfVisit(event, visit)}
                             onPlay={() => playClip(event)}
                             selectionMode={selectionMode}
                             selected={selectedEventIds.includes(event.frigate_event)}
                             ownerConfirmation={ownerConfirmationScope(event, visit, unnamedSinceVisitRead.has(event.frigate_event))}
-                            speciesMix={visitSpeciesMix(visit)}
-                            stackFrame={visit?.peak_capture ?? null}
+                            companions={visitCompanionSpecies(visit)}
                             matchedCalls={entry.matchedCalls}
-                            onopenCapture={openPeakCapture(visit)}
+                            onopenCapture={(capture) => openCaptureOfVisit(capture, visit)}
                             hideProgress={selectedEvent?.frigate_event === event.frigate_event}
                         />
-                        {#if visit}<VisitCaptures {visit} window={captureWindow} onselect={handleEventCardClick} onplay={playClip} />{/if}
+                        {#if visit}<VisitCaptures {visit} window={captureWindow} onselect={(capture) => openCaptureOfVisit(capture, visit)} onplay={playClip} />{/if}
                         </div>
                     {/if}
                 {/each}
@@ -2403,12 +2415,12 @@
                     <!-- The card is the one outline; a visit's captures sit inside it, not in a second box. -->
                     <div class="min-w-0" data-explorer-visit={visit?.visit_id}>
                     {#snippet captures()}
-                        {#if visit}<VisitCaptures floating {visit} window={captureWindow} onselect={handleEventCardClick} onplay={playClip} />{/if}
+                        {#if visit}<VisitCaptures floating {visit} window={captureWindow} onselect={(capture) => openCaptureOfVisit(capture, visit)} onplay={playClip} />{/if}
                     {/snippet}
                     <DetectionCard
                         detection={event}
                         {index}
-                        onclick={() => handleEventCardClick(event)}
+                        onclick={() => openCaptureOfVisit(event, visit)}
                         onPlay={() => playClip(event)}
                         onFetchFullVisit={recordingClipFetchEnabled ? () => fetchFullVisitAndReport(event.frigate_event) : undefined}
                         fullVisitAvailable={fullVisitAvailability[event.frigate_event] === 'available'}
@@ -2419,7 +2431,8 @@
                         selected={selectedEventIds.includes(event.frigate_event)}
                         footer={visit && hasCaptureFooter(visit) ? captures : undefined}
                         ownerConfirmation={ownerConfirmationScope(event, visit, unnamedSinceVisitRead.has(event.frigate_event))}
-                        speciesMix={visitSpeciesMix(visit)}
+                        companions={visitCompanionSpecies(visit)}
+                        onopenCapture={(capture) => openCaptureOfVisit(capture, visit)}
                         matchedCalls={entry.matchedCalls}
                     />
                     </div>
@@ -2449,6 +2462,7 @@
 <RecordDialogs
     bind:record={selectedEvent}
     bind:video
+    bind:visit={openedVisit}
     onViewSpecies={(species: string) => (selectedSpecies = species)}
     onDeleteSuccess={async (deletedEventId: string, detectionTime?: string) => {
         events = events.filter((event) => event.frigate_event !== deletedEventId);
