@@ -1,6 +1,7 @@
 import hashlib
 import pytest
 import asyncio
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from types import SimpleNamespace
 from app.services.event_processor import CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS, EventData, EventProcessor
@@ -1243,7 +1244,7 @@ async def test_process_mqtt_message_status_tracks_completed_event():
 
 
 @pytest.mark.asyncio
-async def test_process_mqtt_message_drops_stale_live_event_before_classification():
+async def test_a_live_event_received_too_long_ago_is_dropped_before_classification():
     processor = EventProcessor(MagicMock())
     processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
         return_value=([{"label": "Sparrow", "score": 0.95, "index": 1}], b"img", "frigate_snapshot_cropped")
@@ -1255,7 +1256,7 @@ async def test_process_mqtt_message_drops_stale_live_event_before_classification
         patch("app.services.event_processor.time.time", return_value=1700000100.0),
         patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 30.0),
     ):
-        await processor.process_mqtt_message(payload)
+        await processor._process_event_payload(json.loads(payload))
 
     processor._classify_snapshot.assert_not_called()
     status = processor.get_status()
@@ -1265,7 +1266,7 @@ async def test_process_mqtt_message_drops_stale_live_event_before_classification
 
 
 @pytest.mark.asyncio
-async def test_process_mqtt_message_does_not_drop_backlog_event_when_received_recently():
+async def test_a_backlog_event_received_recently_is_not_dropped_as_stale():
     classifier = MagicMock()
     processor = EventProcessor(classifier)
     processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
@@ -1295,7 +1296,7 @@ async def test_process_mqtt_message_does_not_drop_backlog_event_when_received_re
         patch("app.services.event_processor.time.time", return_value=1700000100.0),
         patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 30.0),
     ):
-        await processor.process_mqtt_message(payload)
+        await processor._process_event_payload(json.loads(payload))
 
     processor._classify_snapshot.assert_awaited_once()
     status = processor.get_status()

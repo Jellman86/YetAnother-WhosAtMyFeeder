@@ -412,3 +412,41 @@ async def test_an_mqtt_message_cannot_claim_to_be_a_recording_frame_replay(monke
     assert slept == [pytest.approx(4.0)]
     processor._classify_snapshot.assert_awaited_once()
     assert processor.get_status()["drop_reasons"]["update_recovery_cooldown"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("claimed_received_at", [NOW - 3600.0, NOW + 3600.0, "not-a-time"])
+async def test_an_mqtt_message_cannot_set_its_own_received_time(claimed_received_at):
+    """YA-WAMF stamps when a message arrived; a message that claims a time is neither dropped as stale nor kept fresh."""
+    processor, _slept, _gate = _processor()
+    seen: list[float] = []
+
+    async def capture(data):
+        seen.append(data["__received_at_ts"])
+
+    processor._process_event_payload = capture
+    forged = json.loads(_payload("new", frame_time=None))
+    forged["__received_at_ts"] = claimed_received_at
+
+    await processor.process_mqtt_message(json.dumps(forged).encode())
+
+    assert seen == [NOW]
+
+
+@pytest.mark.asyncio
+async def test_the_deferred_identification_and_its_held_end_are_stamped_when_the_wait_ends(monkeypatch):
+    """A wait longer than the live staleness limit must not make the replayed event or its end look stale."""
+    clock = {"now": NOW}
+    monkeypatch.setattr("app.services.event_processor.time.time", lambda: clock["now"])
+    processor, _slept, gate = _processor()
+
+    await processor.process_mqtt_message(_payload("new"))
+    await processor.process_mqtt_message(_payload("end"))
+    clock["now"] = NOW + module.LIVE_EVENT_STALE_SECONDS + 60.0
+    gate.set()
+    await _settle(processor)
+
+    replayed = [call.args[0] for call in processor._classify_snapshot.await_args_list]
+    assert [event.type for event in replayed] == ["new", "end"]
+    assert [event.received_at_ts for event in replayed] == [clock["now"], clock["now"]]
+    assert "live_event_stale" not in processor.get_status()["drop_reasons"]
