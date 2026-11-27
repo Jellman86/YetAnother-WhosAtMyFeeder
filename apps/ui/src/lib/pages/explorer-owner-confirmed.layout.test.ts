@@ -29,9 +29,9 @@ describe('the Owner confirmed filter in the Explorer', () => {
     });
 
     it('reaches the visits, the captures and their count', () => {
-        expect(eventsSource).toContain('multipleSpeciesOnly, ownerConfirmedOnly,\n                    requestKey: EVENTS_PAGE_REQUEST_KEYS.visits');
-        expect(eventsSource).toContain('ownerConfirmedOnly,\n                    fields: \'list\'');
-        expect(eventsSource).toContain('ownerConfirmedOnly,\n                    requestKey: EVENTS_PAGE_REQUEST_KEYS.count');
+        expect(eventsSource).toMatch(/multipleSpeciesOnly, ownerConfirmedOnly,\n\s+requestKey: EVENTS_PAGE_REQUEST_KEYS\.visits/);
+        expect(eventsSource).toMatch(/ownerConfirmedOnly,\n\s+fields: 'list'/);
+        expect(eventsSource).toMatch(/ownerConfirmedOnly,\n\s+requestKey: EVENTS_PAGE_REQUEST_KEYS\.count/);
     });
 
     it('is cleared by every reset', () => {

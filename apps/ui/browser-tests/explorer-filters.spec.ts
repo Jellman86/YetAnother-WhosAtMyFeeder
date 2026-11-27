@@ -28,7 +28,7 @@ async function openFilters(page: Page) {
         await expect(toggle).toBeVisible();
         await toggle.click();
     }
-    await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ })).toBeVisible();
     return requests;
 }
 
@@ -38,20 +38,20 @@ for (const viewport of [{ width: 1280, height: 600 }, { width: 390, height: 844 
         const requests = await openFilters(page);
         const list = page.locator('[data-explorer-species-list]');
         await expect.poll(() => list.evaluate(node => node.clientHeight)).toBeGreaterThanOrEqual(176);
-        await page.getByRole('button', { name: /^Dunnock.*12$/ }).click();
-        await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toHaveAttribute('aria-pressed', 'true');
+        await page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ }).click();
+        await expect(page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ })).toHaveAttribute('aria-pressed', 'true');
         // Chosen reads without colour: a check, which the rows not chosen do not carry.
-        await expect(page.getByRole('button', { name: /^Dunnock.*12$/ }).locator('[data-explorer-chosen-mark]')).toBeVisible();
-        await expect(page.getByRole('button', { name: /^European Robin.*8$/ }).locator('[data-explorer-chosen-mark]')).toHaveCount(0);
+        await expect(page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ }).locator('[data-explorer-chosen-mark]')).toBeVisible();
+        await expect(page.getByRole('button', { name: /^European Robin.* 8 (visits?|captures?)$/ }).locator('[data-explorer-chosen-mark]')).toHaveCount(0);
         // A state, never a coloured bar on one edge.
-        expect(await page.getByRole('button', { name: /^Dunnock.*12$/ }).evaluate(node => getComputedStyle(node).borderLeftWidth)).toBe('0px');
+        expect(await page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ }).evaluate(node => getComputedStyle(node).borderLeftWidth)).toBe('0px');
         await expect.poll(() => list.evaluate(node => node.clientHeight)).toBeGreaterThanOrEqual(176);
-        await page.getByRole('button', { name: /^European Robin.*8$/ }).click();
-        await expect(page.getByRole('button', { name: /^European Robin.*8$/ })).toHaveAttribute('aria-pressed', 'true');
+        await page.getByRole('button', { name: /^European Robin.* 8 (visits?|captures?)$/ }).click();
+        await expect(page.getByRole('button', { name: /^European Robin.* 8 (visits?|captures?)$/ })).toHaveAttribute('aria-pressed', 'true');
         await expect.poll(() => requests.some(url => url.pathname === '/api/visits' && url.searchParams.get('species') === 'Erithacus rubecula')).toBe(true);
         await page.getByRole('button', { name: /^Show all 26 species$/ }).click();
-        await list.getByRole('button', { name: 'Species 24 1', exact: true }).click();
-        await expect(list.getByRole('button', { name: 'Species 24 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+        await list.getByRole('button', { name: /^Species 24 1 (visits?|captures?)$/ }).click();
+        await expect(list.getByRole('button', { name: /^Species 24 1 (visits?|captures?)$/ })).toHaveAttribute('aria-pressed', 'true');
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     });
 }
@@ -73,16 +73,16 @@ test('the window is always open, rarer filters fold away and name what is chosen
     await page.getByLabel('To', { exact: true }).fill('2026-10-04');
     await expect(page.locator('[data-explorer-token]').filter({ hasText: /1 Oct( 2026)? to 4 Oct( 2026)?/ })).toBeVisible();
     await only.locator('summary').click();
-    await page.getByRole('button', { name: 'Favourites 3', exact: true }).click();
+    await page.getByRole('button', { name: /^Favourites 3 (visits?|captures?)$/ }).click();
     await page.getByRole('button', { name: 'Multiple bird species', exact: true }).click();
     await only.locator('summary').click();
     await expect(only.locator('summary')).toContainText('2 on');
     await cameras.locator('summary').click();
-    await page.getByRole('button', { name: 'garden 8', exact: true }).click();
+    await page.getByRole('button', { name: /^garden 8 (visits?|captures?)$/ }).click();
     await cameras.locator('summary').click();
     await expect(cameras.locator('summary')).toContainText('garden');
-    await page.getByRole('button', { name: /^European Robin.*8$/ }).click();
-    await expect(page.getByRole('button', { name: /^European Robin.*8$/ })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: /^European Robin.* 8 (visits?|captures?)$/ }).click();
+    await expect(page.getByRole('button', { name: /^European Robin.* 8 (visits?|captures?)$/ })).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Clear all', exact: true }).click();
     await expect(page.locator('[data-explorer-token]')).toHaveCount(0);
 });
@@ -133,7 +133,7 @@ test('how results are shown is chosen in the filters, explained in words, and ke
     await expect(hint).toHaveText('Every capture on its own.');
     await expect.poll(() => requests.slice(before).some(url => url.pathname === '/api/events')).toBe(true);
 
-    await page.getByRole('button', { name: /^Dunnock.*12$/ }).click();
+    await page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ }).click();
     await page.getByRole('button', { name: 'Clear all', exact: true }).click();
     await expect(captures).toHaveAttribute('aria-pressed', 'true');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

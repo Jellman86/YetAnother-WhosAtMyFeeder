@@ -19,6 +19,8 @@
     "hidden_detections": "Afficher les détections masquées",
     "refresh_options": "Actualiser les options",
     "refreshing_options": "Actualisation des options…",
+    "counting": "Comptage…",
+    "counts_unavailable": "Les nombres pour ces filtres n’ont pas pu être lus. « Actualiser les options » réessaie.",
     "title": "Filtres",
     "clear_all": "Tout effacer",
     "page_controls": "Affichage",

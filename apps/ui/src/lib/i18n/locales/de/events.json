@@ -19,6 +19,8 @@
     "hidden_detections": "Ausgeblendete Besuche anzeigen",
     "refresh_options": "Optionen aktualisieren",
     "refreshing_options": "Optionen werden aktualisiert…",
+    "counting": "Wird gezählt…",
+    "counts_unavailable": "Die Zahlen für diese Filter konnten nicht gelesen werden. „Optionen aktualisieren“ versucht es erneut.",
     "title": "Filter",
     "clear_all": "Alle zurücksetzen",
     "page_controls": "Ansicht",

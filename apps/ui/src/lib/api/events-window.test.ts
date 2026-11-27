@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchEvents, fetchEventsCount } from './events';
+import { fetchEventFilters, fetchEvents, fetchEventsCount } from './events';
 
 function captureRequests(body: unknown): URL[] {
     const seen: URL[] = [];
@@ -30,5 +30,19 @@ describe('the capture list and its count read an exact window', () => {
         expect(seen[0].pathname).toMatch(/\/events\/count$/);
         expect(seen[0].searchParams.get('start_time')).toBe(WINDOW.startTime);
         expect(seen[0].searchParams.get('end_time')).toBe(WINDOW.endTime);
+    });
+});
+
+describe('the filter options are counted under the chosen filters (#1097)', () => {
+    it('sends the window, the unit and the filters, and nothing for a filter left off', async () => {
+        const seen = captureRequests({ species: [], cameras: [] });
+        await fetchEventFilters({ ...WINDOW, unit: 'visits', species: 'taxa:12716', camera: 'patio', favoritesOnly: true, onlyHidden: false });
+        expect(seen[0].pathname).toMatch(/\/events\/filters$/);
+        expect(seen[0].searchParams.get('unit')).toBe('visits');
+        expect(seen[0].searchParams.get('start_time')).toBe(WINDOW.startTime);
+        expect(seen[0].searchParams.get('species')).toBe('taxa:12716');
+        expect(seen[0].searchParams.get('camera')).toBe('patio');
+        expect(seen[0].searchParams.get('favorites')).toBe('true');
+        expect(seen[0].searchParams.has('only_hidden')).toBe(false);
     });
 });

@@ -19,6 +19,8 @@
     "hidden_detections": "非表示の検出を表示",
     "refresh_options": "オプションを更新",
     "refreshing_options": "オプションを更新中…",
+    "counting": "集計中…",
+    "counts_unavailable": "これらのフィルターの件数を読み込めませんでした。「オプションを更新」で再試行します。",
     "title": "フィルター",
     "clear_all": "すべて解除",
     "page_controls": "表示",

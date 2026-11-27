@@ -77,6 +77,15 @@
     import { explorerReadWindow, parseExplorerQuery, rereadsAfterRecordChange, writeExplorerQuery, type ExplorerQuery, type ExplorerWindow } from '../utils/explorer-query';
     import { ShownExplorerWindow } from '../utils/explorer-shown-window.svelte';
     import { explorerCameraOptions, seenGardenCameras } from '../utils/explorer-cameras';
+    import {
+        explorerFacetCounts,
+        explorerFacetKey,
+        explorerFacetOptions,
+        explorerFacetReadNeeded,
+        explorerFacetWindowKey,
+        type ExplorerFacetChoice,
+        type ExplorerFacetRead
+    } from '../utils/explorer-facets';
     import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
 
     import { birdNames } from '../naming';
@@ -195,6 +204,15 @@
     const eventsLoad = createLatestRequest();
     let handledVisibleReclassifyCompletions = $state<Record<string, number>>({});
     let refreshingFilterOptions = $state(false);
+    /** The filters of the bird results read last: the counts beside the filters describe them. */
+    let resultsChoice = $state.raw<ExplorerFacetChoice | null>(null);
+    /** The newest read of the counts, settled or not, and the window it was read over. */
+    let facetRead = $state.raw<ExplorerFacetRead | null>(null);
+    let facetWindow: ExplorerWindow['request'] | null = null;
+    let facetGeneration = 0;
+    let hiddenReads = 0;
+    /** The next results read reads the counts again even under the same filters and window. */
+    let facetRefreshRequested = false;
 
     function speciesOptionNames(item: EventFilterSpecies): { primary: string; secondary: string | null } {
         const naming = $birdNames({
@@ -224,6 +242,8 @@
     const shownGardenWindow = new ShownExplorerWindow();
 
     async function loadEvents() {
+        // A link naming a species by its name reads the value its option offers, once the options are known.
+        if (availableSpecies.length) normaliseSpeciesFilter();
         const load = eventsLoad.begin();
         loading = true;
         error = null;
@@ -246,6 +266,8 @@
         try {
             // One pair of instants for the whole read, so its visits, captures, count, Garden and calls agree.
             const range = explorerReadWindow(datePreset, { start: customStartDate, end: customEndDate }, new Date());
+            // The counts are read over this same window, so a count and its results share their bounds.
+            const startFacetCounts = gardenOnly ? null : syncFacetCounts(facetChoice, range.request);
             let newEvents: Detection[];
             let nextTotal: number;
             let nextVisits: DetectionVisit[] = [];
@@ -281,55 +303,61 @@
                 void loadHeard();
                 return;
             }
-            if (groupVisits && !selectionMode) {
-                // Heard calls between this page and the one before it belong to this page, so the
-                // visit just before it is read too, to know where those calls start.
-                const offset = (currentPage - 1) * pageSize;
-                const padded = (heardWanted || gardenInTimeline) && offset > 0 ? 1 : 0;
-                const result = await fetchVisits({
-                    limit: pageSize + padded, offset: offset - padded,
-                    ...range.request,
-                    species: speciesFilter || undefined, camera: cameraFilter || undefined, taxon: taxonFilter ?? undefined,
-                    sort: sortOrder, onlyHidden: showHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, ownerConfirmedOnly,
-                    requestKey: EVENTS_PAGE_REQUEST_KEYS.visits
-                });
-                nextPrevious = padded ? (result.visits[0] ?? null) : null;
-                nextVisits = result.visits.slice(padded);
-                newEvents = nextVisits.map((visit) => visit.representative);
-                nextTotal = result.total;
-            } else {
-                const [captures, countRes] = await Promise.all([
-                fetchEvents({
-                    limit: pageSize,
-                    offset: (currentPage - 1) * pageSize,
-                    ...range.request,
-                    species: speciesFilter || undefined,
-                    camera: cameraFilter || undefined,
-                    taxon: taxonFilter ?? undefined,
-                    sort: sortOrder,
-                    onlyHidden: showHidden,
-                    favoritesOnly,
-                    audioConfirmedOnly,
-                    multipleSpeciesOnly,
-                    ownerConfirmedOnly,
-                    fields: 'list',
-                    requestKey: EVENTS_PAGE_REQUEST_KEYS.list
-                }),
-                fetchEventsCount({
-                    ...range.request,
-                    species: speciesFilter || undefined,
-                    camera: cameraFilter || undefined,
-                    taxon: taxonFilter ?? undefined,
-                    onlyHidden: showHidden,
-                    favoritesOnly,
-                    audioConfirmedOnly,
-                    multipleSpeciesOnly,
-                    ownerConfirmedOnly,
-                    requestKey: EVENTS_PAGE_REQUEST_KEYS.count
-                })
-                ]);
-                newEvents = captures;
-                nextTotal = countRes.count;
+            // The results are read first; the counts follow them, whether they arrived or failed.
+            try {
+                if (groupVisits && !selectionMode) {
+                    // Heard calls between this page and the one before it belong to this page, so the
+                    // visit just before it is read too, to know where those calls start.
+                    const offset = (currentPage - 1) * pageSize;
+                    const padded = (heardWanted || gardenInTimeline) && offset > 0 ? 1 : 0;
+                    const result = await fetchVisits({
+                        limit: pageSize + padded, offset: offset - padded,
+                        ...range.request,
+                        species: speciesFilter || undefined, camera: cameraFilter || undefined, taxon: taxonFilter ?? undefined,
+                        sort: sortOrder, onlyHidden: showHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, ownerConfirmedOnly,
+                        requestKey: EVENTS_PAGE_REQUEST_KEYS.visits
+                    });
+                    nextPrevious = padded ? (result.visits[0] ?? null) : null;
+                    nextVisits = result.visits.slice(padded);
+                    newEvents = nextVisits.map((visit) => visit.representative);
+                    nextTotal = result.total;
+                } else {
+                    const [captures, countRes] = await Promise.all([
+                    fetchEvents({
+                        limit: pageSize,
+                        offset: (currentPage - 1) * pageSize,
+                        ...range.request,
+                        species: speciesFilter || undefined,
+                        camera: cameraFilter || undefined,
+                        taxon: taxonFilter ?? undefined,
+                        sort: sortOrder,
+                        onlyHidden: showHidden,
+                        favoritesOnly,
+                        audioConfirmedOnly,
+                        multipleSpeciesOnly,
+                        ownerConfirmedOnly,
+                        fields: 'list',
+                        requestKey: EVENTS_PAGE_REQUEST_KEYS.list
+                    }),
+                    fetchEventsCount({
+                        ...range.request,
+                        species: speciesFilter || undefined,
+                        camera: cameraFilter || undefined,
+                        taxon: taxonFilter ?? undefined,
+                        onlyHidden: showHidden,
+                        favoritesOnly,
+                        audioConfirmedOnly,
+                        multipleSpeciesOnly,
+                        ownerConfirmedOnly,
+                        requestKey: EVENTS_PAGE_REQUEST_KEYS.count
+                    })
+                    ]);
+                    newEvents = captures;
+                    nextTotal = countRes.count;
+                }
+            } finally {
+                // A read replaced meanwhile, by another read or by Garden animals alone, asks for no counts.
+                if (load.isCurrent()) startFacetCounts?.();
             }
             if (!load.isCurrent()) return;
             // The first page is drawn once, with its Garden captures already in their places. Drawn
@@ -429,66 +457,126 @@
         isGuest: () => authStore.isGuest
     });
 
-    async function loadEventMetadata(forceRefresh = false, includeAuxiliary = true): Promise<boolean> {
-        let shouldReloadEvents = false;
-        try {
-            const filters = await eventMetadataRefresh.load(forceRefresh);
-            if (!filters) return false;
-            if (includeAuxiliary) {
-                // The hidden count is only ever shown behind owner access, and the
-                // endpoint refuses a guest, so asking as a guest just logs a 403.
-                const hidden = authStore.hasOwnerAccess ? await fetchHiddenCount().catch(() => ({ hidden_count: 0 })) : { hidden_count: 0 };
-                hiddenCount = hidden.hidden_count;
-            }
-
-            if (speciesFilter && !speciesFilter.startsWith('taxa:')) {
-                const normalized = speciesFilter.toLowerCase();
-                const match = availableSpecies.find((s) => {
-                    const display = String(s.display_name || '').toLowerCase();
-                    const sci = String(s.scientific_name || '').toLowerCase();
-                    const common = String(s.common_name || '').toLowerCase();
-                    return display === normalized || sci === normalized || common === normalized;
-                });
-                if (match && match.value !== speciesFilter) {
-                    speciesFilter = match.value;
-                    shouldReloadEvents = true;
-                }
-            }
-        } catch {
-            // Metadata failures should not block event rendering.
+    /** Whether Hidden is offered depends on all of history, not on the filters, so it is read alone. */
+    async function loadHiddenCount(): Promise<void> {
+        // The hidden count is only ever shown behind owner access, and the endpoint refuses a
+        // guest, so asking as a guest just logs a 403.
+        const read = ++hiddenReads;
+        if (!authStore.hasOwnerAccess) {
+            hiddenCount = 0;
+            return;
         }
-        return shouldReloadEvents;
+        const hidden = await fetchHiddenCount().catch(() => null);
+        // The newest answer wins: an older one, however late it arrives, says nothing now.
+        if (hidden && read === hiddenReads) hiddenCount = hidden.hidden_count;
     }
 
-    async function refreshEventMetadata(forceRefresh = true, reloadEventsIfNeeded = false) {
+    /**
+     * The results being read: their counts are read for them, over their window, once the results
+     * have been read, so the counts never slow the page down. A read of the same filters and window
+     * (another page, another order) keeps the last counts in view, marked as updating; any other
+     * read waits in placeholders. Returns what starts the read.
+     */
+    function syncFacetCounts(choice: ExplorerFacetChoice, window: ExplorerWindow['request']): () => void {
+        resultsChoice = choice;
+        const force = facetRefreshRequested;
+        facetRefreshRequested = false;
+        const again = !explorerFacetReadNeeded(facetRead, explorerFacetKey(choice), explorerFacetWindowKey(window));
+        // The last counts read stay in view through any number of rereads of the same filters and window.
+        const shown = facetRead?.status === 'current' || facetRead?.status === 'updating';
+        const read = beginFacetRead(choice, window, again && !force && shown ? 'updating' : 'pending');
+        return () => void finishFacetRead(read, choice, window, force);
+    }
+
+    /** Refresh options: the counts read at once, waiting in placeholders. */
+    async function readFacetCounts(choice: ExplorerFacetChoice, window: ExplorerWindow['request'], forceRefresh: boolean): Promise<void> {
+        await finishFacetRead(beginFacetRead(choice, window, 'pending'), choice, window, forceRefresh);
+    }
+
+    function beginFacetRead(choice: ExplorerFacetChoice, window: ExplorerWindow['request'], status: 'pending' | 'updating'): ExplorerFacetRead {
+        facetWindow = window;
+        // Any read still in flight is replaced from now, not only once this one starts.
+        eventMetadataRefresh.invalidate();
+        const read: ExplorerFacetRead = {
+            generation: ++facetGeneration,
+            choice: explorerFacetKey(choice),
+            window: explorerFacetWindowKey(window),
+            visits: choice.visits,
+            status
+        };
+        facetRead = read;
+        return read;
+    }
+
+    /** Reads the filter options, each counted under `choice` over `window`, unless a newer read replaced it. */
+    async function finishFacetRead(
+        read: ExplorerFacetRead,
+        choice: ExplorerFacetChoice,
+        window: ExplorerWindow['request'],
+        forceRefresh: boolean
+    ): Promise<void> {
+        if (read.generation !== facetGeneration) return;
+        const filters = await eventMetadataRefresh.load(forceRefresh, explorerFacetOptions(choice, window), () => read.generation === facetGeneration);
+        // A newer read replaced this one; its answer, or its failure, says nothing now.
+        if (read.generation !== facetGeneration) return;
+        facetRead = { ...read, status: filters ? 'current' : 'failed' };
+        if (filters && normaliseSpeciesFilter()) {
+            currentPage = 1;
+            void loadEvents();
+        }
+    }
+
+    /** A link may name a species by its name; the filter keeps the value its option offers. */
+    function normaliseSpeciesFilter(): boolean {
+        if (!speciesFilter || speciesFilter.startsWith('taxa:')) return false;
+        const normalized = speciesFilter.toLowerCase();
+        const match = availableSpecies.find((s) => {
+            const display = String(s.display_name || '').toLowerCase();
+            const sci = String(s.scientific_name || '').toLowerCase();
+            const common = String(s.common_name || '').toLowerCase();
+            return display === normalized || sci === normalized || common === normalized;
+        });
+        if (!match || match.value === speciesFilter) return false;
+        speciesFilter = match.value;
+        return true;
+    }
+
+    /** Refresh options, and record changes: the counts of the results on screen, read again. */
+    async function refreshEventMetadata(forceRefresh = true) {
         if (refreshingFilterOptions) return;
         refreshingFilterOptions = true;
         try {
-            const shouldReloadEvents = await loadEventMetadata(forceRefresh, false);
-            if (reloadEventsIfNeeded && shouldReloadEvents) {
-                currentPage = 1;
-                await loadEvents();
-            }
+            // Started together: the counts wait from the moment they are asked for, not behind Hidden.
+            const counts =
+                resultsChoice && !gardenOnly
+                    ? readFacetCounts(
+                          resultsChoice,
+                          facetWindow ?? explorerReadWindow(datePreset, { start: customStartDate, end: customEndDate }, new Date()).request,
+                          forceRefresh
+                      )
+                    : Promise.resolve();
+            await Promise.all([loadHiddenCount(), counts]);
         } finally {
             refreshingFilterOptions = false;
         }
     }
 
     async function refreshCurrentEventsPage(publicVersion?: number) {
-        await loadEventMetadata(true, false);
         if (publicVersion !== undefined && publicVersion !== detectionsStore.publicHistoryVersion) return;
+        facetRefreshRequested = true;
+        void loadHiddenCount();
         await loadEvents();
     }
 
     function scheduleEventMetadataRefresh() {
         if (typeof window === 'undefined') {
-            void refreshEventMetadata(true, false);
+            void refreshEventMetadata(true);
             return;
         }
         if (eventMetadataRefreshTimeout !== null) return;
         eventMetadataRefreshTimeout = window.setTimeout(() => {
             eventMetadataRefreshTimeout = null;
-            void refreshEventMetadata(true, false);
+            void refreshEventMetadata(true);
         }, 900);
     }
 
@@ -615,14 +703,8 @@
             return;
         }
 
-        const metadataTask = loadEventMetadata(false, true);
+        void loadHiddenCount();
         await loadEvents();
-
-        const shouldReloadEvents = await metadataTask;
-        if (shouldReloadEvents) {
-            currentPage = 1;
-            await loadEvents();
-        }
     });
 
     $effect(() => {
@@ -792,6 +874,9 @@
             loading = true;
             measured = false;
             error = null;
+            // What visitors may see has changed: no answer read before now is shown, whenever it arrives.
+            facetGeneration += 1;
+            eventMetadataRefresh.invalidate();
             clearEventMetadata();
             void refreshCurrentEventsPage(version);
         });
@@ -860,6 +945,10 @@
 
     onDestroy(() => {
         explorerPath = null;
+        // A read still in flight belongs to a page that is gone: it asks for no counts and applies nothing.
+        eventsLoad.supersede();
+        facetGeneration += 1;
+        eventMetadataRefresh.invalidate();
         cancelSearchedRecordRead();
         if (eventsSyncFrame !== null && typeof window !== 'undefined') {
             window.cancelAnimationFrame(eventsSyncFrame);
@@ -1226,7 +1315,7 @@
                 }));
             }
             selectedEventIds = [];
-            await refreshEventMetadata(true, false);
+            await refreshEventMetadata(true);
         } catch (e) {
             const message = getErrorMessage(e);
             toastStore.error($_('events.bulk_delete_failed', {
@@ -1375,6 +1464,23 @@
     const gardenCameras = $derived(
         authStore.hasOwnerAccess ? [...(settingsStore.settings?.garden_cameras ?? []), ...gardenCamerasSeen] : gardenCamerasSeen
     );
+    const facetChoice = $derived<ExplorerFacetChoice>({
+        datePreset,
+        customStartDate,
+        customEndDate,
+        visits: groupVisits && !selectionMode,
+        species: speciesFilter,
+        taxon: taxonFilter,
+        camera: cameraFilter,
+        favoritesOnly,
+        audioConfirmedOnly,
+        multipleSpeciesOnly,
+        ownerConfirmedOnly,
+        onlyHidden: showHidden
+    });
+    const facetCounts = $derived(explorerFacetCounts(resultsChoice ? explorerFacetKey(resultsChoice) : null, facetRead));
+    /** The counts are visits when the read they came from counted visits. */
+    const facetCountsVisits = $derived(facetRead?.visits ?? facetChoice.visits);
     const cameraOptions = $derived(explorerCameraOptions({
         subjects,
         birdCameras: availableCameras,
@@ -1844,6 +1950,8 @@
         species={displaySpecies}
         cameras={cameraOptions.cameras}
         cameraCounts={cameraOptions.counts}
+        counts={facetCounts}
+        countsVisits={facetCountsVisits}
         shortcutEnabled={!selectedEvent && !video && !selectedGarden && !showBulkTagModal}
         onchoose={handleSearchChoice}
     />
@@ -2077,6 +2185,8 @@
             {customEndDate}
             canSeeHidden={authStore.hasOwnerAccess}
             refreshing={refreshingFilterOptions}
+            counts={facetCounts}
+            countsVisits={facetCountsVisits}
             {gardenAvailable}
             gardenReviewAvailable={authStore.hasOwnerAccess}
             {subjects}
@@ -2129,7 +2239,7 @@
                 currentPage = 1;
                 loadEvents();
             }}
-            onrefresh={() => refreshEventMetadata(true, true)}
+            onrefresh={() => refreshEventMetadata(true)}
             search={wideExplorer.current ? undefined : explorerSearch}
             beside={wideExplorer.current ? undefined : viewSwitch}
             controls={wideExplorer.current || !(heardToggleAvailable || multiSelectAvailable) ? undefined : sheetControls}
@@ -2468,7 +2578,7 @@
         events = events.filter((event) => event.frigate_event !== deletedEventId);
         detectionsStore.removeDetection(deletedEventId, detectionTime);
         selectedEvent = null;
-        await refreshEventMetadata(true, false);
+        await refreshEventMetadata(true);
         await loadEvents();
     }}
     onHideSuccess={async (hiddenEventId: string, detectionTime: string | undefined, isHidden: boolean) => {
@@ -2488,7 +2598,7 @@
             hiddenCount = Math.max(0, hiddenCount - 1);
         }
         selectedEvent = null;
-        await refreshEventMetadata(true, false);
+        await refreshEventMetadata(true);
         await loadEvents();
     }}
 />

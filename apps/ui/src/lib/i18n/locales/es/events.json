@@ -19,6 +19,8 @@
     "hidden_detections": "Mostrar detecciones ocultas",
     "refresh_options": "Actualizar opciones",
     "refreshing_options": "Actualizando opciones…",
+    "counting": "Contando…",
+    "counts_unavailable": "No se pudieron leer los recuentos de estos filtros. «Actualizar opciones» lo intenta de nuevo.",
     "title": "Filtros",
     "clear_all": "Borrar todo",
     "page_controls": "Vista",

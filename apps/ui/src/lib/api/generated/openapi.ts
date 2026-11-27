@@ -1283,14 +1283,17 @@ export interface components {
     EventFilterTotals: {
     audio_matched?: number;
     favorites?: number;
+    hidden?: number;
     total?: number;
     video_analysed?: number;
 };
     EventFilters: {
     camera_counts?: Record<string, number>;
     cameras: Array<string>;
+    gap_seconds?: number | null;
     species: Array<components['schemas']['EventFilterSpecies']>;
     totals?: components['schemas']['EventFilterTotals'];
+    unit?: "captures" | "visits";
 };
     EventsCountResponse: {
     count: number;
@@ -4396,7 +4399,20 @@ export interface paths {
       operationId: "get_event_filters_api_events_filters_get";
       path: never;
       query: {
+    audio_confirmed_only?: boolean;
+    camera?: string | null;
+    end_date?: string | "today" | null;
+    end_time?: string | null;
+    favorites?: boolean;
     force_refresh?: boolean;
+    multiple_species_only?: boolean;
+    only_hidden?: boolean;
+    owner_confirmed_only?: boolean;
+    species?: string | null;
+    start_date?: string | "today" | null;
+    start_time?: string | null;
+    taxon?: number | null;
+    unit?: "captures" | "visits" | null;
 };
       requestBody: unknown;
       response: components['schemas']['EventFilters'];

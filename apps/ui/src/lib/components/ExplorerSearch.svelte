@@ -6,6 +6,7 @@
     import { birdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { formatCalendarDay, formatDateTime } from '../utils/datetime';
+    import type { ExplorerFacetCounts } from '../utils/explorer-facets';
     import {
         SEARCH_MAX_LENGTH,
         classifyExplorerQuery,
@@ -25,12 +26,16 @@
         species: SearchFacetSpecies[];
         cameras: string[];
         cameraCounts: Record<string, number> | null;
+        /** Whether the species and camera counts were read for the filters chosen now. */
+        counts?: ExplorerFacetCounts;
+        /** The counts are visits, as the results show them, rather than captures. */
+        countsVisits?: boolean;
         /** Off while a record or dialog is open, so "/" types into that instead. */
         shortcutEnabled: boolean;
         onchoose: (option: SearchOption) => void;
     }
 
-    let { species, cameras, cameraCounts, shortcutEnabled, onchoose }: Props = $props();
+    let { species, cameras, cameraCounts, counts = 'current', countsVisits = false, shortcutEnabled, onchoose }: Props = $props();
 
     const DEBOUNCE_MS = 250;
     const LISTBOX_ID = 'explorer-search-results';
@@ -343,12 +348,21 @@
                             </span>
                             {#if option.kind === 'taxon'}
                                 <span class="shrink-0 text-right text-2xs tabular-nums text-muted">{taxonCount(option.taxon)}</span>
-                            {:else if option.kind === 'species'}
+                            {:else if option.kind === 'species' && counts === 'current'}
                                 <span class="shrink-0 text-2xs tabular-nums text-muted">
-                                    {$_('events.search.detections', { values: { count: option.species.count ?? 0 }, default: '{count, plural, one {# capture} other {# captures}}' })}
+                                    {countsVisits
+                                        ? $_('visits.total', { values: { count: option.species.count ?? 0 }, default: '{count, plural, one {# visit} other {# visits}}' })
+                                        : $_('events.search.detections', { values: { count: option.species.count ?? 0 }, default: '{count, plural, one {# capture} other {# captures}}' })}
                                 </span>
-                            {:else if option.kind === 'camera' && option.count !== null}
-                                <span class="shrink-0 text-2xs tabular-nums text-muted">{option.count}</span>
+                            {:else if option.kind === 'camera' && option.count !== null && counts === 'current'}
+                                <span class="shrink-0 text-2xs tabular-nums text-muted">
+                                    <span aria-hidden="true">{option.count}</span>
+                                    <span class="sr-only">
+                                        {countsVisits
+                                            ? $_('visits.total', { values: { count: option.count }, default: '{count, plural, one {# visit} other {# visits}}' })
+                                            : $_('events.search.detections', { values: { count: option.count }, default: '{count, plural, one {# capture} other {# captures}}' })}
+                                    </span>
+                                </span>
                             {/if}
                             <!-- What Enter does, on the active result only; the slot is kept so nothing shifts as it moves. -->
                             <svg

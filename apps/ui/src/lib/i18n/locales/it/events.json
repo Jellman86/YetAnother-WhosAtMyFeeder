@@ -19,6 +19,8 @@
     "hidden_detections": "Mostra rilevamenti nascosti",
     "refresh_options": "Aggiorna opzioni",
     "refreshing_options": "Aggiornamento opzioni…",
+    "counting": "Conteggio…",
+    "counts_unavailable": "Non è stato possibile leggere i conteggi per questi filtri. «Aggiorna opzioni» riprova.",
     "title": "Filtri",
     "clear_all": "Cancella tutto",
     "page_controls": "Vista",

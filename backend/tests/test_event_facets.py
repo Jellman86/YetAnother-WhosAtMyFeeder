@@ -1,4 +1,4 @@
-"""Facet counts for the Explorer filter bar."""
+"""Species and camera options for the Explorer filter bar; their counts are tested with the route."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -19,15 +19,6 @@ async def db_ready():
         yield
     finally:
         await close_db()
-
-
-async def _favourite(frigate_event: str) -> None:
-    async with get_db() as db:
-        cursor = await db.execute("SELECT id FROM detections WHERE frigate_event = ?", (frigate_event,))
-        row = await cursor.fetchone()
-        await cursor.close()
-        await db.execute("INSERT INTO detection_favorites (detection_id) VALUES (?)", (row[0],))
-        await db.commit()
 
 
 async def _insert(**overrides):
@@ -54,8 +45,8 @@ async def _insert(**overrides):
 
 
 @pytest.mark.asyncio
-async def test_species_counts_follow_the_canonical_grouping():
-    # Two spellings of one species must count as one row, not two.
+async def test_species_options_follow_the_canonical_grouping():
+    # Two spellings of one species must be one option, not two.
     await _insert(frigate_event="a", display_name="Eurasian Blackbird")
     await _insert(frigate_event="b", display_name="Blackbird")
     await _insert(
@@ -69,61 +60,37 @@ async def test_species_counts_follow_the_canonical_grouping():
     async with get_db() as db:
         rows = await DetectionRepository(db).get_unique_species_with_taxonomy()
 
-    counts = {row[0]: row[4] for row in rows}
-    assert sum(counts.values()) == 3
-    assert max(counts.values()) == 2
+    assert sorted(row[3] for row in rows) == [12716, 13858]
 
 
 @pytest.mark.asyncio
-async def test_hidden_detections_are_not_counted():
+async def test_hidden_records_are_offered_only_in_the_hidden_view():
     await _insert(frigate_event="visible")
-    await _insert(frigate_event="hidden", is_hidden=1)
+    await _insert(
+        frigate_event="hidden",
+        is_hidden=1,
+        display_name="Dunnock",
+        scientific_name="Prunella modularis",
+        taxa_id=13858,
+        camera_name="shed",
+    )
 
     async with get_db() as db:
         repo = DetectionRepository(db)
-        species = await repo.get_unique_species_with_taxonomy()
-        cameras = await repo.get_camera_counts()
-        totals = await repo.get_facet_totals()
+        visible = await repo.get_unique_species_with_taxonomy()
+        hidden = await repo.get_unique_species_with_taxonomy(hidden=True)
+        assert await repo.get_unique_cameras() == ["birdcam"]
+        assert await repo.get_unique_cameras(hidden=True) == ["shed"]
+        assert await repo.has_hidden_detections()
 
-    assert sum(row[4] for row in species) == 1
-    assert cameras == {"birdcam": 1}
-    assert totals["total"] == 1
-
-
-@pytest.mark.asyncio
-async def test_camera_counts_are_per_camera():
-    await _insert(frigate_event="one", camera_name="birdcam")
-    await _insert(frigate_event="two", camera_name="birdcam")
-    await _insert(frigate_event="three", camera_name="nestcam")
-
-    async with get_db() as db:
-        cameras = await DetectionRepository(db).get_camera_counts()
-
-    assert cameras == {"birdcam": 2, "nestcam": 1}
+    assert [row[3] for row in visible] == [12716]
+    assert [row[3] for row in hidden] == [13858]
 
 
 @pytest.mark.asyncio
-async def test_totals_cover_the_only_facets():
-    await _insert(frigate_event="plain")
-    await _insert(frigate_event="fav")
-    await _favourite("fav")
-    await _insert(frigate_event="audio", audio_confirmed=1)
-    await _insert(frigate_event="clip", video_classification_status="completed")
-
-    async with get_db() as db:
-        totals = await DetectionRepository(db).get_facet_totals()
-
-    assert totals == {"total": 4, "favorites": 1, "audio_matched": 1, "video_analysed": 1}
-
-
-@pytest.mark.asyncio
-async def test_empty_database_reports_zeroes_rather_than_failing():
+async def test_an_empty_history_offers_nothing_and_holds_nothing_hidden():
     async with get_db() as db:
         repo = DetectionRepository(db)
-        assert await repo.get_camera_counts() == {}
-        assert await repo.get_facet_totals() == {
-            "total": 0,
-            "favorites": 0,
-            "audio_matched": 0,
-            "video_analysed": 0,
-        }
+        assert await repo.get_unique_species_with_taxonomy() == []
+        assert await repo.get_unique_cameras() == []
+        assert not await repo.has_hidden_detections()
