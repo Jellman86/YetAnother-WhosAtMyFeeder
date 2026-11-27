@@ -25,7 +25,6 @@ from app.auth import AuthContext, require_owner
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.language import get_user_language
-from app.utils.canonical_species import should_hide_species_label
 from app.utils.public_access import (
     hide_public_audio_fields,
     refresh_public_audio_fields,
@@ -341,6 +340,10 @@ class DailySummaryResponse(APIModel):
     visit_count: int = 0
     hourly_visits: List[int] = Field(default_factory=lambda: [0] * 24)
     camera_visits: Optional[List[DailyCameraVisits]] = None
+    # Of `visit_count`, the visits that are Unknown birds: once named, one can join a visit of the
+    # same species on the same camera, so Visits can fall (#1096). Read from the same visit
+    # openings as `visit_count`, and equal to the `top_species` "Unknown Bird" row's `visit_count`.
+    unknown_visit_count: int = 0
     # Visible undecided captures in this window (unknown species or below the naming threshold).
     unresolved_count: int = 0
 
@@ -607,58 +610,47 @@ async def get_daily_summary(
                 count
             )
 
-        # 2. Species counts
-        species_raw = await repo.get_daily_species_counts(start_dt, last_instant)
-
-        # Transform unknowns
-        unknown_labels = settings.classification.unknown_bird_labels
-        unknown_count = 0
-        unknown_visits = 0
-        latest_unknown_event = None
-        latest_unknown_time = None
+        # 2. Visits and species. One reading of the window's captures gives Visits, the Unknown birds
+        # among them and every species row, so they always agree and each visit counts once (#1096).
+        window_visits = await repo.get_window_visits(
+            start_dt, last_instant, extra_unknown_labels=settings.classification.unknown_bird_labels
+        )
+        openings = window_visits.visits
 
         summary_species = []
-        for s in species_raw:
-            if should_hide_species_label(s["species"], extra_unknown_labels=unknown_labels):
-                unknown_count += s["count"]
-                unknown_visits += int(s.get("visit_count") or 0)
-                # Keep the absolute latest event ID among unknowns
-                candidate_time = s.get("latest_detection_time")
-                if latest_unknown_time is None or (candidate_time is not None and candidate_time > latest_unknown_time):
-                    latest_unknown_time = candidate_time
-                    latest_unknown_event = s["latest_event"]
-            else:
-                common_name = s.get("common_name")
-                taxa_id = s.get("taxa_id")
-                if taxa_id:
-                    if lang != "en":
-                        localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
-                        if localized:
-                            common_name = localized
-                    else:
-                        canonical = await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
-                        if canonical:
-                            common_name = canonical
+        for s in window_visits.species:
+            common_name = s.get("common_name")
+            taxa_id = s.get("taxa_id")
+            if taxa_id:
+                if lang != "en":
+                    localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                    if localized:
+                        common_name = localized
+                else:
+                    canonical = await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
+                    if canonical:
+                        common_name = canonical
 
-                summary_species.append(
-                    DailySpeciesSummary(
-                        species=s["species"],
-                        count=s["count"],
-                        visit_count=int(s.get("visit_count") or 0),
-                        latest_event=s["latest_event"],
-                        scientific_name=s.get("scientific_name"),
-                        common_name=common_name,
-                        taxa_id=taxa_id,
-                    )
-                )
-
-        if unknown_count > 0:
             summary_species.append(
                 DailySpeciesSummary(
-                    species="Unknown Bird",
-                    count=unknown_count,
-                    visit_count=unknown_visits,
-                    latest_event=latest_unknown_event,
+                    species=s["species"],
+                    count=s["count"],
+                    visit_count=int(s.get("visit_count") or 0),
+                    latest_event=s["latest_event"],
+                    scientific_name=s.get("scientific_name"),
+                    common_name=common_name,
+                    taxa_id=taxa_id,
+                )
+            )
+
+        if window_visits.unknown:
+            unknown = window_visits.unknown
+            summary_species.append(
+                DailySpeciesSummary(
+                    species=unknown["species"],
+                    count=unknown["count"],
+                    visit_count=unknown["visit_count"],
+                    latest_event=unknown["latest_event"],
                 )
             )
         # Visits first, as the dashboard counts them; frames break ties.
@@ -687,13 +679,12 @@ async def get_daily_summary(
             audio_confirmations = 0
         bird_counts = await BirdObservationRepository(db).count_visible_between(start_dt, end_dt)
 
-        openings = await repo.get_window_visit_openings(start_dt, last_instant)
         hourly_visits = [0] * 24
         visits_by_camera: dict[str, int] = {}
         for opening in openings:
-            local_hour = opening["opened_at"].replace(tzinfo=timezone.utc).astimezone(user_tz).hour
+            local_hour = opening.opened_at.replace(tzinfo=timezone.utc).astimezone(user_tz).hour
             hourly_visits[local_hour] += 1
-            camera = str(opening["camera"] or "")
+            camera = str(opening.camera or "")
             visits_by_camera[camera] = visits_by_camera.get(camera, 0) + 1
         camera_visits = None
         if not hide_camera_names:
@@ -722,6 +713,7 @@ async def get_daily_summary(
             counted_birds=bird_counts["birds"],
             counted_captures=bird_counts["captures"],
             visit_count=len(openings),
+            unknown_visit_count=sum(1 for opening in openings if opening.unknown),
             hourly_visits=hourly_visits,
             camera_visits=camera_visits,
             unresolved_count=unresolved_count,

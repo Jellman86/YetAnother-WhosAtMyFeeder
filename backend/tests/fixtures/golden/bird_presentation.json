@@ -1126,6 +1126,7 @@
     }
    ],
    "total_count": 4,
+   "unknown_visit_count": 1,
    "unresolved_count": 1,
    "visit_count": 4,
    "window": "rolling",
@@ -3102,6 +3103,7 @@
     }
    ],
    "total_count": 4,
+   "unknown_visit_count": 1,
    "unresolved_count": 1,
    "visit_count": 4,
    "window": "rolling",
@@ -5066,6 +5068,7 @@
     }
    ],
    "total_count": 4,
+   "unknown_visit_count": 1,
    "unresolved_count": 1,
    "visit_count": 4,
    "window": "rolling",
@@ -7018,6 +7021,7 @@
     }
    ],
    "total_count": 4,
+   "unknown_visit_count": 1,
    "unresolved_count": 1,
    "visit_count": 4,
    "window": "rolling",
@@ -9089,6 +9093,7 @@
     }
    ],
    "total_count": 4,
+   "unknown_visit_count": 1,
    "unresolved_count": 1,
    "visit_count": 4,
    "window": "rolling",
@@ -11196,6 +11201,7 @@
     }
    ],
    "total_count": 4,
+   "unknown_visit_count": 1,
    "unresolved_count": 1,
    "visit_count": 4,
    "window": "rolling",

@@ -141,9 +141,9 @@ async def test_out_of_order_backfill_recomputes_complete_visits_without_count_in
             "fresh-backfill-20",
             "fresh-backfill-160",
         ]
-        assert len(await repo.get_window_visit_openings(START, START + timedelta(minutes=10))) == total
+        assert len((await repo.get_window_visits(START, START + timedelta(minutes=10))).visits) == total
         assert (
-            sum(row["visit_count"] for row in await repo.get_daily_species_counts(START, START + timedelta(minutes=10)))
+            sum(row["visit_count"] for row in (await repo.get_window_visits(START, START + timedelta(minutes=10))).rows)
             == total
         )
         assert await repo.get_daily_visit_counts(start_date=START, end_date=START + timedelta(minutes=10)) == {
@@ -198,10 +198,10 @@ async def test_unknown_manual_and_hidden_imports_cannot_bridge_visible_known_vis
         assert all(row["capture_count"] == 1 for row in rows)
         assert "hidden-bridge" not in {row["visit_id"] for row in rows}
         assert (
-            sum(row["visit_count"] for row in await repo.get_daily_species_counts(START, START + timedelta(minutes=10)))
+            sum(row["visit_count"] for row in (await repo.get_window_visits(START, START + timedelta(minutes=10))).rows)
             == total
         )
-        assert len(await repo.get_window_visit_openings(START, START + timedelta(minutes=10))) == total
+        assert len((await repo.get_window_visits(START, START + timedelta(minutes=10))).visits) == total
         assert (await repo.list_visits(multiple_species_only=True))[1] == 0
     history.classifier.classify_async_background.assert_not_awaited()
     history.broadcast.assert_not_awaited()

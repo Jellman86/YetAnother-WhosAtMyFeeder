@@ -84,6 +84,8 @@
     "birds_found": "发现的鸟",
     "birds_scope": "{count, plural, other {来自 # 次已分析拍摄；可能有鸟未被识别}}",
     "visits": "次到访",
+    "visits_unknown_short": "{count, plural, other {# 个未知鸟类}}",
+    "visits_unknown": "{count, plural, other {其中 # 次到访是未知鸟类。}}未知鸟类通常各算一次到访。由模型或手动识别后，如果它与同一摄像头上同一物种的到访相隔不超过到访间隔，可能会并入那次到访，因此到访次数可能减少。不会删除任何拍摄。",
     "unresolved": "未识别",
     "calls_heard": "次鸣叫",
     "cross_confirmed": "次交叉确认",

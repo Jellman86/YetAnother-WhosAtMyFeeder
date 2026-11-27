@@ -341,8 +341,8 @@ async def test_all_visit_statistics_use_same_overlap_and_identity_rules(repo):
     await capture(repo, 1, 20)
     await capture(repo, 2, 150)
     end = START + timedelta(minutes=10)
-    assert len(await repo.get_window_visit_openings(START, end)) == 1
-    assert (await repo.get_daily_species_counts(START, end))[0]["visit_count"] == 1
+    assert len((await repo.get_window_visits(START, end)).visits) == 1
+    assert (await repo.get_window_visits(START, end)).rows[0]["visit_count"] == 1
     assert (await repo.get_daily_visit_counts(start_date=START, end_date=end))["2033-10-03"] == 1
 
 
@@ -356,7 +356,7 @@ async def test_date_boundary_counts_each_windows_visible_visit_once(repo):
         visits, total = await repo.list_visits(start=start, end=end)
         assert total == 1
         assert visits[0]["capture_count"] == 1
-        assert len(await repo.get_window_visit_openings(start, end)) == 1
+        assert len((await repo.get_window_visits(start, end)).visits) == 1
 
 
 @pytest.mark.asyncio

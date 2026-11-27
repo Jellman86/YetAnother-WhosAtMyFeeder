@@ -1,4 +1,4 @@
-from typing import Callable, Collection, Literal, Mapping, Optional, Sequence
+from typing import TYPE_CHECKING, Callable, Collection, Iterable, Literal, Mapping, Optional, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta, date, timezone
 import aiosqlite
@@ -29,6 +29,9 @@ from app.utils.api_datetime import (
     utc_naive_now,
 )
 from app.utils.birdnet_payload import normalize_mapping_key, parse_mapping_filter_values
+
+if TYPE_CHECKING:
+    from app.services.window_visits import WindowVisits
 
 log = structlog.get_logger()
 
@@ -5629,19 +5632,6 @@ class DetectionRepository:
             out.append((bucket_start, count))
         return out
 
-    async def get_window_visit_openings(self, start_date: datetime, end_date: datetime) -> list[dict]:
-        """The first visible capture of each shared visit inside the window."""
-        from app.repositories.visit_repository import VisitRepository
-
-        cte, params = await VisitRepository(self.db).grouping_cte(start=start_date, end=end_date)
-        async with self.db.execute(
-            f"WITH {cte} SELECT camera_name, detection_time FROM visit_members "
-            "WHERE visit_position = 1 ORDER BY at, id",
-            params,
-        ) as cursor:
-            rows = await cursor.fetchall()
-        return [{"camera": row[0], "opened_at": _parse_datetime(row[1])} for row in rows]
-
     async def get_camera_last_seen(self, start_date: datetime, end_date: datetime) -> dict[str, datetime]:
         """The latest visible detection per camera in a time range."""
         async with self.db.execute(
@@ -5654,95 +5644,54 @@ class DetectionRepository:
             rows = await cursor.fetchall()
         return {str(row[0]): _parse_datetime(row[1]) for row in rows if row[0] and row[1]}
 
-    async def get_daily_species_counts(self, start_date: datetime, end_date: datetime) -> list[dict]:
-        """Detection and visit counts per species for a time range.
+    async def get_window_visits(
+        self, start_date: datetime, end_date: datetime, *, extra_unknown_labels: Iterable[str] | None = None
+    ) -> "WindowVisits":
+        """The window's visits and species rows, from one reading of its visible captures.
 
         A visit follows the leaderboard's rule: a detection opens one unless the same species was
-        on the same camera within the owner's visit gap of the last verified event end, or capture time.
+        on the same camera within the owner's visit gap of the last verified event end, or capture
+        time. Visits, the Unknown birds among them and the species rows all come from this one
+        statement, so they describe one moment, and each visit is counted once (#1096).
         """
         from app.repositories.visit_repository import VisitRepository
+        from app.services.window_visits import VisitMember, WindowVisits, summarize_window_visits
 
         visit_cte, visit_params = await VisitRepository(self.db).grouping_cte(start=start_date, end=end_date)
         canonical_key = self._canonical_key_sql(taxonomy_alias=None)
-        query = f"""
-            WITH {visit_cte}, filtered AS (
-                SELECT
-                    d.id,
-                    d.detection_time,
-                    d.camera_name,
-                    d.frigate_event,
-                    d.scientific_name,
-                    d.common_name,
-                    d.display_name,
-                    d.taxa_id,
-                    d.visit_position,
-                    {canonical_key} AS unified_id
-                FROM visit_members d
-                WHERE d.detection_time >= ? AND d.detection_time <= ?
-                  AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
-            ),
-            ranked AS (
-                SELECT
-                    unified_id,
-                    frigate_event,
-                    scientific_name,
-                    common_name,
-                    display_name,
-                    taxa_id,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY unified_id
-                        ORDER BY detection_time DESC, id DESC, frigate_event DESC
-                    ) AS row_num
-                FROM filtered
-            ),
-            counts AS (
-                SELECT unified_id, COUNT(*) AS count
-                FROM filtered
-                GROUP BY unified_id
-            ),
-            visits AS (
-                SELECT unified_id, COUNT(*) AS visit_count FROM filtered
-                WHERE visit_position = 1 GROUP BY unified_id
-            )
-            SELECT
-                counts.unified_id,
-                counts.count,
-                ranked.frigate_event AS latest_event,
-                filtered_latest.detection_time AS latest_detection_time,
-                ranked.scientific_name,
-                ranked.common_name,
-                ranked.display_name,
-                ranked.taxa_id,
-                COALESCE(visits.visit_count, 0) AS visit_count
-            FROM counts
-            LEFT JOIN visits ON visits.unified_id = counts.unified_id
-            JOIN ranked
-              ON ranked.unified_id = counts.unified_id
-             AND ranked.row_num = 1
-            JOIN filtered AS filtered_latest
-              ON filtered_latest.unified_id = ranked.unified_id
-             AND filtered_latest.frigate_event = ranked.frigate_event
-            ORDER BY counts.count DESC
-        """
         async with self.db.execute(
-            query, [*visit_params, start_date.isoformat(sep=" "), end_date.isoformat(sep=" ")]
+            f"""WITH {visit_cte}
+            SELECT d.id, d.detection_time, d.camera_name, d.frigate_event, d.display_name, d.category_name,
+                   d.scientific_name, d.common_name, d.taxa_id, d.visit_identity, d.visit_number,
+                   d.visit_position, {canonical_key}
+            FROM visit_members d""",
+            visit_params,
         ) as cursor:
             rows = await cursor.fetchall()
-            return merge_species_count_rows(
-                [
-                    {
-                        "species": row[6],
-                        "count": row[1],
-                        "latest_event": row[2],
-                        "latest_detection_time": _parse_datetime(row[3]) if row[3] else None,
-                        "scientific_name": row[4],
-                        "common_name": row[5],
-                        "taxa_id": row[7],
-                        "visit_count": int(row[8] or 0),
-                    }
-                    for row in rows
-                ]
-            )
+        summary = summarize_window_visits(
+            (
+                VisitMember(
+                    id=int(row[0]),
+                    # Older rows can carry a UTC offset; every time is compared as naive UTC.
+                    at=utc_naive_datetime(_parse_datetime(row[1])),
+                    camera=row[2],
+                    frigate_event=row[3],
+                    display_name=row[4],
+                    category_name=row[5],
+                    scientific_name=row[6],
+                    common_name=row[7],
+                    taxa_id=row[8],
+                    visit_key=(row[9], row[2], row[10]),
+                    visit_position=int(row[11]),
+                    species_key=row[12],
+                )
+                for row in rows
+            ),
+            extra_unknown_labels=extra_unknown_labels,
+        )
+        return WindowVisits(
+            visits=summary.visits, species=merge_species_count_rows(summary.species), unknown=summary.unknown
+        )
 
     async def get_audio_visual_match_candidates(
         self,

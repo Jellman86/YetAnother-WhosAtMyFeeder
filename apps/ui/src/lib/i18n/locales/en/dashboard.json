@@ -84,6 +84,8 @@
     "birds_found": "Birds found",
     "birds_scope": "From {count, plural, one {# analysed capture} other {# analysed captures}}; birds may be missed",
     "visits": "Visits",
+    "visits_unknown_short": "{count, plural, one {# Unknown bird} other {# Unknown birds}}",
+    "visits_unknown": "{count, plural, one {# of these visits is an Unknown bird.} other {# of these visits are Unknown birds.}} An Unknown bird is usually its own visit. Once it is named, by the model or by hand, it can join a visit of the same species on the same camera within the visit gap, so Visits can fall. No capture is removed.",
     "unresolved": "Unresolved",
     "calls_heard": "Calls heard",
     "cross_confirmed": "Cross-confirmed",

@@ -84,6 +84,8 @@
     "birds_found": "Aves encontradas",
     "birds_scope": "Em {count, plural, one {# captura analisada} other {# capturas analisadas}}; algumas aves podem não ser detectadas",
     "visits": "Visitas",
+    "visits_unknown_short": "{count, plural, one {# Ave desconhecida} other {# Aves desconhecidas}}",
+    "visits_unknown": "{count, plural, one {# destas visitas é uma Ave desconhecida.} other {# destas visitas são Aves desconhecidas.}} Uma Ave desconhecida conta normalmente como uma visita própria. Quando é identificada, pelo modelo ou à mão, pode juntar-se a uma visita da mesma espécie na mesma câmara dentro do intervalo entre visitas, por isso as visitas podem descer. Nenhuma captura é removida.",
     "unresolved": "Por resolver",
     "calls_heard": "Cantos ouvidos",
     "cross_confirmed": "Confirmados por ambos",

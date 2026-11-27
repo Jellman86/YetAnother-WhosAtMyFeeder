@@ -84,6 +84,8 @@
     "birds_found": "Vögel gefunden",
     "birds_scope": "Aus {count, plural, one {# analysierten Aufnahme} other {# analysierten Aufnahmen}}; Vögel können übersehen werden",
     "visits": "Besuche",
+    "visits_unknown_short": "{count, plural, one {# Unbekannter Vogel} other {# Unbekannte Vögel}}",
+    "visits_unknown": "{count, plural, one {# dieser Besuche ist ein Unbekannter Vogel.} other {# dieser Besuche sind Unbekannte Vögel.}} Ein Unbekannter Vogel zählt meist als eigener Besuch. Sobald er benannt ist, durch das Modell oder von Hand, kann er sich einem Besuch derselben Art an derselben Kamera innerhalb des Besuchsabstands anschließen. Deshalb können die Besuche sinken. Keine Aufnahme wird entfernt.",
     "unresolved": "Ungeklärt",
     "calls_heard": "Rufe gehört",
     "cross_confirmed": "Gegenbestätigt",
