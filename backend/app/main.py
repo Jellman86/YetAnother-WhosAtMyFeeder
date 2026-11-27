@@ -552,6 +552,7 @@ async def lifespan(app: FastAPI):
     open_crop_processes()
 
     revalidation_task = None
+    audio_source_backfill_task = None
     # Startup
     cleanup_running = True
     cleanup_task = None
@@ -625,6 +626,11 @@ async def lifespan(app: FastAPI):
         from app.services.species_catalog_backfill import start_background_catalog_backfill
 
         create_background_task(start_background_catalog_backfill(), name="species_catalog_backfill")
+        from app.services.audio.source_backfill import start_background_audio_source_backfill
+
+        audio_source_backfill_task = create_background_task(
+            start_background_audio_source_backfill(), name="audio_source_backfill"
+        )
         await _run_lifecycle_phase(
             app,
             "notification_dispatcher_start",
@@ -781,6 +787,10 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
+    from app.services.audio.source_backfill import stop_audio_source_backfill
+
+    # Before anything closes the database it writes to.
+    await stop_audio_source_backfill(audio_source_backfill_task)
     if revalidation_task is not None:
         revalidation_task.cancel()
         try:

@@ -10,6 +10,7 @@ from app.main import app
 from app.database import get_db
 from app.config import settings
 from app.routers.audio import AUDIO_SUPPRESSED_BY_MAPPING_HEADER
+from tests.audio_source_columns import fill_source_columns
 
 pytestmark = pytest.mark.usefixtures("history_pool")
 
@@ -346,6 +347,7 @@ async def test_audio_summary_rolls_up_persisted_history(client: httpx.AsyncClien
                 row,
             )
         await db.commit()
+        await fill_source_columns(db)
 
     response = await client.get("/api/audio/summary", params={"days": 7})
     assert response.status_code == 200, response.text

@@ -1839,7 +1839,21 @@ snapshot, not a destructive queue-control API.
     `daily_counts` counts calls per calendar day in the zone `X-Timezone` names, else the container's
     `TZ`, else UTC, so a call is filed under the viewer's own date. `window_start` and `window_end`
     state the window counted: a guest's window is the requested one narrowed to the public history,
-    so a client can tell when the start of its day was left out
+    so a client can tell when the start of its day was left out. Each `sources` entry is one
+    BirdNET-Go source, identified by its `sourceId` and node rather than its name, so a source
+    renamed in BirdNET-Go is one entry under its newest `source_name` with all of its calls.
+    `source_id` is BirdNET-Go's id for it, which tells apart two sources that share a name (a
+    stream whose address changed gets a new id); it is null for calls from before BirdNET-Go sent
+    ids. `source_node` is the BirdNET-Go install the source belongs to, null when its calls name none.
+    Install and id are compared exactly as sent, case included, after trimming whitespace at either
+    end. A call whose id was refused is listed with no id and no name, on its own install.
+    `source_count` counts these sources. A guest's sources, labels and source filters are read from
+    the shared window only. With `only_hidden`, sources are read from hidden calls
+  - The `source` filter of `GET /api/audio/history`, `GET /api/audio/summary` and
+    `GET /api/audio/activity-heatmap`, and `search` where it covers sources, also find every call of
+    a source whose id or any name it has carried contains the text, so filtering by a source's old
+    or new name finds its whole history. As before, the text also matches a call whose own stored
+    sensor or payload contains it, so a filter can return calls of more than one listed source
   - `GET /api/audio/history`, `GET /api/audio/summary` and `GET /api/audio/activity-heatmap` read an
     explicit `start_date`/`end_date` pair in place of `days`. Both requested ends are inclusive: a
     call at exactly `start_date` or exactly `end_date` is counted. A guest's window is then cut to the

@@ -30,7 +30,8 @@ from app.auth import AuthContext, require_owner
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.database import get_db
-from app.repositories.audio_history_repository import AudioHistoryRepository
+from app.repositories.audio_history_repository import AudioHistoryRepository, filter_names_a_source
+from app.utils.audio_source_identity import AudioSourceDirectory
 from app.repositories.detection_repository import DetectionRepository, match_audio_history_visual_events
 from app.utils.language import get_user_language
 from app.utils.timezone import calendar_timezone
@@ -171,7 +172,14 @@ class AudioHourlyCountResponse(BaseModel):
 
 
 class AudioSourceSummaryResponse(BaseModel):
+    # The name on the source's newest call: a renamed source is one entry with all of its calls.
     source_name: str
+    # BirdNET-Go's id for the source, which tells apart two sources that carry the same name.
+    # Null for calls from before BirdNET-Go reported ids.
+    source_id: str | None = None
+    # The BirdNET-Go install the source belongs to, which tells apart two installs whose sources
+    # share a name and an id. Null when its calls name none.
+    source_node: str | None = None
     count: int
     last_heard: str
 
@@ -261,6 +269,29 @@ def _history_window(
 
     return AudioHistoryQuery(
         start_date=resolved_start, end_date=resolved_end, public_start=public_start, public_end=public_end
+    )
+
+
+async def _viewer_source_directory(
+    repo: AudioHistoryRepository,
+    *,
+    public_start: datetime | None,
+    public_end: datetime | None,
+    only_hidden: bool = False,
+) -> AudioSourceDirectory:
+    """The sources a view names, read from the calls it may show.
+
+    A guest's is read from the shared window only, so no source name or id from outside it reaches
+    them: not as a label, not through a source or search filter, and not by an older call joining a
+    source renamed before the window. The owner's hidden view names and counts hidden calls, and
+    every call the owner keeps decides which source an older id-less call belongs to.
+    """
+    return await repo.load_audio_source_directory(
+        minimum_start=public_start,
+        maximum_end=public_end,
+        hidden=only_hidden,
+        # Only an owner's view is unbounded at its start; a guest's never sees hidden calls.
+        owner_evidence=public_start is None,
     )
 
 
@@ -364,19 +395,30 @@ async def get_audio_history(
         source = None
     async with privacy_checked_db(get_db) as db:
         repo = DetectionRepository(db)
-        result = await AudioHistoryRepository(db).get_audio_history(
-            start_date=window.start_date,
-            end_date=window.end_date,
-            species=species,
-            source=source,
-            min_confidence=min_confidence,
-            maximum_end=window.public_end,
-            only_hidden=only_hidden,
-            search=search,
-            search_include_source=not hide_sensor,
-            limit=limit,
-            offset=offset,
-        )
+        audio_repo = AudioHistoryRepository(db)
+        async with audio_repo.one_reading():
+            # Read only for a filter that names a source: a plain window needs no names but its own.
+            directory = (
+                await _viewer_source_directory(
+                    audio_repo, public_start=window.public_start, public_end=window.public_end, only_hidden=only_hidden
+                )
+                if filter_names_a_source(source, search, not hide_sensor)
+                else None
+            )
+            result = await audio_repo.get_audio_history(
+                start_date=window.start_date,
+                end_date=window.end_date,
+                species=species,
+                source=source,
+                min_confidence=min_confidence,
+                maximum_end=window.public_end,
+                only_hidden=only_hidden,
+                search=search,
+                search_include_source=not hide_sensor,
+                limit=limit,
+                offset=offset,
+                directory=directory,
+            )
         if result["items"]:
             correlation_window = max(0, int(settings.frigate.audio_correlation_window_seconds))
             item_times: list[datetime] = []
@@ -442,18 +484,22 @@ async def get_audio_summary(
         source = None
     async with privacy_checked_db(get_db) as db:
         repo = AudioHistoryRepository(db)
-        result = await repo.get_audio_history_summary(
-            start_date=window.start_date,
-            end_date=window.end_date,
-            species=species,
-            source=source,
-            min_confidence=min_confidence,
-            maximum_end=window.public_end,
-            only_hidden=only_hidden,
-            search=search,
-            search_include_source=not hide_sensor,
-            calendar_zone=calendar_timezone(request),
-        )
+        async with repo.one_reading():
+            result = await repo.get_audio_history_summary(
+                directory=await _viewer_source_directory(
+                    repo, public_start=window.public_start, public_end=window.public_end, only_hidden=only_hidden
+                ),
+                start_date=window.start_date,
+                end_date=window.end_date,
+                species=species,
+                source=source,
+                min_confidence=min_confidence,
+                maximum_end=window.public_end,
+                only_hidden=only_hidden,
+                search=search,
+                search_include_source=not hide_sensor,
+                calendar_zone=calendar_timezone(request),
+            )
     # The scientific name stays: `species` is translated, so it is the only name the activity grid
     # can be asked for exactly.
     await localize_audio_detections(result["top_species"], lang)
@@ -509,18 +555,27 @@ async def get_audio_activity_heatmap(
     if hide_sensor:
         source = None
     async with privacy_checked_db(get_db) as db:
-        utc_quarter_hour_counts = await AudioHistoryRepository(db).get_audio_activity_utc_quarter_hour_counts(
-            start_date=window.start_date,
-            end_date=window.end_date,
-            species=species,
-            source=source,
-            min_confidence=min_confidence,
-            maximum_end=window.public_end,
-            scientific_name=scientific_name,
-            only_hidden=only_hidden,
-            search=search,
-            search_include_source=not hide_sensor,
-        )
+        repo = AudioHistoryRepository(db)
+        async with repo.one_reading():
+            utc_quarter_hour_counts = await repo.get_audio_activity_utc_quarter_hour_counts(
+                directory=(
+                    await _viewer_source_directory(
+                        repo, public_start=window.public_start, public_end=window.public_end, only_hidden=only_hidden
+                    )
+                    if filter_names_a_source(source, search, not hide_sensor)
+                    else None
+                ),
+                start_date=window.start_date,
+                end_date=window.end_date,
+                species=species,
+                source=source,
+                min_confidence=min_confidence,
+                maximum_end=window.public_end,
+                scientific_name=scientific_name,
+                only_hidden=only_hidden,
+                search=search,
+                search_include_source=not hide_sensor,
+            )
     grid = weekday_hour_grid(utc_quarter_hour_counts, calendar_timezone(request))
     return AudioActivityHeatmapResponse(
         window_start=serialize_api_datetime(window.start_date),

@@ -1,3 +1,4 @@
+import json
 import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
@@ -680,3 +681,75 @@ async def test_a_failed_announcement_does_not_fail_the_ingest(audio_service):
         assert await audio_service.add_detection({"species": "Robin", "confidence": 0.8, "sensor_id": "mic1"}) is True
 
     assert len(audio_service._buffer) == 1
+
+
+@pytest.mark.asyncio
+async def test_hostile_source_fields_from_mqtt_are_stored_cleaned_and_never_block_ingest(audio_service):
+    payload = {
+        "detectionId": 4646,
+        "SourceNode": "\ud800",
+        "sourceId": "rtsp_" + "x" * 5_000,
+        "sourceName": "Gar\x00den\nMic",
+        "CommonName": "Dunnock",
+        "ScientificName": "Prunella modularis",
+        "Confidence": 0.8,
+        "BeginTime": datetime.now(timezone.utc).isoformat(),
+    }
+
+    assert await audio_service.add_detection(payload) is True
+
+    async with get_db() as db:
+        async with db.execute(
+            "SELECT source_node, source_id, source_name FROM audio_detections WHERE raw_data LIKE ?",
+            ('%"detectionId": 4646%',),
+        ) as cursor:
+            # The over-long id is refused, so the call keeps no name that could join another source.
+            assert await cursor.fetchall() == [(None, None, None)]
+
+
+def _dev_event_key(name: str, detection_id: int) -> str:
+    """The key the release before source tracking stored a call under, written out by hand."""
+    return f"{name.strip().casefold()}:{detection_id}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"sourceName": "BirdCam"},
+        {"sourceName": "North  Feeder"},
+        {"sourceName": " Feeder ", "SourceNode": "BirdNET-Go Quark", "sourceId": "rtsp_3af0d74c"},
+        {"nm": "Garden Mic", "src": "rtsp_short"},
+    ],
+)
+async def test_an_unchanged_redelivery_after_the_upgrade_finds_the_call_and_keeps_it_hidden(audio_service, fields):
+    """Ingest recognises a call exactly as it did before: by the same key, from the same fields."""
+    detection_id = 7800 + len(str(fields))
+    payload = {
+        "detectionId": detection_id,
+        "CommonName": "Wren",
+        "ScientificName": "Troglodytes troglodytes",
+        "Confidence": 0.8,
+        **fields,
+    }
+    name = fields.get("nm") or fields["sourceName"]
+    key = _dev_event_key(name, detection_id)
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections WHERE source_event_id = ?", (key,))
+        await db.execute(
+            """INSERT INTO audio_detections
+               (timestamp, species, confidence, sensor_id, raw_data, source_event_id, is_hidden)
+               VALUES (?, 'Wren', 0.8, ?, ?, ?, 1)""",
+            ("2026-11-01 08:00:00", name.strip(), json.dumps(payload), key),
+        )
+        await db.commit()
+
+    assert await audio_service.add_detection(payload) is True
+
+    async with get_db() as db:
+        async with db.execute(
+            "SELECT COUNT(*), MIN(is_hidden) FROM audio_detections WHERE raw_data LIKE ?",
+            (f'%"detectionId": {detection_id}%',),
+        ) as cursor:
+            assert await cursor.fetchone() == (1, 1)
+    assert len(audio_service._buffer) == 0

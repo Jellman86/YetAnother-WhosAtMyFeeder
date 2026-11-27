@@ -90,7 +90,11 @@
   },
   "sources": {
     "title": "Quellen",
-    "empty": "Noch keine Quellen."
+    "empty": "Noch keine Quellen.",
+    "source_id": "BirdNET-Go-ID {id}",
+    "source_id_on_node": "BirdNET-Go-ID {id} auf {node}",
+    "no_source_id": "Rufe ohne verwendbare BirdNET-Go-ID",
+    "no_source_id_on_node": "Rufe ohne verwendbare BirdNET-Go-ID auf {node}"
   },
   "not_shared_title": "Audio wird nicht öffentlich geteilt",
   "not_shared_body": "Die Besitzerin oder der Besitzer dieser Instanz hat Audio für Gäste deaktiviert.",

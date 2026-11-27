@@ -15,6 +15,7 @@ import aiosqlite
 import pytest
 
 from app.repositories.audio_history_repository import AudioHistoryRepository
+from tests.audio_source_columns import fill_source_columns
 
 GOLDEN = Path(__file__).parent / "fixtures" / "golden" / "audio_history_repository.json"
 NOW = datetime(2033, 6, 10, 12, 0, 0)
@@ -124,6 +125,7 @@ async def _seed(db: aiosqlite.Connection) -> None:
                 hidden,
             ),
         )
+    await fill_source_columns(db)
     for index, (event, camera, when, name, audio_species, confirmed) in enumerate(DETECTIONS):
         await db.execute(
             """INSERT INTO detections (detection_time, detection_index, score, display_name, category_name,

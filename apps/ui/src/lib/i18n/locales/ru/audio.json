@@ -90,7 +90,11 @@
   },
   "sources": {
     "title": "Источники",
-    "empty": "Источников пока нет."
+    "empty": "Источников пока нет.",
+    "source_id": "ID в BirdNET-Go: {id}",
+    "source_id_on_node": "ID в BirdNET-Go: {id}, узел {node}",
+    "no_source_id": "Голоса без пригодного ID в BirdNET-Go",
+    "no_source_id_on_node": "Голоса без пригодного ID в BirdNET-Go, узел {node}"
   },
   "not_shared_title": "Аудио не является общедоступным",
   "not_shared_body": "Владелец этого экземпляра отключил аудио для гостей.",

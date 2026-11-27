@@ -11,6 +11,7 @@ import pytest_asyncio
 from app.database import close_db, get_db, init_db
 from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository
+from tests.audio_source_columns import fill_source_columns
 
 
 @pytest_asyncio.fixture
@@ -26,7 +27,12 @@ async def audio_db():
 
 
 def is_source_cursor(cursor):
-    return [column[0] for column in cursor.description or ()] == ["timestamp", "sensor_id", "raw_data"]
+    return [column[0] for column in cursor.description or ()] == [
+        "timestamp",
+        "source_node",
+        "source_id",
+        "source_name",
+    ]
 
 
 def instrument_source_cursor(monkeypatch, *, cancel_after_first=False):
@@ -69,30 +75,35 @@ async def insert_rows(db, rows):
         rows,
     )
     await db.commit()
+    await fill_source_columns(db)
 
 
 @pytest.mark.asyncio
 async def test_source_summary_streams_all_batches_with_legacy_label_priority(audio_db, monkeypatch):
+    # Each row has the source columns the upgrade fills from its payload.
     cases = [
-        ("sensor", {"nm": " Alpha ", "sourceName": "wrong"}, "Alpha"),
-        ("sensor", {"nm": 1, "sourceName": "beta", "Source": {"displayName": "wrong"}}, "beta"),
-        ("sensor", {"sourceName": " ", "Source": {"displayName": "Gamma"}}, "Gamma"),
-        (" Sensor ", {"sourceId": "wrong"}, "Sensor"),
-        (None, {"sourceId": "delta", "src": "wrong"}, "delta"),
-        (" ", {"sourceId": [], "src": "epsilon", "Source": {"id": "wrong"}}, "epsilon"),
-        (None, {"Source": {"displayName": False, "id": "zeta"}}, "zeta"),
-        (" fallback ", "malformed", "fallback"),
-        (None, ["nonobject"], "Unknown source"),
+        ("sensor", {"nm": " Alpha ", "sourceName": "wrong"}, "Alpha", None),
+        ("sensor", {"nm": 1, "sourceName": "beta", "Source": {"displayName": "wrong"}}, "beta", None),
+        ("sensor", {"sourceName": " ", "Source": {"displayName": "Gamma"}}, "Gamma", None),
+        (" Sensor ", {"sourceId": "rtsp_s"}, "Sensor", "rtsp_s"),
+        # No name was sent: the source is shown by its id.
+        (None, {"sourceId": "delta", "src": "wrong"}, "delta", "delta"),
+        (" ", {"sourceId": [], "src": "epsilon"}, "epsilon", "epsilon"),
+        (None, {"Source": {"displayName": False, "id": "zeta"}}, "zeta", "zeta"),
+        (" fallback ", "malformed", "fallback", None),
+        (None, ["nonobject"], "Unknown source", None),
     ]
     start = datetime(2026, 1, 1)
     rows = []
     expected = {}
     for index in range(1200):
-        sensor, payload, name = cases[index % len(cases)]
+        sensor, payload, name, source_id = cases[index % len(cases)]
         timestamp = start + timedelta(seconds=index)
         raw = payload if isinstance(payload, str) else json.dumps(payload)
         rows.append((timestamp.isoformat(sep=" "), "Robin", 0.9, sensor, raw, "Erithacus rubecula", 0))
-        item = expected.setdefault(name, {"source_name": name, "count": 0, "last_heard": None})
+        item = expected.setdefault(
+            name, {"source_name": name, "source_id": source_id, "source_node": None, "count": 0, "last_heard": None}
+        )
         item["count"] += 1
         item["last_heard"] = timestamp.isoformat() + "Z"
     await insert_rows(audio_db, rows[::2] + rows[1::2])
@@ -138,7 +149,15 @@ async def test_streamed_summary_keeps_filters_public_boundary_and_live_visibilit
     filters = dict(start_date=start, end_date=end, species="obi", source="needle", min_confidence=0.8)
     result = await AudioHistoryRepository(repo.db).get_audio_history_summary(**filters, maximum_end=maximum_end)
     assert result["total"] == 1050
-    assert result["sources"] == [{"source_name": "Garden", "count": 1050, "last_heard": "2026-01-01T00:17:29Z"}]
+    assert result["sources"] == [
+        {
+            "source_name": "Garden",
+            "source_id": None,
+            "source_node": None,
+            "count": 1050,
+            "last_heard": "2026-01-01T00:17:29Z",
+        }
+    ]
     assert (await AudioHistoryRepository(repo.db).get_audio_history_summary(**filters))["total"] == 1101
     await audio_db.execute("UPDATE audio_detections SET is_hidden=1 WHERE scientific_name='Erithacus rubecula'")
     await audio_db.commit()
