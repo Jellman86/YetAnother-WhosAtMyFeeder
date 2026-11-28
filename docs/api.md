@@ -1911,7 +1911,8 @@ snapshot, not a destructive queue-control API.
     name it carried, in the spelling its calls carried, current first, each with `last_seen` (null
     when only hidden calls carry it), `current`, and `offer_link_by_id`, true for an earlier name
     only this stream has carried, in one spelling, no source carries now, and last heard (hidden
-    calls included) before the current name,
+    calls included) before the current name (the spelling is read from each stored name's oldest
+    and newest call, so a variant used only in between is not seen),
     decided from every kept call before `limit` applies. Read by index seeks on
     the stored history's source columns, so a stream heard long ago is listed beside a busy one.
   - `GET /api/audio/spectrogram/{birdnet_id}` — proxies the BirdNET-Go spectrogram PNG so no

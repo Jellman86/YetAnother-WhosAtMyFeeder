@@ -55,6 +55,11 @@ def test_the_literal_name_is_the_first_name_field_trimmed_but_otherwise_as_sent(
     assert literal_source_name(None, '{"nm": 4}') is None
 
 
+def test_a_call_too_deeply_nested_to_parse_falls_back_to_its_stored_sensor_name():
+    too_deep = "[" * 100_000 + "]" * 100_000
+    assert literal_source_name("Shed Mic", too_deep) == "Shed Mic"
+
+
 def test_a_stream_that_sent_no_name_is_named_by_its_id():
     [entry] = audio_source_links([_seen(STREAM, None, "2026-11-28 09:00:00")])
     assert (entry.mapping_value, entry.source_name, entry.names) == (STREAM, STREAM, [])

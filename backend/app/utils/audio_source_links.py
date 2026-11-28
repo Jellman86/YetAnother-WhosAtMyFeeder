@@ -34,7 +34,7 @@ def literal_source_name(sensor_id: str | None, raw_data: str | None) -> str | No
     """The name a call without an id is matched by: its first name field, trimmed, as sent."""
     try:
         payload = json.loads(raw_data) if raw_data else None
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, RecursionError):
         payload = None
     candidates: list[object] = []
     if isinstance(payload, dict):
