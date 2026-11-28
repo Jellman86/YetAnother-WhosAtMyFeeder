@@ -158,6 +158,22 @@ leading species, and how many matches were required. A snapshot downgrade remain
 exhaustion of both media routes is an unchanged result, while an unrecovered media/runtime fault is
 an explicit failure.
 
+### When the snapshot and the video disagree
+
+When a video reading finishes, YA-WAMF compares it with the snapshot reading the capture was first
+named from. The two are compared by catalogue species, so one bird spelled two ways by two models
+still agrees. When they name different birds, the record shows both readings with their scores under
+**Snapshot and video**, and says **Readings disagree**: look at the photo and the clip, then confirm
+the name or pick a different species. While the record still carries the snapshot's name,
+**Score again** runs the clip again and applies its result. Once you have named the bird yourself,
+both readings stay on the record as evidence and nothing asks for a look.
+
+A disagreement never renames the visit by itself; the name follows the usual promotion rules above.
+Readings are not compared, and nothing is flagged, when either names no catalogued bird, when the
+video reading is below the naming floor, when one of the models cannot name the other's species, or
+when the first name was borrowed from Frigate's sub-label. Captures whose video reading finished
+before this check existed are not compared.
+
 **Notifications → Jobs** includes automatic and maintenance video work, delayed media retries and
 worker recovery. **Queued** means no worker has started yet. Unfinished automatic work is reclaimed
 after a container restart. Use its **Open Health** link, then **Diagnostics export**, to

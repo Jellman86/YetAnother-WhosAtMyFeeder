@@ -935,6 +935,17 @@ rewrites either. Old records remain null. `fields=list` includes current input a
 guest projections exclude input evidence. Whole-view names follow the same confidence threshold as
 other identifications for `needs_review`, and are excluded from personalization feedback and reranking.
 
+Owner event responses also expose nullable `reading_agreement`: whether the capture's video reading
+named the same bird as its snapshot reading, compared by catalogue species when the video reading
+finishes (#804). It is `agree`, `disagree` or `cannot_compare`; the last covers a reading that names
+no catalogued bird, a video reading below the naming floor (the lower of `min_confidence` and the
+naming threshold), a species one of the two models cannot name, a first name borrowed from Frigate's
+sub-label, and a model the catalogue does not hold. `null` means the readings were never compared,
+which includes every capture whose video reading finished before this field existed. With
+`disagree`, `snapshot_reading` gives the snapshot reading's `display_name`, `category_name`,
+`scientific_name`, `common_name` and `score`; it is `null` otherwise. The comparison only informs the
+record: it never renames the visit. Guest projections and `fields=list` exclude both fields.
+
 ### Media Proxy and Share Links
 
 - `GET /api/frigate/{event_id}/snapshot.jpg` — YA-WAMF's stored photo of the detection first, so a
