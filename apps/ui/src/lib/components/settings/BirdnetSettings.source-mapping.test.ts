@@ -21,7 +21,7 @@ describe('BirdNET-Go source mapping helper, set up with the cameras', () => {
     });
 
     it('saves each detected stream by the value the server lists for it, from the picker and the recent list', () => {
-        expect(componentSource).toContain('birdnetSourceOptions.map((source) => ({ value: source.mapping_value, label: sourceLinkLabel(source) }))');
+        expect(componentSource).toContain('birdnetSourceOptions.map((source) => ({ value: source.mapping_value, label: sourceLinkLabel(source, birdnetSourceOptions) }))');
         expect(componentSource).toContain('{@const sourceValue = source.mapping_value}');
         expect(componentSource).toContain('addCameraAudioSource(availableCameras[0], sourceValue)');
     });
@@ -31,6 +31,9 @@ describe('BirdNET-Go source mapping helper, set up with the cameras', () => {
         expect(componentSource).toContain('settings.integrations.birdnet.source_last_heard');
         expect(componentSource).toContain('renamedLinks(mappingTokensFor(camera), birdnetSourceOptions)');
         expect(componentSource).toContain('settings.integrations.birdnet.source_link_by_id');
+        // The remove target is at least 24 px (1.75rem at the 14 px root) and named by what the row shows.
+        expect(componentSource).toContain('inline-flex h-7 w-7 shrink-0');
+        expect(componentSource).toContain("values: { source: linked.name, camera }");
         // The last-heard time is a fact, not a warning.
         expect(componentSource).not.toMatch(/source_last_heard[^\n]*text-status/);
     });

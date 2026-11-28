@@ -7,6 +7,8 @@ import {
     linkTokens,
     relinkByStreamId,
     renamedLinks,
+    sameLinkToken,
+    sourceDetail,
     sourceLinkLabel
 } from './audio-source-links';
 
@@ -14,97 +16,144 @@ const esp32: AudioSourceOption = {
     source_name: 'ESP32 v3.0 X',
     mapping_value: 'rtsp_52d54d7d',
     source_id: 'rtsp_52d54d7d',
-    earlier_names: [{ name: 'ESP32 v3.0', last_seen: '2026-11-27T09:00:00Z', has_calls_without_id: false }],
+    source_node: 'Quark',
     last_seen: '2026-11-28T08:00:00Z',
-    seen_count: 3
+    names: [
+        { name: 'ESP32 v3.0 X', last_seen: '2026-11-28T08:00:00Z', current: true, offer_link_by_id: false },
+        { name: 'ESP32 v3.0', last_seen: '2026-11-27T09:00:00Z', current: false, offer_link_by_id: true }
+    ]
 };
 
 const reolink: AudioSourceOption = {
     source_name: 'Reolink TEST',
     mapping_value: 'rtsp_68763a4d',
     source_id: 'rtsp_68763a4d',
-    earlier_names: [{ name: 'Reolink', last_seen: '2026-11-12T09:00:00Z', has_calls_without_id: true }],
+    source_node: 'Quark',
     last_seen: '2026-11-28T08:30:00Z',
-    seen_count: 4078
+    names: [
+        { name: 'Reolink TEST', last_seen: '2026-11-28T08:30:00Z', current: true, offer_link_by_id: false },
+        { name: 'Reolink', last_seen: null, current: false, offer_link_by_id: true }
+    ]
 };
 
 const patio: AudioSourceOption = {
     source_name: 'Patio Mic',
-    mapping_value: 'Patio Mic',
+    mapping_value: 'Patio  Mic',
     source_id: null,
-    earlier_names: [],
+    source_node: 'Quark',
     last_seen: '2026-11-01T09:00:00Z',
-    seen_count: 5
+    names: [{ name: 'Patio Mic', last_seen: '2026-11-01T09:00:00Z', current: true, offer_link_by_id: false }]
 };
 
 const sources = [esp32, reolink, patio];
 
-describe('linking a camera to a BirdNET-Go source', () => {
-    it('offers a stream by its current name and id, and saves the id', () => {
-        expect(sourceLinkLabel(esp32)).toBe('ESP32 v3.0 X · rtsp_52d54d7d');
-        expect(sourceLinkLabel(patio)).toBe('Patio Mic');
-        // Both the picker and the recent list add the entry's mapping value.
-        expect(addLinkToken(['ESP32 v2.4'], esp32.mapping_value)).toEqual(['ESP32 v2.4', 'rtsp_52d54d7d']);
-        expect(addLinkToken(['RTSP_52D54D7D'], esp32.mapping_value)).toEqual(['RTSP_52D54D7D']);
-        expect(addLinkToken(['Patio Mic'], '  ')).toEqual(['Patio Mic']);
+function sharedCard(node: string, name: string, lastSeen: string): AudioSourceOption {
+    return {
+        source_name: name,
+        mapping_value: 'audio_card_22a9b331',
+        source_id: 'audio_card_22a9b331',
+        source_node: node,
+        last_seen: lastSeen,
+        names: [{ name, last_seen: lastSeen, current: true, offer_link_by_id: false }]
+    };
+}
+
+describe('comparing links as the server matches them', () => {
+    it('trims and folds case fully, and nothing more', () => {
+        expect(sameLinkToken(' Straße ', 'STRASSE')).toBe(true);
+        expect(sameLinkToken('RTSP_52D54D7D', 'rtsp_52d54d7d')).toBe(true);
+        expect(sameLinkToken('Garden  Mic', 'Garden Mic')).toBe(false);
     });
 
     it('splits a typed link the way the server reads it', () => {
         expect(linkTokens('ESP32 v3.0, rtsp_52d54d7d;Reolink\n|')).toEqual(['ESP32 v3.0', 'rtsp_52d54d7d', 'Reolink']);
         expect(linkTokens(undefined)).toEqual([]);
     });
+});
 
-    it('shows a linked id as the stream it names, with when it was last heard', () => {
-        expect(describeLinkToken('RTSP_52d54d7d', sources)).toEqual({
-            text: 'ESP32 v3.0 X · rtsp_52d54d7d',
-            lastHeard: '2026-11-28T08:00:00Z'
-        });
-        expect(describeLinkToken(' patio mic ', sources)).toEqual({ text: 'patio mic', lastHeard: '2026-11-01T09:00:00Z' });
+describe('linking a camera to a BirdNET-Go source', () => {
+    it('offers a stream by its current name and id, and saves the id', () => {
+        expect(sourceLinkLabel(esp32, sources)).toBe('ESP32 v3.0 X · rtsp_52d54d7d');
+        expect(sourceLinkLabel(patio, sources)).toBe('Patio Mic');
+        expect(addLinkToken(['ESP32 v2.4'], esp32.mapping_value)).toEqual(['ESP32 v2.4', 'rtsp_52d54d7d']);
+        expect(addLinkToken(['RTSP_52D54D7D'], esp32.mapping_value)).toEqual(['RTSP_52D54D7D']);
+        expect(addLinkToken(['Patio Mic'], '  ')).toEqual(['Patio Mic']);
     });
 
-    it('shows an earlier name as typed, with when a call last carried it', () => {
-        expect(describeLinkToken('ESP32 v3.0', sources)).toEqual({
-            text: 'ESP32 v3.0',
-            lastHeard: '2026-11-27T09:00:00Z'
+    it('saves a source without an id by the name its calls carry, spaces and all', () => {
+        expect(addLinkToken([], patio.mapping_value)).toEqual(['Patio  Mic']);
+        expect(addLinkToken(['Patio Mic'], patio.mapping_value)).toEqual(['Patio Mic', 'Patio  Mic']);
+    });
+
+    it('names the install beside a stream id two installs share', () => {
+        const shared = [sharedCard('House', 'House Mic', '2026-11-28T09:00:00Z'), sharedCard('Shed', 'Shed Mic', '2026-11-28T08:00:00Z')];
+        expect(sourceLinkLabel(shared[1], shared)).toBe('Shed Mic · audio_card_22a9b331 · Shed');
+        expect(sourceDetail(shared[1], shared)).toBe('audio_card_22a9b331 · Shed');
+        expect(sourceDetail(esp32, sources)).toBe('rtsp_52d54d7d');
+        expect(sourceDetail(patio, sources)).toBeNull();
+        expect(describeLinkToken('audio_card_22a9b331', shared)).toEqual({
+            name: 'House Mic, Shed Mic',
+            detail: 'audio_card_22a9b331 · House, Shed',
+            lastHeard: '2026-11-28T09:00:00Z'
         });
+    });
+
+    it('shows a linked id as the stream it names, with the newest call carrying the id', () => {
+        expect(describeLinkToken('RTSP_52d54d7d', sources)).toEqual({
+            name: 'ESP32 v3.0 X',
+            detail: 'rtsp_52d54d7d',
+            lastHeard: '2026-11-28T08:00:00Z'
+        });
+    });
+
+    it('shows a name as typed, with the newest call under that name from any source', () => {
+        const garden = (id: string, lastSeen: string, current: boolean): AudioSourceOption => ({
+            ...esp32,
+            source_name: current ? 'Garden' : 'Hedge',
+            mapping_value: id,
+            source_id: id,
+            names: [{ name: 'Garden', last_seen: lastSeen, current, offer_link_by_id: false }]
+        });
+        const both = [garden('rtsp_a', '2026-11-01T09:00:00Z', false), garden('rtsp_b', '2026-11-25T09:00:00Z', true)];
+        expect(describeLinkToken(' garden ', both)).toEqual({ name: 'garden', detail: null, lastHeard: '2026-11-25T09:00:00Z' });
+        expect(describeLinkToken('ESP32 v3.0', sources)).toEqual({ name: 'ESP32 v3.0', detail: null, lastHeard: '2026-11-27T09:00:00Z' });
+        expect(describeLinkToken('Reolink', sources)).toEqual({ name: 'Reolink', detail: null, lastHeard: null });
     });
 
     it('shows a token that matches no known source verbatim, with no time', () => {
-        expect(describeLinkToken('rtsp_deadbeef', sources)).toEqual({ text: 'rtsp_deadbeef', lastHeard: null });
-        expect(describeLinkToken('Shed', sources)).toEqual({ text: 'Shed', lastHeard: null });
+        expect(describeLinkToken('rtsp_deadbeef', sources)).toEqual({ name: 'rtsp_deadbeef', detail: null, lastHeard: null });
     });
 });
 
 describe('a camera linked by a name its stream no longer uses', () => {
-    it('says which stream the old name is now called', () => {
-        expect(renamedLinks(['ESP32 v3.0', 'ESP32 v2.4'], sources)).toEqual([
-            { token: 'ESP32 v3.0', source: esp32 }
-        ]);
+    it('says which stream the old name is now called, when the server offers it', () => {
+        expect(renamedLinks(['ESP32 v3.0', 'ESP32 v2.4'], sources)).toEqual([{ token: 'ESP32 v3.0', source: esp32 }]);
+        expect(renamedLinks(['reolink'], sources)).toEqual([{ token: 'reolink', source: reolink }]);
     });
 
-    it('says nothing for a current name, an id, an unknown name or a stream already linked by id', () => {
+    it('says nothing for a current name, an id, an unknown name, or a stream already linked by id', () => {
         expect(renamedLinks(['ESP32 v3.0 X', 'rtsp_68763a4d', 'Shed', 'Patio Mic'], sources)).toEqual([]);
-        expect(renamedLinks(['Reolink', 'rtsp_68763a4d'], sources)).toEqual([]);
+        expect(renamedLinks(['Reolink', 'RTSP_68763A4D'], sources)).toEqual([]);
     });
 
-    it('says nothing when the old name is another stream\'s current name', () => {
-        const reused: AudioSourceOption = { ...patio, source_name: 'ESP32 v3.0', mapping_value: 'ESP32 v3.0' };
-        expect(renamedLinks(['ESP32 v3.0'], [esp32, reused])).toEqual([]);
+    it('says nothing for an earlier name the server does not offer', () => {
+        const unoffered = { ...esp32, names: (esp32.names ?? []).map((name) => ({ ...name, offer_link_by_id: false })) };
+        expect(renamedLinks(['ESP32 v3.0'], [unoffered])).toEqual([]);
     });
 
-    it('says nothing when two streams carried the old name', () => {
-        const other: AudioSourceOption = { ...esp32, source_name: 'Hedge', mapping_value: 'rtsp_1', source_id: 'rtsp_1' };
-        expect(renamedLinks(['ESP32 v3.0'], [esp32, other])).toEqual([]);
-    });
-
-    it('replaces the old name with the id when every call under it has an id', () => {
+    it('adds the id after the old name and keeps the name', () => {
         expect(relinkByStreamId(['ESP32 v3.0', 'ESP32 v2.4'], 'ESP32 v3.0', esp32)).toEqual([
+            'ESP32 v3.0',
             'rtsp_52d54d7d',
             'ESP32 v2.4'
         ]);
     });
 
-    it('adds the id and keeps the old name when calls from before ids still match it alone', () => {
-        expect(relinkByStreamId(['Reolink'], 'Reolink', reolink)).toEqual(['Reolink', 'rtsp_68763a4d']);
+    it('leaves each link once, in order', () => {
+        expect(relinkByStreamId(['ESP32 v3.0', 'esp32 v3.0', 'Shed'], 'ESP32 v3.0', esp32)).toEqual([
+            'ESP32 v3.0',
+            'rtsp_52d54d7d',
+            'Shed'
+        ]);
     });
 });
