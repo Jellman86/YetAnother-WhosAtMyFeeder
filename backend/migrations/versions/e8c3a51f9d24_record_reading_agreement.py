@@ -9,14 +9,14 @@ Additive and nullable. Existing rows stay NULL, which means the readings were ne
 compared; nothing is guessed for them here. Downgrade removes the column alone.
 
 Revision ID: e8c3a51f9d24
-Revises: d4b8f2a6c1e3
+Revises: e5c1a9f3b7d2
 """
 
 from alembic import op
 import sqlalchemy as sa
 
 revision = "e8c3a51f9d24"
-down_revision = "d4b8f2a6c1e3"
+down_revision = "e5c1a9f3b7d2"
 branch_labels = None
 depends_on = None
 

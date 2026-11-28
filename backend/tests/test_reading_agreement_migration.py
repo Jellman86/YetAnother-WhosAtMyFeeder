@@ -9,7 +9,7 @@ import sys
 import pytest
 
 REVISION = "e8c3a51f9d24"
-PARENT = "d4b8f2a6c1e3"
+PARENT = "e5c1a9f3b7d2"
 
 
 def _schema(db: sqlite3.Connection) -> list[tuple]:
