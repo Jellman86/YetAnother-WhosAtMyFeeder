@@ -191,6 +191,7 @@ export interface components {
     offer_link_by_id: boolean;
 };
     AudioSourceResponse: {
+    installs_sharing_id?: Array<string>;
     last_seen: string;
     mapping_value: string;
     names?: Array<components['schemas']['AudioSourceNameResponse']>;

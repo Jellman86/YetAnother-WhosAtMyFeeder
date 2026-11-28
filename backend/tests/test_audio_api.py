@@ -118,6 +118,68 @@ async def test_audio_sources_offers_no_rename_for_a_name_a_stream_outside_the_pa
 
 
 @pytest.mark.asyncio
+async def test_audio_sources_offers_an_earlier_name_in_the_spelling_its_calls_carried(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    now = datetime(2026, 11, 28, 9, 0, tzinfo=timezone.utc)
+    await _store_calls(
+        [
+            _stream_call(now - timedelta(days=1), "Garden  Mic", "rtsp_a"),
+            _stream_call(now - timedelta(hours=1), "Current", "rtsp_a"),
+        ]
+    )
+
+    response = await client.get("/api/audio/sources?limit=10")
+    assert response.status_code == 200, response.text
+    [stream] = response.json()
+    assert [(name["name"], name["offer_link_by_id"]) for name in stream["names"]] == [
+        ("Current", False),
+        ("Garden  Mic", True),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_audio_sources_never_offers_a_later_hidden_name_as_an_earlier_one(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    await _store_calls(
+        [
+            _stream_call(datetime(2026, 11, 1, 9, tzinfo=timezone.utc), "Feeder", "rtsp_a"),
+            _stream_call(datetime(2026, 11, 15, 9, tzinfo=timezone.utc), "Feeder X", "rtsp_a", hidden=1),
+        ]
+    )
+
+    response = await client.get("/api/audio/sources?limit=10")
+    assert response.status_code == 200, response.text
+    [stream] = response.json()
+    assert stream["source_name"] == "Feeder"
+    assert not any(name["offer_link_by_id"] for name in stream["names"])
+
+
+@pytest.mark.asyncio
+async def test_audio_sources_names_every_install_sharing_an_id_beyond_the_page(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    now = datetime(2026, 11, 28, 9, 0, tzinfo=timezone.utc)
+    card = "audio_card_22a9b331"
+    await _store_calls(
+        [
+            (now, None, {"sourceId": card, "SourceNode": "House"}, 0),
+            (now - timedelta(days=3), None, {"sourceId": card, "SourceNode": "Shed"}, 0),
+        ]
+    )
+
+    response = await client.get("/api/audio/sources?limit=1")
+    assert response.status_code == 200, response.text
+    [house] = response.json()
+    assert (house["source_name"], house["source_node"], house["installs_sharing_id"]) == (
+        card,
+        "House",
+        ["House", "Shed"],
+    )
+
+
+@pytest.mark.asyncio
 async def test_audio_sources_keeps_a_quiet_stream_behind_many_newer_calls(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
@@ -144,7 +206,7 @@ async def test_audio_sources_links_a_source_without_an_id_by_the_name_the_matche
     response = await client.get("/api/audio/sources?limit=10")
     assert response.status_code == 200, response.text
     [garden] = response.json()
-    assert (garden["source_name"], garden["mapping_value"], garden["source_id"]) == ("Garden Mic", "Garden  Mic", None)
+    assert (garden["source_name"], garden["mapping_value"], garden["source_id"]) == ("Garden  Mic", "Garden  Mic", None)
     # Saved as offered, the link matches the call it came from.
     _, keys = parse_mapping_filter_values(garden["mapping_value"])
     assert keys & extract_audio_mapping_keys("Garden  Mic", json.dumps(payload))

@@ -1296,6 +1296,14 @@
       },
       "AudioSourceResponse": {
         "properties": {
+          "installs_sharing_id": {
+            "description": "Every install sending this stream id, decided over every stream before `limit`; empty unless more than one.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Installs Sharing Id",
+            "type": "array"
+          },
           "last_seen": {
             "description": "The newest visible call carrying the value to save, as UTC ISO 8601.",
             "title": "Last Seen",

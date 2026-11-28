@@ -62,9 +62,15 @@ class AudioSourceLink:
     source_name: str
     source_id: str | None
     source_node: str | None
+    # Every install with a listed stream sending this id, when more than one does; otherwise empty.
+    installs_sharing_id: list[str]
     # The newest visible call carrying the value to save: the id, or the name of a source without one.
     last_seen: str
     names: list[SourceLinkName]
+
+
+# (node, id, name, shown) as stored -> the name the matcher reads from the newest such call.
+LiteralNames = Mapping[tuple[str | None, str | None, str, bool], str]
 
 
 @dataclass
@@ -81,78 +87,108 @@ class _Name:
 @dataclass
 class _Stream:
     last_seen: str = ""
+    # Matcher key of the spelling the calls carried -> that name.
     names: dict[str, _Name] = field(default_factory=dict)
+    # Cleaned stored name -> (newest visible time, matcher key of its spelling).
+    shown_spellings: dict[str, tuple[str, str]] = field(default_factory=dict)
 
-    def record(self, observation: SourceObservation, carries_value: bool) -> None:
+    def record(self, observation: SourceObservation, spelling: str | None, carries_value: bool) -> None:
         if observation.shown and carries_value:
             self.last_seen = max(self.last_seen, observation.last_seen)
-        if not observation.name:
+        if not observation.name or not spelling:
             return
-        stamp = (observation.last_seen, observation.name)
-        name = self.names.setdefault(normalize_mapping_key(observation.name), _Name(newest=stamp))
+        key = normalize_mapping_key(spelling)
+        stamp = (observation.last_seen, spelling)
+        name = self.names.setdefault(key, _Name(newest=stamp))
         name.newest = max(name.newest, stamp)
         if observation.shown:
             name.newest_shown = max(name.newest_shown or stamp, stamp)
+            known = self.shown_spellings.get(observation.name)
+            if known is None or observation.last_seen >= known[0]:
+                self.shown_spellings[observation.name] = (observation.last_seen, key)
+
+    def key_of(self, display_name: str | None) -> str:
+        """The matcher key of the spelling behind a cleaned display name."""
+        shown = self.shown_spellings.get(display_name or "")
+        return shown[1] if shown else normalize_mapping_key(display_name)
 
 
 def audio_source_links(
     observations: Iterable[SourceObservation],
-    literal_names: Mapping[tuple[str | None, str], str] | None = None,
+    literal_names: LiteralNames | None = None,
 ) -> list[AudioSourceLink]:
     """Each linkable source with a visible call, newest first.
 
     ``observations`` are the owner's, hidden calls included as evidence (``shown=False``).
-    ``literal_names`` maps a stored (node, name) without an id to the name the matcher reads.
+    ``literal_names`` gives, for each stored (node, id, name, shown), the name the matcher reads
+    from its newest call; names are offered, timed, compared and shown in that spelling.
     """
     seen = list(observations)
+    literals = literal_names or {}
     directory = AudioSourceDirectory(seen)
     streams: dict[SourceKey, _Stream] = {}
     for observation in seen:
         key = directory.key_for(observation.node, observation.source_id, observation.name)
         if key[0] == "unknown":
             continue
+        spelling = None
+        if observation.name:
+            identity = (observation.node, observation.source_id, observation.name, observation.shown)
+            spelling = literals.get(identity) or observation.name
         carries_value = bool(observation.source_id) or key[0] == "name"
-        streams.setdefault(key, _Stream()).record(observation, carries_value)
+        streams.setdefault(key, _Stream()).record(observation, spelling, carries_value)
 
     current = {key: directory.display_name(key) for key in streams}
-    current_names = {normalize_mapping_key(name) for name in current.values() if name}
+    now_keys = {key: stream.key_of(current[key]) for key, stream in streams.items()}
+    current_names = {now_keys[key] for key in streams if current[key]}
     carriers: dict[str, int] = {}
     for key, stream in streams.items():
         if key[0] in _IDENTIFIED:
             for name in stream.names:
                 carriers[name] = carriers.get(name, 0) + 1
+    listed = [key for key, stream in streams.items() if stream.last_seen]
+    sharing: dict[str, list[SourceKey]] = {}
+    for key in listed:
+        if key[0] in _IDENTIFIED and (source_id := directory.source_id(key)):
+            sharing.setdefault(source_id, []).append(key)
 
     links = []
-    for key, stream in streams.items():
-        if not stream.last_seen:
-            continue
-        name_now = current[key]
-        now_key = normalize_mapping_key(name_now)
+    for key in listed:
+        stream = streams[key]
+        now_key = now_keys[key]
+        name_now = stream.names[now_key] if now_key in stream.names else None
+        heard_now = name_now.newest_shown[0] if name_now and name_now.newest_shown else None
         source_id = directory.source_id(key) if key[0] in _IDENTIFIED else None
-        if source_id:
-            mapping_value = source_id
-        else:
-            mapping_value = (literal_names or {}).get((key[1] or None, key[2])) or name_now or key[2]
+        display = name_now.spelling if name_now else current[key]
         names = [
             SourceLinkName(
                 name=name.spelling,
                 last_seen=name.newest_shown[0] if name.newest_shown else None,
                 current=folded == now_key,
+                # An earlier name only this stream carried, that no source carries now, and that it
+                # carried before its current name: a later name that was hidden is no rename.
                 offer_link_by_id=bool(source_id)
                 and folded != now_key
                 and folded not in current_names
-                and carriers.get(folded) == 1,
+                and carriers.get(folded) == 1
+                and heard_now is not None
+                and name.newest[0] < heard_now,
             )
             for folded, name in stream.names.items()
         ]
         # The current name first, then the others, the most recently heard first.
-        names.sort(key=lambda name: (name.current, name.last_seen or ""), reverse=True)
+        names.sort(key=lambda name: (name.current, name.last_seen or "", name.name), reverse=True)
+        mapping_value = source_id or display or key[2]
+        shared = sharing.get(source_id, []) if source_id else []
         links.append(
             AudioSourceLink(
                 mapping_value=mapping_value,
-                source_name=name_now or mapping_value,
+                source_name=display or mapping_value,
                 source_id=source_id,
                 source_node=directory.source_node(key),
+                installs_sharing_id=sorted({node for other in shared if (node := directory.source_node(other))})
+                if len(shared) > 1
+                else [],
                 last_seen=stream.last_seen,
                 names=names,
             )

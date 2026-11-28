@@ -200,27 +200,28 @@ async def load_audio_source_links(db: aiosqlite.Connection) -> list[AudioSourceL
 
     Read as the owner's Audio history reads its sources, with every call the owner keeps as
     evidence of who carried which name, so a stream heard once months ago is listed beside a busy
-    one. Each stored (node, id, name) costs two index seeks for its newest visible and hidden call,
-    and a source without an id one more for the name the matcher reads from its newest call: the
-    work grows with the number of sources and names, never with the number of calls.
+    one. Each stored (node, id, name) costs an index seek for its newest visible and hidden call,
+    and one more for each to read the name the matcher sees on that call, since stored names are
+    cleaned for display: the work grows with the number of sources and names, never with the
+    number of calls.
     """
     observations = await _read_source_observations(
         db, minimum_start=None, maximum_end=None, hidden=False, owner_evidence=True
     )
-    literal_names: dict[tuple[str | None, str], str] = {}
+    literal_names: dict[tuple[str | None, str | None, str, bool], str] = {}
     for observation in observations:
-        if observation.source_id is not None or not observation.name or not observation.shown:
+        if not observation.name:
             continue
         async with db.execute(
             """SELECT sensor_id, raw_data FROM audio_detections
-               WHERE source_node IS ? AND source_id IS NULL AND source_name IS ? AND is_hidden = 0
+               WHERE source_node IS ? AND source_id IS ? AND source_name IS ? AND is_hidden = ?
                ORDER BY timestamp DESC LIMIT 1""",
-            (observation.node, observation.name),
+            (observation.node, observation.source_id, observation.name, int(not observation.shown)),
         ) as cursor:
             row = await cursor.fetchone()
         literal = literal_source_name(row[0], row[1]) if row else None
         if literal:
-            literal_names[(observation.node, observation.name)] = literal
+            literal_names[(observation.node, observation.source_id, observation.name, observation.shown)] = literal
     return audio_source_links(observations, literal_names)
 
 

@@ -142,6 +142,10 @@ class AudioSourceResponse(BaseModel):
     )
     source_id: str | None = Field(default=None, description="BirdNET-Go's id for the stream; kept across a rename.")
     source_node: str | None = Field(default=None, description="The BirdNET-Go install that sent the stream's calls.")
+    installs_sharing_id: list[str] = Field(
+        default_factory=list,
+        description="Every install sending this stream id, decided over every stream before `limit`; empty unless more than one.",
+    )
     last_seen: str = Field(description="The newest visible call carrying the value to save, as UTC ISO 8601.")
     names: list[AudioSourceNameResponse] = Field(
         default_factory=list, description="Every name the stream has carried, the current one first."
@@ -1048,6 +1052,7 @@ async def get_audio_sources(
             mapping_value=link.mapping_value,
             source_id=link.source_id,
             source_node=link.source_node,
+            installs_sharing_id=link.installs_sharing_id,
             last_seen=_api_time(link.last_seen),
             names=[
                 AudioSourceNameResponse(
