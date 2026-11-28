@@ -1,1 +1,0 @@
-- Dashboard DayBar now reads the server-side `unresolved_count` from `/api/stats/daily-summary` for both owners and guests so unauthenticated visitors see the same unresolved total for the window instead of a count over a truncated 50-item recent-events buffer (#1086).
