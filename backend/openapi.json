@@ -9566,6 +9566,233 @@
         "title": "FeederPortraitResponse",
         "type": "object"
       },
+      "FeederRefill": {
+        "properties": {
+          "camera_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The camera watching that feeder; null when none was given",
+            "title": "Camera Name"
+          },
+          "created_at": {
+            "description": "When YA-WAMF stored the refill, in UTC",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Plain text, one line; show it as text, never as markup",
+            "title": "Note"
+          },
+          "refilled_at": {
+            "description": "When the feeder was filled, in UTC",
+            "title": "Refilled At",
+            "type": "string"
+          },
+          "source": {
+            "description": "manual: recorded in YA-WAMF; api: sent by an automation; mqtt: by MQTT",
+            "enum": [
+              "manual",
+              "api",
+              "mqtt"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "source_event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The automation's own id for the event, when it sent one",
+            "title": "Source Event Id"
+          }
+        },
+        "required": [
+          "id",
+          "refilled_at",
+          "camera_name",
+          "source",
+          "note",
+          "source_event_id",
+          "created_at"
+        ],
+        "title": "FeederRefill",
+        "type": "object"
+      },
+      "FeederRefillCreate": {
+        "properties": {
+          "camera_name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A configured camera or null; a blank name also means no camera",
+            "title": "Camera Name"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 280,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "refilled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the feeder was filled, with its offset. Null records it now. A time in the future is refused.",
+            "title": "Refilled At"
+          },
+          "source": {
+            "default": "api",
+            "description": "manual when the owner recorded it in YA-WAMF; api for an automation",
+            "enum": [
+              "manual",
+              "api"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "source_event_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A printable automation event id; retrying it returns the same refill while that refill exists",
+            "title": "Source Event Id"
+          }
+        },
+        "title": "FeederRefillCreate",
+        "type": "object"
+      },
+      "FeederRefillDeleted": {
+        "properties": {
+          "deleted": {
+            "description": "Always true; the refill is gone and cannot be restored",
+            "title": "Deleted",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "deleted"
+        ],
+        "title": "FeederRefillDeleted",
+        "type": "object"
+      },
+      "FeederRefillPage": {
+        "properties": {
+          "end": {
+            "title": "End",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FeederRefill"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "total": {
+            "description": "Refills in the window",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset",
+          "start",
+          "end"
+        ],
+        "title": "FeederRefillPage",
+        "type": "object"
+      },
+      "FeederRefillRecorded": {
+        "properties": {
+          "outcome": {
+            "description": "recorded: stored as a new refill; same_event: this automation event id was already stored; within_cooldown: a refill of the same camera was already stored within 15 minutes",
+            "enum": [
+              "recorded",
+              "same_event",
+              "within_cooldown"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "refill": {
+            "$ref": "#/components/schemas/FeederRefill",
+            "description": "The refill stored now, or the one already stored that this repeats"
+          }
+        },
+        "required": [
+          "outcome",
+          "refill"
+        ],
+        "title": "FeederRefillRecorded",
+        "type": "object"
+      },
       "FocusedDiagnosticsResponse": {
         "properties": {
           "backfill": {
@@ -38368,6 +38595,230 @@
         "summary": "Get Range Filter Status",
         "tags": [
           "range-filter"
+        ]
+      }
+    },
+    "/api/refills": {
+      "get": {
+        "description": "Refills in a window of at most 400 days, newest first.",
+        "operationId": "list_refills_api_refills_get",
+        "parameters": [
+          {
+            "description": "Earliest refill time, with its offset; 30 days before end",
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Earliest refill time, with its offset; 30 days before end",
+              "title": "Start"
+            }
+          },
+          {
+            "description": "Latest refill time, with its offset; now when left out",
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Latest refill time, with its offset; now when left out",
+              "title": "End"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 100000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeederRefillPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "List Refills",
+        "tags": [
+          "refills"
+        ]
+      },
+      "post": {
+        "description": "Record a refill. A repeat of one already stored records nothing new and returns that one with 200.",
+        "operationId": "create_refill_api_refills_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeederRefillCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeederRefillRecorded"
+                }
+              }
+            },
+            "description": "Already stored; nothing new was recorded"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeederRefillRecorded"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Create Refill",
+        "tags": [
+          "refills"
+        ]
+      }
+    },
+    "/api/refills/{refill_id}": {
+      "delete": {
+        "description": "Delete a refill permanently. It cannot be restored; record it again if it was deleted by mistake.",
+        "operationId": "delete_refill_api_refills__refill_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "refill_id",
+            "required": true,
+            "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Refill Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeederRefillDeleted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Delete Refill",
+        "tags": [
+          "refills"
         ]
       }
     },

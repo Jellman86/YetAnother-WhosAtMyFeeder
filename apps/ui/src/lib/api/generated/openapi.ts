@@ -1361,6 +1361,38 @@ export interface components {
     started_at?: string | null;
     visits: number;
 };
+    FeederRefill: {
+    camera_name: string | null;
+    created_at: string;
+    id: number;
+    note: string | null;
+    refilled_at: string;
+    source: "manual" | "api" | "mqtt";
+    source_event_id: string | null;
+};
+    FeederRefillCreate: {
+    camera_name?: string | null;
+    note?: string | null;
+    refilled_at?: string | null;
+    source?: "manual" | "api";
+    source_event_id?: string | null;
+};
+    FeederRefillDeleted: {
+    deleted: boolean;
+    id: number;
+};
+    FeederRefillPage: {
+    end: string;
+    items: Array<components['schemas']['FeederRefill']>;
+    limit: number;
+    offset: number;
+    start: string;
+    total: number;
+};
+    FeederRefillRecorded: {
+    outcome: "recorded" | "same_event" | "within_cooldown";
+    refill: components['schemas']['FeederRefill'];
+};
     FocusedDiagnosticsResponse: {
     backfill?: components['schemas']['BackfillFocusedDiagnosticsResponse'] | null;
     video_classifier?: components['schemas']['VideoClassifierFocusedDiagnosticsResponse'] | null;
@@ -5714,6 +5746,38 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['RangeFilterStatus'];
+    };
+  };
+  "/api/refills": {
+    get: {
+      operationId: "list_refills_api_refills_get";
+      path: never;
+      query: {
+    end?: string | null;
+    limit?: number;
+    offset?: number;
+    start?: string | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['FeederRefillPage'];
+    };
+    post: {
+      operationId: "create_refill_api_refills_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['FeederRefillCreate'];
+      response: components['schemas']['FeederRefillRecorded'];
+    };
+  };
+  "/api/refills/{refill_id}": {
+    delete: {
+      operationId: "delete_refill_api_refills__refill_id__delete";
+      path: {
+    refill_id: number;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['FeederRefillDeleted'];
     };
   };
   "/api/settings": {
