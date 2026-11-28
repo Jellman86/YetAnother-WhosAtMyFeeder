@@ -122,6 +122,7 @@ def test_stand_alone_mid_band_box_the_classifier_calls_a_nonbird_is_excluded():
         (group_output(bird_mass=0.95, nonbird_mass=0.0, top_group="bird"), CROP),
         (group_output(bird_mass=0.3, nonbird_mass=0.3, top_group="unknown"), CROP),
         (group_output(bird_mass=0.95, nonbird_mass=0.0, top_group="bird"), OTHER),
+        (group_output(bird_mass=0.05, nonbird_mass=0.9, top_group="nonbird"), CROP),
         (None, CROP),
     ],
 )
@@ -130,16 +131,8 @@ def test_mid_band_box_sharing_pixels_with_a_counted_bird_stays_uncounted_whateve
     result = scene(rows, {"part": own_crop_decision(0.45, output, crop_sha256=crop_sha256)})
     assert [bird.candidate_id for bird in result.birds] == ["bird"]
     assert [(r.candidate_id, r.reason) for r in result.unconfirmed_regions] == [("part", "shares_counted_pixels")]
+    assert result.excluded_regions == ()
     assert result.count_status == "incomplete"
-
-
-def test_mid_band_nonbird_beside_a_counted_bird_is_excluded_not_counted():
-    rows = [proposal("bird", (0, 0, 100, 100), 0.9), proposal("feeder", (80, 20, 140, 80), 0.45)]
-    output = group_output(bird_mass=0.05, nonbird_mass=0.9, top_group="nonbird")
-    result = scene(rows, {"feeder": own_crop_decision(0.45, output)})
-    assert [bird.candidate_id for bird in result.birds] == ["bird"]
-    assert [(r.candidate_id, r.reason) for r in result.excluded_regions] == [("feeder", "own_crop_nonbird")]
-    assert result.unconfirmed_regions == ()
 
 
 @pytest.mark.parametrize(

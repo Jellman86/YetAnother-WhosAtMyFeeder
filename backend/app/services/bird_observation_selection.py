@@ -171,21 +171,20 @@ def select_confirmed_bird_observations(
             decision = decisions[box]
             confidence = _finite_score(candidate.get("crop_confidence"))
             strong = confidence is not None and confidence >= STRONG_DETECTOR_CONFIDENCE
-            if (
-                decision.verdict != "excluded"
-                and not strong
-                and any(other != box and _shares_pixels(box, other) for other in active)
-            ):
+            overlapping = (
+                [other for other in active if other != box and _shares_pixels(box, other)] if not strong else []
+            )
+            if overlapping:
                 shares_counted = any(
-                    other != box
-                    and _shares_pixels(box, other)
-                    and decisions[other].verdict == "counted"
+                    decisions[other].verdict == "counted"
                     and (_finite_score(entries[other].get("crop_confidence")) or 0) >= STRONG_DETECTOR_CONFIDENCE
-                    for other in active
+                    for other in overlapping
                 )
-                decision = PhysicalBirdDecision(
-                    "unconfirmed", "shares_counted_pixels" if shares_counted else "individuality_unresolved"
-                )
+                # A crop sharing a counted bird's pixels cannot resolve a separate region.
+                if shares_counted or decision.verdict != "excluded":
+                    decision = PhysicalBirdDecision(
+                        "unconfirmed", "shares_counted_pixels" if shares_counted else "individuality_unresolved"
+                    )
             if decision.verdict == "counted":
                 confirmed.append(candidate)
             else:
