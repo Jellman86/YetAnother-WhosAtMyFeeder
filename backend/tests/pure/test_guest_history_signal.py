@@ -48,6 +48,8 @@ def test_malformed_update_data_falls_back_to_a_plain_change(data):
         {"type": "garden_history_changed"},
         {"type": "unknown_future_owner_message", "data": {"is_hidden": True}},
         {"type": None},
+        {"type": ["detection_deleted"]},
+        {"type": {"owner": "private"}},
         {},
     ],
 )

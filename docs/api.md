@@ -2164,9 +2164,10 @@ length oracle.
    in addition to connection/heartbeat frames; none carries an ID or any other field. Fetch
    allowed data through the public HTTP API and refresh sharing preferences.
    `public_history_narrowed` means records left the shared history (a delete, including an
-   automatic false-positive removal, or an update whose record is now hidden): discard any answer
-   requested before it, then read again. `public_history_changed` covers everything else, such as a
-   new capture or a record shown again, and needs no answer discarded.
+   automatic false-positive removal, or an update whose record is now hidden). Discard answers
+   requested before the signal and use the next scheduled refresh to reread within the guest rate
+   limit. `public_history_changed` covers new captures, other detection updates and audio history
+   changes. Clients can keep earlier answers until that refresh.
 
 ## See Also
 

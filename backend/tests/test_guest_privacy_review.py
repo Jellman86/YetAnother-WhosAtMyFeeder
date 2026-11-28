@@ -322,6 +322,7 @@ async def test_guest_sse_tells_a_narrowing_apart_from_a_change_without_any_field
     ]
     try:
         await response.body_iterator.__anext__()
+        await broadcaster.broadcast({"type": ["detection_deleted"], "data": {"secret": "private"}})
         for message, expected_type in deliveries:
             await broadcaster.broadcast(message)
             frame = await asyncio.wait_for(response.body_iterator.__anext__(), 1)
