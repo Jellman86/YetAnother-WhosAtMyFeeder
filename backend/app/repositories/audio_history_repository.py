@@ -24,7 +24,7 @@ from app.utils.audio_source_identity import (
     read_stored_source,
     source_of_payload,
 )
-from app.utils.audio_source_links import AudioSourceLink, SourceNameUse, audio_source_links, fold_source_name
+from app.utils.audio_source_links import AudioSourceLink, audio_source_links, literal_source_name
 from app.utils.birdnet_payload import (
     extract_audio_mapping_keys,
     extract_birdnet_id,
@@ -140,6 +140,22 @@ async def load_audio_source_directory(
     Each (node, id, name) a call carries is found by seeking the identity index, and its newest
     call in the view by one more seek, so a request costs the same however many calls are stored.
     """
+    return AudioSourceDirectory(
+        await _read_source_observations(
+            db, minimum_start=minimum_start, maximum_end=maximum_end, hidden=hidden, owner_evidence=owner_evidence
+        )
+    )
+
+
+async def _read_source_observations(
+    db: aiosqlite.Connection,
+    *,
+    minimum_start: datetime | None,
+    maximum_end: datetime | None,
+    hidden: bool,
+    owner_evidence: bool,
+) -> list[SourceObservation]:
+    """Each stored (node, id, name) with its newest call in the view, and as evidence when asked."""
     bounds, bound_params = [], []
     if minimum_start is not None:
         bounds.append("timestamp >= ?")
@@ -176,36 +192,36 @@ async def load_audio_source_directory(
                                 shown=is_hidden == hidden,
                             )
                         )
-    return AudioSourceDirectory(observations)
+    return observations
 
 
 async def load_audio_source_links(db: aiosqlite.Connection) -> list[AudioSourceLink]:
     """Every source a camera can be linked to, one entry per stream, for the owner's Settings.
 
-    Walks the identity index as ``load_audio_source_directory`` does, so a stream heard once months
-    ago is listed beside a busy one. Each stored (node, id, name) costs one count of its visible
-    calls, read from the index alone; no payload is read. Names stored without an id are noted
-    from every call, hidden ones included, since a hidden call still matches a link by its name.
+    Read as the owner's Audio history reads its sources, with every call the owner keeps as
+    evidence of who carried which name, so a stream heard once months ago is listed beside a busy
+    one. Each stored (node, id, name) costs two index seeks for its newest visible and hidden call,
+    and a source without an id one more for the name the matcher reads from its newest call: the
+    work grows with the number of sources and names, never with the number of calls.
     """
-    uses: list[SourceNameUse] = []
-    names_without_id: set[str] = set()
-    for node in await _distinct_source_values(db, "source_node", []):
-        for source_id in await _distinct_source_values(db, "source_id", [("source_node", node)]):
-            names = await _distinct_source_values(db, "source_name", [("source_node", node), ("source_id", source_id)])
-            for name in names:
-                if source_id is None and name:
-                    names_without_id.add(fold_source_name(name))
-                async with db.execute(
-                    """SELECT MAX(timestamp), COUNT(*) FROM audio_detections
-                       WHERE source_node IS ? AND source_id IS ? AND source_name IS ? AND is_hidden = 0""",
-                    (node, source_id, name),
-                ) as cursor:
-                    row = await cursor.fetchone()
-                if row and row[1]:
-                    uses.append(
-                        SourceNameUse(node=node, source_id=source_id, name=name, last_seen=str(row[0]), count=row[1])
-                    )
-    return audio_source_links(uses, names_without_id)
+    observations = await _read_source_observations(
+        db, minimum_start=None, maximum_end=None, hidden=False, owner_evidence=True
+    )
+    literal_names: dict[tuple[str | None, str], str] = {}
+    for observation in observations:
+        if observation.source_id is not None or not observation.name or not observation.shown:
+            continue
+        async with db.execute(
+            """SELECT sensor_id, raw_data FROM audio_detections
+               WHERE source_node IS ? AND source_id IS NULL AND source_name IS ? AND is_hidden = 0
+               ORDER BY timestamp DESC LIMIT 1""",
+            (observation.node, observation.name),
+        ) as cursor:
+            row = await cursor.fetchone()
+        literal = literal_source_name(row[0], row[1]) if row else None
+        if literal:
+            literal_names[(observation.node, observation.name)] = literal
+    return audio_source_links(observations, literal_names)
 
 
 def filter_names_a_source(source: str | None, search: str | None, search_include_source: bool) -> bool:

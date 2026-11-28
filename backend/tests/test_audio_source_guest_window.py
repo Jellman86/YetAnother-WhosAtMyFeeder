@@ -169,7 +169,7 @@ async def test_only_the_owner_lists_sources_to_link_with_their_earlier_names(ren
     owner = (await _get("/api/audio/sources", owner=True)).json()
     door = next(item for item in owner if item["mapping_value"] == "rtsp_private")
     assert door["source_name"] == "Private Door"
-    assert [name["name"] for name in door["earlier_names"]] == ["Feeder"]
+    assert [name["name"] for name in door["names"]] == ["Private Door", "Feeder"]
 
 
 @pytest.mark.asyncio

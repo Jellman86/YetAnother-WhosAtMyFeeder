@@ -1256,55 +1256,63 @@
         "title": "AudioHourlyCountResponse",
         "type": "object"
       },
-      "AudioSourceEarlierNameResponse": {
+      "AudioSourceNameResponse": {
         "properties": {
-          "has_calls_without_id": {
-            "description": "Stored calls under this name carry no stream id, so only a link by this name matches them.",
-            "title": "Has Calls Without Id",
+          "current": {
+            "description": "Whether this is the name on the stream's newest call.",
+            "title": "Current",
             "type": "boolean"
           },
           "last_seen": {
-            "description": "When a call last arrived under this name, as UTC ISO 8601.",
-            "title": "Last Seen",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The newest visible call under this name, as UTC ISO 8601; null when only hidden calls carry it.",
+            "title": "Last Seen"
           },
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "offer_link_by_id": {
+            "description": "An earlier name only this stream has carried and no source carries now: a camera linked by it can be offered the stream id.",
+            "title": "Offer Link By Id",
+            "type": "boolean"
           }
         },
         "required": [
           "name",
           "last_seen",
-          "has_calls_without_id"
+          "current",
+          "offer_link_by_id"
         ],
-        "title": "AudioSourceEarlierNameResponse",
+        "title": "AudioSourceNameResponse",
         "type": "object"
       },
       "AudioSourceResponse": {
         "properties": {
-          "earlier_names": {
-            "description": "Names the stream carried before its current one, newest first.",
-            "items": {
-              "$ref": "#/components/schemas/AudioSourceEarlierNameResponse"
-            },
-            "title": "Earlier Names",
-            "type": "array"
-          },
           "last_seen": {
-            "description": "When the stream was last heard, as UTC ISO 8601.",
+            "description": "The newest visible call carrying the value to save, as UTC ISO 8601.",
             "title": "Last Seen",
             "type": "string"
           },
           "mapping_value": {
-            "description": "What a camera's audio link should hold: the stream id, or the name when the source sends no id.",
+            "description": "What a camera's audio link should hold: the stream id, or the name as calls carry it when the source sends no id.",
             "title": "Mapping Value",
             "type": "string"
           },
-          "seen_count": {
-            "description": "How many visible calls are stored from the stream.",
-            "title": "Seen Count",
-            "type": "integer"
+          "names": {
+            "description": "Every name the stream has carried, the current one first.",
+            "items": {
+              "$ref": "#/components/schemas/AudioSourceNameResponse"
+            },
+            "title": "Names",
+            "type": "array"
           },
           "source_id": {
             "anyOf": [
@@ -1322,13 +1330,24 @@
             "description": "The name on the stream's newest call, or its id when it sent no name.",
             "title": "Source Name",
             "type": "string"
+          },
+          "source_node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The BirdNET-Go install that sent the stream's calls.",
+            "title": "Source Node"
           }
         },
         "required": [
           "source_name",
           "mapping_value",
-          "last_seen",
-          "seen_count"
+          "last_seen"
         ],
         "title": "AudioSourceResponse",
         "type": "object"
@@ -27191,7 +27210,7 @@
     },
     "/api/audio/sources": {
       "get": {
-        "description": "The BirdNET-Go sources a camera can be linked to, one per stream, newest first (owner only).\n\nEach stream is listed under its current name with the names it carried before, so the owner\ncan link a camera by the stream's id and keep the link across a rename.",
+        "description": "The BirdNET-Go sources a camera can be linked to, one per stream, newest first (owner only).\n\nEach stream is listed under its current name with every name it carried, so the owner can link\na camera by the stream's id and keep the link across a rename. Which earlier names warrant a\nrename notice is decided here, from every stream, before the list is cut to ``limit``.",
         "operationId": "get_audio_sources_api_audio_sources_get",
         "parameters": [
           {

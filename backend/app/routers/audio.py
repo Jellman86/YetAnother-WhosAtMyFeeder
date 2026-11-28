@@ -121,25 +121,31 @@ async def set_audio_visibility(
     return AudioVisibilityResponse(id=detection_id, hidden=body.hidden)
 
 
-class AudioSourceEarlierNameResponse(BaseModel):
+class AudioSourceNameResponse(BaseModel):
     name: str
-    last_seen: str = Field(description="When a call last arrived under this name, as UTC ISO 8601.")
-    has_calls_without_id: bool = Field(
-        description="Stored calls under this name carry no stream id, so only a link by this name matches them."
+    last_seen: str | None = Field(
+        description="The newest visible call under this name, as UTC ISO 8601; null when only hidden calls carry it."
+    )
+    current: bool = Field(description="Whether this is the name on the stream's newest call.")
+    offer_link_by_id: bool = Field(
+        description=(
+            "An earlier name only this stream has carried and no source carries now: a camera linked by it "
+            "can be offered the stream id."
+        )
     )
 
 
 class AudioSourceResponse(BaseModel):
     source_name: str = Field(description="The name on the stream's newest call, or its id when it sent no name.")
     mapping_value: str = Field(
-        description="What a camera's audio link should hold: the stream id, or the name when the source sends no id."
+        description="What a camera's audio link should hold: the stream id, or the name as calls carry it when the source sends no id."
     )
     source_id: str | None = Field(default=None, description="BirdNET-Go's id for the stream; kept across a rename.")
-    earlier_names: list[AudioSourceEarlierNameResponse] = Field(
-        default_factory=list, description="Names the stream carried before its current one, newest first."
+    source_node: str | None = Field(default=None, description="The BirdNET-Go install that sent the stream's calls.")
+    last_seen: str = Field(description="The newest visible call carrying the value to save, as UTC ISO 8601.")
+    names: list[AudioSourceNameResponse] = Field(
+        default_factory=list, description="Every name the stream has carried, the current one first."
     )
-    last_seen: str = Field(description="When the stream was last heard, as UTC ISO 8601.")
-    seen_count: int = Field(description="How many visible calls are stored from the stream.")
 
 
 class AudioDetectionResponse(BaseModel):
@@ -1030,8 +1036,9 @@ async def get_audio_sources(
 ) -> list[AudioSourceResponse]:
     """The BirdNET-Go sources a camera can be linked to, one per stream, newest first (owner only).
 
-    Each stream is listed under its current name with the names it carried before, so the owner
-    can link a camera by the stream's id and keep the link across a rename.
+    Each stream is listed under its current name with every name it carried, so the owner can link
+    a camera by the stream's id and keep the link across a rename. Which earlier names warrant a
+    rename notice is decided here, from every stream, before the list is cut to ``limit``.
     """
     async with privacy_checked_db(get_db) as db:
         links = await AudioHistoryRepository(db).load_audio_source_links()
@@ -1040,16 +1047,17 @@ async def get_audio_sources(
             source_name=link.source_name,
             mapping_value=link.mapping_value,
             source_id=link.source_id,
-            earlier_names=[
-                AudioSourceEarlierNameResponse(
-                    name=earlier.name,
-                    last_seen=_api_time(earlier.last_seen),
-                    has_calls_without_id=earlier.has_calls_without_id,
-                )
-                for earlier in link.earlier_names
-            ],
+            source_node=link.source_node,
             last_seen=_api_time(link.last_seen),
-            seen_count=link.seen_count,
+            names=[
+                AudioSourceNameResponse(
+                    name=name.name,
+                    last_seen=_api_time(name.last_seen) if name.last_seen else None,
+                    current=name.current,
+                    offer_link_by_id=name.offer_link_by_id,
+                )
+                for name in link.names
+            ],
         )
         for link in links[:limit]
     ]

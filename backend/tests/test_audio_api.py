@@ -10,6 +10,7 @@ from app.main import app
 from app.database import get_db
 from app.config import settings
 from app.routers.audio import AUDIO_SUPPRESSED_BY_MAPPING_HEADER
+from app.utils.birdnet_payload import extract_audio_mapping_keys, parse_mapping_filter_values
 from tests.audio_source_columns import fill_source_columns
 
 pytestmark = pytest.mark.usefixtures("history_pool")
@@ -64,12 +65,11 @@ async def test_audio_sources_lists_a_renamed_stream_once_linked_by_its_id(client
     now = datetime(2026, 11, 28, 9, 0, tzinfo=timezone.utc)
     await _store_calls(
         [
-            # Before BirdNET-Go sent ids: a hidden call that still matches a link by name.
-            (now - timedelta(days=60), "ESP32 v3.0", {"sourceName": "ESP32 v3.0"}, 1),
             _stream_call(now - timedelta(days=1), "ESP32 v3.0", "rtsp_52d54d7d"),
             _stream_call(now - timedelta(hours=2), "ESP32 v3.0 X", "rtsp_52d54d7d"),
             _stream_call(now - timedelta(hours=1), "ESP32 v3.0 X", "rtsp_52d54d7d"),
-            _stream_call(now - timedelta(days=1), "Reolink", "rtsp_68763a4d"),
+            # The owner hid every call under the old name: it still says the stream was renamed.
+            _stream_call(now - timedelta(days=1), "Reolink", "rtsp_68763a4d", hidden=1),
             _stream_call(now - timedelta(minutes=30), "Reolink TEST", "rtsp_68763a4d"),
         ]
     )
@@ -80,15 +80,40 @@ async def test_audio_sources_lists_a_renamed_stream_once_linked_by_its_id(client
 
     assert esp32["source_name"] == "ESP32 v3.0 X"
     assert esp32["mapping_value"] == esp32["source_id"] == "rtsp_52d54d7d"
+    assert esp32["source_node"] == "Quark"
     assert esp32["last_seen"] == "2026-11-28T08:00:00Z"
-    assert esp32["seen_count"] == 3
-    assert esp32["earlier_names"] == [
-        {"name": "ESP32 v3.0", "last_seen": "2026-11-27T09:00:00Z", "has_calls_without_id": True}
+    assert "seen_count" not in esp32
+    assert esp32["names"] == [
+        {"name": "ESP32 v3.0 X", "last_seen": "2026-11-28T08:00:00Z", "current": True, "offer_link_by_id": False},
+        {"name": "ESP32 v3.0", "last_seen": "2026-11-27T09:00:00Z", "current": False, "offer_link_by_id": True},
     ]
     assert reolink["source_name"] == "Reolink TEST"
-    assert reolink["mapping_value"] == "rtsp_68763a4d"
-    assert reolink["earlier_names"] == [
-        {"name": "Reolink", "last_seen": "2026-11-27T09:00:00Z", "has_calls_without_id": False}
+    assert reolink["names"][1] == {"name": "Reolink", "last_seen": None, "current": False, "offer_link_by_id": True}
+
+
+@pytest.mark.asyncio
+async def test_audio_sources_offers_no_rename_for_a_name_a_stream_outside_the_page_still_carries(
+    client: httpx.AsyncClient,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    now = datetime(2026, 11, 28, 9, 0, tzinfo=timezone.utc)
+    await _store_calls(
+        [
+            _stream_call(now - timedelta(days=2), "Garden", "rtsp_busy"),
+            _stream_call(now - timedelta(hours=1), "Feeder", "rtsp_busy"),
+            # A quiet stream, beyond the one entry asked for, still called Garden.
+            _stream_call(now - timedelta(days=30), "Garden", "rtsp_quiet"),
+        ]
+    )
+
+    response = await client.get("/api/audio/sources?limit=1")
+    assert response.status_code == 200, response.text
+    [busy] = response.json()
+    assert busy["mapping_value"] == "rtsp_busy"
+    assert [(name["name"], name["offer_link_by_id"]) for name in busy["names"]] == [
+        ("Feeder", False),
+        ("Garden", False),
     ]
 
 
@@ -102,20 +127,27 @@ async def test_audio_sources_keeps_a_quiet_stream_behind_many_newer_calls(client
 
     response = await client.get("/api/audio/sources?limit=20")
     assert response.status_code == 200, response.text
-    assert [(item["source_name"], item["seen_count"]) for item in response.json()] == [("Feeder", 250), ("Pond", 1)]
+    assert [(item["source_name"], item["last_seen"]) for item in response.json()] == [
+        ("Feeder", "2026-11-28T09:00:00Z"),
+        ("Pond", "2026-10-19T09:00:00Z"),
+    ]
 
 
 @pytest.mark.asyncio
-async def test_audio_sources_links_a_source_without_an_id_by_its_name(client: httpx.AsyncClient):
+async def test_audio_sources_links_a_source_without_an_id_by_the_name_the_matcher_reads(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
     now = datetime(2026, 11, 28, 9, 0, tzinfo=timezone.utc)
-    await _store_calls([(now, "Patio Mic", {"sourceName": "Patio Mic"}, 0)])
+    payload = {"sourceName": "Garden  Mic"}
+    await _store_calls([(now, "Garden  Mic", payload, 0)])
 
     response = await client.get("/api/audio/sources?limit=10")
     assert response.status_code == 200, response.text
-    [patio] = response.json()
-    assert (patio["source_name"], patio["mapping_value"], patio["source_id"]) == ("Patio Mic", "Patio Mic", None)
+    [garden] = response.json()
+    assert (garden["source_name"], garden["mapping_value"], garden["source_id"]) == ("Garden Mic", "Garden  Mic", None)
+    # Saved as offered, the link matches the call it came from.
+    _, keys = parse_mapping_filter_values(garden["mapping_value"])
+    assert keys & extract_audio_mapping_keys("Garden  Mic", json.dumps(payload))
 
 
 @pytest.mark.asyncio
