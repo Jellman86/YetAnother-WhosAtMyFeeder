@@ -576,5 +576,13 @@
   "archive_check_again": "Comprobar de nuevo",
   "frame_strip_inspect_hint": "Selecciona un fotograma para inspeccionarlo de cerca. La fotografía guardada no cambia.",
   "frame_inspecting_now": "Mostrando en el visor principal",
-  "frame_inspect_action": "Ver más grande"
+  "frame_inspect_action": "Ver más grande",
+  "readings": {
+    "title": "Instantánea y vídeo",
+    "disagree": "Las lecturas no coinciden",
+    "needs_person": "La instantánea y el vídeo nombran aves distintas. Mira la foto y el clip y después confirma el nombre o elige otra especie.",
+    "owner_decided": "La instantánea y el vídeo nombran aves distintas. Tú elegiste el nombre que se muestra.",
+    "snapshot": "Instantánea",
+    "video": "Vídeo"
+  }
 }

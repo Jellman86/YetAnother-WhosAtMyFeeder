@@ -576,5 +576,13 @@
   "archive_check_again": "Vérifier à nouveau",
   "frame_strip_inspect_hint": "Sélectionnez une image pour l’examiner de plus près. La photo enregistrée reste inchangée.",
   "frame_inspecting_now": "Affichée dans le cadre principal",
-  "frame_inspect_action": "Voir en grand"
+  "frame_inspect_action": "Voir en grand",
+  "readings": {
+    "title": "Capture et vidéo",
+    "disagree": "Les analyses divergent",
+    "needs_person": "La capture et la vidéo désignent des oiseaux différents. Regardez la photo et le clip, puis confirmez le nom ou choisissez une autre espèce.",
+    "owner_decided": "La capture et la vidéo désignent des oiseaux différents. Vous avez choisi le nom affiché.",
+    "snapshot": "Capture",
+    "video": "Vidéo"
+  }
 }

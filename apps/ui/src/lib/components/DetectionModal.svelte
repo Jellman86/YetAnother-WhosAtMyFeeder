@@ -54,6 +54,8 @@
     import RecordInaturalist from './record/RecordInaturalist.svelte';
     import RecordSpeciesReference from './record/RecordSpeciesReference.svelte';
     import RecordVideoStatusNotice from './record/RecordVideoStatusNotice.svelte';
+    import RecordReadings from './record/RecordReadings.svelte';
+    import { readingDisagreement } from './record/reading-agreement';
     import { currentMoment, groupCandidatesIntoMoments, outlineLabelClass, outlineLabelPlace, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
@@ -204,6 +206,14 @@
     // True when video classification completed with a real species but did not
     // match any current primary identity field, so owner confirmation is needed.
     let videoPromotionGated = $derived(isVideoPromotionGated(detection));
+    // The server's comparison of the snapshot and video readings; when they disagree it takes the
+    // place of the video result card and of the held-back notice, which would say the same twice.
+    const readings = $derived(authStore.hasOwnerAccess ? readingDisagreement(detection) : null);
+    const videoReadingName = $derived(
+        detection.video_classification_label === detection.scientific_name
+            ? $birdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
+            : (detection.video_classification_label ?? '')
+    );
     const isManualObservation = $derived(detection.observation_source === 'manual_upload');
     // An uploaded video is kept with the observation and serves photo choices and
     // Score again like any visit's clip; an uploaded photo has neither.
@@ -1996,7 +2006,7 @@
                  score didn't clear the auto-promotion floor, so the primary display
                  wasn't updated. Manual reclassify is the documented path here, so we
                  wire the existing handler in directly. -->
-            {#if videoPromotionGated && hasOwnerDetectionActions && onReclassify}
+            {#if videoPromotionGated && hasOwnerDetectionActions && onReclassify && !readings}
                 <div class="p-3 rounded-xl bg-status-attention-soft border border-status-attention-line text-status-attention flex items-start gap-3" role="status">
                     <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="12" cy="12" r="10"/>
@@ -2034,8 +2044,17 @@
                 </div>
             {/if}
 
-            <!-- Video Classification Results -->
-            {#if detection.video_classification_status === 'completed' || (detection.video_classification_label && detection.video_classification_label !== detection.display_name)}
+            {#if readings}
+                <RecordReadings
+                    disagreement={readings}
+                    snapshotName={$birdNames(readings.snapshot, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary}
+                    videoName={videoReadingName}
+                    videoInput={classificationInputLabel}
+                    onscoreagain={videoPromotionGated && onReclassify ? handleReclassifyClick : undefined}
+                    scoreAgainDisabled={!!reclassifyProgress || awaitingReclassifyOverlay}
+                />
+            {:else if detection.video_classification_status === 'completed' || (detection.video_classification_label && detection.video_classification_label !== detection.display_name)}
+                <!-- Video Classification Results -->
                 <div class="p-4 rounded-2xl bg-surface-raised border border-line animate-in fade-in slide-in-from-top-2">
                     <div class="flex items-center justify-between mb-2">
                         <p class="text-3xs font-semibold text-muted">
@@ -2048,11 +2067,7 @@
                             </span>
                         {/if}
                     </div>
-                    <p class="text-sm font-semibold text-strong">
-                        {detection.video_classification_label === detection.scientific_name
-                            ? $birdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
-                            : detection.video_classification_label}
-                    </p>
+                    <p class="text-sm font-semibold text-strong">{videoReadingName}</p>
                     {#if detection.video_result_blocked}
                         <p class="text-3xs font-semibold text-ink mt-0.5">
                             {$_('detection.video_analysis.blocked_label', { default: 'Matched a blocked species: not applied' })}

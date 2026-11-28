@@ -576,5 +576,13 @@
   "archive_check_again": "重新检查",
   "frame_strip_inspect_hint": "选择一个画面以放大查看。已保存的照片不会更改。",
   "frame_inspecting_now": "正在主画面中查看",
-  "frame_inspect_action": "放大查看"
+  "frame_inspect_action": "放大查看",
+  "readings": {
+    "title": "快照与视频",
+    "disagree": "识别结果不一致",
+    "needs_person": "快照和视频识别出了不同的鸟。请查看照片和片段，然后确认名称或选择其他物种。",
+    "owner_decided": "快照和视频识别出了不同的鸟。显示的名称是你选择的。",
+    "snapshot": "快照",
+    "video": "视频"
+  }
 }

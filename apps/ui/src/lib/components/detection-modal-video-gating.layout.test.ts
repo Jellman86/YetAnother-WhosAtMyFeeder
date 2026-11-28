@@ -15,8 +15,10 @@ describe('DetectionModal video promotion gating', () => {
 
     it('does not expose the gated reclassify action to guests', () => {
         expect(detectionModalSource).toContain(
-            '{#if videoPromotionGated && hasOwnerDetectionActions && onReclassify}'
+            '{#if videoPromotionGated && hasOwnerDetectionActions && onReclassify && !readings}'
         );
+        // The disagreement panel that takes its place is read only with owner access.
+        expect(detectionModalSource).toContain('const readings = $derived(authStore.hasOwnerAccess ? readingDisagreement(detection) : null);');
         expect(detectionModalSource).not.toContain(
             '{#if videoPromotionGated && !readOnly && onReclassify}'
         );

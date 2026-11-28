@@ -576,5 +576,13 @@
   "archive_check_again": "Verifica di nuovo",
   "frame_strip_inspect_hint": "Seleziona un fotogramma per esaminarlo da vicino. La fotografia salvata rimane invariata.",
   "frame_inspecting_now": "Visibile nel riquadro principale",
-  "frame_inspect_action": "Vedi più grande"
+  "frame_inspect_action": "Vedi più grande",
+  "readings": {
+    "title": "Istantanea e video",
+    "disagree": "Le letture non coincidono",
+    "needs_person": "L’istantanea e il video indicano uccelli diversi. Guarda la foto e il clip, poi conferma il nome o scegli un’altra specie.",
+    "owner_decided": "L’istantanea e il video indicano uccelli diversi. Il nome mostrato l’hai scelto tu.",
+    "snapshot": "Istantanea",
+    "video": "Video"
+  }
 }

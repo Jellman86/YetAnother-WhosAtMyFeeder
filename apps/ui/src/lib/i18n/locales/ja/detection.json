@@ -576,5 +576,13 @@
   "archive_check_again": "もう一度確認",
   "frame_strip_inspect_hint": "フレームを選択すると拡大確認できます。保存済みの写真は変更されません。",
   "frame_inspecting_now": "メイン画面で表示中",
-  "frame_inspect_action": "拡大表示"
+  "frame_inspect_action": "拡大表示",
+  "readings": {
+    "title": "スナップショットと動画",
+    "disagree": "判定が一致しません",
+    "needs_person": "スナップショットと動画で別の鳥と判定されました。写真とクリップを確認し、名前を確定するか別の種を選んでください。",
+    "owner_decided": "スナップショットと動画で別の鳥と判定されました。表示中の名前はあなたが選びました。",
+    "snapshot": "スナップショット",
+    "video": "動画"
+  }
 }

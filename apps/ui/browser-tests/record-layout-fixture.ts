@@ -21,6 +21,11 @@ export interface RecordOptions {
     cropFullHeight?: boolean;
     /** False leaves the pictures still arriving, for a test that holds them back. */
     awaitPictures?: boolean;
+    /**
+     * The long record's snapshot and video readings named different birds (#804): `renamed` took
+     * the video's name, `kept` kept the snapshot's, `decided` is `renamed` after the owner named it.
+     */
+    readings?: 'renamed' | 'kept' | 'decided';
 }
 
 const picture = (width: number, height: number): string =>
@@ -110,7 +115,7 @@ export async function openRecordLayout(page: Page, size: { width: number; height
         return route.fulfill({ json: {} });
     });
     await page.setViewportSize(size);
-    const query = new URLSearchParams({ record: options.record ?? 'long', theme: options.theme ?? 'light', guest: String(options.guest ?? false), font: options.classicFonts ? 'classic' : 'default' });
+    const query = new URLSearchParams({ record: options.record ?? 'long', theme: options.theme ?? 'light', guest: String(options.guest ?? false), font: options.classicFonts ? 'classic' : 'default', readings: options.readings ?? '' });
     await page.goto(`/browser-tests/record-layout.html?${query.toString()}`);
     const modal = page.locator('[data-detection-detail-modal]');
     // A cold dev server re-optimises a dependency the first time a page asks for it (the map here),

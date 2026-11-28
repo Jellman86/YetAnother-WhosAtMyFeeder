@@ -576,5 +576,13 @@
   "archive_check_again": "Erneut prüfen",
   "frame_strip_inspect_hint": "Wählen Sie ein Bild zur näheren Ansicht. Ihr gespeichertes Foto bleibt unverändert.",
   "frame_inspecting_now": "Wird im Hauptbild angezeigt",
-  "frame_inspect_action": "Größer anzeigen"
+  "frame_inspect_action": "Größer anzeigen",
+  "readings": {
+    "title": "Snapshot und Video",
+    "disagree": "Ergebnisse widersprechen sich",
+    "needs_person": "Snapshot und Video nennen verschiedene Vögel. Sehen Sie sich Foto und Clip an und bestätigen Sie dann den Namen oder wählen Sie eine andere Art.",
+    "owner_decided": "Snapshot und Video nennen verschiedene Vögel. Den angezeigten Namen haben Sie gewählt.",
+    "snapshot": "Snapshot",
+    "video": "Video"
+  }
 }
