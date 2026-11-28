@@ -14,6 +14,7 @@ from app.services.species_catalog_resolver import ShadowResolution, species_cata
 from app.services.broadcaster import broadcaster
 from app.services.range_filter import RangeCandidate, RangeDecision, decide_range_admission
 from app.services.range_filter_service import range_filter_service
+from app.services.reading_agreement import ReadingAgreement, compare_readings, reading_from_model_output
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.birdweather_service import birdweather_service
 from app.services.ha_weather import valid_illuminance_lux
@@ -92,6 +93,55 @@ async def _catalog_identity_for_refinement(
     except Exception as error:
         log.debug("Catalogue refinement resolution unavailable", event_id=frigate_event, error=str(error))
         return ShadowResolution(verdict="unavailable")
+
+
+async def _compare_with_snapshot_reading(
+    repo: DetectionRepository,
+    frigate_event: str,
+    *,
+    video_label: str,
+    video_score: float,
+    video_index: int,
+    video_model_sha256: str | None,
+) -> ReadingAgreement | None:
+    """The video reading compared with the capture's snapshot reading (#804), or None when never compared.
+
+    The comparison only informs the record; a failure leaves the readings uncompared and never
+    stops the video reading from being recorded.
+    """
+    try:
+        snapshot = await repo.get_snapshot_reading(frigate_event)
+        if snapshot is None:
+            return None
+        # A name taken from Frigate's sub-label is Frigate's opinion, not a reading of this capture.
+        if snapshot.label_source == INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL:
+            return "cannot_compare"
+        threshold = float(settings.classification.threshold or 0.0)
+        floor = min(float(getattr(settings.classification, "min_confidence", 0.0) or 0.0), threshold)
+
+        def compare() -> ReadingAgreement:
+            first = reading_from_model_output(
+                species_catalog_resolver,
+                model_sha256=species_catalog_resolver.model_sha256_for_artifact_id(snapshot.model_artifact_id),
+                output_index=snapshot.model_output_index,
+                label=snapshot.label,
+                score=snapshot.score,
+            )
+            second = reading_from_model_output(
+                species_catalog_resolver,
+                model_sha256=video_model_sha256,
+                output_index=video_index,
+                label=video_label,
+                score=video_score,
+            )
+            return compare_readings(first, second, floor=floor)
+
+        return await asyncio.to_thread(compare)
+    except Exception as error:
+        log.warning(
+            "Snapshot and video readings could not be compared", event_id=frigate_event, error=type(error).__name__
+        )
+        return None
 
 
 TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(0.5, float(os.getenv("TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "3")))
@@ -992,6 +1042,14 @@ class DetectionService:
             # This marks the job as 'completed' so the stale watchdog and re-queue logic
             # don't pick it up again. HQ crop refinement deliberately leaves that state alone.
             if persist_video_result:
+                reading_agreement = await _compare_with_snapshot_reading(
+                    repo,
+                    frigate_event,
+                    video_label=video_label,
+                    video_score=video_score,
+                    video_index=video_index,
+                    video_model_sha256=video_model_sha256,
+                )
                 await repo.update_video_classification(
                     frigate_event=frigate_event,
                     label=None if hidden_video_label and not manual_tagged else normalized_video_label,
@@ -1004,6 +1062,7 @@ class DetectionService:
                     input_source=video_input_source,
                     diagnostics=video_diagnostics,
                     blocked=is_blocked,
+                    reading_agreement=reading_agreement,
                 )
 
             if is_blocked:

@@ -248,8 +248,7 @@
     "frigate_fallback_title": "Ergebnis von Frigate",
     "frigate_fallback_desc": "Die lokale Bildanalyse erfüllte die Richtlinie nicht. Daher hat YA-WAMF das vertrauenswürdige Frigate-Artenlabel beibehalten.",
     "gated_title": "Video hat eine Übereinstimmung gefunden: zur Übernahme bestätigen",
-    "gated_desc": "Das Videoergebnis wurde nicht übernommen, weil sein Wert unter Ihrer minimalen Konfidenzuntergrenze liegt. Wählen Sie „Neu klassifizieren“, um es trotzdem zu übernehmen, oder senken Sie die Untergrenze unter Einstellungen → Vögel bestimmen.",
-    "gated_action": "Neu klassifizieren",
+    "gated_desc": "Das Videoergebnis wurde nicht übernommen, weil sein Wert unter Ihrer minimalen Konfidenzuntergrenze liegt. Wählen Sie „Erneut bewerten“, um es trotzdem zu übernehmen, oder senken Sie die Untergrenze unter Einstellungen → Vögel bestimmen.",
     "evidence": {
       "title": "Belege aus diesem Durchlauf",
       "summary": "{processed} von {sampled} ausgewählten Frames wurden dekodiert. Ein Frame benötigte mindestens {threshold} % Konfidenz, um abzustimmen.",
@@ -576,5 +575,13 @@
   "archive_check_again": "Erneut prüfen",
   "frame_strip_inspect_hint": "Wählen Sie ein Bild zur näheren Ansicht. Ihr gespeichertes Foto bleibt unverändert.",
   "frame_inspecting_now": "Wird im Hauptbild angezeigt",
-  "frame_inspect_action": "Größer anzeigen"
+  "frame_inspect_action": "Größer anzeigen",
+  "readings": {
+    "title": "Snapshot und Video",
+    "disagree": "Ergebnisse widersprechen sich",
+    "needs_person": "Snapshot und Video nennen verschiedene Vögel. Sehen Sie sich Foto und Clip an und bestätigen Sie dann den Namen oder wählen Sie eine andere Art.",
+    "owner_decided": "Snapshot und Video nennen verschiedene Vögel. Den angezeigten Namen haben Sie gewählt.",
+    "snapshot": "Snapshot",
+    "video": "Video"
+  }
 }

@@ -248,8 +248,7 @@
     "frigate_fallback_title": "Frigate结果",
     "frigate_fallback_desc": "本地图像分析未达到策略要求，因此YA-WAMF保留了可信的Frigate物种标签。",
     "gated_title": "视频已找到匹配：请确认以应用",
-    "gated_desc": "由于视频得分低于您的最低置信度阈值,自动应用已被搁置。运行\"重新分类\"以应用此结果,或在 设置 → 识别鸟类 中降低阈值。",
-    "gated_action": "重新分类",
+    "gated_desc": "由于视频得分低于您的最低置信度阈值,自动应用已被搁置。运行\"重新评分\"以应用此结果,或在 设置 → 识别鸟类 中降低阈值。",
     "evidence": {
       "title": "本次分析的证据",
       "summary": "已解码 {sampled} 个采样帧中的 {processed} 个。每帧至少需要 {threshold}% 的置信度才能投票。",
@@ -576,5 +575,13 @@
   "archive_check_again": "重新检查",
   "frame_strip_inspect_hint": "选择一个画面以放大查看。已保存的照片不会更改。",
   "frame_inspecting_now": "正在主画面中查看",
-  "frame_inspect_action": "放大查看"
+  "frame_inspect_action": "放大查看",
+  "readings": {
+    "title": "快照与视频",
+    "disagree": "识别结果不一致",
+    "needs_person": "快照和视频识别出了不同的鸟。请查看照片和片段，然后确认名称或选择其他物种。",
+    "owner_decided": "快照和视频识别出了不同的鸟。显示的名称是你选择的。",
+    "snapshot": "快照",
+    "video": "视频"
+  }
 }

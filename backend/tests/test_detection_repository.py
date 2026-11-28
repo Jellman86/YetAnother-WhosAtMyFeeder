@@ -51,6 +51,7 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             video_classification_input_source TEXT,
             video_classification_diagnostics TEXT,
             video_result_blocked BOOLEAN DEFAULT 0,
+            reading_agreement TEXT,
             ai_analysis TEXT,
             ai_analysis_timestamp TIMESTAMP,
             notified_at TIMESTAMP,
@@ -79,7 +80,8 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
     """)
 
     await db.execute(
-        "CREATE TABLE detection_initial_classifications (detection_id INTEGER PRIMARY KEY, classification_input_json TEXT)"
+        "CREATE TABLE detection_initial_classifications (detection_id INTEGER PRIMARY KEY, classification_input_json TEXT, "
+        "category_name TEXT, display_name TEXT, scientific_name TEXT, common_name TEXT, score FLOAT)"
     )
 
 

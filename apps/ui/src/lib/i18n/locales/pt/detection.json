@@ -248,8 +248,7 @@
     "frigate_fallback_title": "Resultado do Frigate",
     "frigate_fallback_desc": "A análise local da imagem não atendeu à política, por isso o YA-WAMF manteve o rótulo de espécie confiável do Frigate.",
     "gated_title": "O vídeo encontrou uma correspondência: confirme para aplicar",
-    "gated_desc": "A promoção automática foi retida porque a pontuação do vídeo está abaixo do seu piso de confiança mínima. Execute Reclassificar para aplicar este resultado ou reduza o piso em Configurações → Identificar aves.",
-    "gated_action": "Reclassificar",
+    "gated_desc": "A promoção automática foi retida porque a pontuação do vídeo está abaixo do seu piso de confiança mínima. Execute Pontuar novamente para aplicar este resultado ou reduza o piso em Configurações → Identificar aves.",
     "evidence": {
       "title": "Evidências desta análise",
       "summary": "Foram decodificados {processed} de {sampled} quadros amostrados. Cada quadro precisava de pelo menos {threshold}% de confiança para votar.",
@@ -576,5 +575,13 @@
   "archive_check_again": "Verificar novamente",
   "frame_strip_inspect_hint": "Selecione um quadro para inspecioná-lo de perto. A foto salva permanece inalterada.",
   "frame_inspecting_now": "Visualizando no quadro principal",
-  "frame_inspect_action": "Ver maior"
+  "frame_inspect_action": "Ver maior",
+  "readings": {
+    "title": "Captura e vídeo",
+    "disagree": "As leituras não coincidem",
+    "needs_person": "A captura e o vídeo indicam aves diferentes. Veja a foto e o clipe e depois confirme o nome ou escolha outra espécie.",
+    "owner_decided": "A captura e o vídeo indicam aves diferentes. Você escolheu o nome mostrado.",
+    "snapshot": "Captura",
+    "video": "Vídeo"
+  }
 }

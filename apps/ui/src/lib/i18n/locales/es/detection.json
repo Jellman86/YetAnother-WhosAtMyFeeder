@@ -248,8 +248,7 @@
     "frigate_fallback_title": "Resultado de Frigate",
     "frigate_fallback_desc": "El análisis local de la imagen no cumplió la política, por lo que YA-WAMF conservó la etiqueta de especie de confianza de Frigate.",
     "gated_title": "El vídeo encontró una coincidencia: confirma para aplicarla",
-    "gated_desc": "La promoción automática se retuvo porque la puntuación del vídeo está por debajo de tu umbral mínimo de confianza. Reclasifica para aplicar este resultado o baja el umbral en Ajustes → Identificar aves.",
-    "gated_action": "Reclasificar",
+    "gated_desc": "La promoción automática se retuvo porque la puntuación del vídeo está por debajo de tu umbral mínimo de confianza. Elige «Puntuar de nuevo» para aplicar este resultado o baja el umbral en Ajustes → Identificar aves.",
     "evidence": {
       "title": "Evidencia de esta ejecución",
       "summary": "Se decodificaron {processed} de {sampled} fotogramas muestreados. Cada fotograma necesitaba al menos un {threshold} % de confianza para votar.",
@@ -576,5 +575,13 @@
   "archive_check_again": "Comprobar de nuevo",
   "frame_strip_inspect_hint": "Selecciona un fotograma para inspeccionarlo de cerca. La fotografía guardada no cambia.",
   "frame_inspecting_now": "Mostrando en el visor principal",
-  "frame_inspect_action": "Ver más grande"
+  "frame_inspect_action": "Ver más grande",
+  "readings": {
+    "title": "Instantánea y vídeo",
+    "disagree": "Las lecturas no coinciden",
+    "needs_person": "La instantánea y el vídeo nombran aves distintas. Mira la foto y el clip y después confirma el nombre o elige otra especie.",
+    "owner_decided": "La instantánea y el vídeo nombran aves distintas. Tú elegiste el nombre que se muestra.",
+    "snapshot": "Instantánea",
+    "video": "Vídeo"
+  }
 }

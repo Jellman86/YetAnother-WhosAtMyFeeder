@@ -3880,6 +3880,50 @@
         "title": "ClassificationInputContext",
         "type": "object"
       },
+      "ClassificationReading": {
+        "description": "One reading of a capture, named as the visit itself is named.",
+        "properties": {
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Catalogue name in the reader's language; for the snapshot, its stored name otherwise",
+            "title": "Common Name"
+          },
+          "label": {
+            "description": "The label the model gave, as stored",
+            "title": "Label",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Catalogue scientific name, when the label resolves",
+            "title": "Scientific Name"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "label",
+          "score"
+        ],
+        "title": "ClassificationReading",
+        "type": "object"
+      },
       "ClassificationStatusResponse": {
         "properties": {
           "event_id": {
@@ -6588,6 +6632,22 @@
             "title": "Observation Source",
             "type": "string"
           },
+          "reading_agreement": {
+            "anyOf": [
+              {
+                "enum": [
+                  "agree",
+                  "disagree",
+                  "cannot_compare"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reading Agreement"
+          },
           "scientific_name": {
             "anyOf": [
               {
@@ -6602,6 +6662,16 @@
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "snapshot_reading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "species_id": {
             "anyOf": [
@@ -6768,6 +6838,16 @@
               }
             ],
             "title": "Video Classification Timestamp"
+          },
+          "video_reading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "weather_cloud_cover": {
             "anyOf": [
@@ -7434,6 +7514,22 @@
             "title": "Observation Source",
             "type": "string"
           },
+          "reading_agreement": {
+            "anyOf": [
+              {
+                "enum": [
+                  "agree",
+                  "disagree",
+                  "cannot_compare"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reading Agreement"
+          },
           "scientific_name": {
             "anyOf": [
               {
@@ -7448,6 +7544,16 @@
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "snapshot_reading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "species_id": {
             "anyOf": [
@@ -7614,6 +7720,16 @@
               }
             ],
             "title": "Video Classification Timestamp"
+          },
+          "video_reading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "weather_cloud_cover": {
             "anyOf": [

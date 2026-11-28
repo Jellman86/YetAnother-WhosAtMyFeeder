@@ -71,6 +71,12 @@ detections = Table(
     Column("video_classification_input_source", String),
     Column("video_classification_diagnostics", String),
     Column("video_result_blocked", Boolean, default=False),
+    # Whether the snapshot and video readings name the same bird; NULL when never compared (#804).
+    Column(
+        "reading_agreement",
+        String,
+        CheckConstraint("reading_agreement IS NULL OR reading_agreement IN ('agree', 'disagree', 'cannot_compare')"),
+    ),
     Column("frigate_status", String, server_default="present"),
     Column("frigate_missing_since", TIMESTAMP),
     Column("frigate_last_checked_at", TIMESTAMP),

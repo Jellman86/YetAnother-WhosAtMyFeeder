@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Iterable, Mapping, Optional
 
+from app.services.model_taxon_map import scientific_name_from_label
 from app.services.species_catalog_resolver import SpeciesCatalogResolver, species_catalog_resolver
 from app.services.species_names import SpeciesIdentityNames, SpeciesNameLookup, species_name_lookup, vernacular_case
 
@@ -65,3 +66,28 @@ def name_summaries(summaries: Mapping[str, dict], names: Mapping[str, SpeciesIde
             )
         named[event] = {**summary, "species": species}
     return named
+
+
+def reading_lookup_label(label: str) -> str:
+    """The name a reading is looked up by: the scientific name its label carries, else the label."""
+    return scientific_name_from_label(label) or label.strip()
+
+
+def reading_names(
+    label: str,
+    score: float,
+    names: Mapping[str, SpeciesIdentityNames],
+    *,
+    lookup: Optional[str] = None,
+    stored_scientific: Optional[str] = None,
+    stored_common: Optional[str] = None,
+) -> dict:
+    """One reading of a capture, named as the visit itself is (#804).
+
+    ``names`` comes from ``resolve_label_names``. A reading the catalogue cannot name keeps the
+    names stored with it, and the record falls back to the label.
+    """
+    found = names.get((lookup or reading_lookup_label(label)).casefold())
+    if found:
+        return {"label": label, "scientific_name": found.scientific, "common_name": found.display, "score": score}
+    return {"label": label, "scientific_name": stored_scientific, "common_name": stored_common, "score": score}

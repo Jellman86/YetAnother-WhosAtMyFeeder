@@ -14,12 +14,18 @@ from dataclasses import dataclass
 import aiosqlite
 
 from app.config import settings
-from app.models import DetectionBirdSummary, DetectionResponse
+from app.models import ClassificationReading, DetectionBirdSummary, DetectionResponse
 from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.detection_repository import Detection as StoredDetection
 from app.services.frigate_event_check import EventAvailability
-from app.services.bird_summary_names import name_summaries, resolve_label_names, summary_labels
+from app.services.bird_summary_names import (
+    name_summaries,
+    reading_lookup_label,
+    reading_names,
+    resolve_label_names,
+    summary_labels,
+)
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.utils.audio_localization import localize_audio_detections, localize_audio_species_name
 from app.utils.canonical_species import user_facing_species_fields
@@ -167,6 +173,43 @@ def summary_detection_fields(
     }
 
 
+async def _disagreeing_readings(
+    events: list[StoredDetection], language: str
+) -> dict[str, tuple[ClassificationReading, ClassificationReading]]:
+    """Both readings of each capture whose readings disagree, named in one catalogue lookup (#804)."""
+    pending: list[tuple[str, dict, str, float]] = []
+    for event in events:
+        snapshot = getattr(event, "snapshot_reading", None)
+        video_label = str(event.video_classification_label or "").strip()
+        if getattr(event, "reading_agreement", None) != "disagree" or not isinstance(snapshot, dict) or not video_label:
+            continue
+        pending.append((event.frigate_event, snapshot, video_label, float(event.video_classification_score or 0.0)))
+    if not pending:
+        return {}
+
+    def snapshot_lookup(snapshot: dict) -> str:
+        return str(snapshot.get("scientific_name") or reading_lookup_label(str(snapshot.get("category_name") or "")))
+
+    labels = {snapshot_lookup(snapshot) for _event, snapshot, _label, _score in pending}
+    labels |= {reading_lookup_label(label) for _event, _snapshot, label, _score in pending}
+    names = await asyncio.to_thread(resolve_label_names, sorted(label for label in labels if label), language)
+    readings: dict[str, tuple[ClassificationReading, ClassificationReading]] = {}
+    for event_id, snapshot, video_label, video_score in pending:
+        first = reading_names(
+            str(snapshot.get("category_name") or snapshot.get("display_name") or ""),
+            float(snapshot.get("score") or 0.0),
+            names,
+            lookup=snapshot_lookup(snapshot),
+            stored_scientific=snapshot.get("scientific_name"),
+            stored_common=snapshot.get("common_name"),
+        )
+        readings[event_id] = (
+            ClassificationReading.model_validate(first),
+            ClassificationReading.model_validate(reading_names(video_label, video_score, names)),
+        )
+    return readings
+
+
 async def present_detections(
     events: list[StoredDetection],
     scope: PresentationScope,
@@ -204,6 +247,8 @@ async def present_detections(
     if bird_summaries:
         label_names = await asyncio.to_thread(resolve_label_names, summary_labels(bird_summaries), language)
         bird_summaries = name_summaries(bird_summaries, label_names)
+
+    readings = await _disagreeing_readings(events, language) if scope.is_owner else {}
 
     public_audio = {}
     if not scope.is_owner:
@@ -386,6 +431,10 @@ async def present_detections(
         if scope.is_owner:
             summary = bird_summaries.get(event.frigate_event)
             response_event.bird_summary = DetectionBirdSummary.model_validate(summary) if summary else None
+            response_event.reading_agreement = getattr(event, "reading_agreement", None)
+            response_event.snapshot_reading, response_event.video_reading = readings.get(
+                event.frigate_event, (None, None)
+            )
         if not scope.is_owner:
             # Public HTTP responses are the authoritative projection used after
             # SSE invalidation; producer diagnostics are owner information.

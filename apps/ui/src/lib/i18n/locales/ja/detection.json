@@ -248,8 +248,7 @@
     "frigate_fallback_title": "Frigateからの結果",
     "frigate_fallback_desc": "ローカル画像解析が判定基準を満たさなかったため、YA-WAMFは信頼済みのFrigate種ラベルを保持しました。",
     "gated_title": "動画で一致を検出: 適用するには確認してください",
-    "gated_desc": "動画スコアが最低信頼度を下回っているため、自動適用が保留されました。Reclassify を実行してこの結果を適用するか、設定 → 鳥の識別 で下限値を下げてください。",
-    "gated_action": "再分類",
+    "gated_desc": "動画スコアが最低信頼度を下回っているため、自動適用が保留されました。「再判定」を実行してこの結果を適用するか、設定 → 鳥の識別 で下限値を下げてください。",
     "evidence": {
       "title": "今回の解析根拠",
       "summary": "サンプリングした{sampled}フレームのうち{processed}フレームをデコードしました。投票には各フレームで{threshold}%以上の信頼度が必要でした。",
@@ -576,5 +575,13 @@
   "archive_check_again": "もう一度確認",
   "frame_strip_inspect_hint": "フレームを選択すると拡大確認できます。保存済みの写真は変更されません。",
   "frame_inspecting_now": "メイン画面で表示中",
-  "frame_inspect_action": "拡大表示"
+  "frame_inspect_action": "拡大表示",
+  "readings": {
+    "title": "スナップショットと動画",
+    "disagree": "判定が一致しません",
+    "needs_person": "スナップショットと動画で別の鳥と判定されました。写真とクリップを確認し、名前を確定するか別の種を選んでください。",
+    "owner_decided": "スナップショットと動画で別の鳥と判定されました。表示中の名前はあなたが選びました。",
+    "snapshot": "スナップショット",
+    "video": "動画"
+  }
 }

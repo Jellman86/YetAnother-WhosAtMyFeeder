@@ -20,6 +20,8 @@ from app.config import settings
 from app.main import app, sse_endpoint
 from app.routers import ai, audio, events, species, stats
 from app.services.broadcaster import broadcaster
+from app.services import detection_presenter
+from app.services.species_names import SpeciesIdentityNames
 
 
 NO_NEARBY_CHECK = NearbyLookup(report=None, current=False, configured=False)
@@ -558,3 +560,88 @@ async def test_classifier_input_coordinates_are_owner_only(private_history, fiel
     assert not any(row.get("classification_input") or row.get("initial_classification_input") for row in guest.json())
     visible = next(row for row in owner.json() if row["frigate_event"] == "visible")
     assert visible["classification_input"]["box"] == [10, 20, 30, 40]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fields", ["detail", "reading_agreement,snapshot_reading,video_reading"])
+async def test_reading_disagreement_is_owner_work(private_history, monkeypatch, fields):
+    _, history_db = private_history
+    magpie = SpeciesIdentityNames(display="Elster", scientific="Pica pica", species_id=7)
+    monkeypatch.setattr(detection_presenter, "resolve_label_names", lambda labels, language: {"pica pica": magpie})
+    async with history_db() as db:
+        await db.execute(
+            """UPDATE detections SET reading_agreement='disagree', video_classification_status='completed',
+               video_classification_label='Pica pica', video_classification_score=.68
+               WHERE frigate_event='visible'"""
+        )
+        await db.commit()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        guest = await client.get("/api/events", params={"fields": fields})
+        owner = await client.get(
+            "/api/events",
+            params={"fields": fields},
+            headers={"Authorization": f"Bearer {create_access_token('owner')}"},
+        )
+    assert guest.status_code == owner.status_code == 200
+    assert not any(
+        row.get("reading_agreement") or row.get("snapshot_reading") or row.get("video_reading") for row in guest.json()
+    )
+    visible = next(row for row in owner.json() if row["frigate_event"] == "visible")
+    assert visible["reading_agreement"] == "disagree"
+    # The catalogue cannot name "Robin" here, so the snapshot keeps its stored label.
+    assert visible["snapshot_reading"] == {
+        "label": "Robin",
+        "scientific_name": None,
+        "common_name": None,
+        "score": pytest.approx(0.9),
+    }
+    assert visible["video_reading"] == {
+        "label": "Pica pica",
+        "scientific_name": "Pica pica",
+        "common_name": "Elster",
+        "score": pytest.approx(0.68),
+    }
+
+
+@pytest.mark.asyncio
+async def test_both_readings_take_the_readers_catalogue_names(private_history, monkeypatch):
+    _, history_db = private_history
+    magpie = SpeciesIdentityNames(display="Elster", scientific="Pica pica", species_id=7)
+    crow = SpeciesIdentityNames(display="Aaskrähe", scientific="Corvus corone", species_id=8)
+    asked = []
+
+    def resolve(labels, language):
+        labels = list(labels)
+        asked.append((sorted(labels), language))
+        return {"pica pica": magpie, "corvus corone": crow}
+
+    monkeypatch.setattr(detection_presenter, "resolve_label_names", resolve)
+    async with history_db() as db:
+        await db.execute(
+            """UPDATE detections SET reading_agreement='disagree', video_classification_status='completed',
+               video_classification_label='Pica pica (Eurasian Magpie)', video_classification_score=.68
+               WHERE frigate_event='visible'"""
+        )
+        await db.execute(
+            """UPDATE detection_initial_classifications SET category_name='Corvus corone',
+               scientific_name='Corvus corone', common_name='Carrion Crow', score=.98
+               WHERE detection_id = (SELECT id FROM detections WHERE frigate_event='visible')"""
+        )
+        await db.commit()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        owner = await client.get(
+            "/api/events",
+            params={"fields": "detail"},
+            headers={"Authorization": f"Bearer {create_access_token('owner')}", "Accept-Language": "de"},
+        )
+    assert owner.status_code == 200, owner.text
+    visible = next(row for row in owner.json() if row["frigate_event"] == "visible")
+    assert visible["snapshot_reading"]["common_name"] == "Aaskrähe"
+    assert visible["video_reading"] == {
+        "label": "Pica pica (Eurasian Magpie)",
+        "scientific_name": "Pica pica",
+        "common_name": "Elster",
+        "score": pytest.approx(0.68),
+    }
+    # One lookup for the page, holding only the disagreeing readings' names.
+    assert [labels for labels, _language in asked if "Pica pica" in labels] == [["Corvus corone", "Pica pica"]]

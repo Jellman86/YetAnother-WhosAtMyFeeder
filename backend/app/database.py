@@ -136,6 +136,7 @@ REQUIRED_COLUMNS = {
         "weather_rain",
         "weather_snowfall",
         "illuminance_lux",
+        "reading_agreement",
         "frigate_status",
         "frigate_missing_since",
         "frigate_last_checked_at",

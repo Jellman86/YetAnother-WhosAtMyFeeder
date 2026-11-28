@@ -62,6 +62,11 @@ export interface Detection {
     video_classification_model_name?: string | null;
     video_classification_input_source?: string | null;
     video_classification_diagnostics?: VideoClassificationDiagnostics | null;
+    /** Owner-only: whether the snapshot and video readings name the same bird; null when never compared (#804). */
+    reading_agreement?: components['schemas']['DetectionResponse']['reading_agreement'];
+    /** Owner-only, given when the two readings disagree: each reading, named in the reader's language. */
+    snapshot_reading?: components['schemas']['ClassificationReading'] | null;
+    video_reading?: components['schemas']['ClassificationReading'] | null;
     video_result_blocked?: boolean;
     ai_analysis?: string | null;
     ai_analysis_timestamp?: string | null;

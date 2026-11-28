@@ -248,8 +248,7 @@
     "frigate_fallback_title": "Résultat de Frigate",
     "frigate_fallback_desc": "L’analyse locale de l’image n’a pas satisfait la politique. YA-WAMF a donc conservé l’étiquette d’espèce Frigate approuvée.",
     "gated_title": "La vidéo a trouvé une correspondance : confirmez pour l'appliquer",
-    "gated_desc": "La promotion automatique a été retenue car le score vidéo est inférieur à votre seuil de confiance minimum. Lancez Reclassifier pour appliquer ce résultat, ou abaissez le seuil dans Paramètres → Identifier les oiseaux.",
-    "gated_action": "Reclassifier",
+    "gated_desc": "La promotion automatique a été retenue car le score vidéo est inférieur à votre seuil de confiance minimum. Lancez Réévaluer pour appliquer ce résultat, ou abaissez le seuil dans Paramètres → Identifier les oiseaux.",
     "evidence": {
       "title": "Indices de cette analyse",
       "summary": "{processed} images sur {sampled} échantillonnées ont été décodées. Une image devait atteindre au moins {threshold} % de confiance pour voter.",
@@ -576,5 +575,13 @@
   "archive_check_again": "Vérifier à nouveau",
   "frame_strip_inspect_hint": "Sélectionnez une image pour l’examiner de plus près. La photo enregistrée reste inchangée.",
   "frame_inspecting_now": "Affichée dans le cadre principal",
-  "frame_inspect_action": "Voir en grand"
+  "frame_inspect_action": "Voir en grand",
+  "readings": {
+    "title": "Capture et vidéo",
+    "disagree": "Les analyses divergent",
+    "needs_person": "La capture et la vidéo désignent des oiseaux différents. Regardez la photo et le clip, puis confirmez le nom ou choisissez une autre espèce.",
+    "owner_decided": "La capture et la vidéo désignent des oiseaux différents. Vous avez choisi le nom affiché.",
+    "snapshot": "Capture",
+    "video": "Vidéo"
+  }
 }

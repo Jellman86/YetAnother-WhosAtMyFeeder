@@ -181,8 +181,7 @@
     "frigate_fallback_title": "Result from Frigate",
     "frigate_fallback_desc": "Local image analysis did not clear policy, so YA-WAMF retained Frigate's trusted species label.",
     "gated_title": "Video found a match: confirm to apply",
-    "gated_desc": "The video result was not applied because its score is below your minimum confidence floor. Choose Reclassify to apply it anyway, or lower the floor in Settings → Identifying birds.",
-    "gated_action": "Reclassify",
+    "gated_desc": "The video result was not applied because its score is below your minimum confidence floor. Choose Score again to apply it anyway, or lower the floor in Settings → Identifying birds.",
     "evidence": {
       "title": "Evidence from this run",
       "summary": "{processed} of {sampled} sampled frames were decoded. A frame needed at least {threshold}% confidence to vote.",
@@ -576,5 +575,13 @@
   "archive_check_again": "Check again",
   "frame_strip_inspect_hint": "Select a frame to inspect it closer. Your saved photograph stays unchanged.",
   "frame_inspecting_now": "Viewing in main frame",
-  "frame_inspect_action": "View larger"
+  "frame_inspect_action": "View larger",
+  "readings": {
+    "title": "Snapshot and video",
+    "disagree": "Readings disagree",
+    "needs_person": "The snapshot and the video named different birds. Look at the photo and the clip, then confirm the name or pick a different species.",
+    "owner_decided": "The snapshot and the video named different birds. You chose the name shown.",
+    "snapshot": "Snapshot",
+    "video": "Video"
+  }
 }
