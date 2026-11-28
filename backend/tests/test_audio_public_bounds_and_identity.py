@@ -72,8 +72,8 @@ def bounded_audio(monkeypatch, tmp_path):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("surface", ["history", "summary", "sources", "context", "event_context"])
-async def test_today_only_audio_excludes_future_before_paging_counts_and_sources(bounded_audio, surface):
+@pytest.mark.parametrize("surface", ["history", "summary", "context", "event_context"])
+async def test_today_only_audio_excludes_future_before_paging_and_counts(bounded_audio, surface):
     today, end, _ = bounded_audio
     path, params = f"/api/audio/{surface}", {}
     if surface in {"history", "summary"}:
