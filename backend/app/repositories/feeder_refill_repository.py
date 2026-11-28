@@ -4,39 +4,14 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
 
 import aiosqlite
 
+from app.models.feeder_refill import NewRefill, RefillSource, StoredRefill
 from app.utils.api_datetime import parse_storage_datetime, serialize_storage_datetime, utc_naive_now
 
-RefillSource = Literal["manual", "api", "mqtt"]
-
 _COLUMNS = "id, refilled_at, camera_name, source, note, source_event_id, created_at"
-
-
-@dataclass(frozen=True)
-class NewRefill:
-    """A checked refill, its time in naive UTC to the second as the history stores times."""
-
-    refilled_at: datetime
-    camera_name: str | None
-    source: RefillSource
-    note: str | None
-    source_event_id: str | None
-
-
-@dataclass(frozen=True)
-class StoredRefill:
-    id: int
-    refilled_at: datetime
-    camera_name: str | None
-    source: RefillSource
-    note: str | None
-    source_event_id: str | None
-    created_at: datetime
 
 
 def _from_row(row: aiosqlite.Row | tuple) -> StoredRefill:

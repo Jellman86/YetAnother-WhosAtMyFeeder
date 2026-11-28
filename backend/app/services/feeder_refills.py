@@ -11,15 +11,13 @@ import unicodedata
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
-from app.repositories.feeder_refill_repository import (
-    FeederRefillRepository,
-    NewRefill,
-    RefillSource,
-    StoredRefill,
-)
+from app.models.feeder_refill import NewRefill, RefillSource, StoredRefill
 from app.utils.api_datetime import utc_naive_datetime
+
+if TYPE_CHECKING:
+    from app.repositories.feeder_refill_repository import FeederRefillRepository
 
 RefillOutcome = Literal["recorded", "same_event", "within_cooldown"]
 RefusalCode = Literal["future_time", "unknown_camera", "note_too_long", "invalid_source_event_id"]

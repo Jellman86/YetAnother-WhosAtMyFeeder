@@ -14,7 +14,8 @@ from pydantic import BaseModel, Field
 from app.auth import AuthContext, require_owner
 from app.config import settings
 from app.database import get_db
-from app.repositories.feeder_refill_repository import FeederRefillRepository, RefillSource, StoredRefill
+from app.models.feeder_refill import RefillSource, StoredRefill
+from app.repositories.feeder_refill_repository import FeederRefillRepository
 from app.services.feeder_refills import (
     NOTE_MAX_LENGTH,
     SOURCE_EVENT_ID_MAX_LENGTH,

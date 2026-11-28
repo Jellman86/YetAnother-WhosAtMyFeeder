@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.repositories.feeder_refill_repository import StoredRefill
+from app.models.feeder_refill import StoredRefill
 from app.services.feeder_refills import REFILL_COOLDOWN, RefillRefused, RefillRequest, decide_refill, prepare_refill
 
 NOW = datetime(2026, 11, 28, 9, 30, 15, 640000)

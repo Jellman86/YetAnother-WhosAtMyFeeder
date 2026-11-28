@@ -12,7 +12,8 @@ from app.auth import create_access_token
 from app.config import settings
 from app.database import close_db, get_db, init_db
 from app.main import app
-from app.repositories.feeder_refill_repository import FeederRefillRepository, NewRefill
+from app.models.feeder_refill import NewRefill
+from app.repositories.feeder_refill_repository import FeederRefillRepository
 
 
 @pytest_asyncio.fixture
