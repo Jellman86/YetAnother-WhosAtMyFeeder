@@ -175,7 +175,10 @@ With the RF-DETR finder loaded, whole-frame scans apply this policy from
 detector evidence alone: a box scoring 0.60 or higher is counted, and weaker or
 overlapping boxes are kept as unconfirmed regions, so the scan reports an
 incomplete lower bound. YOLOX-Tiny keeps the earlier count, and scans saved
-before this change stay as they were. Own-pixel classifier evidence and the
-preparation helper are not wired into counting yet. Using them still requires
-service integration, history and cancellation tests, frozen scene
-qualification, and provider and cost checks.
+before this change stay as they were. Scene selection accepts own-crop
+decisions, and `physical_group_evidence` binds a classification's bird and
+non-bird group summary to the crop checksum it was computed from, but neither
+scan path classifies a box's own crop yet, so every count is still made from
+detector evidence alone. Gathering that evidence still requires service
+integration, history and cancellation tests, frozen scene qualification, and
+provider and cost checks.

@@ -3,6 +3,8 @@
 import numpy as np
 import pytest
 
+from app.services.bird_observation_selection import select_scene_birds
+from app.services.bird_physical_confirmation import decide_physical_bird, physical_group_evidence
 from app.services.inference.outputs import build_classification_results, resolve_model_labels
 from app.services.model_output_groups import BoundOutputGroups
 from app.services.species_catalog_resolver import species_catalog_resolver
@@ -79,3 +81,29 @@ def test_unavailable_group_snapshot_never_changes_valid_species_labels(monkeypat
     monkeypatch.setattr(species_catalog_resolver, "ensure_loaded", unavailable)
     labels, grouped, source = resolve_model_labels("/absent-labels", {}, model_sha256=MODEL)
     assert (labels, grouped, source) == (LABELS, [], "catalogue")
+
+
+def test_classifier_group_output_binds_to_its_crop_and_counts_a_stand_alone_mid_band_bird(bound_groups):
+    crop = "c" * 64
+    results = build_classification_results(np.array([0.4, 0.3, 0.2, 0.1]), LABELS, top_k=1, model_sha256=MODEL)
+    decision = decide_physical_bird(
+        0.45,
+        finder_qualified=True,
+        evidence=physical_group_evidence(results[0]["taxonomic_evidence"], crop_sha256=crop),
+        expected_model_sha256=MODEL,
+        expected_mapping_sha256=MAPPING,
+        expected_crop_sha256=crop,
+    )
+    box = {
+        "candidate_id": "bird",
+        "source_mode": "model_observation",
+        "clip_variant": "recording",
+        "frame_index": 1,
+        "crop_box": (10, 10, 60, 60),
+        "crop_confidence": 0.45,
+    }
+    selection = select_scene_birds(
+        [box], selected_candidate=None, confirmed_finder=True, physical_decisions={"bird": decision}
+    )
+    assert (decision.verdict, decision.reason) == ("counted", "own_crop_bird")
+    assert [bird.candidate_id for bird in selection.birds] == ["bird"]
