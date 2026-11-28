@@ -304,6 +304,49 @@ async def test_guest_sse_never_carries_raw_object_or_owner_payload(private_histo
 
 
 @pytest.mark.asyncio
+async def test_guest_sse_tells_a_narrowing_apart_from_a_change_without_any_fields(private_history):
+    request = Request({"type": "http", "method": "GET", "path": "/api/sse", "headers": [], "query_string": b""})
+    response = await sse_endpoint(request, StreamAuth(AuthContext(AuthLevel.GUEST), None))
+    deliveries = [
+        (
+            {"type": "detection_updated", "data": {"frigate_event": "hidden", "is_hidden": True, "secret": "x"}},
+            "public_history_narrowed",
+        ),
+        ({"type": "detection_deleted", "data": {"frigate_event": "gone", "secret": "x"}}, "public_history_narrowed"),
+        ({"type": "detection", "data": {"frigate_event": "new", "secret": "x"}}, "public_history_changed"),
+        (
+            {"type": "detection_updated", "data": {"frigate_event": "back", "is_hidden": False, "secret": "x"}},
+            "public_history_changed",
+        ),
+        ({"type": "detection_updated", "data": "malformed"}, "public_history_changed"),
+    ]
+    try:
+        await response.body_iterator.__anext__()
+        for message, expected_type in deliveries:
+            await broadcaster.broadcast(message)
+            frame = await asyncio.wait_for(response.body_iterator.__anext__(), 1)
+            assert json.loads(frame.removeprefix("data: ")) == {"type": expected_type}
+    finally:
+        await response.body_iterator.aclose()
+
+
+@pytest.mark.asyncio
+async def test_owner_sse_still_receives_the_raw_hide_and_never_the_guest_narrowing(private_history):
+    request = Request({"type": "http", "method": "GET", "path": "/api/sse", "headers": [], "query_string": b""})
+    response = await sse_endpoint(request, StreamAuth(AuthContext(AuthLevel.OWNER), None))
+    hide = {"type": "detection_updated", "data": {"frigate_event": "hidden", "is_hidden": True}}
+    try:
+        await response.body_iterator.__anext__()
+        await broadcaster.broadcast(hide)
+        frame = await asyncio.wait_for(response.body_iterator.__anext__(), 1)
+        while json.loads(frame.removeprefix("data: ")).get("type") == "status":
+            frame = await asyncio.wait_for(response.body_iterator.__anext__(), 1)
+        assert json.loads(frame.removeprefix("data: ")) == hide
+    finally:
+        await response.body_iterator.aclose()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "path,method",
     [

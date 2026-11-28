@@ -2159,9 +2159,14 @@ length oracle.
    BirdNET-Go call is stored (not for a redelivered call or a diagnostic); it carries no
    detection, so reread `GET /api/audio/recent` or `GET /api/audio/summary`. `status` carries the
    whole owner status snapshot (see `GET /api/status`), so a page follows jobs, connections,
-   cameras, the model and host load without polling. Guest streams carry only `public_history_changed` and
-   `public_access_changed` invalidations, in addition to connection/heartbeat frames;
-   fetch allowed data through the public HTTP API and refresh sharing preferences.
+   cameras, the model and host load without polling. Guest streams carry only the
+   `public_history_changed`, `public_history_narrowed` and `public_access_changed` invalidations,
+   in addition to connection/heartbeat frames; none carries an ID or any other field. Fetch
+   allowed data through the public HTTP API and refresh sharing preferences.
+   `public_history_narrowed` means records left the shared history (a delete, including an
+   automatic false-positive removal, or an update whose record is now hidden): discard any answer
+   requested before it, then read again. `public_history_changed` covers everything else, such as a
+   new capture or a record shown again, and needs no answer discarded.
 
 ## See Also
 

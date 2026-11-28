@@ -212,6 +212,8 @@ interface LiveUpdateDeps {
     onStatus?: (snapshot: unknown) => void;
     onConnected?: () => void;
     onPublicHistoryChanged?: () => void;
+    /** Records left a visitor's history (a hide or a delete); sent to visitors only, with no fields. */
+    onPublicHistoryNarrowed?: () => void;
     onGardenHistoryChanged?: () => void;
     /** A call was heard, hidden or restored; the server sends these to owners only. */
     onAudioChanged?: () => void;
@@ -445,6 +447,10 @@ export class LiveUpdateCoordinator {
 
             if (payload.type === 'public_history_changed') {
                 this.deps.onPublicHistoryChanged?.();
+                return;
+            }
+            if (payload.type === 'public_history_narrowed') {
+                if (!this.ownerAccess()) this.deps.onPublicHistoryNarrowed?.();
                 return;
             }
             if (payload.type === 'public_access_changed') {
