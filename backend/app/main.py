@@ -92,6 +92,7 @@ from app.routers import (
     status as status_router,
     manual_observations,
     range_filter,
+    refills,
     taxonomy,
 )
 from app.config import settings, _expand_trusted_hosts
@@ -1028,6 +1029,7 @@ app.include_router(
 )
 app.include_router(ebird.router, prefix="/api", tags=["ebird"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(range_filter.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(refills.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(geocoding.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 
 

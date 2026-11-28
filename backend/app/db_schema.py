@@ -467,3 +467,21 @@ health_samples = Table(
 )
 
 Index("idx_health_samples_sampled_at", health_samples.c.sampled_at)
+
+# Feeder refills (#946): markers beside the detection history that explain a jump in visits. An
+# automation's own event id is unique, so the same event sent twice is one refill.
+feeder_refills = Table(
+    "feeder_refills",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("refilled_at", TIMESTAMP, nullable=False),
+    Column("camera_name", String, nullable=True),
+    Column("source", String, nullable=False),
+    Column("note", String, nullable=True),
+    Column("source_event_id", String, nullable=True),
+    Column("created_at", TIMESTAMP, nullable=False),
+    UniqueConstraint("source_event_id", name="uq_feeder_refills_source_event_id"),
+    CheckConstraint("source IN ('manual','api','mqtt')", name="ck_feeder_refills_source"),
+)
+
+Index("idx_feeder_refills_refilled_at", feeder_refills.c.refilled_at)

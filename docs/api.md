@@ -1499,6 +1499,32 @@ rules. The switch itself is `range_filter_enabled` and the finest region is
 A detection set aside is dropped with reason `filter_out_of_range`, and `POST
 /api/events/{event_id}/reclassify` can answer `no_result` with reason `out_of_range`.
 
+### Feeder refills
+
+Owner only, reads included; guests receive `401` or `403`, because refill times show when someone
+was in the garden. A refill is a marker beside the detection history and never changes it (#946).
+Each refill has `id`, `refilled_at` (UTC), `camera_name` (a configured camera, or null),
+`source` (`manual` when recorded in YA-WAMF, `api` when sent by an automation, `mqtt` reserved for
+the MQTT topic), `note` (one line of plain text; show it as text, never as markup),
+`source_event_id` and `created_at`.
+
+- `GET /api/refills?start=&end=&limit=&offset=` — refills in a window, newest first, with `total`
+  and the window used. `start` and `end` are exact times with an offset (`2026-11-28T09:15:00Z`);
+  `end` defaults to now and `start` to 30 days before `end`. A window longer than 400 days, or one
+  that ends before it starts, returns `422`. `limit` is 1–500 (default 100).
+- `POST /api/refills` — record a refill. Every field is optional:
+  `{"refilled_at": "2026-11-28T09:15:00+01:00", "camera_name": "birdcam", "source": "api",
+  "note": "Sunflower hearts", "source_event_id": "ha-feeder-door-1732785300"}`. Without
+  `refilled_at` the refill is recorded now. Returns `201` with `outcome: "recorded"`. A repeat
+  stores nothing and returns `200` with the refill already stored: `outcome: "same_event"` when
+  `source_event_id` was stored before, or `outcome: "within_cooldown"` when the same camera (or no
+  camera) already has a refill within 15 minutes of this one. A time more than two minutes in the
+  future, a camera YA-WAMF does not watch, a note over 280 characters, or an event id with line
+  breaks or over 128 characters returns `422` and stores nothing. Line breaks and tabs in a note
+  become spaces. `source` accepts `manual` or `api` (the default).
+- `DELETE /api/refills/{refill_id}` — delete a refill permanently; it cannot be restored. Returns
+  `{"id": 3, "deleted": true}`, or `404` when no refill has that id.
+
 ### Settings and Maintenance
 
 - `GET /api/settings` (owner)
