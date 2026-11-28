@@ -51,9 +51,14 @@ the container. **If the links go nowhere** but spectrograms are fine, the browse
 ### 3. Sensor Mapping
 For correlation to work, YA-WAMF needs to know which audio sensor belongs to which camera.
 1. Go to **Settings → Integrations → BirdNET-Go → Audio buffer & sensor mapping**.
-2. Check **Recently detected BirdNET sources** after audio messages have arrived.
-3. Under **BirdNET source mapping (Optional)**, use **Add detected source…** for the corresponding camera, or type the stable source name.
-4. Multiple source names can be mapped to a camera; comma-separated entries are accepted. Choose Save changes to keep the mapping.
+2. Check **Recently detected BirdNET sources** after audio messages have arrived. Each stream is
+   listed once, under its current name and its BirdNET-Go stream ID, newest first.
+3. Under **BirdNET source mapping (Optional)**, use **Add detected source…** for the corresponding
+   camera, or select a source in the list. Either links the camera by the stream's ID, shown as
+   `ESP32 v3.0 X · rtsp_52d54d7d`, with when the stream was last heard. A source from a BirdNET-Go
+   version that sends no ID is linked by its name.
+4. Several sources can be linked to one camera; comma-separated entries are accepted, and you can
+   still type a name or an ID by hand. Choose Save changes to keep the mapping.
 
 A named camera without a mapping does not receive audio from another source. Use `*` only when you
 deliberately want any source to correlate with that camera; a blank or missing mapping is not a
@@ -61,10 +66,9 @@ wildcard.
 
 For cameras with microphones, BirdNET-Go supports multiple named RTSP audio sources. Enable audio
 in each camera (AAC is the most interoperable choice), add and test each RTSP stream in BirdNET-Go,
-and give it a stable name that matches the corresponding Frigate camera where practical. Map that
-configured source name in YA-WAMF; current BirdNET-Go releases publish a stable `sourceName` as well
-as the runtime `sourceId`. This is easier to maintain than copying a generated hash and lets every
-camera contribute independent audio context. See BirdNET-Go's
+and give it a name that matches the corresponding Frigate camera where practical. Link each camera
+to its stream from the list in Settings, which saves the stream's ID, so every camera contributes
+independent audio context and keeps it when you rename the stream. See BirdNET-Go's
 [RTSP/multiple-source guide](https://github.com/tphakala/birdnet-go/wiki/BirdNET%E2%80%90Go-Guide#live-audio-streaming).
 
 #### Renaming a source in BirdNET-Go
@@ -94,17 +98,24 @@ So:
   once, under its newest name, with all of its calls, and the source filter finds its whole history
   by its old name, its new name or its id. Each call in the list of calls keeps the name it arrived
   with.
-- **A camera mapping still matches names and ids literally.** A camera mapped by a source's old
-  name does not hear the source under its new name: after renaming a source in BirdNET-Go, update
-  the camera's mapping under **Settings → Integrations → BirdNET-Go → Audio buffer & sensor
-  mapping**, as before. Following a rename in camera mappings is planned as a follow-up.
-- **Mapping a camera by the source's id survives a rename,** with three limits:
-  - it only works for a source whose calls carry `sourceId`;
-  - calls from before BirdNET-Go sent ids are not matched by the id, so keep their name in the
-    mapping too (for example `rtsp_3af0d74c, birdcam`);
-  - **Add detected source…** inserts the source's name, so type the id into the mapping yourself.
-
-  A mapping by id also hears every install that sends the same id, as it always has.
+- **Link a camera by the stream's ID, and a rename keeps it linked.** **Add detected source…** and
+  the list of detected sources save the stream's ID. A camera mapping matches names and IDs
+  literally, as it always has, so YA-WAMF never rewrites a mapping on its own.
+- **A camera linked by an old name says so.** When a camera is linked by a name its stream no
+  longer uses, Settings shows `ESP32 v3.0 is now called ESP32 v3.0 X.` under that camera, with
+  **Link by stream ID**. The button adds the stream's ID to the camera's mapping. It removes the old
+  name too, unless calls stored under that name carry no ID: those are calls from before
+  BirdNET-Go sent IDs, they match by name only, so the name stays beside the ID (for example
+  `ESP32 v3.0, rtsp_52d54d7d`). Nothing changes until you choose Save changes.
+- **Changing a stream's address or credentials gives it a new ID.** BirdNET-Go hashes the whole
+  connection string, so a new RTSP host, port, path, user name or password makes a new ID, and a
+  camera linked by the old ID stops hearing it. Each linked source shows when it was last heard; if
+  that date stops moving after you change the stream in BirdNET-Go, link the camera again from the
+  list.
+- **Sources from older BirdNET-Go versions link by name.** A source whose calls carry no
+  `sourceId` is listed and linked by its name, and a rename in BirdNET-Go then needs the camera
+  linked again.
+- **A link by ID hears every install that sends the same ID,** as it always has.
 - **Changing a source's address makes a new source.** A new RTSP URL hashes to a new id in
   BirdNET-Go, so YA-WAMF lists it separately, even under the same name. When two sources share a
   name, the **Sources** list shows each one's BirdNET-Go id, and its install when that is what
@@ -115,7 +126,8 @@ So:
   microphone. If two sources have carried that name, the older calls stay a separate entry, marked as
   calls without a usable BirdNET-Go id, rather than being credited to the wrong stream.
 - **Guests** see only what the shared history holds: a source is named, filtered and counted from
-  the calls inside the window you share, never from an older name.
+  the calls inside the window you share, never from an older name. The list of sources to link,
+  with each stream's earlier names, is for the owner only.
 
 Tracking sources changes nothing about how YA-WAMF recognises a call BirdNET-Go delivers again:
 it still knows one by its source name and BirdNET-Go's detection number, as before. Two installs

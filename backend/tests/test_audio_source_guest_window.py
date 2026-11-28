@@ -161,10 +161,15 @@ async def test_guest_heard_bands_name_calls_by_the_shared_window_only(renamed_be
 
 
 @pytest.mark.asyncio
-async def test_guest_source_discovery_lists_the_shared_window_only(renamed_before_the_window):
-    response = await _get("/api/audio/sources")
-    _assert_private_source_absent(response)
-    assert sorted(item["source_name"] for item in response.json()) == ["Feeder", "Garden"]
+async def test_only_the_owner_lists_sources_to_link_with_their_earlier_names(renamed_before_the_window):
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        guest = await client.get("/api/audio/sources")
+    assert guest.status_code == 403
+    _assert_private_source_absent(guest)
+    owner = (await _get("/api/audio/sources", owner=True)).json()
+    door = next(item for item in owner if item["mapping_value"] == "rtsp_private")
+    assert door["source_name"] == "Private Door"
+    assert [name["name"] for name in door["earlier_names"]] == ["Feeder"]
 
 
 @pytest.mark.asyncio

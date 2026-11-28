@@ -121,3 +121,36 @@ async def test_a_start_with_no_call_to_read_costs_one_empty_seek(migrated_histor
         async with db.execute(f"EXPLAIN QUERY PLAN {statement}") as cursor:
             plan = " ".join(str(row[3]) for row in await cursor.fetchall())
         assert "idx_audio_detections_source_pending" in plan, plan
+
+
+async def _link_reads(path, old_calls: int) -> tuple[list[str], list[str], list]:
+    async with aiosqlite.connect(path) as db:
+        await _seed(db, old_calls)
+        statements: list[str] = []
+        await db.set_trace_callback(statements.append)
+        links = await AudioHistoryRepository(db).load_audio_source_links()
+        await db.set_trace_callback(None)
+        plans = []
+        for statement in statements:
+            async with db.execute(f"EXPLAIN QUERY PLAN {statement}") as cursor:
+                plans.append(" ".join(str(row[3]) for row in await cursor.fetchall()))
+        return statements, plans, links
+
+
+@pytest.mark.asyncio
+async def test_listing_sources_to_link_reads_the_identity_index_alone(migrated_history_db):
+    """Settings' list takes one statement per stored name, whatever the history holds, and never a payload."""
+    small, _, small_links = await _link_reads(migrated_history_db, 2_000)
+    large, plans, large_links = await _link_reads(migrated_history_db, 20_000)
+    assert len(large) == len(small)
+    for plan in plans:
+        assert "SCAN audio_detections" not in plan, plan
+        assert "COVERING INDEX" in plan, plan
+    assert [(link.mapping_value, link.source_name) for link in large_links] == [
+        ("rtsp_0", "Feeder"),
+        ("rtsp_2", "nestcam"),
+        ("rtsp_1", "birdcam"),
+    ]
+    assert [name.name for name in large_links[0].earlier_names] == ["patiocam"]
+    assert sum(link.seen_count for link in large_links) == 10_001
+    assert [link.mapping_value for link in small_links] == [link.mapping_value for link in large_links]

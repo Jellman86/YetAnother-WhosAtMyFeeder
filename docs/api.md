@@ -1902,7 +1902,13 @@ snapshot, not a destructive queue-control API.
     without breaking consumers of the response body. Event-scoped rows expose `scientific_name` and
     `matches_visual`; the latter is true when the row independently confirms the persisted visual
     species, including audio that arrived after initial event processing.
-  - `GET /api/audio/sources`
+  - `GET /api/audio/sources` (owner only; guests receive `403`): the BirdNET-Go sources a camera
+    can be linked to, one entry per stream, newest first (`limit`, `1`–`100`, default `20`). Each
+    entry has `mapping_value` (the stream's `source_id`, or its name when the source sends no id),
+    its current `source_name`, `earlier_names` (each with `last_seen` and `has_calls_without_id`,
+    true when stored calls under that name carry no id and so match a link by name only),
+    `last_seen` and `seen_count`. Read from the stored history's source columns, so a stream heard
+    long ago is listed beside a busy one.
   - `GET /api/audio/spectrogram/{birdnet_id}` — proxies the BirdNET-Go spectrogram PNG so no
     BirdNET-Go host or token reaches the browser. `width` is `64`–`1600` (default `400`).
   - `GET /api/audio/clip/{birdnet_id}` — proxies the matched audio clip, forwarding the client's

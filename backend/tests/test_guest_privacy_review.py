@@ -119,8 +119,8 @@ async def test_guest_ai_switch_covers_cached_answers(private_history, monkeypatc
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("route", ["history?days=3650", "summary?days=3650", "species?span=all", "sources"])
-async def test_guest_audio_windows_filter_before_counts_and_source_discovery(private_history, route):
+@pytest.mark.parametrize("route", ["history?days=3650", "summary?days=3650", "species?span=all"])
+async def test_guest_audio_windows_filter_before_counts(private_history, route):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
         response = await client.get(f"/api/audio/{route}")
         owner = await client.get(
@@ -268,7 +268,7 @@ async def test_guest_recent_uses_persisted_visibility_not_stale_memory(private_h
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("route", ["history", "context/event/visible", "sources", "recent"])
+@pytest.mark.parametrize("route", ["history", "context/event/visible", "recent"])
 async def test_guest_source_privacy_hides_both_source_fields(private_history, monkeypatch, route):
     monkeypatch.setattr(settings.public_access, "show_camera_names", False)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
@@ -321,7 +321,6 @@ async def test_guest_sse_never_carries_raw_object_or_owner_payload(private_histo
             "GET",
         ),
         ("/api/audio/species", "GET"),
-        ("/api/audio/sources", "GET"),
         ("/api/audio/context/event/visible", "GET"),
         ("/api/events/visible/analyze", "POST"),
         ("/api/events/visible/conversation", "GET"),
@@ -337,6 +336,23 @@ async def test_visibility_database_failure_is_closed_and_retryable(private_histo
     monkeypatch.setattr(ai, "get_db", unavailable)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
         response = await client.request(method, path)
+    assert response.status_code == 503, response.text
+    assert response.headers["retry-after"] == "5"
+    assert "private-path" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_owner_source_list_database_failure_is_retryable_and_private(private_history, monkeypatch):
+    @asynccontextmanager
+    async def unavailable():
+        raise sqlite3.OperationalError("private-path.db locked")
+        yield
+
+    monkeypatch.setattr(audio, "get_db", unavailable)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        response = await client.get(
+            "/api/audio/sources", headers={"Authorization": f"Bearer {create_access_token('owner')}"}
+        )
     assert response.status_code == 503, response.text
     assert response.headers["retry-after"] == "5"
     assert "private-path" not in response.text

@@ -184,11 +184,17 @@ export interface components {
     count: number;
     hour: number;
 };
+    AudioSourceEarlierNameResponse: {
+    has_calls_without_id: boolean;
+    last_seen: string;
+    name: string;
+};
     AudioSourceResponse: {
+    earlier_names?: Array<components['schemas']['AudioSourceEarlierNameResponse']>;
     last_seen: string;
     mapping_value: string;
-    sample_source_id?: string | null;
-    seen_count?: number;
+    seen_count: number;
+    source_id?: string | null;
     source_name: string;
 };
     AudioSourceSummaryResponse: {

@@ -37,130 +37,106 @@ def reset_auth_config():
     settings.frigate.audio_correlation_window_seconds = original_correlation_window
 
 
+async def _store_calls(rows: list[tuple[datetime, str | None, dict, int]]) -> None:
+    """Replace the history with calls of (time, stored sensor, payload, hidden), source columns filled."""
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        await db.executemany(
+            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, is_hidden)
+               VALUES (?, 'Robin', 0.9, ?, ?, ?)""",
+            [
+                (stamp.replace(tzinfo=None).isoformat(sep=" "), sensor, json.dumps(payload), hidden)
+                for stamp, sensor, payload, hidden in rows
+            ],
+        )
+        await db.commit()
+        await fill_source_columns(db)
+
+
+def _stream_call(stamp: datetime, name: str, source_id: str, hidden: int = 0) -> tuple:
+    return (stamp, name, {"sourceName": name, "sourceId": source_id, "SourceNode": "Quark"}, hidden)
+
+
 @pytest.mark.asyncio
-async def test_audio_sources_returns_recent_distinct_source_names(client: httpx.AsyncClient):
+async def test_audio_sources_lists_a_renamed_stream_once_linked_by_its_id(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
+    now = datetime(2026, 11, 28, 9, 0, tzinfo=timezone.utc)
+    await _store_calls(
+        [
+            # Before BirdNET-Go sent ids: a hidden call that still matches a link by name.
+            (now - timedelta(days=60), "ESP32 v3.0", {"sourceName": "ESP32 v3.0"}, 1),
+            _stream_call(now - timedelta(days=1), "ESP32 v3.0", "rtsp_52d54d7d"),
+            _stream_call(now - timedelta(hours=2), "ESP32 v3.0 X", "rtsp_52d54d7d"),
+            _stream_call(now - timedelta(hours=1), "ESP32 v3.0 X", "rtsp_52d54d7d"),
+            _stream_call(now - timedelta(days=1), "Reolink", "rtsp_68763a4d"),
+            _stream_call(now - timedelta(minutes=30), "Reolink TEST", "rtsp_68763a4d"),
+        ]
+    )
 
-    # A fixed instant just past midnight: the newest row then falls on the previous day,
-    # which is exactly when a comparison against "today" used to fail.
-    now = datetime(2026, 3, 14, 0, 0, 30, tzinfo=timezone.utc)
-    rows = [
-        (
-            (now - timedelta(minutes=1)).isoformat(sep=" "),
-            "Dunnock",
-            0.9,
-            "BirdCam",
-            json.dumps({"nm": "BirdCam", "src": "rtsp_new", "Source": {"id": "rtsp_new", "displayName": "BirdCam"}}),
-            "Prunella modularis",
-        ),
-        (
-            (now - timedelta(minutes=5)).isoformat(sep=" "),
-            "Woodpigeon",
-            0.8,
-            "BirdCam",
-            json.dumps({"nm": "BirdCam", "src": "rtsp_old", "Source": {"id": "rtsp_old", "displayName": "BirdCam"}}),
-            "Columba palumbus",
-        ),
-        (
-            (now - timedelta(minutes=2)).isoformat(sep=" "),
-            "Blue Tit",
-            0.85,
-            "Garden Mic",
-            json.dumps({"Source": {"id": "rtsp_garden", "displayName": "Garden Mic"}}),
-            "Cyanistes caeruleus",
-        ),
+    response = await client.get("/api/audio/sources?limit=10")
+    assert response.status_code == 200, response.text
+    reolink, esp32 = response.json()
+
+    assert esp32["source_name"] == "ESP32 v3.0 X"
+    assert esp32["mapping_value"] == esp32["source_id"] == "rtsp_52d54d7d"
+    assert esp32["last_seen"] == "2026-11-28T08:00:00Z"
+    assert esp32["seen_count"] == 3
+    assert esp32["earlier_names"] == [
+        {"name": "ESP32 v3.0", "last_seen": "2026-11-27T09:00:00Z", "has_calls_without_id": True}
+    ]
+    assert reolink["source_name"] == "Reolink TEST"
+    assert reolink["mapping_value"] == "rtsp_68763a4d"
+    assert reolink["earlier_names"] == [
+        {"name": "Reolink", "last_seen": "2026-11-27T09:00:00Z", "has_calls_without_id": False}
     ]
 
-    async with get_db() as db:
-        await db.execute("DELETE FROM audio_detections")
-        for row in rows:
-            await db.execute(
-                """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                row,
-            )
-        await db.commit()
 
-    response = await client.get("/api/audio/sources?limit=10")
+@pytest.mark.asyncio
+async def test_audio_sources_keeps_a_quiet_stream_behind_many_newer_calls(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    now = datetime(2026, 11, 28, 9, 0, tzinfo=timezone.utc)
+    busy = [_stream_call(now - timedelta(seconds=index), "Feeder", "rtsp_busy") for index in range(250)]
+    await _store_calls([_stream_call(now - timedelta(days=40), "Pond", "rtsp_quiet"), *busy])
+
+    response = await client.get("/api/audio/sources?limit=20")
     assert response.status_code == 200, response.text
-    payload = response.json()
-
-    assert [item["source_name"] for item in payload] == ["BirdCam", "Garden Mic"]
-
-    birdcam = payload[0]
-    assert birdcam["mapping_value"] == "BirdCam"
-    assert birdcam["sample_source_id"] == "rtsp_new"
-    assert birdcam["seen_count"] == 2
-    assert birdcam["last_seen"] == rows[0][0]
+    assert [(item["source_name"], item["seen_count"]) for item in response.json()] == [("Feeder", 250), ("Pond", 1)]
 
 
 @pytest.mark.asyncio
-async def test_audio_sources_falls_back_to_source_id_when_name_missing(client: httpx.AsyncClient):
+async def test_audio_sources_links_a_source_without_an_id_by_its_name(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
-
-    now = datetime.now(timezone.utc)
-    row = (
-        now.isoformat(sep=" "),
-        "House Sparrow",
-        0.91,
-        None,
-        json.dumps({"sourceId": "rtsp_livepayload", "CommonName": "House Sparrow"}),
-        "Passer domesticus",
-    )
-
-    async with get_db() as db:
-        await db.execute("DELETE FROM audio_detections")
-        await db.execute(
-            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            row,
-        )
-        await db.commit()
+    now = datetime(2026, 11, 28, 9, 0, tzinfo=timezone.utc)
+    await _store_calls([(now, "Patio Mic", {"sourceName": "Patio Mic"}, 0)])
 
     response = await client.get("/api/audio/sources?limit=10")
     assert response.status_code == 200, response.text
-    payload = response.json()
-
-    assert len(payload) == 1
-    assert payload[0]["source_name"] == "rtsp_livepayload"
-    assert payload[0]["mapping_value"] == "rtsp_livepayload"
-    assert payload[0]["sample_source_id"] == "rtsp_livepayload"
+    [patio] = response.json()
+    assert (patio["source_name"], patio["mapping_value"], patio["source_id"]) == ("Patio Mic", "Patio Mic", None)
 
 
 @pytest.mark.asyncio
-async def test_audio_sources_uses_birdnet_source_name(client: httpx.AsyncClient):
+async def test_audio_sources_names_a_stream_that_sent_no_name_by_its_id(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
-
-    now = datetime.now(timezone.utc)
-    row = (
-        now.isoformat(sep=" "),
-        "House Sparrow",
-        0.91,
-        "rtsp_livepayload",
-        json.dumps({"sourceName": "Patio Mic", "sourceId": "rtsp_livepayload"}),
-        "Passer domesticus",
-    )
-
-    async with get_db() as db:
-        await db.execute("DELETE FROM audio_detections")
-        await db.execute(
-            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            row,
-        )
-        await db.commit()
+    await _store_calls([(datetime(2026, 11, 28, tzinfo=timezone.utc), None, {"sourceId": "rtsp_livepayload"}, 0)])
 
     response = await client.get("/api/audio/sources?limit=10")
     assert response.status_code == 200, response.text
-    payload = response.json()
+    [stream] = response.json()
+    assert (stream["source_name"], stream["mapping_value"]) == ("rtsp_livepayload", "rtsp_livepayload")
 
-    assert len(payload) == 1
-    assert payload[0]["source_name"] == "Patio Mic"
-    assert payload[0]["mapping_value"] == "Patio Mic"
-    assert payload[0]["sample_source_id"] == "rtsp_livepayload"
+
+@pytest.mark.asyncio
+async def test_guest_cannot_list_audio_sources_or_their_earlier_names(client: httpx.AsyncClient):
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+    settings.public_access.show_camera_names = True
+    response = await client.get("/api/audio/sources")
+    assert response.status_code == 403
 
 
 @pytest.mark.asyncio

@@ -24,6 +24,7 @@ from app.utils.audio_source_identity import (
     read_stored_source,
     source_of_payload,
 )
+from app.utils.audio_source_links import AudioSourceLink, SourceNameUse, audio_source_links, fold_source_name
 from app.utils.birdnet_payload import (
     extract_audio_mapping_keys,
     extract_birdnet_id,
@@ -176,6 +177,35 @@ async def load_audio_source_directory(
                             )
                         )
     return AudioSourceDirectory(observations)
+
+
+async def load_audio_source_links(db: aiosqlite.Connection) -> list[AudioSourceLink]:
+    """Every source a camera can be linked to, one entry per stream, for the owner's Settings.
+
+    Walks the identity index as ``load_audio_source_directory`` does, so a stream heard once months
+    ago is listed beside a busy one. Each stored (node, id, name) costs one count of its visible
+    calls, read from the index alone; no payload is read. Names stored without an id are noted
+    from every call, hidden ones included, since a hidden call still matches a link by its name.
+    """
+    uses: list[SourceNameUse] = []
+    names_without_id: set[str] = set()
+    for node in await _distinct_source_values(db, "source_node", []):
+        for source_id in await _distinct_source_values(db, "source_id", [("source_node", node)]):
+            names = await _distinct_source_values(db, "source_name", [("source_node", node), ("source_id", source_id)])
+            for name in names:
+                if source_id is None and name:
+                    names_without_id.add(fold_source_name(name))
+                async with db.execute(
+                    """SELECT MAX(timestamp), COUNT(*) FROM audio_detections
+                       WHERE source_node IS ? AND source_id IS ? AND source_name IS ? AND is_hidden = 0""",
+                    (node, source_id, name),
+                ) as cursor:
+                    row = await cursor.fetchone()
+                if row and row[1]:
+                    uses.append(
+                        SourceNameUse(node=node, source_id=source_id, name=name, last_seen=str(row[0]), count=row[1])
+                    )
+    return audio_source_links(uses, names_without_id)
 
 
 def filter_names_a_source(source: str | None, search: str | None, search_include_source: bool) -> bool:
@@ -461,6 +491,9 @@ class AudioHistoryRepository:
             if self.db.in_transaction:
                 await self.db.rollback()
 
+    async def load_audio_source_links(self) -> list[AudioSourceLink]:
+        return await load_audio_source_links(self.db)
+
     async def load_audio_source_directory(
         self,
         *,
@@ -477,38 +510,6 @@ class AudioHistoryRepository:
             hidden=hidden,
             owner_evidence=owner_evidence,
         )
-
-    async def get_recent_audio_source_observations(
-        self, limit: int = 200, start_date: datetime | None = None, end_date: datetime | None = None
-    ) -> list[dict]:
-        """Return recent raw audio rows for source discovery/deduping."""
-        predicate = "is_hidden = 0"
-        params: list = []
-        if start_date is not None:
-            predicate += " AND timestamp >= ?"
-            params.append(serialize_storage_datetime(start_date))
-        if end_date is not None:
-            predicate += " AND timestamp < ?"
-            params.append(serialize_storage_datetime(end_date))
-        params.append(limit)
-        async with self.db.execute(
-            f"""SELECT timestamp, sensor_id, raw_data
-               FROM audio_detections
-               WHERE {predicate}
-               ORDER BY timestamp DESC
-               LIMIT ?""",
-            params,
-        ) as cursor:
-            rows = await cursor.fetchall()
-
-        return [
-            {
-                "timestamp": row[0],
-                "sensor_id": row[1],
-                "raw_data": row[2],
-            }
-            for row in rows
-        ]
 
     async def get_public_audio_for_detections(self, detections: list) -> dict[str, dict]:
         """Bound each page chunk to one primary and eight nearby rows per visual event.
