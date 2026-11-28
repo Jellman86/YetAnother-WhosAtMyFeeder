@@ -1,7 +1,19 @@
 <script lang="ts">
+    import { tick } from 'svelte';
     import { sessionTests } from '../../settings/session-tests.svelte';
     import { _, locale } from 'svelte-i18n';
-    import { formatDate } from '../../utils/datetime';
+    import { formatShortDay } from '../../utils/datetime';
+    import type { AudioSourceOption } from '../../api/audio';
+    import {
+        addLinkToken,
+        describeLinkToken,
+        linkTokens,
+        relinkByStreamId,
+        renamedLinks,
+        sameLinkToken,
+        sourceLines,
+        sourceLinkLabel
+    } from '../../settings/audio-source-links';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
@@ -36,13 +48,7 @@
         audioBufferHours: number;
         audioCorrelationWindowSeconds: number;
         cameraAudioMapping: Record<string, string>;
-        birdnetSourceOptions: Array<{
-            source_name: string;
-            mapping_value?: string;
-            last_seen: string;
-            sample_source_id?: string | null;
-            seen_count?: number;
-        }>;
+        birdnetSourceOptions: AudioSourceOption[];
         loadingBirdnetSources: boolean;
         birdnetSourcesError: string | null;
         availableCameras: string[];
@@ -93,24 +99,11 @@
         return sessionTests.provide(['audio'], runBirdNetDiagnostic);
     });
 
-    let birdnetMappingOptions = $derived.by(() => {
-        const seen = new Set<string>();
-        return birdnetSourceOptions
-            .flatMap((source) => {
-                const value = (source.mapping_value || source.source_name || '').trim();
-                if (!value) return [];
-                const key = value.toLocaleLowerCase();
-                if (seen.has(key)) return [];
-                seen.add(key);
-                return [{
-                    value,
-                    label: source.source_name && source.source_name !== value
-                        ? `${source.source_name} (${value})`
-                        : value,
-                    sampleSourceId: source.sample_source_id
-                }];
-            });
-    });
+    // One entry per stream: the value saved is the stream id where BirdNET-Go sends one, so a
+    // rename in BirdNET-Go keeps the camera linked.
+    const birdnetMappingOptions = $derived(
+        birdnetSourceOptions.map((source) => ({ value: source.mapping_value, label: sourceLinkLabel(source) }))
+    );
 
     function formatRelativeTime(raw: string | null | undefined): string {
         if (!raw) return '';
@@ -124,14 +117,11 @@
         if (diffSec < 3600) return relative.format(-Math.floor(diffSec / 60), 'minute');
         if (diffSec < 86400) return relative.format(-Math.floor(diffSec / 3600), 'hour');
         if (diffSec < 86400 * 7) return relative.format(-Math.floor(diffSec / 86400), 'day');
-        return formatDate(ts);
+        return formatShortDay(ts);
     }
 
     function mappingTokensFor(camera: string): string[] {
-        return (cameraAudioMapping[camera] || '')
-            .split(/[,\n;|]+/)
-            .map((token) => token.trim())
-            .filter(Boolean);
+        return linkTokens(cameraAudioMapping[camera]);
     }
 
     function setCameraAudioMapping(camera: string, tokens: string[]) {
@@ -142,14 +132,23 @@
     }
 
     function addCameraAudioSource(camera: string, value: string) {
-        const nextSource = value.trim();
-        if (!nextSource) return;
-
         const existing = mappingTokensFor(camera);
-        const nextKey = nextSource.toLocaleLowerCase();
-        if (existing.some((token) => token.toLocaleLowerCase() === nextKey)) return;
+        const next = addLinkToken(existing, value);
+        if (next !== existing) setCameraAudioMapping(camera, next);
+    }
 
-        setCameraAudioMapping(camera, [...existing, nextSource]);
+    // The id of a linked source's remove button, so focus can land on a link that was just added.
+    function removeButtonId(cameraIndex: number, tokenIndex: number): string {
+        return `birdnet-link-remove-${cameraIndex}-${tokenIndex}`;
+    }
+
+    async function linkByStreamId(camera: string, cameraIndex: number, token: string, source: AudioSourceOption): Promise<void> {
+        const next = relinkByStreamId(mappingTokensFor(camera), token, source);
+        setCameraAudioMapping(camera, next);
+        // The button goes with the notice, so focus moves to the link it added rather than the page.
+        await tick();
+        const added = next.findIndex((linked) => sameLinkToken(linked, source.mapping_value));
+        document.getElementById(removeButtonId(cameraIndex, added))?.focus();
     }
 
     function removeCameraAudioSourceToken(camera: string, index: number) {
@@ -287,7 +286,8 @@
             layout="stacked"
         >
             <div class="divide-y divide-line-soft" role="group">
-                {#each availableCameras as camera}
+                {#each availableCameras as camera, cameraIndex}
+                    {@const cameraRenames = renamedLinks(mappingTokensFor(camera), birdnetSourceOptions)}
                     <div class="py-3 first:pt-0 space-y-2">
                         <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                             <span class="inline-flex max-w-full items-center break-all rounded-md bg-surface-sunken px-2 py-0.5 text-xs font-semibold text-muted">{camera}</span>
@@ -316,37 +316,66 @@
                             >
                                 <option value="">{$_('settings.integrations.birdnet.add_detected_source')}</option>
                                 {#each birdnetMappingOptions as source}
-                                    <option value={source.value}>
-                                        {source.label}{source.sampleSourceId ? ` - ${source.sampleSourceId}` : ''}
-                                    </option>
+                                    <option value={source.value}>{source.label}</option>
                                 {/each}
                             </select>
                         </div>
                         {#if mappingTokensFor(camera).length > 0}
-                            <div
-                                class="flex flex-wrap gap-1.5"
+                            <ul
+                                class="space-y-1.5"
                                 aria-label={$_('settings.integrations.birdnet.source_token_list_label', { values: { camera } })}
                             >
                                 {#each mappingTokensFor(camera) as sourceToken, sourceTokenIndex}
-                                    <span class="inline-flex max-w-full items-center gap-1.5 text-xs text-accent-ink">
-                                        <span class="break-all">{sourceToken}</span>
-                                        <button
-                                            type="button"
-                                            class="shrink-0 rounded-full text-accent-ink hover:text-status-fail focus:outline-hidden focus:ring-2 focus:ring-focus"
-                                            aria-label={$_('settings.integrations.birdnet.source_token_remove', { values: { source: sourceToken, camera } })}
-                                            onclick={() => removeCameraAudioSourceToken(camera, sourceTokenIndex)}
-                                        >
-                                            &times;
-                                        </button>
-                                    </span>
+                                    {@const linked = describeLinkToken(sourceToken, birdnetSourceOptions)}
+                                    {@const renamed = cameraRenames.find((rename) => rename.token === sourceToken)}
+                                    <li class="text-xs" data-audio-link-token>
+                                        <div class="flex items-start justify-between gap-2">
+                                            <div class="min-w-0">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="min-w-0 break-words text-accent-ink">{linked.name}</span>
+                                                    <button
+                                                        type="button"
+                                                        id={removeButtonId(cameraIndex, sourceTokenIndex)}
+                                                        class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-accent-ink hover:text-status-fail focus:outline-hidden focus:ring-2 focus:ring-focus"
+                                                        aria-label={$_('settings.integrations.birdnet.source_token_remove', { values: { source: linked.name, camera } })}
+                                                        onclick={() => removeCameraAudioSourceToken(camera, sourceTokenIndex)}
+                                                    >
+                                                        <span aria-hidden="true">&times;</span>
+                                                    </button>
+                                                </div>
+                                                {#if linked.id}
+                                                    <span class="block font-mono text-muted break-all">{linked.id}</span>
+                                                {/if}
+                                                {#if linked.install}
+                                                    <span class="block text-muted break-words">{linked.install}</span>
+                                                {/if}
+                                            </div>
+                                            {#if linked.lastHeard}
+                                                <span class="shrink-0 whitespace-nowrap pt-1 text-muted">{$_('settings.integrations.birdnet.source_last_heard', { values: { time: formatRelativeTime(linked.lastHeard) }, default: 'Last heard {time}' })}</span>
+                                            {/if}
+                                        </div>
+                                        {#if renamed}
+                                            <div class="mt-1 ml-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-l border-line-soft pl-3" data-audio-link-renamed>
+                                                <p class="text-ink">{$_('settings.integrations.birdnet.source_renamed', { values: { old: renamed.token, new: renamed.source.source_name }, default: '{old} is now called {new}.' })}</p>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-secondary min-h-11 px-3 py-1.5 text-xs"
+                                                    aria-label={$_('settings.integrations.birdnet.source_link_by_id_label', { values: { camera, id: renamed.source.mapping_value }, default: 'Link by stream ID {id} for {camera}' })}
+                                                    onclick={() => linkByStreamId(camera, cameraIndex, renamed.token, renamed.source)}
+                                                >
+                                                    {$_('settings.integrations.birdnet.source_link_by_id', { default: 'Link by stream ID' })}
+                                                </button>
+                                            </div>
+                                        {/if}
+                                    </li>
                                 {/each}
-                            </div>
+                            </ul>
                         {/if}
                     </div>
                 {/each}
                 <datalist id="birdnet-source-options">
                     {#each birdnetMappingOptions as source}
-                        <option value={source.value}></option>
+                        <option value={source.value} label={source.label}></option>
                     {/each}
                 </datalist>
 
@@ -369,7 +398,8 @@
                         <ul class="max-h-56 overflow-y-auto">
                             {#each birdnetSourceOptions.slice(0, 12) as source, sourceIndex}
                                 {@const fade = Math.max(0.45, 1 - sourceIndex * 0.06)}
-                                {@const sourceValue = source.mapping_value || source.source_name}
+                                {@const sourceValue = source.mapping_value}
+                                {@const lines = sourceLines(source)}
                                 <li>
                                     <button
                                         type="button"
@@ -383,13 +413,21 @@
                                         disabled={availableCameras.length === 0}
                                         title={availableCameras[0]
                                             ? $_('settings.integrations.birdnet.source_discovery_add_to', {
-                                                  values: { source: sourceValue, time: formatRelativeTime(source.last_seen), camera: availableCameras[0] },
+                                                  values: { source: sourceLinkLabel(source), time: formatRelativeTime(source.last_seen), camera: availableCameras[0] },
                                                   default: '{source}, heard {time}. Select it to add it to {camera}.'
                                               })
-                                            : sourceValue}
+                                            : sourceLinkLabel(source)}
                                     >
                                         <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface-sunken text-muted group-hover:bg-accent group-hover:text-accent-fg group-hover:group-disabled:bg-surface-sunken transition-colors text-xs font-semibold leading-none" aria-hidden="true">+</span>
-                                        <span class="min-w-0 flex-1 text-xs font-mono font-semibold text-strong break-all leading-tight">{sourceValue}</span>
+                                        <span class="min-w-0 flex-1 leading-tight">
+                                            <span class="block text-xs font-mono font-semibold text-strong break-words">{source.source_name}</span>
+                                            {#if lines.id}
+                                                <span class="block text-xs font-mono text-muted break-all">{lines.id}</span>
+                                            {/if}
+                                            {#if lines.install}
+                                                <span class="block text-xs text-muted break-words">{lines.install}</span>
+                                            {/if}
+                                        </span>
                                         <span class="shrink-0 text-sm font-semibold text-ink whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>
                                     </button>
                                 </li>

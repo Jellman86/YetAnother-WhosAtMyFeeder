@@ -184,12 +184,20 @@ export interface components {
     count: number;
     hour: number;
 };
+    AudioSourceNameResponse: {
+    current: boolean;
+    last_seen: string | null;
+    name: string;
+    offer_link_by_id: boolean;
+};
     AudioSourceResponse: {
+    installs_sharing_id?: Array<string>;
     last_seen: string;
     mapping_value: string;
-    sample_source_id?: string | null;
-    seen_count?: number;
+    names?: Array<components['schemas']['AudioSourceNameResponse']>;
+    source_id?: string | null;
     source_name: string;
+    source_node?: string | null;
 };
     AudioSourceSummaryResponse: {
     count: number;

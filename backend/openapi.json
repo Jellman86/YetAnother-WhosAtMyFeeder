@@ -1256,17 +1256,14 @@
         "title": "AudioHourlyCountResponse",
         "type": "object"
       },
-      "AudioSourceResponse": {
+      "AudioSourceNameResponse": {
         "properties": {
+          "current": {
+            "description": "Whether this is the name on the stream's newest call.",
+            "title": "Current",
+            "type": "boolean"
+          },
           "last_seen": {
-            "title": "Last Seen",
-            "type": "string"
-          },
-          "mapping_value": {
-            "title": "Mapping Value",
-            "type": "string"
-          },
-          "sample_source_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -1275,16 +1272,84 @@
                 "type": "null"
               }
             ],
-            "title": "Sample Source Id"
+            "description": "The newest visible call under this name, as UTC ISO 8601; null when only hidden calls carry it.",
+            "title": "Last Seen"
           },
-          "seen_count": {
-            "default": 1,
-            "title": "Seen Count",
-            "type": "integer"
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "offer_link_by_id": {
+            "description": "An earlier name only this stream has carried and no source carries now: a camera linked by it can be offered the stream id.",
+            "title": "Offer Link By Id",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "last_seen",
+          "current",
+          "offer_link_by_id"
+        ],
+        "title": "AudioSourceNameResponse",
+        "type": "object"
+      },
+      "AudioSourceResponse": {
+        "properties": {
+          "installs_sharing_id": {
+            "description": "Every install sending this stream id, decided over every stream before `limit`; empty unless more than one.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Installs Sharing Id",
+            "type": "array"
+          },
+          "last_seen": {
+            "description": "The newest visible call carrying the value to save, as UTC ISO 8601.",
+            "title": "Last Seen",
+            "type": "string"
+          },
+          "mapping_value": {
+            "description": "What a camera's audio link should hold: the stream id, or the name as calls carry it when the source sends no id.",
+            "title": "Mapping Value",
+            "type": "string"
+          },
+          "names": {
+            "description": "Every name the stream has carried, the current one first.",
+            "items": {
+              "$ref": "#/components/schemas/AudioSourceNameResponse"
+            },
+            "title": "Names",
+            "type": "array"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "BirdNET-Go's id for the stream; kept across a rename.",
+            "title": "Source Id"
           },
           "source_name": {
+            "description": "The name on the stream's newest call, or its id when it sent no name.",
             "title": "Source Name",
             "type": "string"
+          },
+          "source_node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The BirdNET-Go install that sent the stream's calls.",
+            "title": "Source Node"
           }
         },
         "required": [
@@ -27153,7 +27218,7 @@
     },
     "/api/audio/sources": {
       "get": {
-        "description": "Get recently observed BirdNET source names for camera mapping.",
+        "description": "The BirdNET-Go sources a camera can be linked to, one per stream, newest first (owner only).\n\nEach stream is listed under its current name with every name it carried, so the owner can link\na camera by the stream's id and keep the link across a rename. Which earlier names warrant a\nrename notice is decided here, from every stream, before the list is cut to ``limit``.",
         "operationId": "get_audio_sources_api_audio_sources_get",
         "parameters": [
           {

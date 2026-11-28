@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, Request, Query, HTTPException, Path as A
 from fastapi.responses import Response
 import httpx
 from datetime import datetime, timedelta, timezone, tzinfo
-import json
 import structlog
 from pydantic import BaseModel, Field
 from typing import Literal
@@ -37,7 +36,7 @@ from app.utils.language import get_user_language
 from app.utils.timezone import calendar_timezone
 from app.utils.audio_localization import localize_audio_detections
 from app.utils.canonical_species import should_hide_species_label
-from app.utils.api_datetime import serialize_api_datetime
+from app.utils.api_datetime import parse_storage_datetime, serialize_api_datetime
 from app.utils.public_access import privacy_checked_db, public_event_visible, public_events_window
 
 router = APIRouter(prefix="/audio", tags=["audio"])
@@ -122,12 +121,35 @@ async def set_audio_visibility(
     return AudioVisibilityResponse(id=detection_id, hidden=body.hidden)
 
 
+class AudioSourceNameResponse(BaseModel):
+    name: str
+    last_seen: str | None = Field(
+        description="The newest visible call under this name, as UTC ISO 8601; null when only hidden calls carry it."
+    )
+    current: bool = Field(description="Whether this is the name on the stream's newest call.")
+    offer_link_by_id: bool = Field(
+        description=(
+            "An earlier name only this stream has carried and no source carries now: a camera linked by it "
+            "can be offered the stream id."
+        )
+    )
+
+
 class AudioSourceResponse(BaseModel):
-    source_name: str
-    mapping_value: str
-    last_seen: str
-    sample_source_id: str | None = None
-    seen_count: int = 1
+    source_name: str = Field(description="The name on the stream's newest call, or its id when it sent no name.")
+    mapping_value: str = Field(
+        description="What a camera's audio link should hold: the stream id, or the name as calls carry it when the source sends no id."
+    )
+    source_id: str | None = Field(default=None, description="BirdNET-Go's id for the stream; kept across a rename.")
+    source_node: str | None = Field(default=None, description="The BirdNET-Go install that sent the stream's calls.")
+    installs_sharing_id: list[str] = Field(
+        default_factory=list,
+        description="Every install sending this stream id, decided over every stream before `limit`; empty unless more than one.",
+    )
+    last_seen: str = Field(description="The newest visible call carrying the value to save, as UTC ISO 8601.")
+    names: list[AudioSourceNameResponse] = Field(
+        default_factory=list, description="Every name the stream has carried, the current one first."
+    )
 
 
 class AudioDetectionResponse(BaseModel):
@@ -293,44 +315,6 @@ async def _viewer_source_directory(
         # Only an owner's view is unbounded at its start; a guest's never sees hidden calls.
         owner_evidence=public_start is None,
     )
-
-
-def _parse_audio_source_fields(raw_data: str | None, stored_sensor_id: str | None) -> tuple[str | None, str | None]:
-    source_name = None
-    sample_source_id = None
-
-    if raw_data:
-        try:
-            payload = json.loads(raw_data)
-            if isinstance(payload, dict):
-                source = payload.get("Source")
-                source = source if isinstance(source, dict) else {}
-
-                for candidate in (
-                    payload.get("nm"),
-                    payload.get("sourceName"),
-                    source.get("displayName"),
-                    stored_sensor_id,
-                ):
-                    if isinstance(candidate, str) and candidate.strip():
-                        source_name = candidate.strip()
-                        break
-
-                for candidate in (payload.get("src"), payload.get("sourceId"), source.get("id")):
-                    if isinstance(candidate, str) and candidate.strip():
-                        sample_source_id = candidate.strip()
-                        break
-        except Exception:
-            # Ignore malformed raw_data and fall back to stored value.
-            pass
-
-    if not source_name and isinstance(stored_sensor_id, str) and stored_sensor_id.strip():
-        source_name = stored_sensor_id.strip()
-
-    if not source_name and sample_source_id:
-        source_name = sample_source_id
-
-    return source_name, sample_source_id
 
 
 @router.get("/recent", response_model=list[AudioDetectionResponse])
@@ -1045,54 +1029,40 @@ async def get_event_audio_context(
     return detections
 
 
+def _api_time(stored: str) -> str:
+    return serialize_api_datetime(parse_storage_datetime(stored)) or stored
+
+
 @router.get("/sources", response_model=list[AudioSourceResponse])
-@guest_rate_limit()
 async def get_audio_sources(
-    request: Request,
     limit: int = Query(default=20, ge=1, le=100),
-    auth: AuthContext = Depends(require_public_audio),
-):
-    """Get recently observed BirdNET source names for camera mapping."""
-    hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
+    auth: AuthContext = Depends(require_owner),
+) -> list[AudioSourceResponse]:
+    """The BirdNET-Go sources a camera can be linked to, one per stream, newest first (owner only).
 
-    if hide_sensor:
-        return []
-    public_start, public_end = (None, None) if auth.is_owner else public_events_window()
+    Each stream is listed under its current name with every name it carried, so the owner can link
+    a camera by the stream's id and keep the link across a rename. Which earlier names warrant a
+    rename notice is decided here, from every stream, before the list is cut to ``limit``.
+    """
     async with privacy_checked_db(get_db) as db:
-        repo = AudioHistoryRepository(db)
-        # Fetch more rows than requested to support deduplication by source_name.
-        rows = await repo.get_recent_audio_source_observations(
-            limit=max(limit * 10, 50),
-            start_date=public_start,
-            end_date=public_end,
+        links = await AudioHistoryRepository(db).load_audio_source_links()
+    return [
+        AudioSourceResponse(
+            source_name=link.source_name,
+            mapping_value=link.mapping_value,
+            source_id=link.source_id,
+            source_node=link.source_node,
+            installs_sharing_id=link.installs_sharing_id,
+            last_seen=_api_time(link.last_seen),
+            names=[
+                AudioSourceNameResponse(
+                    name=name.name,
+                    last_seen=_api_time(name.last_seen) if name.last_seen else None,
+                    current=name.current,
+                    offer_link_by_id=name.offer_link_by_id,
+                )
+                for name in link.names
+            ],
         )
-
-    sources: dict[str, AudioSourceResponse] = {}
-    ordered_keys: list[str] = []
-    for row in rows:
-        source_name, sample_source_id = _parse_audio_source_fields(row.get("raw_data"), row.get("sensor_id"))
-        if not source_name:
-            continue
-        if source_name in sources:
-            sources[source_name].seen_count += 1
-            if not sources[source_name].sample_source_id and sample_source_id:
-                sources[source_name].sample_source_id = sample_source_id
-            continue
-
-        if len(ordered_keys) >= limit:
-            continue
-
-        if source_name not in sources:
-            ordered_keys.append(source_name)
-            sources[source_name] = AudioSourceResponse(
-                source_name=source_name,
-                mapping_value=source_name,
-                last_seen=str(row.get("timestamp")),
-                sample_source_id=sample_source_id,
-                seen_count=1,
-            )
-
-    result = [sources[key] for key in ordered_keys[:limit]]
-    if hide_sensor:
-        return []
-    return result
+        for link in links[:limit]
+    ]

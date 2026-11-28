@@ -1902,7 +1902,19 @@ snapshot, not a destructive queue-control API.
     without breaking consumers of the response body. Event-scoped rows expose `scientific_name` and
     `matches_visual`; the latter is true when the row independently confirms the persisted visual
     species, including audio that arrived after initial event processing.
-  - `GET /api/audio/sources`
+  - `GET /api/audio/sources` (owner only; guests receive `403`): the BirdNET-Go sources a camera
+    can be linked to, one entry per stream on each install, newest first (`limit`, `1`–`100`,
+    default `20`). Each entry has `mapping_value` (the stream's `source_id`, or for a source that
+    sends no id the name exactly as its calls carry it), its current `source_name`, `source_node`
+    (the install), `installs_sharing_id` (every install sending the same id, decided before `limit`;
+    empty unless more than one), `last_seen` (the newest visible call carrying `mapping_value`) and `names`: every
+    name it carried, in the spelling its calls carried, current first, each with `last_seen` (null
+    when only hidden calls carry it), `current`, and `offer_link_by_id`, true for an earlier name
+    only this stream has carried, in one spelling, no source carries now, and last heard (hidden
+    calls included) before the current name (the spelling is read from each stored name's oldest
+    and newest call, so a variant used only in between is not seen),
+    decided from every kept call before `limit` applies. Read by index seeks on
+    the stored history's source columns, so a stream heard long ago is listed beside a busy one.
   - `GET /api/audio/spectrogram/{birdnet_id}` — proxies the BirdNET-Go spectrogram PNG so no
     BirdNET-Go host or token reaches the browser. `width` is `64`–`1600` (default `400`).
   - `GET /api/audio/clip/{birdnet_id}` — proxies the matched audio clip, forwarding the client's

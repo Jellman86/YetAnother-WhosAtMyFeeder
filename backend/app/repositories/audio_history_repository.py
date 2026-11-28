@@ -24,6 +24,7 @@ from app.utils.audio_source_identity import (
     read_stored_source,
     source_of_payload,
 )
+from app.utils.audio_source_links import AudioSourceLink, audio_source_links, literal_source_name
 from app.utils.birdnet_payload import (
     extract_audio_mapping_keys,
     extract_birdnet_id,
@@ -139,6 +140,22 @@ async def load_audio_source_directory(
     Each (node, id, name) a call carries is found by seeking the identity index, and its newest
     call in the view by one more seek, so a request costs the same however many calls are stored.
     """
+    return AudioSourceDirectory(
+        await _read_source_observations(
+            db, minimum_start=minimum_start, maximum_end=maximum_end, hidden=hidden, owner_evidence=owner_evidence
+        )
+    )
+
+
+async def _read_source_observations(
+    db: aiosqlite.Connection,
+    *,
+    minimum_start: datetime | None,
+    maximum_end: datetime | None,
+    hidden: bool,
+    owner_evidence: bool,
+) -> list[SourceObservation]:
+    """Each stored (node, id, name) with its newest call in the view, and as evidence when asked."""
     bounds, bound_params = [], []
     if minimum_start is not None:
         bounds.append("timestamp >= ?")
@@ -175,7 +192,42 @@ async def load_audio_source_directory(
                                 shown=is_hidden == hidden,
                             )
                         )
-    return AudioSourceDirectory(observations)
+    return observations
+
+
+async def load_audio_source_links(db: aiosqlite.Connection) -> list[AudioSourceLink]:
+    """Every source a camera can be linked to, one entry per stream, for the owner's Settings.
+
+    Read as the owner's Audio history reads its sources, with every call the owner keeps as
+    evidence of who carried which name, so a stream heard once months ago is listed beside a busy
+    one. Each stored (node, id, name) costs an index seek for its newest visible and hidden call,
+    and two more for each to read the name the matcher sees on its oldest and newest call, since
+    stored names are cleaned for display: the work grows with the number of sources and names,
+    never with the number of calls.
+    """
+    observations = await _read_source_observations(
+        db, minimum_start=None, maximum_end=None, hidden=False, owner_evidence=True
+    )
+    literal_names: dict[tuple[str | None, str | None, str, bool], tuple[str, str]] = {}
+    for observation in observations:
+        if not observation.name:
+            continue
+        identity = (observation.node, observation.source_id, observation.name, int(not observation.shown))
+        spellings = []
+        for order in ("ASC", "DESC"):
+            async with db.execute(
+                f"""SELECT sensor_id, raw_data FROM audio_detections
+                   WHERE source_node IS ? AND source_id IS ? AND source_name IS ? AND is_hidden = ?
+                   ORDER BY timestamp {order} LIMIT 1""",
+                identity,
+            ) as cursor:
+                row = await cursor.fetchone()
+            spellings.append((literal_source_name(row[0], row[1]) if row else None) or observation.name)
+        literal_names[(observation.node, observation.source_id, observation.name, observation.shown)] = (
+            spellings[0],
+            spellings[1],
+        )
+    return audio_source_links(observations, literal_names)
 
 
 def filter_names_a_source(source: str | None, search: str | None, search_include_source: bool) -> bool:
@@ -461,6 +513,9 @@ class AudioHistoryRepository:
             if self.db.in_transaction:
                 await self.db.rollback()
 
+    async def load_audio_source_links(self) -> list[AudioSourceLink]:
+        return await load_audio_source_links(self.db)
+
     async def load_audio_source_directory(
         self,
         *,
@@ -477,38 +532,6 @@ class AudioHistoryRepository:
             hidden=hidden,
             owner_evidence=owner_evidence,
         )
-
-    async def get_recent_audio_source_observations(
-        self, limit: int = 200, start_date: datetime | None = None, end_date: datetime | None = None
-    ) -> list[dict]:
-        """Return recent raw audio rows for source discovery/deduping."""
-        predicate = "is_hidden = 0"
-        params: list = []
-        if start_date is not None:
-            predicate += " AND timestamp >= ?"
-            params.append(serialize_storage_datetime(start_date))
-        if end_date is not None:
-            predicate += " AND timestamp < ?"
-            params.append(serialize_storage_datetime(end_date))
-        params.append(limit)
-        async with self.db.execute(
-            f"""SELECT timestamp, sensor_id, raw_data
-               FROM audio_detections
-               WHERE {predicate}
-               ORDER BY timestamp DESC
-               LIMIT ?""",
-            params,
-        ) as cursor:
-            rows = await cursor.fetchall()
-
-        return [
-            {
-                "timestamp": row[0],
-                "sensor_id": row[1],
-                "raw_data": row[2],
-            }
-            for row in rows
-        ]
 
     async def get_public_audio_for_detections(self, detections: list) -> dict[str, dict]:
         """Bound each page chunk to one primary and eight nearby rows per visual event.

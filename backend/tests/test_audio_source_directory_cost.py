@@ -121,3 +121,46 @@ async def test_a_start_with_no_call_to_read_costs_one_empty_seek(migrated_histor
         async with db.execute(f"EXPLAIN QUERY PLAN {statement}") as cursor:
             plan = " ".join(str(row[3]) for row in await cursor.fetchall())
         assert "idx_audio_detections_source_pending" in plan, plan
+
+
+async def _link_reads(path, old_calls: int) -> tuple[int, list[str], list[str], list]:
+    async with aiosqlite.connect(path) as db:
+        await _seed(db, old_calls)
+        # Calls from before BirdNET-Go sent ids, linked by the name read from their newest call.
+        await db.executemany(
+            """INSERT INTO audio_detections
+               (timestamp, species, confidence, sensor_id, raw_data, source_node, source_id, source_name,
+                source_resolved)
+               VALUES (?, 'Robin', 0.9, 'Pond', '{"sourceName": "Pond"}', 'Quark', NULL, 'Pond', 1)""",
+            [((DAY - timedelta(days=60, seconds=index)).strftime("%Y-%m-%d %H:%M:%S"),) for index in range(old_calls)],
+        )
+        await db.commit()
+        statements: list[str] = []
+        await db.set_trace_callback(statements.append)
+        steps, links = await _steps(db, lambda: AudioHistoryRepository(db).load_audio_source_links())
+        await db.set_trace_callback(None)
+        plans = []
+        for statement in statements:
+            async with db.execute(f"EXPLAIN QUERY PLAN {statement}") as cursor:
+                plans.append(" ".join(str(row[3]) for row in await cursor.fetchall()))
+        return steps, statements, plans, links
+
+
+@pytest.mark.asyncio
+async def test_listing_sources_to_link_costs_the_same_whatever_the_history_holds(migrated_history_db):
+    """Settings' list seeks the identity index per stored name, never counts or scans the calls."""
+    small_steps, small, _, small_links = await _link_reads(migrated_history_db, 2_000)
+    large_steps, large, plans, large_links = await _link_reads(migrated_history_db, 20_000)
+    # Ten times the calls: the same work, give or take the index's depth.
+    assert large_steps <= small_steps + 2, (small_steps, large_steps)
+    assert len(large) == len(small)
+    for plan in plans:
+        assert "SCAN audio_detections" not in plan, plan
+    assert [(link.mapping_value, link.source_name) for link in large_links] == [
+        ("rtsp_0", "Feeder"),
+        ("rtsp_2", "nestcam"),
+        ("rtsp_1", "birdcam"),
+        ("Pond", "Pond"),
+    ]
+    assert [name.name for name in large_links[0].names] == ["Feeder", "patiocam"]
+    assert [link.mapping_value for link in small_links] == [link.mapping_value for link in large_links]

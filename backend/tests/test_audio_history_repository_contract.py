@@ -183,10 +183,6 @@ async def _capture(repo, db: aiosqlite.Connection, monkeypatch) -> dict:
         ),
         "contexts": await repo.get_audio_contexts_for_detections(detections, mapping, 60, limit=2),
         "public_audio": await repo.get_public_audio_for_detections(detections),
-        "recent_sources": await repo.get_recent_audio_source_observations(limit=3),
-        "recent_sources_bounded": await repo.get_recent_audio_source_observations(
-            start_date=datetime(2033, 6, 8), end_date=datetime(2033, 6, 10, 8, 0, 30)
-        ),
         "history_start": await repo.get_audio_history_start(),
         "history_start_bounded": await repo.get_audio_history_start(
             minimum_start=datetime(2033, 6, 9), maximum_end=datetime(2033, 6, 11)

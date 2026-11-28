@@ -465,45 +465,6 @@
    }
   }
  },
- "recent_sources": [
-  {
-   "raw_data": "{\"id\": 103, \"sourceName\": \"Shed\"}",
-   "sensor_id": "shed-mic",
-   "timestamp": "2033-06-10 08:00:40"
-  },
-  {
-   "raw_data": "{\"detection_id\": \"102\", \"Source\": {\"displayName\": \"Garden Mic\", \"id\": \"dev-1\"}}",
-   "sensor_id": "garden-mic",
-   "timestamp": "2033-06-10 08:00:20"
-  },
-  {
-   "raw_data": "{\"detectionId\": 101, \"nm\": \"Garden Mic\"}",
-   "sensor_id": "garden-mic",
-   "timestamp": "2033-06-10 08:00:00"
-  }
- ],
- "recent_sources_bounded": [
-  {
-   "raw_data": "{\"detection_id\": \"102\", \"Source\": {\"displayName\": \"Garden Mic\", \"id\": \"dev-1\"}}",
-   "sensor_id": "garden-mic",
-   "timestamp": "2033-06-10 08:00:20"
-  },
-  {
-   "raw_data": "{\"detectionId\": 101, \"nm\": \"Garden Mic\"}",
-   "sensor_id": "garden-mic",
-   "timestamp": "2033-06-10 08:00:00"
-  },
-  {
-   "raw_data": "{\"detectionId\": 105}",
-   "sensor_id": "garden-mic",
-   "timestamp": "2033-06-09 19:00:00"
-  },
-  {
-   "raw_data": "not json",
-   "sensor_id": null,
-   "timestamp": "2033-06-08 06:30:00"
-  }
- ],
  "rows_after_writes": [
   [
    1,
