@@ -69,8 +69,16 @@ class AudioSourceLink:
     names: list[SourceLinkName]
 
 
-# (node, id, name, shown) as stored -> the name the matcher reads from the newest such call.
-LiteralNames = Mapping[tuple[str | None, str | None, str, bool], str]
+# (node, id, name, shown) as stored -> the names the matcher reads from the oldest and the newest such call.
+LiteralNames = Mapping[tuple[str | None, str | None, str, bool], tuple[str, str]]
+
+
+@dataclass
+class _Label:
+    """One cleaned stored name on a stream: the spellings seen behind it, and its newest call of any visibility."""
+
+    spellings: set[str] = field(default_factory=set)
+    newest: str = ""
 
 
 @dataclass
@@ -78,6 +86,8 @@ class _Name:
     # (stored time, spelling) of the newest call under this name, and of the newest visible one.
     newest: tuple[str, str]
     newest_shown: tuple[str, str] | None = None
+    # Matcher keys of the cleaned stored names this spelling was read from.
+    labels: set[str] = field(default_factory=set)
 
     @property
     def spelling(self) -> str:
@@ -91,16 +101,24 @@ class _Stream:
     names: dict[str, _Name] = field(default_factory=dict)
     # Cleaned stored name -> (newest visible time, matcher key of its spelling).
     shown_spellings: dict[str, tuple[str, str]] = field(default_factory=dict)
+    # Matcher key of a cleaned stored name -> what the indexed reads saw behind it.
+    labels: dict[str, _Label] = field(default_factory=dict)
 
-    def record(self, observation: SourceObservation, spelling: str | None, carries_value: bool) -> None:
+    def record(self, observation: SourceObservation, spellings: tuple[str, str] | None, carries_value: bool) -> None:
         if observation.shown and carries_value:
             self.last_seen = max(self.last_seen, observation.last_seen)
-        if not observation.name or not spelling:
+        if not observation.name or not spellings:
             return
+        label_key = normalize_mapping_key(observation.name)
+        label = self.labels.setdefault(label_key, _Label())
+        label.spellings.update(normalize_mapping_key(spelling) for spelling in spellings)
+        label.newest = max(label.newest, observation.last_seen)
+        spelling = spellings[1]
         key = normalize_mapping_key(spelling)
         stamp = (observation.last_seen, spelling)
         name = self.names.setdefault(key, _Name(newest=stamp))
         name.newest = max(name.newest, stamp)
+        name.labels.add(label_key)
         if observation.shown:
             name.newest_shown = max(name.newest_shown or stamp, stamp)
             known = self.shown_spellings.get(observation.name)
@@ -121,7 +139,10 @@ def audio_source_links(
 
     ``observations`` are the owner's, hidden calls included as evidence (``shown=False``).
     ``literal_names`` gives, for each stored (node, id, name, shown), the name the matcher reads
-    from its newest call; names are offered, timed, compared and shown in that spelling.
+    from its oldest and its newest call; names are offered, compared and shown in the newest
+    spelling. Stored names are cleaned, so two spellings that differ only in inner spaces share one
+    stored name: when the reads see both behind it, no camera's link can be told to be the old name,
+    and neither is offered. A name's "last heard" stays that of its stored name.
     """
     seen = list(observations)
     literals = literal_names or {}
@@ -131,21 +152,27 @@ def audio_source_links(
         key = directory.key_for(observation.node, observation.source_id, observation.name)
         if key[0] == "unknown":
             continue
-        spelling = None
+        spellings = None
         if observation.name:
             identity = (observation.node, observation.source_id, observation.name, observation.shown)
-            spelling = literals.get(identity) or observation.name
+            spellings = literals.get(identity) or (observation.name, observation.name)
         carries_value = bool(observation.source_id) or key[0] == "name"
-        streams.setdefault(key, _Stream()).record(observation, spelling, carries_value)
+        streams.setdefault(key, _Stream()).record(observation, spellings, carries_value)
 
     current = {key: directory.display_name(key) for key in streams}
     now_keys = {key: stream.key_of(current[key]) for key, stream in streams.items()}
     current_names = {now_keys[key] for key in streams if current[key]}
     carriers: dict[str, int] = {}
+    label_carriers: dict[str, int] = {}
     for key, stream in streams.items():
         if key[0] in _IDENTIFIED:
             for name in stream.names:
                 carriers[name] = carriers.get(name, 0) + 1
+            for label in stream.labels:
+                label_carriers[label] = label_carriers.get(label, 0) + 1
+    ambiguous = {
+        label for stream in streams.values() for label, seen in stream.labels.items() if len(seen.spellings) > 1
+    }
     listed = [key for key, stream in streams.items() if stream.last_seen]
     sharing: dict[str, list[SourceKey]] = {}
     for key in listed:
@@ -165,14 +192,19 @@ def audio_source_links(
                 name=name.spelling,
                 last_seen=name.newest_shown[0] if name.newest_shown else None,
                 current=folded == now_key,
-                # An earlier name only this stream carried, that no source carries now, and that it
-                # carried before its current name: a later name that was hidden is no rename.
+                # An earlier name only this stream carried, in one spelling, that no source carries
+                # now, and that it last carried, in visible or hidden calls, before its current name.
                 offer_link_by_id=bool(source_id)
                 and folded != now_key
                 and folded not in current_names
                 and carriers.get(folded) == 1
                 and heard_now is not None
-                and name.newest[0] < heard_now,
+                and all(
+                    label not in ambiguous
+                    and label_carriers.get(label) == 1
+                    and stream.labels[label].newest < heard_now
+                    for label in name.labels
+                ),
             )
             for folded, name in stream.names.items()
         ]

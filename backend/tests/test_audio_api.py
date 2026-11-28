@@ -139,6 +139,27 @@ async def test_audio_sources_offers_an_earlier_name_in_the_spelling_its_calls_ca
 
 
 @pytest.mark.asyncio
+async def test_audio_sources_offers_no_rename_when_one_stored_name_hides_two_spellings(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    day = datetime(2026, 11, 1, 9, tzinfo=timezone.utc)
+    await _store_calls(
+        [
+            _stream_call(day, "Garden  Mic", "rtsp_a"),
+            _stream_call(day + timedelta(days=9), "Current", "rtsp_a"),
+            _stream_call(day + timedelta(days=14), "Garden  Mic", "rtsp_a", hidden=1),
+            _stream_call(day + timedelta(days=15), "Garden Mic", "rtsp_a", hidden=1),
+        ]
+    )
+
+    response = await client.get("/api/audio/sources?limit=10")
+    assert response.status_code == 200, response.text
+    [stream] = response.json()
+    assert stream["source_name"] == "Current"
+    assert not any(name["offer_link_by_id"] for name in stream["names"])
+
+
+@pytest.mark.asyncio
 async def test_audio_sources_never_offers_a_later_hidden_name_as_an_earlier_one(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

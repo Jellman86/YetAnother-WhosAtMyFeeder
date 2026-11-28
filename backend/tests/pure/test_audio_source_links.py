@@ -42,7 +42,7 @@ def test_a_renamed_stream_is_one_entry_under_its_newest_name_linked_by_its_id():
 def test_a_source_without_an_id_is_linked_by_the_name_the_matcher_reads():
     [entry] = audio_source_links(
         [_seen(None, "Garden Mic", "2026-11-28 09:00:00")],
-        literal_names={("Quark", None, "Garden Mic", True): "Garden  Mic"},
+        literal_names={("Quark", None, "Garden Mic", True): ("Garden  Mic", "Garden  Mic")},
     )
     assert (entry.mapping_value, entry.source_id, entry.source_name) == ("Garden  Mic", None, "Garden  Mic")
     assert _names(entry) == [("Garden  Mic", "2026-11-28 09:00:00", True, False)]
@@ -179,7 +179,7 @@ def test_an_earlier_name_is_offered_and_timed_as_the_matcher_reads_it():
             _seen(STREAM, "Garden Mic", "2026-11-27 10:00:00"),
             _seen(STREAM, "Current", "2026-11-28 09:00:00"),
         ],
-        literal_names={("Quark", STREAM, "Garden Mic", True): "Garden  Mic"},
+        literal_names={("Quark", STREAM, "Garden Mic", True): ("Garden  Mic", "Garden  Mic")},
     )
     assert _names(entry) == [
         ("Current", "2026-11-28 09:00:00", True, False),
@@ -187,7 +187,8 @@ def test_an_earlier_name_is_offered_and_timed_as_the_matcher_reads_it():
     ]
 
 
-def test_two_spellings_of_one_cleaned_name_are_reported_apart():
+def test_two_spellings_of_one_cleaned_name_are_reported_apart_and_never_offered():
+    """Which spelling a camera matched cannot be told from the stored name, so neither is offered."""
     [entry] = audio_source_links(
         [
             _seen(STREAM, "Garden Mic", "2026-11-27 10:00:00", node="Quark"),
@@ -195,14 +196,14 @@ def test_two_spellings_of_one_cleaned_name_are_reported_apart():
             _seen(STREAM, "Current", "2026-11-28 09:00:00"),
         ],
         literal_names={
-            ("Quark", STREAM, "Garden Mic", True): "Garden  Mic",
-            ("Quark", STREAM, "Garden Mic", False): "Garden Mic",
+            ("Quark", STREAM, "Garden Mic", True): ("Garden  Mic", "Garden  Mic"),
+            ("Quark", STREAM, "Garden Mic", False): ("Garden Mic", "Garden Mic"),
         },
     )
     assert _names(entry) == [
         ("Current", "2026-11-28 09:00:00", True, False),
-        ("Garden  Mic", "2026-11-27 10:00:00", False, True),
-        ("Garden Mic", None, False, True),
+        ("Garden  Mic", "2026-11-27 10:00:00", False, False),
+        ("Garden Mic", None, False, False),
     ]
 
 
@@ -230,3 +231,72 @@ def test_an_id_two_installs_send_names_both_installs_on_each_entry():
         ]
     )
     assert _installs(entries) == [("House", ["House", "Shed"]), ("Shed", ["House", "Shed"]), ("House", [])]
+
+
+def _offers(entries):
+    return {(entry.source_node, name.name) for entry in entries for name in entry.names if name.offer_link_by_id}
+
+
+def test_a_spelling_another_stream_carried_under_the_same_cleaned_name_is_never_offered():
+    """House and Shed both carried "Garden  Mic"; Shed also "Garden Mic". House was renamed to Current."""
+    entries = audio_source_links(
+        [
+            _seen("rtsp_a", "Garden Mic", "2026-11-01 09:00:00", node="House"),
+            _seen("rtsp_a", "Current", "2026-11-10 09:00:00", node="House"),
+            _seen("rtsp_b", "Garden Mic", "2026-11-02 09:00:00", node="Shed"),
+        ],
+        literal_names={
+            ("House", "rtsp_a", "Garden Mic", True): ("Garden  Mic", "Garden  Mic"),
+            ("Shed", "rtsp_b", "Garden Mic", True): ("Garden  Mic", "Garden Mic"),
+        },
+    )
+    assert _offers(entries) == set()
+
+
+def test_one_stream_that_carried_both_spellings_offers_neither():
+    [entry] = audio_source_links(
+        [
+            _seen(STREAM, "Garden Mic", "2026-11-02 09:00:00"),
+            _seen(STREAM, "Current", "2026-11-10 09:00:00"),
+        ],
+        literal_names={("Quark", STREAM, "Garden Mic", True): ("Garden  Mic", "Garden Mic")},
+    )
+    assert _offers([entry]) == set()
+
+
+def test_a_name_heard_again_after_the_current_one_in_hidden_calls_is_never_offered():
+    """Visible "Garden  Mic" before Current, then hidden calls under both spellings after it."""
+    [entry] = audio_source_links(
+        [
+            _seen(STREAM, "Garden Mic", "2026-11-01 09:00:00"),
+            _seen(STREAM, "Current", "2026-11-10 09:00:00"),
+            _seen(STREAM, "Garden Mic", "2026-11-16 09:00:00", shown=False),
+        ],
+        literal_names={
+            ("Quark", STREAM, "Garden Mic", True): ("Garden  Mic", "Garden  Mic"),
+            ("Quark", STREAM, "Garden Mic", False): ("Garden  Mic", "Garden Mic"),
+        },
+    )
+    assert _offers([entry]) == set()
+
+
+def test_a_plain_rename_and_a_consistent_two_space_name_are_still_offered():
+    [plain] = audio_source_links(
+        [
+            _seen(STREAM, "ESP32 v3.0", "2026-11-27 10:00:00"),
+            _seen(STREAM, "ESP32 v3.0 X", "2026-11-28 09:00:00"),
+        ],
+        literal_names={
+            ("Quark", STREAM, "ESP32 v3.0", True): ("ESP32 v3.0", "ESP32 v3.0"),
+            ("Quark", STREAM, "ESP32 v3.0 X", True): ("ESP32 v3.0 X", "ESP32 v3.0 X"),
+        },
+    )
+    [spaced] = audio_source_links(
+        [
+            _seen("rtsp_a", "Garden Mic", "2026-11-01 09:00:00"),
+            _seen("rtsp_a", "Current", "2026-11-10 09:00:00"),
+        ],
+        literal_names={("Quark", "rtsp_a", "Garden Mic", True): ("Garden  Mic", "Garden  Mic")},
+    )
+    assert _offers([plain]) == {("Quark", "ESP32 v3.0")}
+    assert _offers([spaced]) == {("Quark", "Garden  Mic")}

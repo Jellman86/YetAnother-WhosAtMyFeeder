@@ -201,27 +201,32 @@ async def load_audio_source_links(db: aiosqlite.Connection) -> list[AudioSourceL
     Read as the owner's Audio history reads its sources, with every call the owner keeps as
     evidence of who carried which name, so a stream heard once months ago is listed beside a busy
     one. Each stored (node, id, name) costs an index seek for its newest visible and hidden call,
-    and one more for each to read the name the matcher sees on that call, since stored names are
-    cleaned for display: the work grows with the number of sources and names, never with the
-    number of calls.
+    and two more for each to read the name the matcher sees on its oldest and newest call, since
+    stored names are cleaned for display: the work grows with the number of sources and names,
+    never with the number of calls.
     """
     observations = await _read_source_observations(
         db, minimum_start=None, maximum_end=None, hidden=False, owner_evidence=True
     )
-    literal_names: dict[tuple[str | None, str | None, str, bool], str] = {}
+    literal_names: dict[tuple[str | None, str | None, str, bool], tuple[str, str]] = {}
     for observation in observations:
         if not observation.name:
             continue
-        async with db.execute(
-            """SELECT sensor_id, raw_data FROM audio_detections
-               WHERE source_node IS ? AND source_id IS ? AND source_name IS ? AND is_hidden = ?
-               ORDER BY timestamp DESC LIMIT 1""",
-            (observation.node, observation.source_id, observation.name, int(not observation.shown)),
-        ) as cursor:
-            row = await cursor.fetchone()
-        literal = literal_source_name(row[0], row[1]) if row else None
-        if literal:
-            literal_names[(observation.node, observation.source_id, observation.name, observation.shown)] = literal
+        identity = (observation.node, observation.source_id, observation.name, int(not observation.shown))
+        spellings = []
+        for order in ("ASC", "DESC"):
+            async with db.execute(
+                f"""SELECT sensor_id, raw_data FROM audio_detections
+                   WHERE source_node IS ? AND source_id IS ? AND source_name IS ? AND is_hidden = ?
+                   ORDER BY timestamp {order} LIMIT 1""",
+                identity,
+            ) as cursor:
+                row = await cursor.fetchone()
+            spellings.append((literal_source_name(row[0], row[1]) if row else None) or observation.name)
+        literal_names[(observation.node, observation.source_id, observation.name, observation.shown)] = (
+            spellings[0],
+            spellings[1],
+        )
     return audio_source_links(observations, literal_names)
 
 
