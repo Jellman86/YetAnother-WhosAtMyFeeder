@@ -40,7 +40,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   counted once, by the next read, in every figure, new species included.
 - **The Explorer reads Today again on the new day.** Reading the same period again after midnight
   now asks for the new day's dates instead of the day the page was opened on.
-- **Audio History has a Today window.** Choose **Today** to see the calls heard since your local
+- **Audio history has a Today window.** Choose **Today** to see the calls heard since your local
   midnight. The page does not follow new calls as they are heard: when nothing has been heard yet it
   says "No calls heard yet today. Select Refresh to check for new calls." If the page is left open,
   it reads the new day at midnight. The windows now use the same names as the rest of the app: **Last
@@ -48,7 +48,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   days**. The list, the figures and the calls grid all count the same instants, and the dates beside
   the window's name only appear once that window has been read. When a guest's shared history starts
   later than their midnight, the page says from what time it is shown.
-- **Calls over time are counted on your own calendar.** Audio History's daily chart used to file
+- **Calls over time are counted on your own calendar.** Audio history's daily chart used to file
   calls by UTC date, so near midnight a call could appear under yesterday or tomorrow. Each call is
   now counted on the date it was heard in your time zone. `GET /api/audio/summary` also reports the
   `window_start` and `window_end` it counted (#1097).
@@ -136,12 +136,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   **Part of a visit** with the visit's captures and time span. The setting is renamed **Full
   clips** to match; it works as before.
 - **A record offers the same controls wherever you open it:** Opening the latest visit from About
-  now shows its play button and full visit, and plays the clip in the same player as the Dashboard
+  now shows its play button and full clip, and plays the clip in the same player as the Dashboard
   and the Explorer. Owners can also reclassify from there, and an open record now updates when a
   reclassification or a correction arrives, on every page. What a record offers now depends only on
   who is looking. A guest sees a play button only while **Share video with guests** is on, on
   records, Explorer cards and rows, the Dashboard's field log and Garden captures alike, rather than
-  a button whose clip then fails to load. A guest on the Dashboard is now offered the full visit the
+  a button whose clip then fails to load. A guest on the Dashboard is now offered the full clip the
   Explorer already offered. A guest's open record on About now closes when you hide that
   visit, as it already did elsewhere.
 
@@ -240,7 +240,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ### Languages
 
 - **Fixes across all 9 languages.** Messages that were missing their time or fallback value now
-  show them, 22 missing frontend messages (a failed diagnostic step, 21 video fallback reasons and
+  show them, missing frontend messages (a failed diagnostic step, video fallback reasons and
   HTTP status wording) and 3 photo preview errors are translated, destructive confirmations use
   the same default wording everywhere, Russian counts such as 21 take the right plural form, and
   the browser's language preferences are read in order and regardless of case. Frontend and
