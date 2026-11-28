@@ -171,21 +171,20 @@ def select_confirmed_bird_observations(
             decision = decisions[box]
             confidence = _finite_score(candidate.get("crop_confidence"))
             strong = confidence is not None and confidence >= STRONG_DETECTOR_CONFIDENCE
-            if (
-                decision.verdict != "excluded"
-                and not strong
-                and any(other != box and _shares_pixels(box, other) for other in active)
-            ):
+            overlapping = (
+                [other for other in active if other != box and _shares_pixels(box, other)] if not strong else []
+            )
+            if overlapping:
                 shares_counted = any(
-                    other != box
-                    and _shares_pixels(box, other)
-                    and decisions[other].verdict == "counted"
+                    decisions[other].verdict == "counted"
                     and (_finite_score(entries[other].get("crop_confidence")) or 0) >= STRONG_DETECTOR_CONFIDENCE
-                    for other in active
+                    for other in overlapping
                 )
-                decision = PhysicalBirdDecision(
-                    "unconfirmed", "shares_counted_pixels" if shares_counted else "individuality_unresolved"
-                )
+                # A crop sharing a counted bird's pixels cannot resolve a separate region.
+                if shares_counted or decision.verdict != "excluded":
+                    decision = PhysicalBirdDecision(
+                        "unconfirmed", "shares_counted_pixels" if shares_counted else "individuality_unresolved"
+                    )
             if decision.verdict == "counted":
                 confirmed.append(candidate)
             else:
@@ -234,18 +233,23 @@ def select_scene_birds(
     *,
     selected_candidate: dict[str, Any] | None,
     confirmed_finder: bool,
+    physical_decisions: Mapping[str, PhysicalBirdDecision] | None = None,
 ) -> BirdObservationSelection:
     """Count confirmed birds when the finder is validated for it; otherwise keep the earlier count.
 
-    Confirmation reads only the finder's whole-scene boxes. Photo-choice crops can
-    come from a fallback detector, and own-pixel classifier evidence is not wired
-    yet, so a box below the strong detector floor is disclosed instead of counted.
+    Confirmation reads only the finder's whole-scene boxes, because photo-choice
+    crops can come from a fallback detector. A box below the strong detector floor
+    is counted or excluded only by its own-crop decision; without one it is
+    disclosed instead of counted. The earlier count has no use for decisions.
     """
     if not confirmed_finder:
         return select_bird_observations(candidates, selected_candidate=selected_candidate)
     scene_evidence = [item for item in candidates if item.get("source_mode") in {"model_observation", "full_frame"}]
     return select_confirmed_bird_observations(
-        scene_evidence, selected_candidate=selected_candidate, finder_qualified=True, physical_decisions={}
+        scene_evidence,
+        selected_candidate=selected_candidate,
+        finder_qualified=True,
+        physical_decisions=physical_decisions or {},
     )
 
 

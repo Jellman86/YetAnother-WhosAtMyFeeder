@@ -6,7 +6,8 @@ Proposal presence does not establish individuality: selection must still apply
 duplicate and cluster ambiguity gates before publishing a capture count.
 """
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, fields
 import math
 import re
 from typing import Literal
@@ -38,6 +39,21 @@ class PhysicalGroupEvidence:
 class PhysicalBirdDecision:
     verdict: PhysicalVerdict
     reason: str
+
+
+_GROUP_OUTPUT_FIELDS = tuple(field.name for field in fields(PhysicalGroupEvidence) if field.name != "crop_sha256")
+
+
+def physical_group_evidence(group_output: object, *, crop_sha256: str) -> PhysicalGroupEvidence | None:
+    """Bind one classification's bird/non-bird group summary to the crop it was computed from.
+
+    A classifier without bound groups attaches no summary, which is no evidence
+    rather than bad evidence. Values are copied as given, so `decide_physical_bird`
+    rejects a malformed or mismatched summary as unbound instead of repairing it.
+    """
+    if not isinstance(group_output, Mapping) or any(name not in group_output for name in _GROUP_OUTPUT_FIELDS):
+        return None
+    return PhysicalGroupEvidence(crop_sha256=crop_sha256, **{name: group_output[name] for name in _GROUP_OUTPUT_FIELDS})
 
 
 def _probability(value: object) -> bool:
