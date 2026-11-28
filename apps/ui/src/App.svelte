@@ -408,9 +408,20 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       onAudioChanged: () => audioActivity.announce(),
       onSettingsChanged: () => invalidateClassifierStatus(),
       onPublicHistoryChanged: () => publicHistoryRefresh.notify(),
+      // Answers already asked for may hold the removed records: mark them out of date now, and
+      // read again at the usual scheduled refresh rather than spending the visitor's budget.
+      onPublicHistoryNarrowed: () => {
+          detectionsStore.markPublicHistoryNarrowed();
+          publicHistoryRefresh.notify();
+      },
       // Refresh every public view and its caches when the owner changes sharing.
-      // Only the generic signal arrives; no owner settings are sent to visitors.
-      onPublicAccessChanged: () => { if (authStore.isGuest) window.location.reload(); }
+      // Only the generic signal arrives; no owner settings are sent to visitors. The reload takes
+      // a moment, so answers still in flight for the old sharing are marked out of date first.
+      onPublicAccessChanged: () => {
+          if (!authStore.isGuest) return;
+          detectionsStore.markPublicHistoryNarrowed();
+          window.location.reload();
+      }
   });
 
   $effect(() => {

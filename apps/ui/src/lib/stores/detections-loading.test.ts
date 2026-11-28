@@ -449,3 +449,44 @@ it('marks a mutation when a removed event was outside the recent history buffer'
     expect(store.mutationVersion).toBe(before + 1);
     expect(store.detections.map((item) => item.frigate_event)).toEqual(['newest-1']);
 });
+
+describe('a narrowing of what a visitor may see', () => {
+    it('advances the narrowing count at once, while an older read is still in flight', async () => {
+        const { DetectionsStore } = await import('./detections.svelte');
+        const store = new DetectionsStore();
+        let releaseList: (value: unknown[]) => void = () => undefined;
+        fetchEvents.mockImplementationOnce(() => new Promise(resolve => { releaseList = resolve; }));
+        fetchEventsCount.mockResolvedValue({ count: 0 });
+        const olderRead = store.loadInitial();
+        const before = store.publicNarrowingEpoch;
+        store.markPublicHistoryNarrowed();
+        expect(store.publicNarrowingEpoch).toBe(before + 1);
+        expect(store.publicHistoryVersion).toBe(0);
+        releaseList([]);
+        await olderRead;
+        expect(store.publicNarrowingEpoch).toBe(before + 1);
+    });
+
+    it('is not advanced by an ordinary history refresh, so new captures discard nothing', async () => {
+        const { DetectionsStore } = await import('./detections.svelte');
+        const store = new DetectionsStore();
+        fetchEvents.mockResolvedValue([]);
+        fetchEventsCount.mockResolvedValue({ count: 0 });
+        await store.loadInitial();
+        for (let i = 0; i < 3; i += 1) await store.refreshPublicHistory({ includeList: true });
+        expect(store.publicNarrowingEpoch).toBe(0);
+        expect(store.publicHistoryVersion).toBe(3);
+    });
+
+    it('moves on, never back, when access changes, so an answer from before cannot match it again', async () => {
+        const { DetectionsStore } = await import('./detections.svelte');
+        const store = new DetectionsStore();
+        store.markPublicHistoryNarrowed();
+        const requestedAt = store.publicNarrowingEpoch;
+        store.resetForAccessChange();
+        expect(store.publicNarrowingEpoch).toBeGreaterThan(requestedAt);
+        store.markPublicHistoryNarrowed();
+        expect(store.publicNarrowingEpoch).not.toBe(requestedAt);
+        expect(store.publicNarrowingEpoch).toBeGreaterThan(requestedAt);
+    });
+});

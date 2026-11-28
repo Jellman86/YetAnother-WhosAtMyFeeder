@@ -47,6 +47,8 @@ function buildCoordinator(options?: {
     syncDiagnosticsWorkspace?: () => Promise<void>;
     onAudioChanged?: () => void;
     onSettingsChanged?: () => void;
+    onPublicHistoryChanged?: () => void;
+    onPublicHistoryNarrowed?: () => void;
 }) {
     const calls = {
         upsertRunning: [] as any[],
@@ -86,6 +88,8 @@ function buildCoordinator(options?: {
         onStatus: options?.onStatus,
         onAudioChanged: options?.onAudioChanged,
         onSettingsChanged: options?.onSettingsChanged,
+        onPublicHistoryChanged: options?.onPublicHistoryChanged,
+        onPublicHistoryNarrowed: options?.onPublicHistoryNarrowed,
         applyNotificationPolicy: () => true,
         notificationCenter: {
             items: notificationItems,
@@ -844,5 +848,39 @@ describe('private Garden live updates', () => {
         coordinator.handlePayload({ type: 'status', data: { revision: 1 } });
         expect(onStatus).toHaveBeenCalledTimes(owner ? 1 : 0);
         if (owner) expect(onStatus).toHaveBeenCalledWith({ revision: 1 });
+    });
+});
+
+describe('guest history live updates', () => {
+    it('passes a guest a narrowing on its own, never as a plain change', () => {
+        const onPublicHistoryChanged = vi.fn();
+        const onPublicHistoryNarrowed = vi.fn();
+        const { coordinator, calls } = buildCoordinator({
+            hasOwnerAccess: false,
+            shouldNotify: false,
+            onPublicHistoryChanged,
+            onPublicHistoryNarrowed
+        });
+        coordinator.handlePayload({ type: 'public_history_narrowed' });
+        expect(onPublicHistoryNarrowed).toHaveBeenCalledTimes(1);
+        expect(onPublicHistoryChanged).not.toHaveBeenCalled();
+        expect(calls.addDetection).toEqual([]);
+        expect(calls.notificationUpserts).toEqual([]);
+    });
+
+    it('passes a guest a capture as a plain change, which narrows nothing', () => {
+        const onPublicHistoryChanged = vi.fn();
+        const onPublicHistoryNarrowed = vi.fn();
+        const { coordinator } = buildCoordinator({ hasOwnerAccess: false, onPublicHistoryChanged, onPublicHistoryNarrowed });
+        for (let i = 0; i < 10; i += 1) coordinator.handlePayload({ type: 'public_history_changed' });
+        expect(onPublicHistoryChanged).toHaveBeenCalledTimes(10);
+        expect(onPublicHistoryNarrowed).not.toHaveBeenCalled();
+    });
+
+    it('ignores a narrowing with owner access, whose history follows the record updates instead', () => {
+        const onPublicHistoryNarrowed = vi.fn();
+        const { coordinator } = buildCoordinator({ hasOwnerAccess: true, onPublicHistoryNarrowed });
+        coordinator.handlePayload({ type: 'public_history_narrowed' });
+        expect(onPublicHistoryNarrowed).not.toHaveBeenCalled();
     });
 });

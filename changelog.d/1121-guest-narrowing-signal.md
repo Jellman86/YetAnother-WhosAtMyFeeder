@@ -1,0 +1,1 @@
+- The guest live stream now signals when a record is hidden or deleted, including when a false positive is hidden automatically. The signal carries no record details and prepares the Explorer and record search to clear old results sooner. See [the API reference](docs/api.md) (#1121).

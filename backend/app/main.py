@@ -48,6 +48,7 @@ from app.services.media_storage_service import media_storage_service
 from app.services.full_visit_clip_service import full_visit_clip_service
 from app.services.archive_service import archive_service
 from app.services.broadcaster import broadcaster
+from app.services.guest_history_signal import guest_history_signal
 from app.services.telemetry_service import telemetry_service
 from app.services.system_telemetry import system_telemetry_history_service
 from app.services.system_status import status_event
@@ -1503,13 +1504,9 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
                         # Never forward raw producer fields, IDs, diagnostics, or
                         # future owner message types through a denylist.
                         event_type = message.get("type")
-                        if event_type in {
-                            "detection",
-                            "detection_updated",
-                            "detection_deleted",
-                            "audio_history_changed",
-                        }:
-                            message = {"type": "public_history_changed"}
+                        history_signal = guest_history_signal(message)
+                        if history_signal is not None:
+                            message = {"type": history_signal}
                         elif event_type == "settings_updated":
                             data = message.get("data")
                             fields = data.get("changed_fields") if isinstance(data, dict) else None

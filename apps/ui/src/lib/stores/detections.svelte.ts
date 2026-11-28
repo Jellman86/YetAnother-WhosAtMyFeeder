@@ -75,6 +75,13 @@ export class DetectionsStore {
      */
     mutationVersion = $state(0);
     publicHistoryVersion = $state(0);
+    /**
+     * Advanced the moment a visitor learns that records left what they may see (a hide, a delete
+     * or a change of sharing), before anything is read again. An answer requested at an earlier
+     * count may hold those records and must not be shown. It never goes back, so an answer from
+     * before an access change cannot match a later count.
+     */
+    publicNarrowingEpoch = $state(0);
     patchMap = $state<Map<string, Partial<Detection>>>(new Map());
 
     private MAX_ITEMS = 50;
@@ -167,7 +174,13 @@ export class DetectionsStore {
         this.progressMap = new Map();
         this.settledReclassifications = new Map();
         this.publicHistoryVersion = 0;
+        this.publicNarrowingEpoch += 1;
         this.staleTracker.reset();
+    }
+
+    /** Records left a visitor's history; synchronous, so it lands before any answer still in flight. */
+    markPublicHistoryNarrowed(): void {
+        this.publicNarrowingEpoch += 1;
     }
 
     private clearHistory(): void {
