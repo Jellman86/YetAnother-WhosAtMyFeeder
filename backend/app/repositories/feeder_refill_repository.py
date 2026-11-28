@@ -34,14 +34,16 @@ class FeederRefillRepository:
     @asynccontextmanager
     async def write_transaction(self) -> AsyncIterator[None]:
         """Hold the database's write lock from the first read, so what was read still holds at commit."""
-        if not self.db.in_transaction:
-            await self.db.execute("BEGIN IMMEDIATE")
+        if self.db.in_transaction:
+            raise RuntimeError("A refill write requires an idle connection")
         try:
+            async with self.db.execute("BEGIN IMMEDIATE"):
+                pass
             yield
+            await self.db.commit()
         except BaseException:
             await self.db.rollback()
             raise
-        await self.db.commit()
 
     async def get(self, refill_id: int) -> StoredRefill | None:
         async with self.db.execute(f"SELECT {_COLUMNS} FROM feeder_refills WHERE id = ?", (refill_id,)) as cursor:
@@ -50,10 +52,21 @@ class FeederRefillRepository:
 
     async def by_source_event_id(self, source_event_id: str) -> StoredRefill | None:
         async with self.db.execute(
-            f"SELECT {_COLUMNS} FROM feeder_refills WHERE source_event_id = ?", (source_event_id,)
+            f"SELECT {_COLUMNS} FROM feeder_refills WHERE id = COALESCE("
+            "(SELECT id FROM feeder_refills WHERE source_event_id = ?), "
+            "(SELECT refill_id FROM feeder_refill_event_aliases WHERE source_event_id = ?))",
+            (source_event_id, source_event_id),
         ) as cursor:
             row = await cursor.fetchone()
         return _from_row(row) if row else None
+
+    async def remember_source_event(self, source_event_id: str, refill_id: int) -> None:
+        """Tie a cooldown-suppressed event to the refill it repeated for future retries."""
+        async with self.db.execute(
+            "INSERT INTO feeder_refill_event_aliases (source_event_id, refill_id) VALUES (?, ?)",
+            (source_event_id, refill_id),
+        ):
+            pass
 
     async def near(self, camera_name: str | None, start: datetime, end: datetime) -> list[StoredRefill]:
         """Refills of one camera, or of no camera, between two times inclusive."""

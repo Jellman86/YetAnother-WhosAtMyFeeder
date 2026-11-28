@@ -9537,13 +9537,13 @@
                 "type": "null"
               }
             ],
-            "description": "A configured camera, or null when the refill is for no one camera",
+            "description": "A configured camera or null; a blank name also means no camera",
             "title": "Camera Name"
           },
           "note": {
             "anyOf": [
               {
-                "maxLength": 1120,
+                "maxLength": 280,
                 "type": "string"
               },
               {
@@ -9585,7 +9585,7 @@
                 "type": "null"
               }
             ],
-            "description": "An automation's id for this event; sending the same id again records nothing new",
+            "description": "A printable automation event id; retrying it returns the same refill while that refill exists",
             "title": "Source Event Id"
           }
         },
@@ -38660,6 +38660,8 @@
             "name": "refill_id",
             "required": true,
             "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
               "title": "Refill Id",
               "type": "integer"
             }

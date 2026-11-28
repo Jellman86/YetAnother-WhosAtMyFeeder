@@ -482,6 +482,17 @@ feeder_refills = Table(
     Column("created_at", TIMESTAMP, nullable=False),
     UniqueConstraint("source_event_id", name="uq_feeder_refills_source_event_id"),
     CheckConstraint("source IN ('manual','api','mqtt')", name="ck_feeder_refills_source"),
+    sqlite_autoincrement=True,
 )
 
 Index("idx_feeder_refills_refilled_at", feeder_refills.c.refilled_at)
+
+# Retrying an event that fell inside the cooldown still means the same trip after the cooldown ends.
+feeder_refill_event_aliases = Table(
+    "feeder_refill_event_aliases",
+    metadata,
+    Column("source_event_id", String, primary_key=True, nullable=False),
+    Column("refill_id", Integer, ForeignKey("feeder_refills.id", ondelete="CASCADE"), nullable=False),
+)
+
+Index("idx_feeder_refill_event_aliases_refill_id", feeder_refill_event_aliases.c.refill_id)

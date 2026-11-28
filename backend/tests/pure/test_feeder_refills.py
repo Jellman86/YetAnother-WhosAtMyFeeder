@@ -31,26 +31,17 @@ def test_a_refill_without_a_time_is_recorded_now_to_the_second():
 
 
 def test_a_refill_time_with_an_offset_is_stored_in_utc():
-    at = datetime(2026, 11, 28, 3, 0, tzinfo=timezone(timedelta(hours=-5)))
+    at = datetime(2026, 11, 28, 3, 0, 0, 321000, tzinfo=timezone(timedelta(hours=-5)))
     refill = prepare_refill(RefillRequest(source="api", refilled_at=at), now=NOW, configured_cameras=CAMERAS)
-    assert refill.refilled_at == datetime(2026, 11, 28, 8, 0)
+    assert refill.refilled_at == datetime(2026, 11, 28, 8, 0, 0, 321000)
     assert refill.refilled_at.tzinfo is None
 
 
-def test_a_refill_in_the_future_is_refused():
+@pytest.mark.parametrize("ahead", [timedelta(microseconds=1), timedelta(seconds=40), timedelta(hours=1)])
+def test_a_refill_in_the_future_is_refused(ahead):
     with pytest.raises(RefillRefused) as refused:
-        prepare_refill(
-            RefillRequest(source="manual", refilled_at=NOW + timedelta(hours=1)), now=NOW, configured_cameras=CAMERAS
-        )
+        prepare_refill(RefillRequest(source="manual", refilled_at=NOW + ahead), now=NOW, configured_cameras=CAMERAS)
     assert refused.value.code == "future_time"
-
-
-def test_a_refill_a_moment_ahead_of_this_clock_is_recorded_now():
-    # A phone's clock a few seconds ahead of the server's is not a refill in the future.
-    refill = prepare_refill(
-        RefillRequest(source="manual", refilled_at=NOW + timedelta(seconds=40)), now=NOW, configured_cameras=CAMERAS
-    )
-    assert refill.refilled_at == datetime(2026, 11, 28, 9, 30, 15)
 
 
 def test_a_camera_yawamf_does_not_watch_is_refused():
@@ -80,13 +71,16 @@ def test_an_empty_note_is_no_note():
     assert refill.note is None
 
 
-def test_a_note_over_the_limit_is_refused_rather_than_cut_short():
+@pytest.mark.parametrize("note", ["x" * 281, "x" + " " * 280])
+def test_a_note_over_the_limit_is_refused_rather_than_cut_short(note):
     with pytest.raises(RefillRefused) as refused:
-        prepare_refill(RefillRequest(source="manual", note="x" * 281), now=NOW, configured_cameras=CAMERAS)
+        prepare_refill(RefillRequest(source="manual", note=note), now=NOW, configured_cameras=CAMERAS)
     assert refused.value.code == "note_too_long"
 
 
-@pytest.mark.parametrize("event_id", ["", "a" * 129, "door\nopened", "door\x00"])
+@pytest.mark.parametrize(
+    "event_id", ["", "a" * 129, "door\nopened", "door\x00", "door\u2028opened", "door\u2029opened"]
+)
 def test_an_unusable_automation_event_id_is_refused(event_id):
     with pytest.raises(RefillRefused) as refused:
         prepare_refill(RefillRequest(source="api", source_event_id=event_id), now=NOW, configured_cameras=CAMERAS)

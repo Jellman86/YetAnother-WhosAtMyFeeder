@@ -25,7 +25,10 @@ def test_feeder_refills_table_is_additive_and_reversible(tmp_path):
         )
 
     def tables(db: sqlite3.Connection) -> set[str]:
-        return {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        return {
+            row[0]
+            for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*'")
+        }
 
     migrate(BEFORE)
     with sqlite3.connect(database) as db:
@@ -34,7 +37,7 @@ def test_feeder_refills_table_is_additive_and_reversible(tmp_path):
 
     migrate(REVISION)
     with sqlite3.connect(database) as db:
-        assert tables(db) == before_tables | {"feeder_refills"}
+        assert tables(db) == before_tables | {"feeder_refills", "feeder_refill_event_aliases"}
         assert db.execute("SELECT sql FROM sqlite_master WHERE name='detections'").fetchone() == detections_sql
         indexes = {row[1]: row[2] for row in db.execute("PRAGMA index_list('feeder_refills')")}
         assert "idx_feeder_refills_refilled_at" in indexes
@@ -44,6 +47,15 @@ def test_feeder_refills_table_is_additive_and_reversible(tmp_path):
             " VALUES ('2026-11-28 09:00:00', 'birdcam', 'manual', '2026-11-28 09:00:01')"
         )
 
+    # SQLite can persist DDL before Alembic advances the revision.
+    with sqlite3.connect(database) as db:
+        db.execute("DROP INDEX idx_feeder_refills_refilled_at")
+        db.execute("UPDATE alembic_version SET version_num = ?", (BEFORE,))
+    migrate(REVISION)
+    with sqlite3.connect(database) as db:
+        assert "idx_feeder_refills_refilled_at" in {row[1] for row in db.execute("PRAGMA index_list('feeder_refills')")}
+        assert db.execute("SELECT COUNT(*) FROM feeder_refills").fetchone() == (1,)
+
     migrate(BEFORE, "downgrade")
     with sqlite3.connect(database) as db:
         assert tables(db) == before_tables
@@ -51,5 +63,5 @@ def test_feeder_refills_table_is_additive_and_reversible(tmp_path):
     migrate(REVISION)
     migrate(REVISION)
     with sqlite3.connect(database) as db:
-        assert tables(db) == before_tables | {"feeder_refills"}
+        assert tables(db) == before_tables | {"feeder_refills", "feeder_refill_event_aliases"}
         assert db.execute("SELECT COUNT(*) FROM feeder_refills").fetchone() == (0,)

@@ -1501,8 +1501,9 @@ A detection set aside is dropped with reason `filter_out_of_range`, and `POST
 
 ### Feeder refills
 
-Owner only, reads included; guests receive `401` or `403`, because refill times show when someone
-was in the garden. A refill is a marker beside the detection history and never changes it (#946).
+Refill times show when someone was in the garden. When authentication is enabled, every request
+requires an owner bearer token. Guests receive `403`, and unauthenticated requests to a private
+instance receive `401`. A refill is a marker beside the detection history (#946).
 Each refill has `id`, `refilled_at` (UTC), `camera_name` (a configured camera, or null),
 `source` (`manual` when recorded in YA-WAMF, `api` when sent by an automation, `mqtt` reserved for
 the MQTT topic), `note` (one line of plain text; show it as text, never as markup),
@@ -1510,20 +1511,23 @@ the MQTT topic), `note` (one line of plain text; show it as text, never as marku
 
 - `GET /api/refills?start=&end=&limit=&offset=` — refills in a window, newest first, with `total`
   and the window used. `start` and `end` are exact times with an offset (`2026-11-28T09:15:00Z`);
-  `end` defaults to now and `start` to 30 days before `end`. A window longer than 400 days, or one
-  that ends before it starts, returns `422`. `limit` is 1–500 (default 100).
+  `end` defaults to now and `start` to 30 days before `end`, with a floor of 1 January, year 1
+  (UTC). A window longer than 400 days, or one that ends before it starts, returns `422`.
+  `limit` is 1–500 (default 100), and `offset` is 0–100,000 (default 0).
 - `POST /api/refills` — record a refill. Every field is optional:
   `{"refilled_at": "2026-11-28T09:15:00+01:00", "camera_name": "birdcam", "source": "api",
   "note": "Sunflower hearts", "source_event_id": "ha-feeder-door-1732785300"}`. Without
   `refilled_at` the refill is recorded now. Returns `201` with `outcome: "recorded"`. A repeat
-  stores nothing and returns `200` with the refill already stored: `outcome: "same_event"` when
-  `source_event_id` was stored before, or `outcome: "within_cooldown"` when the same camera (or no
-  camera) already has a refill within 15 minutes of this one. A time more than two minutes in the
-  future, a camera YA-WAMF does not watch, a note over 280 characters, or an event id with line
-  breaks or over 128 characters returns `422` and stores nothing. Line breaks and tabs in a note
-  become spaces. `source` accepts `manual` or `api` (the default).
+  returns `200` with the existing refill. The outcome is `same_event` when the same event ID was
+  sent before, or `within_cooldown` when the same camera (or no camera) already has a refill
+  within 15 minutes of this one. Event IDs from cooldown repeats are remembered until the
+  associated refill is deleted. Future times, unknown cameras, notes over 280 characters, and
+  event IDs that are empty, over 128 characters, have surrounding whitespace, or contain
+  non-printable characters return `422`. A blank camera name means no camera. Line breaks and
+  tabs in a note become spaces. `source` accepts `manual` or `api` (the default).
 - `DELETE /api/refills/{refill_id}` — delete a refill permanently; it cannot be restored. Returns
-  `{"id": 3, "deleted": true}`, or `404` when no refill has that id.
+  `{"id": 3, "deleted": true}`, `404` when no refill has that ID, or `422` when the ID is outside
+  the positive SQLite integer range.
 
 ### Settings and Maintenance
 

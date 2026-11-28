@@ -25,8 +25,6 @@ RefusalCode = Literal["future_time", "unknown_camera", "note_too_long", "invalid
 # One trip to the feeder can be recorded twice: a double tap, or a door sensor that opens and
 # closes. Refills of one camera this close together are one refill.
 REFILL_COOLDOWN = timedelta(minutes=15)
-# A phone or Home Assistant clock a little ahead of this one is not reporting a future refill.
-CLOCK_SKEW_ALLOWANCE = timedelta(minutes=2)
 NOTE_MAX_LENGTH = 280
 SOURCE_EVENT_ID_MAX_LENGTH = 128
 
@@ -65,26 +63,21 @@ class RefillDecision:
     refill: StoredRefill | None = None
 
 
-def _has_control_characters(value: str) -> bool:
-    return any(unicodedata.category(character) in {"Cc", "Cf", "Cs"} for character in value)
-
-
 def _plain_note(note: str | None) -> str | None:
     if note is None:
         return None
+    if len(note) > NOTE_MAX_LENGTH:
+        raise RefillRefused("note_too_long")
     # Line breaks, tabs and other control characters become spaces, so a note is one line of text.
     spaced = "".join(" " if unicodedata.category(character)[0] == "C" else character for character in note)
-    single_line = " ".join(spaced.split())
-    if len(single_line) > NOTE_MAX_LENGTH:
-        raise RefillRefused("note_too_long")
-    return single_line or None
+    return " ".join(spaced.split()) or None
 
 
 def _source_event_id(value: str | None) -> str | None:
     if value is None:
         return None
     # Refused rather than tidied, so two different automation events never become one id.
-    if not value or len(value) > SOURCE_EVENT_ID_MAX_LENGTH or _has_control_characters(value) or value != value.strip():
+    if not value or len(value) > SOURCE_EVENT_ID_MAX_LENGTH or not value.isprintable() or value != value.strip():
         raise RefillRefused("invalid_source_event_id")
     return value
 
@@ -100,12 +93,12 @@ def _camera(value: str | None, configured_cameras: Iterable[str]) -> str | None:
 
 def prepare_refill(request: RefillRequest, *, now: datetime, configured_cameras: Iterable[str]) -> NewRefill:
     """Check a refill request against the clock and the configured cameras, or refuse it."""
-    current = utc_naive_datetime(now).replace(microsecond=0)
-    at = current if request.refilled_at is None else utc_naive_datetime(request.refilled_at).replace(microsecond=0)
-    if at > current + CLOCK_SKEW_ALLOWANCE:
+    current = utc_naive_datetime(now)
+    at = current.replace(microsecond=0) if request.refilled_at is None else utc_naive_datetime(request.refilled_at)
+    if at > current:
         raise RefillRefused("future_time")
     return NewRefill(
-        refilled_at=min(at, current),
+        refilled_at=at,
         camera_name=_camera(request.camera_name, configured_cameras),
         source=request.source,
         note=_plain_note(request.note),
@@ -138,13 +131,17 @@ async def record_refill(
     # Checking and storing share one write transaction, so two requests for one trip cannot both
     # find the cooldown window empty and both be stored.
     async with repository.write_transaction():
-        same_event = (
-            await repository.by_source_event_id(refill.source_event_id) if refill.source_event_id is not None else None
-        )
-        nearby = await repository.near(
-            refill.camera_name, refill.refilled_at - REFILL_COOLDOWN, refill.refilled_at + REFILL_COOLDOWN
-        )
+        event_id = refill.source_event_id
+        same_event = await repository.by_source_event_id(event_id) if event_id is not None else None
+        nearby = []
+        if same_event is None:
+            # A valid instant near either end of the calendar can have a cooldown extending beyond it.
+            start = max(refill.refilled_at, datetime.min + REFILL_COOLDOWN) - REFILL_COOLDOWN
+            end = min(refill.refilled_at, datetime.max - REFILL_COOLDOWN) + REFILL_COOLDOWN
+            nearby = await repository.near(refill.camera_name, start, end)
         decision = decide_refill(refill, same_event=same_event, nearby=nearby)
-        if decision.outcome == "recorded":
-            decision = RefillDecision("recorded", await repository.insert(refill))
-    return decision
+        if decision.refill is None:
+            return RefillDecision("recorded", await repository.insert(refill))
+        if decision.outcome == "within_cooldown" and event_id is not None:
+            await repository.remember_source_event(event_id, decision.refill.id)
+        return decision

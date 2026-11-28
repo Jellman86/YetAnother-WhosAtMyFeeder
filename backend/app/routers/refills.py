@@ -5,10 +5,10 @@ Refill times show when someone was in the garden, so guests never read them.
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response, status
 from pydantic import BaseModel, Field
 
 from app.auth import AuthContext, require_owner
@@ -50,16 +50,16 @@ class FeederRefillCreate(BaseModel):
         description="When the feeder was filled, with its offset. Null records it now. A time in the future is refused.",
     )
     camera_name: str | None = Field(
-        default=None, max_length=100, description="A configured camera, or null when the refill is for no one camera"
+        default=None, max_length=100, description="A configured camera or null; a blank name also means no camera"
     )
     source: Literal["manual", "api"] = Field(
         default="api", description="manual when the owner recorded it in YA-WAMF; api for an automation"
     )
-    note: str | None = Field(default=None, max_length=NOTE_MAX_LENGTH * 4)
+    note: str | None = Field(default=None, max_length=NOTE_MAX_LENGTH)
     source_event_id: str | None = Field(
         default=None,
         max_length=SOURCE_EVENT_ID_MAX_LENGTH,
-        description="An automation's id for this event; sending the same id again records nothing new",
+        description="A printable automation event id; retrying it returns the same refill while that refill exists",
     )
 
 
@@ -109,7 +109,10 @@ async def list_refills(
 ) -> FeederRefillPage:
     """Refills in a window of at most 400 days, newest first."""
     window_end = utc_naive_datetime(end) if end is not None else utc_naive_now()
-    window_start = utc_naive_datetime(start) if start is not None else window_end - DEFAULT_WINDOW
+    if start is None:
+        window_start = max(window_end, datetime.min + DEFAULT_WINDOW) - DEFAULT_WINDOW
+    else:
+        window_start = utc_naive_datetime(start)
     if window_start > window_end:
         raise HTTPException(status_code=422, detail="The window's start must not be after its end.")
     if window_end - window_start > MAX_WINDOW:
@@ -158,7 +161,9 @@ async def create_refill(
 
 
 @router.delete("/{refill_id}", response_model=FeederRefillDeleted)
-async def delete_refill(refill_id: int, auth: AuthContext = Depends(require_owner)) -> FeederRefillDeleted:
+async def delete_refill(
+    refill_id: int = Path(ge=1, le=2**63 - 1), auth: AuthContext = Depends(require_owner)
+) -> FeederRefillDeleted:
     """Delete a refill permanently. It cannot be restored; record it again if it was deleted by mistake."""
     async with get_db() as db:
         deleted = await FeederRefillRepository(db).delete(refill_id)

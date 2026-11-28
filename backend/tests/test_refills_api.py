@@ -14,6 +14,7 @@ from app.database import close_db, get_db, init_db
 from app.main import app
 from app.models.feeder_refill import NewRefill
 from app.repositories.feeder_refill_repository import FeederRefillRepository
+from app.routers import refills
 
 
 @pytest_asyncio.fixture
@@ -125,12 +126,55 @@ async def test_two_refills_of_one_camera_inside_the_cooldown_are_one_refill(owne
 
 
 @pytest.mark.asyncio
-async def test_refills_sent_at_once_for_one_trip_store_one_refill(owner_api):
+@pytest.mark.parametrize("same_event", [True, False])
+async def test_refills_sent_at_once_for_one_trip_store_one_refill(owner_api, same_event):
     sent = await asyncio.gather(
-        *(owner_api.post("/api/refills", json={"camera_name": "birdcam", "source_event_id": "burst"}) for _ in range(5))
+        *(
+            owner_api.post("/api/refills", json={"camera_name": "birdcam", "source_event_id": f"burst-{event}"})
+            for event in ([0] * 5 if same_event else range(5))
+        )
     )
     assert sorted(response.status_code for response in sent) == [200, 200, 200, 200, 201]
+    assert {response.json()["outcome"] for response in sent} == {
+        "recorded",
+        "same_event" if same_event else "within_cooldown",
+    }
     assert await stored_count() == 1
+
+
+@pytest.mark.asyncio
+async def test_a_cooldown_event_is_still_deduplicated_after_the_cooldown(owner_api, monkeypatch):
+    now = datetime(2026, 11, 28, 9, 0)
+    monkeypatch.setattr(refills, "utc_naive_now", lambda: now)
+    first = await owner_api.post("/api/refills", json={"camera_name": "birdcam", "source": "manual"})
+    payload = {"camera_name": "birdcam", "source_event_id": "ha-door-18"}
+    during = await owner_api.post("/api/refills", json=payload)
+    assert during.status_code == 200
+    assert during.json()["outcome"] == "within_cooldown"
+
+    now += timedelta(minutes=16)
+    later = await owner_api.post("/api/refills", json=payload)
+    assert later.status_code == 200
+    assert later.json() == {"outcome": "same_event", "refill": first.json()["refill"]}
+    assert await stored_count() == 1
+
+    assert (await owner_api.delete(f"/api/refills/{first.json()['refill']['id']}")).status_code == 200
+    assert (await owner_api.post("/api/refills", json=payload)).status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_the_earliest_supported_refill_time_can_be_recorded_and_listed(owner_api):
+    earliest = "0001-01-01T00:00:00Z"
+    first = await owner_api.post("/api/refills", json={"refilled_at": earliest})
+    assert first.status_code == 201, first.text
+    second = await owner_api.post("/api/refills", json={"refilled_at": earliest})
+    assert second.status_code == 200, second.text
+    assert second.json()["outcome"] == "within_cooldown"
+
+    listed = await owner_api.get("/api/refills", params={"end": earliest})
+    assert listed.status_code == 200, listed.text
+    assert listed.json()["start"] == earliest
+    assert listed.json()["items"] == [first.json()["refill"]]
 
 
 @pytest.mark.asyncio
@@ -139,6 +183,7 @@ async def test_the_schema_keeps_one_row_per_automation_event():
     try:
         async with get_db() as db:
             await db.execute("DELETE FROM feeder_refills")
+            await db.commit()
             repo = FeederRefillRepository(db)
             refill = NewRefill(datetime(2026, 11, 1, 8, 0), None, "api", None, "schema-1")
             async with repo.write_transaction():
@@ -155,6 +200,19 @@ async def test_the_schema_keeps_one_row_per_automation_event():
             await db.rollback()
     finally:
         await close_db()
+
+
+@pytest.mark.asyncio
+async def test_a_refill_transaction_does_not_take_ownership_of_an_existing_transaction(owner_api):
+    async with get_db() as db:
+        await db.execute("BEGIN")
+        try:
+            with pytest.raises(RuntimeError, match="idle connection"):
+                async with FeederRefillRepository(db).write_transaction():
+                    pytest.fail("The existing transaction may not hold a write lock")
+            assert db.in_transaction
+        finally:
+            await db.rollback()
 
 
 @pytest.mark.asyncio
@@ -199,6 +257,25 @@ async def test_deleting_a_refill_removes_it_for_good(owner_api):
 
 
 @pytest.mark.asyncio
+async def test_retrying_a_delete_does_not_delete_the_replacement_refill(owner_api):
+    first = (await owner_api.post("/api/refills", json={})).json()["refill"]
+    path = f"/api/refills/{first['id']}"
+    assert (await owner_api.delete(path)).status_code == 200
+
+    replacement = (await owner_api.post("/api/refills", json={})).json()["refill"]
+    assert replacement["id"] != first["id"]
+    assert (await owner_api.delete(path)).status_code == 404
+    assert await stored_count() == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("refill_id", [0, -1, 2**63])
+async def test_delete_refuses_an_id_outside_the_sqlite_rowid_range(owner_api, refill_id):
+    refused = await owner_api.delete(f"/api/refills/{refill_id}")
+    assert refused.status_code == 422, refused.text
+
+
+@pytest.mark.asyncio
 async def test_a_guest_can_neither_read_nor_write_refills(owner_api):
     created = (await owner_api.post("/api/refills", json={"source": "manual"})).json()["refill"]
     async with guest_client() as guest:
@@ -210,12 +287,12 @@ async def test_a_guest_can_neither_read_nor_write_refills(owner_api):
 
 
 @pytest.mark.asyncio
-async def test_a_guest_token_cannot_write_refills(owner_api):
+async def test_a_guest_token_can_neither_read_nor_write_refills(owner_api):
+    created = (await owner_api.post("/api/refills", json={"source": "manual"})).json()["refill"]
+    headers = {"Authorization": f"Bearer {create_access_token('visitor', 'guest')}"}
     async with guest_client() as guest:
-        posted = await guest.post(
-            "/api/refills",
-            json={"source": "manual"},
-            headers={"Authorization": f"Bearer {create_access_token('visitor', 'guest')}"},
-        )
-    assert posted.status_code == 403
-    assert await stored_count() == 0
+        listed = await guest.get("/api/refills", headers=headers)
+        posted = await guest.post("/api/refills", json={"source": "manual"}, headers=headers)
+        removed = await guest.delete(f"/api/refills/{created['id']}", headers=headers)
+    assert listed.status_code == posted.status_code == removed.status_code == 403
+    assert await stored_count() == 1
