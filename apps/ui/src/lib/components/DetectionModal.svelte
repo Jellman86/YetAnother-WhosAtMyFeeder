@@ -55,7 +55,7 @@
     import RecordSpeciesReference from './record/RecordSpeciesReference.svelte';
     import RecordVideoStatusNotice from './record/RecordVideoStatusNotice.svelte';
     import RecordReadings from './record/RecordReadings.svelte';
-    import { readingDisagreement } from './record/reading-agreement';
+    import { readingDisagreement, readingNamingInput } from './record/reading-agreement';
     import { currentMoment, groupCandidatesIntoMoments, outlineLabelClass, outlineLabelPlace, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
@@ -1863,7 +1863,7 @@
                     <ul id="detection-more-actions" class="card-base shrink-0 divide-y divide-line-soft overflow-hidden" data-detection-more-actions-panel>
                         {#if hasFrameSource}
                             <li>
-                                <button type="button" onclick={handleReclassifyClick} class="btn btn-ghost min-h-11 w-full justify-start rounded-none px-3 text-sm" title={$_('actions.reclassify')} data-detection-score-again>
+                                <button type="button" onclick={handleReclassifyClick} class="btn btn-ghost min-h-11 w-full justify-start rounded-none px-3 text-sm" data-detection-score-again>
                                     <span class="min-w-0 text-left wrap-anywhere">{$_('detection.score_again', { default: 'Score again' })}</span>
                                 </button>
                             </li>
@@ -2037,7 +2037,7 @@
                                     <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
                                     <path d="M3 21v-5h5"/>
                                 </svg>
-                                {$_('detection.video_analysis.gated_action', { default: 'Reclassify' })}
+                                {$_('detection.score_again', { default: 'Score again' })}
                             </button>
                         </div>
                     </div>
@@ -2047,8 +2047,8 @@
             {#if readings}
                 <RecordReadings
                     disagreement={readings}
-                    snapshotName={$birdNames(readings.snapshot, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary}
-                    videoName={videoReadingName}
+                    snapshotName={$birdNames(readingNamingInput(readings.snapshot), settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary}
+                    videoName={$birdNames(readingNamingInput(readings.video), settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary}
                     videoInput={classificationInputLabel}
                     onscoreagain={videoPromotionGated && onReclassify ? handleReclassifyClick : undefined}
                     scoreAgainDisabled={!!reclassifyProgress || awaitingReclassifyOverlay}

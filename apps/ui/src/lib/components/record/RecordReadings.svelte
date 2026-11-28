@@ -25,12 +25,12 @@
 
     const headingId = $props.id();
 
-    function percent(score: number | null): string | null {
+    function percent(score: number): string | null {
         return typeof score === 'number' && Number.isFinite(score) ? `${Math.round(score * 100)}%` : null;
     }
 
     const snapshotScore = $derived(percent(disagreement.snapshot.score));
-    const videoScore = $derived(percent(disagreement.videoScore));
+    const videoScore = $derived(percent(disagreement.video.score));
 </script>
 
 <Panel as="div" data-record-readings={disagreement.needsPerson ? 'needs-person' : 'decided'}>

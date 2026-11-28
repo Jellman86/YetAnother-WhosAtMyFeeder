@@ -248,8 +248,7 @@
     "frigate_fallback_title": "Resultado do Frigate",
     "frigate_fallback_desc": "A análise local da imagem não atendeu à política, por isso o YA-WAMF manteve o rótulo de espécie confiável do Frigate.",
     "gated_title": "O vídeo encontrou uma correspondência: confirme para aplicar",
-    "gated_desc": "A promoção automática foi retida porque a pontuação do vídeo está abaixo do seu piso de confiança mínima. Execute Reclassificar para aplicar este resultado ou reduza o piso em Configurações → Identificar aves.",
-    "gated_action": "Reclassificar",
+    "gated_desc": "A promoção automática foi retida porque a pontuação do vídeo está abaixo do seu piso de confiança mínima. Execute Pontuar novamente para aplicar este resultado ou reduza o piso em Configurações → Identificar aves.",
     "evidence": {
       "title": "Evidências desta análise",
       "summary": "Foram decodificados {processed} de {sampled} quadros amostrados. Cada quadro precisava de pelo menos {threshold}% de confiança para votar.",

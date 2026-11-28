@@ -942,9 +942,12 @@ no catalogued bird, a video reading below the naming floor (the lower of `min_co
 naming threshold), a species one of the two models cannot name, a first name borrowed from Frigate's
 sub-label, and a model the catalogue does not hold. `null` means the readings were never compared,
 which includes every capture whose video reading finished before this field existed. With
-`disagree`, `snapshot_reading` gives the snapshot reading's `display_name`, `category_name`,
-`scientific_name`, `common_name` and `score`; it is `null` otherwise. The comparison only informs the
-record: it never renames the visit. Guest projections and `fields=list` exclude both fields.
+`disagree`, `snapshot_reading` and `video_reading` give each reading as `label` (as the model gave
+it), `scientific_name`, `common_name` and `score`. The names come from the species catalogue in the
+reader's language, as a visit's own name does; a reading the catalogue cannot name keeps the names
+stored with it (the snapshot) or none (the video), and is shown by its label. Both are `null`
+otherwise. The comparison only informs the record: it never renames the visit. Guest projections
+and `fields=list` exclude all three fields.
 
 ### Media Proxy and Share Links
 

@@ -15,8 +15,10 @@ test('a kept snapshot name shows both readings, asks for a look and offers to sc
     await expect(panel.locator('[data-status-chip="attention"]')).toHaveText('Readings disagree');
     await expect(panel.locator('[data-record-reading="snapshot"]')).toContainText('Common Wood-Pigeon');
     await expect(panel.locator('[data-record-reading="snapshot"]')).toContainText('99%');
-    await expect(panel.locator('[data-record-reading="video"]')).toContainText('Pica pica');
+    // Both readings are named the same way, by the reader's common name.
+    await expect(panel.locator('[data-record-reading="video"]')).toContainText('Eurasian Magpie');
     await expect(panel.locator('[data-record-reading="video"]')).toContainText('67%');
+    await expect(panel.locator('[data-record-readings-score-again]')).toHaveText('Score again');
     await expect(panel.locator('[data-record-readings-score-again]')).toBeVisible();
     await expect(page.getByText('Video found a match: confirm to apply')).toHaveCount(0);
 });

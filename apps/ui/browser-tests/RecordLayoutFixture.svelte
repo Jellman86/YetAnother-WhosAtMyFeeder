@@ -49,7 +49,8 @@
             video_classification_score: 0.92,
             video_classification_input_source: 'model_crop',
             reading_agreement: 'disagree',
-            snapshot_reading: { display_name: 'Carrion Crow', category_name: 'Corvus corone', scientific_name: 'Corvus corone', common_name: 'Carrion Crow', score: 0.81 }
+            snapshot_reading: { label: 'Corvus corone', scientific_name: 'Corvus corone', common_name: 'Carrion Crow', score: 0.81 },
+            video_reading: { label: 'Pica pica', scientific_name: 'Pica pica', common_name: 'Eurasian Magpie', score: 0.92 }
         });
     } else if (!short && readings === 'kept') {
         Object.assign(detection, {
@@ -61,7 +62,8 @@
             video_classification_score: 0.67,
             video_classification_input_source: 'model_crop',
             reading_agreement: 'disagree',
-            snapshot_reading: { display_name: 'Common Wood-Pigeon', category_name: 'Columba palumbus', scientific_name: 'Columba palumbus', common_name: 'Common Wood-Pigeon', score: 0.99 }
+            snapshot_reading: { label: 'Columba palumbus', scientific_name: 'Columba palumbus', common_name: 'Common Wood-Pigeon', score: 0.99 },
+            video_reading: { label: 'Pica pica', scientific_name: 'Pica pica', common_name: 'Eurasian Magpie', score: 0.67 }
         });
     }
 </script>
