@@ -29,6 +29,15 @@
         settledAudioHistoryFilters,
         type AudioHistoryFilters
     } from './audio-history-filters';
+    import {
+        AUDIO_HISTORY_WINDOWS,
+        audioHistoryRequest,
+        isAudioHistoryWindow,
+        msUntilNextLocalMidnight,
+        narrowedWindowStart,
+        type AudioHistoryRequest,
+        type AudioHistoryWindow
+    } from './audio-history-window';
     import { withAuthParams } from '../api/core';
     import { appApiPath, toAppPath } from '../app/url-base';
     import { formatCalendarDay, formatDate, formatDateTime, formatHour, formatShortDay, formatTime } from '../utils/datetime';
@@ -54,6 +63,7 @@
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import { audioReading } from './audio-history-state';
     import { dailySeries } from './audio-chart-series';
+    import { namesListedMoreThanOnce, sourceNameKey } from './audio-source-names';
     import { whenNearViewport } from '../actions/near-viewport';
 
     const PAGE_SIZE = 25;
@@ -75,11 +85,10 @@
     // The list, charts and paging follow what was applied, never the half-edited form.
     let applied = $state<AudioHistoryFilters>({ ...DEFAULT_AUDIO_HISTORY_FILTERS });
     const filtersChanged = $derived(
-        audioHistoryFiltersDiffer({ days: applied.days, species: speciesFilter, source: sourceFilter, minConfidence }, applied)
+        audioHistoryFiltersDiffer({ window: applied.window, species: speciesFilter, source: sourceFilter, minConfidence }, applied)
     );
     let filterSheetOpen = $state(false);
-    const WINDOW_DAYS = [1, 7, 30, 90, 365] as const;
-    const windowOptions = $derived(WINDOW_DAYS.map((value) => ({ value: String(value), label: windowLabel(value) })));
+    const windowOptions = $derived(AUDIO_HISTORY_WINDOWS.map((value) => ({ value, label: windowLabel(value) })));
     // A phone's sheet. From the md breakpoint the fields stand inline, so the sheet, and the scroll
     // lock it holds, go away with the width; a draft then stays in the inline form beside its Apply.
     const inlineFilters = new MediaQuery('min-width: 768px', false);
@@ -105,6 +114,8 @@
     let error = $state<string | null>(null);
     let stale = $state(false);
     let readAt = $state<number | null>(null);
+    // What the reading on screen asked for, so the page can say when the server counted less of it.
+    let shownRequest = $state.raw<AudioHistoryRequest | null>(null);
     let offset = $state(0);
     let birdnetExternalUrl = $state('');
     let reduceMotion = $state(false);
@@ -242,32 +253,24 @@
         weekdayHourTable(shownHeatmap?.cells ?? [], { day: $_('audio.chart.col_day', { default: 'Day' }), weekday: weekdayLabel, hour: formatHour })
     );
 
-    function requestParams(includePaging = true) {
-        return {
-            days: applied.days,
-            species: applied.species || undefined,
-            source: applied.source || undefined,
-            search: appliedSearch || undefined,
-            only_hidden: authStore.canModify && showHidden ? true : undefined,
-            min_confidence: applied.minConfidence,
-            limit: includePaging ? PAGE_SIZE : undefined,
-            offset: includePaging ? offset : undefined
-        };
-    }
-
     const audioHistoryLoader = createAudioHistoryLoader({
-        requestKey: () => JSON.stringify(requestParams(true)),
-        fetchHistory: () => fetchAudioHistory(requestParams(true)),
-        fetchSummary: () => fetchAudioSummary(requestParams(false)),
-        fetchHeatmap: () => fetchAudioActivityHeatmap(requestParams(false)),
+        resolveRequest: () => audioHistoryRequest(
+            { applied, search: appliedSearch, onlyHidden: authStore.canModify && showHidden, offset, pageSize: PAGE_SIZE },
+            new Date()
+        ),
+        requestKey: (request) => request.key,
+        fetchHistory: (request) => fetchAudioHistory(request.list),
+        fetchSummary: (request) => fetchAudioSummary(request.aggregate),
+        fetchHeatmap: (request) => fetchAudioActivityHeatmap(request.aggregate),
         begin: () => { loading = true; error = null; stale = false; },
-        apply: (nextHistory, nextSummary, nextHeatmap) => {
+        apply: (nextHistory, nextSummary, nextHeatmap, request) => {
             history = nextHistory;
             summary = nextSummary;
+            shownRequest = request;
             // A species no longer offered in this window goes back to all species. A refresh of the
             // same filters keeps the chosen species' grid, dimmed until it is read again; a grid read
             // for other filters is never shown beside this reading's figures.
-            const reading = audioHeatmapReading(requestParams(false));
+            const reading = audioHeatmapReading(request.aggregate);
             heatmapChoice = keptHeatmapChoice(heatmapChoice, audioHeatmapSpeciesOptions(nextSummary.top_species, applied.species));
             speciesHeatmap = keptSpeciesHeatmap(speciesHeatmap, reading);
             heatmapReading = reading;
@@ -289,6 +292,7 @@
             heatmapError = null;
             heatmapReading = null;
             speciesHeatmap = null;
+            shownRequest = null;
             readAt = null;
             if (authStore.isGuest) selectedSpecies = null;
         },
@@ -472,12 +476,13 @@
         }
     }
 
-    function windowLabel(windowDays: number): string {
-        if (windowDays === 1) return $_('audio.filter.24h', { default: '24 hours' });
-        if (windowDays === 7) return $_('audio.filter.7d', { default: '7 days' });
-        if (windowDays === 30) return $_('audio.filter.30d', { default: '30 days' });
-        if (windowDays === 90) return $_('audio.filter.90d', { default: '90 days' });
-        return $_('audio.filter.1y', { default: '1 year' });
+    function windowLabel(window: AudioHistoryWindow): string {
+        if (window === 'today') return $_('audio.filter.today', { default: 'Today' });
+        if (window === '24h') return $_('audio.filter.24h', { default: 'Last 24 hours' });
+        if (window === '7d') return $_('audio.filter.7d', { default: 'Last 7 days' });
+        if (window === '30d') return $_('audio.filter.30d', { default: 'Last 30 days' });
+        if (window === '90d') return $_('audio.filter.90d', { default: 'Last 90 days' });
+        return $_('audio.filter.1y', { default: 'Last 365 days' });
     }
 
     function weekdayLabel(dayOfWeek: number): string {
@@ -490,28 +495,60 @@
         return $_('leaderboard.weekday_sun', { default: 'Sun' });
     }
 
-    /** The window the server counted, which for a guest is the shared one, not the one chosen. */
+    /**
+     * The window the server counted, which for a guest is the shared one, not the one chosen. Today's
+     * is in hours. Only a reading on screen has a range: while another window, or the next day, is
+     * read the dates stay hidden, so a period's name never stands beside another period's dates.
+     */
     function windowRange(): string {
-        const start = heatmap?.window_start ? formatShortDay(heatmap.window_start) : '';
-        const end = heatmap?.window_end ? formatShortDay(heatmap.window_end) : '';
-        return start && end ? `${start}-${end}` : '';
+        if (!measured || !summary?.window_start || !summary.window_end) return '';
+        const format = shownRequest?.aggregate.start_date ? formatTime : formatShortDay;
+        return `${format(summary.window_start)}-${format(summary.window_end)}`;
     }
+
+    // For a guest the shared history can start after the viewer's own midnight, so Today holds less of the day.
+    const sharedFrom = $derived(
+        measured && authStore.isGuest ? narrowedWindowStart(shownRequest?.aggregate.start_date, summary?.window_start) : null
+    );
+    const nothingNarrows = $derived(!applied.species && !applied.source && applied.minConfidence <= 0 && !appliedSearch);
+
+    const listedSources = $derived((summary?.sources ?? []).slice(0, 8));
+    const sharedSourceNames = $derived(namesListedMoreThanOnce(listedSources));
 
     function callsHeard(count: number): string {
         return $_('audio.calls_heard', { values: { count }, default: '{count, plural, one {# call heard} other {# calls heard}}' });
     }
 
     /** The window applies as it is chosen, as the Leaderboard's span does; the other filters wait for Apply. */
-    function chooseWindow(next: number): void {
-        if (!WINDOW_DAYS.includes(next as (typeof WINDOW_DAYS)[number]) || next === applied.days) return;
-        applied = { ...applied, days: next };
+    function chooseWindow(next: string): void {
+        if (!isAudioHistoryWindow(next) || next === applied.window) return;
+        applied = { ...applied, window: next };
         offset = 0;
+        selectedIds = [];
         void loadAudioHistory();
     }
 
+    // Today ends at the viewer's midnight; past it the page reads the new day instead of standing on
+    // the old one. The clock is outside Svelte, so this is an effect. A timer can fire a little early,
+    // so it waits a second past midnight to be sure the new day has begun.
+    $effect(() => {
+        if (applied.window !== 'today') return;
+        let timer: ReturnType<typeof setTimeout>;
+        const waitForMidnight = () => {
+            timer = setTimeout(() => {
+                offset = 0;
+                selectedIds = [];
+                void loadAudioHistory();
+                waitForMidnight();
+            }, msUntilNextLocalMidnight(new Date()) + 1000);
+        };
+        waitForMidnight();
+        return () => clearTimeout(timer);
+    });
+
     function applyFilters(event?: SubmitEvent) {
         event?.preventDefault();
-        applied = settledAudioHistoryFilters({ days: applied.days, species: speciesFilter, source: sourceFilter, minConfidence });
+        applied = settledAudioHistoryFilters({ window: applied.window, species: speciesFilter, source: sourceFilter, minConfidence });
         offset = 0;
         void loadAudioHistory();
     }
@@ -535,7 +572,7 @@
             clearTimeout(searchTimer);
             searchTimer = null;
         }
-        applied = { ...DEFAULT_AUDIO_HISTORY_FILTERS, days: applied.days };
+        applied = { ...DEFAULT_AUDIO_HISTORY_FILTERS, window: applied.window };
         selectedIds = [];
         offset = 0;
         void loadAudioHistory();
@@ -743,22 +780,23 @@
 {/snippet}
 
 <div class="space-y-10" data-audio-history-page data-audio-reading={reading}>
-    <!-- The window first, in the Leaderboard's place and with its control: on a phone a select beside
-         the Filters button, from 640 px a segmented bar. It applies as it is chosen; what narrows the
-         list (species, source, confidence) waits for Apply, inline from 768 px and in a sheet below. -->
+    <!-- The window first, in the Leaderboard's place and with its control: below 768 px a select beside
+         the Filters button, from 768 px a segmented bar, where its six period names fit on one line. It
+         applies as it is chosen; what narrows the list (species, source, confidence) waits for Apply,
+         inline from 768 px and in a sheet below. -->
     <section class="border-y border-line py-3 sm:py-4" data-audio-history-controls data-audio-history-filters aria-label={$_('events.filters.title', { default: 'Filters' })}>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <label class="sm:hidden">
+            <label class="md:hidden">
                 <span class="sr-only">{$_('audio.filter.window', { default: 'Window' })}</span>
-                <select class="select-base min-h-11 w-auto py-2 text-sm" value={String(applied.days)} onchange={(event) => chooseWindow(Number(event.currentTarget.value))} data-audio-window-select>
+                <select class="select-base min-h-11 w-auto py-2 text-sm" value={applied.window} onchange={(event) => chooseWindow(event.currentTarget.value)} data-audio-window-select>
                     {#each windowOptions as option (option.value)}<option value={option.value}>{option.label}</option>{/each}
                 </select>
             </label>
-            <div class="hidden sm:block">
+            <div class="hidden md:block">
                 <Segmented
-                    value={String(applied.days)}
+                    value={applied.window}
                     options={windowOptions}
-                    onchange={(next) => chooseWindow(Number(next))}
+                    onchange={(next) => chooseWindow(next)}
                     label={$_('audio.filter.window', { default: 'Window' })}
                     width="content"
                     size="sm"
@@ -777,6 +815,9 @@
             <div class="md:col-span-3 xl:col-span-1 xl:self-end">{@render filterActions()}</div>
         </form>
         <p class="{filtersChanged ? 'mt-3' : ''} text-sm font-semibold text-status-attention" role="status" data-audio-filters-changed>{filtersChanged ? $_('audio.filter.changed', { default: 'Filters changed. Apply to update the list.' }) : ''}</p>
+        {#if sharedFrom}
+            <p class="mt-3 text-sm text-muted" data-audio-window-narrowed>{$_('audio.filter.shared_from', { values: { time: formatTime(sharedFrom) }, default: 'Shared history starts at {time}, so calls heard earlier today are not shown.' })}</p>
+        {/if}
     </section>
     {#if filterSheetShown}
         <FilterSheet title={$_('events.filters.title', { default: 'Filters' })} id="audio-filter-sheet" onclose={dismissFilterSheet} data-audio-filter-sheet>
@@ -1015,9 +1056,15 @@
             {/if}
         {#if detections.length === 0}
             <div class="border-y border-dashed border-line px-4 py-12 text-center text-sm font-semibold text-muted">
-                {showHidden
-                    ? $_('audio.history.empty_hidden', { default: 'No hidden calls match these filters.' })
-                    : $_('audio.history.empty', { default: 'No calls match these filters.' })}
+                {#if showHidden}
+                    {$_('audio.history.empty_hidden', { default: 'No hidden calls match these filters.' })}
+                {:else if applied.window === 'today' && nothingNarrows && sharedFrom}
+                    <span data-audio-history-empty-today>{$_('audio.history.empty_today_shared', { values: { time: formatTime(sharedFrom) }, default: 'No calls heard since {time}, when the shared history starts. Select Refresh to check for new calls.' })}</span>
+                {:else if applied.window === 'today' && nothingNarrows}
+                    <span data-audio-history-empty-today>{$_('audio.history.empty_today', { default: 'No calls heard yet today. Select Refresh to check for new calls.' })}</span>
+                {:else}
+                    {$_('audio.history.empty', { default: 'No calls match these filters.' })}
+                {/if}
             </div>
         {:else}
             <!-- A table only where its own box has room at the reader's text size (rem, so larger text
@@ -1213,10 +1260,23 @@
                             {reading === 'failed' ? $_('audio.chart.unavailable', { default: 'Not available while the history cannot be read.' }) : $_('common.loading', { default: 'Loading' })}
                         </p>
                     {:else}
-                    {#each (summary?.sources ?? []).slice(0, 8) as item}
+                    {#each listedSources as item}
                         <div class="flex items-center justify-between gap-3 py-3">
                             <div class="min-w-0">
                                 <p class="wrap-break-word text-sm font-bold text-strong">{item.source_name}</p>
+                                {#if sharedSourceNames.has(sourceNameKey(item.source_name))}
+                                    <p class="mt-0.5 break-all text-xs text-muted" data-audio-source-id>
+                                        {#if item.source_id && item.source_node}
+                                            {$_('audio.sources.source_id_on_node', { values: { id: item.source_id, node: item.source_node }, default: 'BirdNET-Go id {id} on {node}' })}
+                                        {:else if item.source_id}
+                                            {$_('audio.sources.source_id', { values: { id: item.source_id }, default: 'BirdNET-Go id {id}' })}
+                                        {:else if item.source_node}
+                                            {$_('audio.sources.no_source_id_on_node', { values: { node: item.source_node }, default: 'Calls without a usable BirdNET-Go id on {node}' })}
+                                        {:else}
+                                            {$_('audio.sources.no_source_id', { default: 'Calls without a usable BirdNET-Go id' })}
+                                        {/if}
+                                    </p>
+                                {/if}
                                 <p class="mt-0.5 wrap-break-word text-xs text-muted">{$_('audio.card.last_heard', { default: 'Last heard' })} {formatDateTime(item.last_heard)}</p>
                             </div>
                             <span class="flex-none text-sm font-bold tabular-nums text-ink">{item.count.toLocaleString()}</span>
@@ -1237,7 +1297,7 @@
         <header class="flex flex-wrap items-end justify-between gap-3">
             <div>
                 <h2 id="audio-analytics-title" class="text-xl font-bold text-strong">{$_('leaderboard.analytics_section', { default: 'Analytics' })}</h2>
-                <p class="text-sm text-muted" data-audio-analytics-window>{windowLabel(applied.days)}{windowRange() ? ` · ${windowRange()}` : ''}</p>
+                <p class="text-sm text-muted" data-audio-analytics-window>{windowLabel(applied.window)}{windowRange() ? ` · ${windowRange()}` : ''}</p>
             </div>
         </header>
 
@@ -1250,7 +1310,7 @@
             {#if !measured}
                 {@render chartPending()}
             {:else if hasDaily}
-                {#key `${applied.days}-${isDark}-${reduceMotion}`}
+                {#key `${applied.window}-${isDark}-${reduceMotion}`}
                     <div class="relative mt-6 chart-h w-full"><canvas use:chartjs={dailyChartConfig()} aria-label={$_('audio.chart.daily_title', { default: 'Calls heard over time' })}></canvas></div>
                 {/key}
             {:else}
@@ -1322,7 +1382,7 @@
                 {#if !measured}
                     {@render chartPending()}
                 {:else if hasSpecies}
-                    {#key `${applied.days}-${isDark}-${reduceMotion}`}
+                    {#key `${applied.window}-${isDark}-${reduceMotion}`}
                         <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={speciesDonutConfig()} bind:this={speciesChartEl} aria-label={$_('audio.chart.species_title', { default: 'Species composition' })}></canvas></div>
                         <div class="mt-2 flex flex-wrap justify-center gap-x-1" role="group" aria-label={$_('audio.chart.species_title', { default: 'Species composition' })}>
                             {#each speciesMix as item, index}

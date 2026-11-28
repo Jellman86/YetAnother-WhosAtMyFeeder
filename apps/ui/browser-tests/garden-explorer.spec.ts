@@ -743,7 +743,7 @@ test("an animal's family tree follows its lineage and makes no bird-feeder claim
     expect(errors).toEqual([]);
 });
 
-test('a list row with several species stacks its photos and names each species as the visit is named', async ({ page }) => {
+test('a list row keeps its visit species, and names another species in one capture by catalogue name', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 900 });
     const { errors } = await openExplorer(page, '&garden=1');
     const at = hoursAgo(1);
@@ -761,12 +761,13 @@ test('a list row with several species stacks its photos and names each species a
     await page.reload();
     await page.locator('[data-explorer-view-toggle="list"]').click();
     const row = page.locator('[data-explorer-visit="mixed"] [data-detection-row]');
-    await expect(row).toContainText('Multiple species');
-    await expect(row.locator('[data-detection-row-photo="stack"] [data-detection-preview-stack]')).toHaveAttribute('src', /busy/);
-    const chips = row.getByRole('list', { name: 'Species in this capture' });
-    await expect(chips).toContainText('Dunnock');
-    await expect(chips).toContainText('Brown Rat');
-    await expect(chips).not.toContainText('Rattus norvegicus');
+    await expect(row).toContainText('Dunnock');
+    await expect(row).not.toContainText('Multiple species');
+    // The visit's own photo, alone: a stack of another capture's photo claimed several birds it did not show.
+    await expect(row.locator('[data-detection-preview-stack]')).toHaveCount(0);
+    const note = row.locator('[data-visit-companions="busy"]');
+    await expect(note).toHaveText('Also in one capture: Brown Rat');
+    await expect(note).not.toContainText('Rattus norvegicus');
     if (shots) await page.screenshot({ path: `${shots}/explorer-mixed-row.png` });
     expect(errors).toEqual([]);
 });
@@ -809,7 +810,7 @@ test('the rail offers the cameras of the chosen subjects, and counts only what i
 
     await page.locator('[data-explorer-subjects-option="birds"]').click();
     await expect(cameras.getByRole('button')).toHaveCount(1);
-    await expect(cameras.getByRole('button', { name: 'birdcam 12', exact: true })).toBeVisible();
+    await expect(cameras.getByRole('button', { name: /^birdcam 12 (visits?|captures?)$/ })).toBeVisible();
 
     await page.locator('[data-explorer-subjects-option="garden"]').click();
     await expect(cameras.getByRole('button')).toHaveText(['greenhousecam', 'patio']);

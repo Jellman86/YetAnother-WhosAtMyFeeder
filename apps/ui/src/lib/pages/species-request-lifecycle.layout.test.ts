@@ -5,7 +5,8 @@ describe('Species request lifecycle', () => {
     it('aborts superseded leaderboard loads and ignores stale results', () => {
         expect(speciesSource).toContain('leaderboardAbortController?.abort();');
         expect(speciesSource).toContain('const loadGeneration = ++leaderboardLoadGeneration;');
-        expect(speciesSource).toContain('if (loadGeneration !== leaderboardLoadGeneration) return;');
+        expect(speciesSource).toContain('const superseded = () => loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted;');
+        expect(speciesSource.match(/if \(superseded\(\)\) return;/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
         expect(speciesSource).toContain('signal: controller.signal');
     });
 

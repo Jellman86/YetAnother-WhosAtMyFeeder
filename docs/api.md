@@ -315,9 +315,13 @@ and `GET /api/visits/{visit_id}/captures` take an ISO date (`2026-11-17`) or the
 
 A header or `TZ` that does not name a real zone is ignored (and logged once), never an error.
 Every other day, hour and weekday the API buckets by uses the same zone: `daily-summary`'s
-`window=today` and its hour buckets, the timeline's buckets, both activity heatmaps, the
+`window=today` and its hour buckets, the review queue's `window=today`, the leaderboard's `span=today`, the timeline's buckets, both activity heatmaps, the
 species stats distributions, custom backfill dates and the local time an AI analysis is given.
-So a client with no header gets hours in the instance's zone that agree with its day. A guest's
+So a client with no header gets hours in the instance's zone that agree with its day. In a zone
+whose offset is not a whole hour (Asia/Kolkata, UTC+5:30), the Leaderboard's timeline and heatmap
+group each capture into its own local hour, and the timeline's hour `bucket_start` keeps its
+minutes (`2034-03-10T18:30:00Z` is midnight in Kolkata). A half-hour clock change (Lord Howe
+Island) leaves a short local hour that starts at the change. A guest's
 shared window is applied after the zone is resolved, so no header can widen it. A day runs from local midnight
 to the last instant before the next local midnight, so a capture at 23:30 local time belongs to
 that day even when it is already the next day in UTC, and a day that changes the clock is 23 or
@@ -325,10 +329,34 @@ that day even when it is already the next day in UTC, and a day that changes the
 day, so a range holds up to 366 calendar days: a whole calendar year, leap years included. A
 longer range is rejected with `400`. Any other word is rejected with `422`.
 
+#### Exact instants
+
+The same four endpoints also take `start_time` and `end_time`: exact instants written as an ISO 8601
+date and time with `Z` or a `±HH:MM` offset (`2026-11-24T10:15:30Z`, `2026-11-24T11:15:30+01:00`,
+up to six fraction digits), for a window no calendar day states, such as the last 24 hours. A date
+alone, a time with no offset, a Unix timestamp or anything else is rejected with `422`, because each
+would be read on a clock the caller never named. So is a component out of its range (an hour of 24,
+an offset of `+01:60` or `+24:00`) and an instant with no UTC date, such as
+`0001-01-01T00:00:00+05:00`. Remember to encode `+` as `%2B` in a URL.
+
+An instant outranks the day on the same side, so `start_time` replaces `start_date` and `end_time`
+replaces `end_date`. Both bounds are inclusive, as with days, and keep microseconds. The window is
+checked as the caller sent it, before a guest's shared window narrows it: an end before the start,
+or an end more than 365 days (of elapsed time, whatever the viewer's zone) after the start, is
+rejected with `400`. A well-formed window that lies outside a guest's shared window reads nothing:
+`GET /api/events` and `GET /api/visits` answer `200` with an empty list, and `GET /api/events/count`
+answers `200` with a count of `0`. `GET /api/visits/{visit_id}/captures` answers `404` instead,
+because the visit is not available in the window that remains. The Explorer's "Last 24 hours" fixes one pair of instants for each read and sends
+it to the visits, the captures, their count, Garden and the heard calls, so every list on the page
+covers the same 24 hours.
+
 ```bash
 # Everything from today, oldest first in pages of 500, then today's visits in one request.
 curl -fsS "http://localhost:9852/api/events?start_date=today&end_date=today&sort=oldest&limit=500"
 curl -fsS "http://localhost:9852/api/visits?start_date=today&end_date=today&limit=500"
+# The captures and their count over an exact 24 hours.
+curl -fsS "http://localhost:9852/api/events?start_time=2026-11-24T10:00:00Z&end_time=2026-11-25T10:00:00Z"
+curl -fsS "http://localhost:9852/api/events/count?start_time=2026-11-24T10:00:00Z&end_time=2026-11-25T10:00:00Z"
 ```
 
 - `GET /api/events` Returns one page of events (`limit` 1 to 500, 50 by default; `offset` skips
@@ -365,8 +393,8 @@ measurement, never derived, and is not rewritten later. Live `detection` and
 - `GET /api/visits` Groups the accessible history before pagination. Accepts `limit` (1 to 500,
   24 by default; guests at most 50), `offset`, `start_date`/`end_date` (calendar days, above) or
   exact UTC `start_time`/`end_time`, which take precedence, `species`, `camera`, `favorites`,
-  `audio_confirmed_only`, `only_hidden`, `multiple_species_only` and `sort` (`newest`, `oldest`,
-  `confidence`). Returns `visits`, `total` (every matching visit, so a client can tell how many
+  `audio_confirmed_only`, `only_hidden`, `multiple_species_only`, `owner_confirmed_only` and `sort`
+  (`newest`, `oldest`, `confidence`). Returns `visits`, `total` (every matching visit, so a client can tell how many
   pages remain) and `gap_seconds`, the visit gap these visits were grouped with. Frigate is asked about each visit's `representative` capture
   only, at most one call per visit on the page. `latest` and `peak_capture` report the photo and
   clip this server holds, with `frigate_event_check: "not_checked"`. Each visit includes
@@ -396,7 +424,19 @@ captures without verified bounds continue to use their stored capture time.
 `GET /api/events`, `GET /api/events/count` and `GET /api/visits` accept the owner-only
 `multiple_species_only=true` filter. It matches at least two distinct resolved, named species
 among visible counted birds in a capture. Aliases of one species and unknown/excluded birds do
-not satisfy it. A visit matches if one of its captures qualifies. Guest requests ignore the flag.
+not satisfy it. A visit matches if one of its captures qualifies, and under the flag its
+`peak_capture` is a qualifying capture (the most counted one), so a client can open the capture
+that holds the species. Guest requests ignore the flag.
+
+The same three reads accept the owner-only `owner_confirmed_only=true` filter. A capture matches
+when it has `manual_tagged` set and a named species: an owner's species pick, an owner-confirmed
+upload and an owner-requested video reclassification all set it, and a capture tagged Unknown
+Bird (or any label shown as Unknown Bird) confirms nothing. It is the rule the visit's
+`owner_confirmed` badge uses. A visit matches when any of its accessible captures in the window
+qualifies, and expanding it returns all of its accessible captures. The visit is matched as a
+whole, so with `favorites=true` one capture may be the favourite and another the confirmed one.
+`GET /api/events` and `GET /api/events/count` judge each capture on its own. Guest requests
+ignore the flag and receive the ordinary guest view.
 
 `GET /api/events`, `GET /api/events/count`, `GET /api/visits`,
 `GET /api/garden/timeline`, `GET /api/garden/visits` and
@@ -407,19 +447,40 @@ taxon or one without matching history returns no matches. This is the catalogue 
 not an iNaturalist taxon ID. The parameter is optional; existing requests keep their
 current behaviour.
 
-- `GET /api/events/filters` Species and camera options, each with a detection count, plus totals
-  for the favourites, audio-matched and video-analysed facets. Counts exclude hidden detections;
-  for public guests, they also use the configured public-history window so filter metadata cannot
-  reveal older private visits.
+- `GET /api/events/filters` Species and camera options, each counted as choosing it would show,
+  plus totals for the favourites, audio-matched, video-analysed and (owner) hidden facets. The
+  options are every species and camera in the viewer's visible history; with `only_hidden` (owner)
+  they are the ones hidden records hold. The counts follow the window (`start_date`/`end_date` or
+  `start_time`/`end_time`, as on `GET /api/visits`) and the filters `species`, `taxon`, `camera`,
+  `favorites`, `audio_confirmed_only`, `multiple_species_only`, `owner_confirmed_only` and
+  `only_hidden`. A facet is never narrowed by its own choice: species counts ignore `species` and
+  `taxon`, camera counts ignore `camera`, and each flag total counts the results with that flag
+  turned on. Each species is counted with the filter its option's `value` applies, so its count is
+  the `total` of `GET /api/visits` or the `count` of `GET /api/events/count` for that `species`
+  over the same window and filters. `unit=visits` counts visits by the shared visit rule and reports
+  the `gap_seconds` used; `unit=captures` (the default) counts single captures. Counts exclude
+  hidden detections unless `only_hidden` is set. For public guests the counts keep the guest's
+  history window and never count hidden records, owner-only filters, or cameras and audio not
+  shared with guests, so filter metadata cannot reveal older private visits. Counts under a `unit`,
+  a window or a filter are read afresh on every request, as the results are. Only an owner's request
+  with none of them is kept for up to a minute, as before; the species and camera lists behind every
+  answer are kept for up to a minute too. `force_refresh=true` reads both again.
 - `GET /api/events/hidden-count` (owner)
 - `GET /api/events/new-species` (owner) — species that appeared recently with no confirmed
   history, each represented by its latest sighting.
   `max_sightings` (default 3) and `window_days` (default 14) bound what still counts as new.
 - `GET /api/events/review-queue` (owner) — everything waiting on a person, for the dashboard's
   **Needs your call**: visible, undecided detections with no species or a score below the naming
-  threshold in the last `window_hours` (default 24), plus each new species' latest sighting. Lists
-  the oldest `limit` (default 12, up to 500), each with its `reason`, and `total` counts everything
-  however many were listed. `max_sightings` and `window_days` work as they do for new species.
+  threshold in the window, plus each new species' latest sighting. `window=rolling` (the default) is
+  the last `window_hours` (default 24); `window=today` runs from local midnight (in the zone chosen
+  as in [Calendar days](#calendar-days-and-today)) to now. The captures counted are the ones
+  `GET /api/stats/daily-summary` counts as `unresolved_count` for the same `window`, over the same
+  half-open interval, and `window_start` and `window_end` name the window used. A new species waits
+  whenever it was first seen in the last `window_days` and before `window_end` (a sighting at or
+  after it is the next read's), in either window, and counts once when it is also a capture waiting
+  in the window. Lists the oldest `limit` (default 12, up to 500), each with its `reason`, and
+  `total` counts everything however many were listed. `max_sightings` and `window_days` work as they
+  do for new species.
 - `GET /api/events/{event_id}/classification-status` (owner)
 - `PATCH /api/events/{event_id}` (owner)
 - `PATCH /api/events/bulk/manual-tag` (owner)
@@ -449,7 +510,10 @@ the counted named birds by their stored (owner-corrected) species, and `hint_onl
 every bird came from Frigate's tracked box. Repeated species stay separate observations; they are
 birds located in one analysed frame, not unique animals. `null` means no observations are stored,
 which is not a measured zero. Guests never receive the field. Other routes that return detections
-leave it unset.
+leave it unset. Each `species` entry carries its catalogue `common_name`, `scientific_name` and
+`species_id` when its label resolves, and `null` otherwise. A detection's own `species_id` is the
+same catalogue identity, so a client compares the two ids, not labels, to tell whether a counted
+bird is the capture's own species.
 
 `PATCH /api/events/{event_id}` accepts `{"display_name": "Blue Tit"}`. A successful response
 always includes `manual_tagged: true` and the retained taxonomy fields. If the requested name is
@@ -513,8 +577,8 @@ run can include `photo_outcome`, such as `replaced`, `matching_photo_preserved`,
 `manual_selection_preserved`, `owner_identification_preserved`, `primary_identity_preserved`,
 `storage_evicted`, `blocked_species`, `media_cache_disabled`, `snapshot_caching_disabled`,
 `media_cache_unavailable`, `bird_presence_unconfirmed`, `detector_error`, `classifier_error`,
-`inference_deferred`, `frame_extract_failed`, or
-`snapshot_replace_failed`. Owner, identity, storage and failure outcomes also enter processing
+`inference_deferred`, `frame_extract_failed`, `photo_set_aside` (the photo an interrupted cleanup
+set aside is being put back, so the video's photo waits), or `snapshot_replace_failed`. Owner, identity, storage and failure outcomes also enter processing
 diagnostics; routine replacements and matching photographs do not. Species success does not imply
 a photograph was replaced; existing owner choices remain protected. `bird_presence_unconfirmed`
 means no suitable photo had sufficiently confident detector localization inside its bounds.
@@ -948,17 +1012,57 @@ other identifications for `needs_review`, and are excluded from personalization 
   A species must be a complete known common or scientific name. Partial or ambiguous names return
   HTTP 400. Send the selected `id` from `/api/species/search` to preserve canonical identity.
 - `PATCH /api/frigate/{event_id}/snapshot/candidates/{candidate_id}` (owner). Body:
-  `{"dismissed": true}` removes a photo choice; `false` restores it. Returns the updated candidate
-  list with `photo_hidden` flags. Source images and bird evidence remain intact. The current chosen
+  `{"dismissed": true}` removes a photo choice; `false` restores it. Pass `candidate_id = "as-recorded"`
+  to remove or restore the original Frigate snapshot option. Returns the updated candidate
+  list with `photo_hidden` flags and `as_recorded_dismissed`. Source images and bird evidence remain intact. The current chosen
   photo returns 409 until another is chosen; missing choices return 404. Applying a removed choice
-  returns 409 until restored. Dismissals are tied to image content, so regeneration keeps an
+  (including `mode: "revert_original"` while `"as-recorded"` is dismissed) returns 409 until restored. Dismissals are tied to image content, so regeneration keeps an
   unchanged removed image excluded while a genuinely changed image can become a new choice.
+  - Optional `companion_candidate_ids` (up to 16) names the other framings behind the same
+    displayed choice, for example a frame's detector crop, camera crop and whole scene. They are
+    removed or restored with `candidate_id` in one transaction: when `dismissed` is `true` and any
+    of them is the saved photograph (marked `selected`, or the candidate the current photograph's
+    source names), the request returns 409 and nothing changes. Every named candidate must be a
+    photo choice of the same frame (`clip_variant` and `frame_index`) of this capture. Empty
+    strings in `companion_candidate_ids` and lists of more than 16 companions return 422; a
+    whitespace-only or repeated ID, a candidate of another frame, an evidence-only
+    `model_observation` candidate, and companions for `"as-recorded"` or an earlier photograph
+    (`retained_photo`) return 400; a candidate of another capture returns 404. Omitting the field
+    behaves as before.
+  - Optional `expected_content_identities` (restore only; up to 17 entries) maps every candidate ID
+    named in the request (`candidate_id` plus any `companion_candidate_ids`) to the
+    `content_identity` its removal was bound to. Restoring then clears only a removal of those
+    pixels, so an Undo never clears a later removal of replacement pixels. Empty strings or more
+    than 17 entries return 422; sending the field with `dismissed: true`, or sending an empty,
+    partial, or extra-key map, returns 400. Omitting the field performs an unconditional restore.
+    Restoring a candidate that is not removed succeeds and changes nothing.
+  - The response adds `changed_dismissals`: the `{candidate_id, content_identity}` removals this
+    request created, or cleared when restoring. A removal that already stood is not listed, so
+    restoring exactly these undoes the request and leaves earlier removals in place.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner) — the
   small chooser thumbnail for one candidate.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg` (owner) — the retained
   full-resolution candidate, for the large preview.
-- `POST /api/frigate/{event_id}/snapshot/apply` (owner) — marks the chosen candidate or original
-  photo as an owner selection, protected from later automatic snapshot writes.
+- `POST /api/frigate/{event_id}/snapshot/apply` (owner) — makes one photograph the capture's main
+  photograph. The body is `{mode, candidate_id}`: `mode: "candidate"` with a `candidate_id` from the
+  candidates list, or `mode: "revert_original"` for the photograph as recorded (Frigate's snapshot,
+  or the uploaded photo of a manual observation). The chosen image is read and decoded before it
+  replaces the cached snapshot. Success returns the snapshot status with `status: "applied"`,
+  `applied_mode` and `applied_candidate_id` (`null` for `revert_original`).
+  - `400`: the event ID is not valid.
+  - `404`: the candidate is not listed for this capture, or the original photograph is no longer
+    available (Frigate no longer returns it, or the upload is missing).
+  - `409`: the choice was removed and must be restored first; the candidate's retained image is
+    missing; the image cannot be decoded; or the replacement could not be saved. The missing and
+    undecodable cases are refused before the cached snapshot is touched. When saving fails, the
+    previous photograph and its owner-choice marking are left as they were.
+  - Once the save starts it finishes, with the capture's selected candidate, even if the request is
+    cancelled. The owner-choice marking is written before the new photograph, so an interrupted save
+    never leaves the new photograph unprotected.
+  - The applied photograph is held as the owner's choice. Automatic snapshot writes, the
+    per-species limit, the storage limit and age cleanup keep it (its clips, previews and other
+    photo choices can still be removed) until the owner chooses again or a regeneration replaces it.
+    Deleting the capture from history removes it.
 - `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
 - `POST /api/frigate/{event_id}/snapshot/hq-bird-crop` (owner; legacy route name, generates the best available HQ image)
   accepts `regenerate=true` to rebuild frame choices even when an HQ crop already exists. It also recounts localized birds when
@@ -966,6 +1070,11 @@ other identifications for `needs_review`, and are excluded from personalization 
   successful replacement releases the previous protected owner photo choice. A newer choice
   made while regeneration runs stays protected. Empty regeneration preserves saved candidates
   and the chosen photo; unavailable media returns an error rather than claiming success.
+  When the photo is kept rather than replaced, `status` says why: `existing_crop_preserved` (no
+  reliable new crop), `manual_selection_preserved` (a newer owner choice was kept),
+  `photo_settings_unreadable` (the photo's sidecar could not be read, so it is kept as the owner's
+  choice; choosing a photo for the capture replaces it) or `photo_set_aside` (the photo an
+  interrupted cleanup set aside is being put back; try again once Health no longer lists it).
 - `GET /api/frigate/{event_id}/clip.mp4`
 - `GET /api/frigate/{event_id}/recording-clip.mp4`
 - `GET /api/frigate/{event_id}/hls/{asset}`
@@ -1010,13 +1119,13 @@ tolerance. Full-frame and detector-crop evidence remain available when tracking 
 
 Notes:
 - Browser playback first requests `hls/master.m3u8`, or `recording-hls/master.m3u8` for a promoted
-  full visit. YA-WAMF proxies only Frigate's expected relative playlist, init-fragment and media-
+  full clip. YA-WAMF proxies only Frigate's expected relative playlist, init-fragment and media-
   fragment names; it carries a share token or legacy API key into those relative asset URLs but
   never forwards browser query strings to Frigate. A Frigate version without VOD HLS returns 404
   and the player falls back to the canonical MP4 route.
 - `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted recording exists for the event, this route serves it before falling back to the shorter Frigate event clip. Recording responses expose `X-YAWAMF-Clip-Variant: recording`, `X-YAWAMF-Recording-Clip-State: complete|partial`, and the measured `X-YAWAMF-Recording-Clip-Duration` when available.
-- `GET` and `HEAD /api/frigate/{event_id}/recording-clip.mp4` remain available as explicit full-visit routes and use the same persisted `{event_id}_recording.mp4` cache file. `X-YAWAMF-Recording-Clip-Ready` is `cached` for a complete file and `partial` for a usable shorter file.
-- `POST /api/frigate/{event_id}/recording-clip/fetch` remains available as a manual recovery/warm endpoint. Its response reports `status: ready|partial` and `recording_state: complete|partial`; with recording clips enabled and writable local media storage, YA-WAMF also generates and upgrades full-visit clips automatically for eligible completed detections.
+- `GET` and `HEAD /api/frigate/{event_id}/recording-clip.mp4` remain available as explicit full clip routes and use the same persisted `{event_id}_recording.mp4` cache file. `X-YAWAMF-Recording-Clip-Ready` is `cached` for a complete file and `partial` for a usable shorter file.
+- `POST /api/frigate/{event_id}/recording-clip/fetch` remains available as a manual recovery/warm endpoint. Its response reports `status: ready|partial` and `recording_state: complete|partial`; with recording clips enabled and writable local media storage, YA-WAMF also generates and upgrades full clips automatically for eligible completed detections.
 
 ### Species and Leaderboard
 
@@ -1102,6 +1211,29 @@ Notes:
   reaches back to the first sealed day or the oldest lost capture when either is older than every
   stored capture. A capture corrected or added after its day was sealed does not change that day's
   counts, here or in `GET /api/species`.
+- Leaderboard periods. `GET /api/leaderboard/species`, `GET /api/audio/species`,
+  `GET /api/leaderboard/portraits`, `GET /api/stats/detections/timeline` and
+  `GET /api/stats/detections/activity-heatmap` take the same `span`: `today` (local midnight to
+  now, in the zone of [Calendar days and `today`](#calendar-days-and-today)), `day` (the last 24
+  hours, kept under that name for existing links), `week` (the last 7 days), `month` (the last 30
+  days) and, except on `/api/leaderboard/species`, `all`. Seen and heard counts for one `span` and
+  one zone cover the same window. `today` is compared with yesterday from local midnight up to the
+  same local time; the rolling spans with the same length before them. The timeline buckets
+  `today` by the hour. `today` never counts a sealed day from its daily total, even one that lies
+  wholly inside a day lengthened by a clock change, so its rankings agree with its hourly chart;
+  captures Frigate lost still count on their live day in both. The other spans count a sealed day
+  from its total only when the whole day lies inside the window. Today's portraits come from
+  today's captures only, and their `window_start` names the midnight they were chosen for. A guest's window is the requested
+  one intersected with the shared window (in today-only sharing, the UTC day, ending before the
+  next UTC midnight). On the two rankings, `window_start` is the start actually counted and
+  `window_shortened` is true when the shared window moved it later than the span asks for.
+  `previous_window_mismatch` says why the two windows are no fair comparison, whatever the
+  history holds: `clock_change` (today so far and yesterday so far differ in length, or the same
+  time yesterday was skipped or repeated by a clock change), `shared_window` (the shared window
+  cuts either one) or, on `/api/leaderboard/species`, `cleanup` (a compared window takes in part of
+  a sealed day, or for `today` any of one, so it counts only the captures cleanup kept). It is
+  null when they are comparable. `previous_window_complete` is false whenever it is set, as it is
+  when the history does not reach back over the whole previous window, so no trend is claimed.
 
 ### Taxonomy
 
@@ -1153,8 +1285,12 @@ stores it (parentheses included when the source writes them), or null when unrec
 - `GET /api/stats/daily-summary` Covers the last 24 hours by default (`window=rolling`). With
   `window=today` it covers today so far: from local midnight (in the zone chosen as in
   [Calendar days](#calendar-days-and-today)) to now. The response names the window it used in
-  `window`, `window_start` and `window_end` (UTC). A guest's history window still applies, so
-  `window_start` can be later than midnight. Every count below covers that window. It
+  `window`, `window_start` and `window_end` (UTC). The window is half-open, from `window_start`
+  up to but not including `window_end`, so a capture stamped at `window_end` is counted by the next
+  read. A guest's history window still applies, start and end, so `window_start` can be later than
+  midnight. Every count below covers that window, and
+  `hourly_distribution` puts each capture in the local hour it was made in, also in zones a half or
+  three quarters of an hour off UTC. It
   includes `counted_birds` (visible child observations) and
   `counted_captures` (captures with at least one stored bird observation) for the same daily
   window. These counts cover analyzed captures and may count the same bird in later captures.
@@ -1162,7 +1298,29 @@ stores it (parentheses included when the source writes them), or null when unrec
   same canonical species was on the same camera within the visit gap, `visit_gap_seconds`, of the running latest verified event end, or capture time when the end is unavailable): `visit_count`, `hourly_visits`
   (24 hour buckets by when each visit began), `camera_visits` (visits and last sighting per
   camera; `null` for a guest who may not see camera names) and `visit_count` on each `top_species`
-  entry, which is now ordered by visits. `total_count` and `hourly_distribution` still count frames.
+  entry, which is now ordered by visits. `unknown_visit_count` is how many of `visit_count` are
+  Unknown birds. An Unknown bird is usually its own visit until it is named, and once named it can
+  join a visit of the same species on the same camera within the visit gap, so `visit_count` can
+  fall while `total_count` does not. Each visit is judged by its own first capture, with the rule
+  that shows a bird as "Unknown bird" everywhere: an Unknown or configured unknown label, a legacy
+  group label from an older model ("Great tit and allies"), an Unknown category behind a kept species
+  name, or no name at all. Visits, `unknown_visit_count` and every `top_species` row come from one
+  read of the window's captures: the captures of an Unknown visit are counted only in the row named
+  "Unknown Bird", even when they kept a species' catalogue id or scientific name, so the rows'
+  `visit_count` values add up to `visit_count` and the Unknown row's equals `unknown_visit_count`.
+  The captures of named visits are grouped by catalogue key into buckets, and buckets that are the
+  same bird (same taxon, or same name when a taxon is missing) are merged into one row. A capture
+  shown as Unknown bird inside a named visit never makes a bucket of its own: it joins its key's
+  bucket when named captures fill it, and otherwise the bucket of its visit's first capture. Names
+  and taxonomy come only from named captures: within a bucket, from its newest named capture, with a
+  missing taxon or common name taken from its other named captures when they agree. A merge keeps
+  the name of the bucket with more captures (ties by catalogue key), so a row can carry another
+  bucket's name. A row's `latest_event` is its newest capture of any kind. Rows are ordered by visits, then captures.
+  A legacy group label is grouped like a species by the visit rule, so naming one of its captures
+  can split its visit instead, and a record added by hand stays its own visit even once named. `unresolved_count` counts visible undecided captures inside
+  the same effective window (unknown species or scored below the naming threshold, excluding manually
+  tagged captures) for both owners and guests, respecting a guest's shared history cutoff.
+  `total_count` and `hourly_distribution` still count frames.
   The hour buckets of `hourly_visits` and `hourly_distribution` are hours in the same zone as
   `window=today` (see [Calendar days and `today`](#calendar-days-and-today)).
 - `GET /api/stats/detections/daily`
@@ -1572,10 +1730,14 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   not made yet is asked for in the background. Guests get films only when clips are shared.
 - `GET /api/about/showcase?limit=` (guest-rate-limited). One recent crop per species, newest first;
   guests see the public media window, and nothing when snapshots are not shared.
-- `GET /api/about/showcase/{event_id}.jpg?size=` (guest-rate-limited). The stored photograph at card
+- `GET /api/about/showcase/{event_id}.jpg?size=` (guest-rate-limited). The visit photograph at card
   size (`size=card`, the default, 480 px on its longer edge) or at the size of one cell in a wall
-  of many (`size=tile`, 240 px), under the same access rules as `snapshot.jpg`. Any other `size`
-  is a 422.
+  of many (`size=tile`, 240 px), under the same access rules as `snapshot.jpg`. Checks local cache,
+  favourite archive, manual-upload preview (for `manual_` visits, never contacting Frigate), and
+  eligible cached thumbnails first; for known detections whose local copy was evicted by cache limits,
+  falls back read-only to Frigate's cropped snapshot and caches only the resized JPEG in memory
+  (never re-writing evicted visits to disk). Any other `size` is a 422; a missing or unusable photo
+  is a 404; transient Frigate unavailability returns 503 with `Retry-After`.
 - `GET /api/about/showcase/{event_id}.webm` (guest-rate-limited). A visit film: four silent seconds
   of 640x360 VP8 WebM cut from Frigate's recording around the visit's best snapshot and framed on
   the bird, under the same access rules as the clip. Answers byte ranges and is never cached. A film
@@ -1600,10 +1762,16 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   guest, whose facts cover only the shared window of `shared_days`.
 - `GET /api/about/community` (guest-rate-limited). The telemetry service's active install count,
   cached for an hour; `enabled` is false when update checks are off.
-- `POST /api/cache/cleanup` (owner) — applies age retention, removes orphaned media and enforces
-  optional `media_cache_per_species_maximum` and `media_cache_max_size_mb` limits. Garden's kept
-  media follows the same age retention and storage limit. Limits preserve
-  detection history and favourites. `media_cache_bird_scan_mode` accepts `standard` or `intensive`.
+- `POST /api/cache/cleanup` (owner) — applies age retention, removes cached media that no longer
+  belongs to a capture (with the same locks as the five-minute sweep) and enforces optional
+  `media_cache_per_species_maximum` and `media_cache_max_size_mb` limits. Garden's kept media
+  follows the same age retention and storage limit. Limits preserve detection history and
+  favourites' media. Owner-confirmed captures and captures whose photograph the owner chose keep
+  their main photograph while their clips, previews and alternate photo choices are still removed.
+  Media is never removed to meet `media_cache_max_size_mb` when it is protected, so space used can
+  stay above the limit. `snapshots_deleted`, `clips_deleted`, `previews_deleted` and `bytes_freed`
+  include the media removed for no longer belonging to a capture.
+  `media_cache_bird_scan_mode` accepts `standard` or `intensive`.
 
 Published ordinary cache files left after a capture deletion are retried every five
 minutes independently of optional limits. Photographs and generated visit media no
@@ -1681,7 +1849,32 @@ snapshot, not a destructive queue-control API.
     UI no longer reads it, and `GET /api/audio/activity-heatmap` gives calls by the viewer's local
     weekday and hour instead. It stays in the response so existing clients keep working. Each
     `top_species` row carries its `scientific_name` (null when the calls were stored without one):
-    `species` is translated, so the scientific name is what asks the activity grid for that species
+    `species` is translated, so the scientific name is what asks the activity grid for that species.
+    `daily_counts` counts calls per calendar day in the zone `X-Timezone` names, else the container's
+    `TZ`, else UTC, so a call is filed under the viewer's own date. `window_start` and `window_end`
+    state the window counted: a guest's window is the requested one narrowed to the public history,
+    so a client can tell when the start of its day was left out. Each `sources` entry is one
+    BirdNET-Go source, identified by its `sourceId` and node rather than its name, so a source
+    renamed in BirdNET-Go is one entry under its newest `source_name` with all of its calls.
+    `source_id` is BirdNET-Go's id for it, which tells apart two sources that share a name (a
+    stream whose address changed gets a new id); it is null for calls from before BirdNET-Go sent
+    ids. `source_node` is the BirdNET-Go install the source belongs to, null when its calls name none.
+    Install and id are compared exactly as sent, case included, after trimming whitespace at either
+    end. A call whose id was refused is listed with no id and no name, on its own install.
+    `source_count` counts these sources. A guest's sources, labels and source filters are read from
+    the shared window only. With `only_hidden`, sources are read from hidden calls
+  - The `source` filter of `GET /api/audio/history`, `GET /api/audio/summary` and
+    `GET /api/audio/activity-heatmap`, and `search` where it covers sources, also find every call of
+    a source whose id or any name it has carried contains the text, so filtering by a source's old
+    or new name finds its whole history. As before, the text also matches a call whose own stored
+    sensor or payload contains it, so a filter can return calls of more than one listed source
+  - `GET /api/audio/history`, `GET /api/audio/summary` and `GET /api/audio/activity-heatmap` read an
+    explicit `start_date`/`end_date` pair in place of `days`. Both requested ends are inclusive: a
+    call at exactly `start_date` or exactly `end_date` is counted. A guest's window is then cut to the
+    public history. Its start is an inclusive UTC midnight; in today-only mode its end is the next UTC
+    midnight and is exclusive, so a call at exactly that midnight is never shared, whatever `end_date`
+    asks for. `window_end` then reports that exclusive cutoff. Audio history's **Today** sends the
+    viewer's local midnight and the moment of the load, both in UTC, the same pair to all three
   - `GET /api/audio/activity-heatmap` — calls heard by weekday and hour, in the zone the
     `X-Timezone` header names, else the container's `TZ`, else UTC. It takes the summary's window
     (`days`, or `start_date`/`end_date`) and filters (`species`, `source`, `min_confidence`), so its

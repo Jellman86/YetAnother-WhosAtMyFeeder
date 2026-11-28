@@ -1,6 +1,7 @@
 import hashlib
 import pytest
 import asyncio
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from types import SimpleNamespace
 from app.services.event_processor import CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS, EventData, EventProcessor
@@ -496,6 +497,76 @@ async def test_update_event_still_reclassifies_after_classification_filter_rejec
     await processor.process_mqtt_message(update_payload)
 
     assert processor._classify_snapshot.await_count == 2
+
+
+def _update_payload(event_id: str, event_type: str) -> bytes:
+    end_time = ',"end_time":1700000004' if event_type == "end" else ""
+    return (
+        f'{{"type":"{event_type}","after":{{"id":"{event_id}","label":"bird","camera":"cam1",'
+        f'"start_time":1700000000{end_time}}}}}'
+    ).encode()
+
+
+async def _filter_then_pause_a_retry(processor: EventProcessor, event_id: str) -> None:
+    """A filtered first frame, one admitted retry, then a retry the cooldown pauses."""
+    with patch("app.services.event_processor.time.monotonic", return_value=500.0):
+        await processor.process_mqtt_message(_update_payload(event_id, "new"))
+        await processor.process_mqtt_message(_update_payload(event_id, "update"))
+        await processor.process_mqtt_message(_update_payload(event_id, "update"))
+    assert processor.get_status()["drop_reasons"]["update_recovery_cooldown"] == 1
+
+
+@pytest.mark.asyncio
+async def test_visit_lost_after_an_update_cooldown_is_still_recorded_as_a_fault():
+    """The cooldown is never the only trace of a lost visit.
+
+    The end event retries the visit even though the first frame was filtered, and when that
+    final attempt fails it records its own fault, so Health still reports the loss.
+    """
+    processor = _filtered_event_processor()
+    await _filter_then_pause_a_retry(processor, "evt-cooldown-lost")
+    processor._classify_snapshot.return_value = None
+
+    with patch("app.services.event_processor.time.monotonic", return_value=530.0):
+        await processor.process_mqtt_message(_update_payload("evt-cooldown-lost", "end"))
+
+    status = processor.get_status()
+    assert processor._classify_snapshot.await_count == 3
+    assert status["fault_drop_reasons"] == {"classify_snapshot_unavailable": 1}
+    assert status["expected_drop_reasons"]["update_recovery_cooldown"] == 1
+
+
+@pytest.mark.asyncio
+async def test_visit_saved_after_an_update_cooldown_leaves_no_fault():
+    processor = _filtered_event_processor()
+    await _filter_then_pause_a_retry(processor, "evt-cooldown-saved")
+    processor._classify_snapshot.return_value = (
+        [{"label": "Common Wood-Pigeon", "score": 0.99, "index": 2}],
+        b"img",
+        "frigate_snapshot_cropped",
+    )
+    processor.detection_service.filter_and_label = MagicMock(
+        return_value=({"label": "Common Wood-Pigeon", "score": 0.99, "index": 2}, None)
+    )
+    processor._gather_context_data = AsyncMock(return_value={"audio_match": None, "weather_data": {}})
+    processor._correlate_audio = AsyncMock(
+        return_value={
+            "label": "Common Wood-Pigeon",
+            "score": 0.99,
+            "index": 2,
+            "audio_confirmed": False,
+            "audio_species": None,
+            "audio_score": None,
+        }
+    )
+
+    with patch("app.services.event_processor.time.monotonic", return_value=530.0):
+        await processor.process_mqtt_message(_update_payload("evt-cooldown-saved", "end"))
+
+    status = processor.get_status()
+    processor._save_detection.assert_awaited_once()
+    assert status["status"] == "ok"
+    assert status["fault_drops"] == 0
 
 
 def test_classification_decided_tombstone_expires_after_ttl():
@@ -1173,7 +1244,7 @@ async def test_process_mqtt_message_status_tracks_completed_event():
 
 
 @pytest.mark.asyncio
-async def test_process_mqtt_message_drops_stale_live_event_before_classification():
+async def test_a_live_event_received_too_long_ago_is_dropped_before_classification():
     processor = EventProcessor(MagicMock())
     processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
         return_value=([{"label": "Sparrow", "score": 0.95, "index": 1}], b"img", "frigate_snapshot_cropped")
@@ -1185,7 +1256,7 @@ async def test_process_mqtt_message_drops_stale_live_event_before_classification
         patch("app.services.event_processor.time.time", return_value=1700000100.0),
         patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 30.0),
     ):
-        await processor.process_mqtt_message(payload)
+        await processor._process_event_payload(json.loads(payload))
 
     processor._classify_snapshot.assert_not_called()
     status = processor.get_status()
@@ -1195,7 +1266,7 @@ async def test_process_mqtt_message_drops_stale_live_event_before_classification
 
 
 @pytest.mark.asyncio
-async def test_process_mqtt_message_does_not_drop_backlog_event_when_received_recently():
+async def test_a_backlog_event_received_recently_is_not_dropped_as_stale():
     classifier = MagicMock()
     processor = EventProcessor(classifier)
     processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
@@ -1225,7 +1296,7 @@ async def test_process_mqtt_message_does_not_drop_backlog_event_when_received_re
         patch("app.services.event_processor.time.time", return_value=1700000100.0),
         patch("app.services.event_processor.LIVE_EVENT_STALE_SECONDS", 30.0),
     ):
-        await processor.process_mqtt_message(payload)
+        await processor._process_event_payload(json.loads(payload))
 
     processor._classify_snapshot.assert_awaited_once()
     status = processor.get_status()
@@ -1979,9 +2050,30 @@ def test_drop_reason_severity_separates_expected_filtering_from_faults():
         "classify_snapshot_overloaded",
         "classifier_empty_results",
         "end_recovery_lookup_failed",
+        "update_recovery_lookup_failed",
         "live_event_stale",
+        "live_event_coalesced",
+        "something_new",
     ):
         assert drop_reason_severity(warning) == "warning"
+
+
+def test_deliberately_deferred_or_deduplicated_work_is_information_not_a_fault():
+    """Work the pipeline holds back on purpose never costs a visit by itself.
+
+    A retry paused by the update cooldown leaves the end event its own recovery, a skipped
+    follow-up to a Frigate false positive repeats Frigate's own decision, and nest mode is
+    the owner's setting with the earlier visit already saved. Any real loss after these is
+    recorded under its own reason.
+    """
+    from app.services.event_processor import drop_reason_severity
+
+    for held_back in (
+        "update_recovery_cooldown",
+        "false_positive_tombstone_active",
+        "nest_mode_dedupe",
+    ):
+        assert drop_reason_severity(held_back) == "info"
 
 
 def test_get_status_reports_expected_and_fault_drops_separately():
@@ -1998,6 +2090,32 @@ def test_get_status_reports_expected_and_fault_drops_separately():
     assert status["fault_drops"] == 1
     assert status["expected_drop_reasons"] == {"filter_low_confidence": 2, "filter_blocked_label": 1}
     assert status["fault_drop_reasons"] == {"classifier_empty_results": 1}
+
+
+def test_update_recovery_cooldown_leaves_the_pipeline_healthy_and_is_recorded_as_information():
+    processor = EventProcessor(MagicMock())
+    with patch("app.services.event_processor.error_diagnostics_history") as mock_history:
+        processor._record_drop("evt-cooldown", "update_recovery_cooldown", camera="patiocam")
+
+    status = processor.get_status()
+
+    assert status["status"] == "ok"
+    assert status["fault_drops"] == 0
+    assert status["fault_drop_reasons"] == {}
+    assert status["expected_drop_reasons"] == {"update_recovery_cooldown": 1}
+    assert mock_history.record.call_args.kwargs["severity"] == "info"
+    assert status["recent_outcomes"][-1]["severity"] == "info"
+
+
+def test_recent_drop_outcomes_carry_their_severity():
+    processor = EventProcessor(MagicMock())
+    processor._record_drop("evt-1", "filter_low_confidence", label="Rabbit", score=0.2)
+    processor._record_drop("evt-2", "classifier_empty_results")
+    processor._record_drop("evt-3", "save_and_notify_failed")
+
+    outcomes = processor.get_status()["recent_outcomes"]
+
+    assert [outcome["severity"] for outcome in outcomes] == ["info", "warning", "error"]
 
 
 def test_expected_filtering_alone_leaves_the_pipeline_healthy():

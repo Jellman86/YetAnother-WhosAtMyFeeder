@@ -7,7 +7,6 @@ import {
     reviewReasonMessage,
     reviewReasonNote,
     reviewSuggestion,
-    visibleUnresolvedCount,
     withoutEvent,
     type QueuedDetection,
     type ReviewQueueReading,
@@ -181,18 +180,6 @@ describe('readingFromResponse', () => {
         expect(result.total).toBe(30);
         expect(result.entries[0]).toEqual({ detection: event, reason: 'new_species', sightings: 2 });
         expect(result.entries[1].sightings).toBeNull();
-    });
-});
-
-describe('visibleUnresolvedCount', () => {
-    it('counts what a guest can see waiting, leaving out decided and hidden records', () => {
-        expect(visibleUnresolvedCount([
-            detection({ frigate_event: 'named' }),
-            detection({ frigate_event: 'unknown', display_name: 'Unknown Bird' }),
-            detection({ frigate_event: 'weak', score: 0.2 }),
-            detection({ frigate_event: 'tagged', score: 0.2, manual_tagged: true }),
-            detection({ frigate_event: 'hidden', display_name: 'Unknown Bird', is_hidden: true })
-        ], 0.6)).toBe(2);
     });
 });
 

@@ -34,7 +34,7 @@
   "kind_auto_video": "Analisi video automatica",
   "kind_video_analysis": "Analisi video",
   "kind_high_quality_snapshot": "Istantanee della migliore qualità",
-  "kind_full_visit": "Clip delle visite complete",
+  "kind_full_visit": "Clip completi",
   "errors_clear": "Cancella cronologia errori",
   "errors_backend_empty": "Il backend non ha registrato avvisi né errori dall’ultima volta che la cronologia degli errori è stata cancellata.",
   "errors_export_failed": "Impossibile recuperare la diagnostica attuale. Riprova.",
@@ -109,7 +109,7 @@
   "errors_filtered_hint": "Abbassa il livello minimo di confidenza in Impostazioni → Identificare gli uccelli per conservarne di più.",
   "errors_filtered_recent": "Più recenti",
   "errors_activity_title": "Cosa è successo",
-  "errors_activity_subtitle": "Visite registrate, rilevamenti filtrati ed errori della pipeline, nell’ordine in cui sono avvenuti",
+  "errors_activity_subtitle": "Visite registrate, rilevamenti filtrati, lavoro saltato di proposito ed errori della pipeline, nell’ordine in cui sono avvenuti",
   "errors_activity_window": "Dall’avvio di questa istanza, {started}",
   "errors_activity_no_window": "Questa istanza non ha comunicato quando è stata avviata, quindi l’attività non può ancora essere collocata in un periodo.",
   "errors_activity_empty": "Non è stata segnalata alcuna attività di rilevamento da quando questa istanza è partita {started} fa.",
@@ -118,8 +118,12 @@
   "errors_activity_recorded": "Visita registrata",
   "errors_activity_filtered": "Filtrato",
   "errors_activity_fault": "Errore della pipeline",
+  "errors_activity_held_back": "Saltato di proposito",
   "errors_activity_view_record": "Visualizza record",
   "errors_fault_preview": "Anteprima del fotogramma del rilevamento non riuscito per {species}",
+  "errors_held_back_preview": "Anteprima del fotogramma per {subject}",
+  "errors_held_back_subject": "Evento di Frigate",
+  "errors_held_back_subject_camera": "Evento di Frigate su {camera}",
   "errors_subsystems_title": "Dettaglio dei sottosistemi",
   "errors_filtered_preview": "Anteprima del fotogramma filtrato come {species}",
   "errors_filtered_frame_gone": "Frigate non ha più questo fotogramma",
@@ -418,6 +422,14 @@
     "retention_paused_daily_totals": {
       "title": "La pulizia automatica della cronologia è stata sospesa perché non è stato possibile salvare prima i totali giornalieri.",
       "next": "Nessuna visita è stata eliminata. Controlla database e spazio libero; riproverà alla prossima esecuzione."
+    },
+    "media_set_aside_unreturned": {
+      "title": "Alcune foto o alcuni video messi da parte dalla pulizia non sono ancora stati rimessi al loro posto.",
+      "next": "Non è stato eliminato nulla. YA-WAMF riprova al prossimo controllo dello spazio. Se succede di nuovo, controlla che il disco della cartella dei contenuti multimediali abbia spazio libero e sia scrivibile."
+    },
+    "media_kept_copies": {
+      "title": "Alcune foto o alcuni video sono stati conservati come copie di riserva perché la pulizia non è riuscita a rimetterli al loro posto.",
+      "next": "Non è andato perso nulla: un altro file aveva preso il loro posto, quindi sono stati conservati entrambi. Eliminando la cattura si elimina anche la sua copia di riserva. La guida all'archiviazione spiega come rimetterne una al suo posto."
     },
     "notification_queue_full": {
       "title": "Una notifica è stata scartata perché la coda di invio era piena.",

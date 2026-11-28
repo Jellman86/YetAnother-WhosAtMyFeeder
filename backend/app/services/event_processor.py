@@ -193,17 +193,25 @@ _DROP_ERROR_REASONS = frozenset(
     {"classify_snapshot_unavailable", "classify_snapshot_timeout", "save_and_notify_failed"}
 )
 
+# Work held back on purpose that cannot cost a visit by itself. A retry the update
+# cooldown pauses leaves the end event its own recovery attempt, whose failure is
+# recorded under its own reason. A follow-up to an event Frigate called a false
+# positive repeats Frigate's decision. Nest mode is the owner's setting, and the
+# same species was already saved on that camera inside its window.
+_DROP_HELD_BACK_REASONS = frozenset({"update_recovery_cooldown", "false_positive_tombstone_active", "nest_mode_dedupe"})
+
 
 def drop_reason_severity(reason: str) -> str:
     """Classify why an event was dropped.
 
-    `info` is expected, config-driven filtering (low confidence, blocked labels
-    and species). It is the pipeline working, so it must never be counted as a
+    `info` is the pipeline working: expected, config-driven filtering (low
+    confidence, blocked labels and species), and work it held back on purpose
+    when a later step still gets its chance. It must never be counted as a
     fault: a feeder that rejects a blurry rabbit is healthy. `warning` and
     `error` are real faults that cost the user a detection.
     """
     reason_key = str(reason or "unknown")
-    if reason_key.startswith("filter_"):
+    if reason_key.startswith("filter_") or reason_key in _DROP_HELD_BACK_REASONS:
         return "info"
     if reason_key in _DROP_ERROR_REASONS:
         return "error"
@@ -317,7 +325,7 @@ class EventProcessor:
             event_id=event_id,
             context=dict(details) if details else None,
         )
-        self._record_recent_outcome(event_id, "dropped", reason=reason_key, **details)
+        self._record_recent_outcome(event_id, "dropped", reason=reason_key, severity=severity, **details)
 
     def _record_completed(self, event_id: str, duration_ms: float) -> None:
         self._completed_events += 1
@@ -560,7 +568,11 @@ class EventProcessor:
         try:
             data = json.loads(payload)
             if isinstance(data, dict):
-                data.setdefault("__received_at_ts", time.time())
+                # Only YA-WAMF stamps when a message arrived and marks its own recording-frame replay. A
+                # message that set its own time could be dropped as stale or held fresh past the live
+                # deadline, and one that claimed to be a replay would skip the wait and the update cooldown.
+                data["__received_at_ts"] = time.time()
+                data.pop("__recording_wait_done", None)
                 after = data.get("after")
                 if isinstance(after, dict):
                     event_id = str(after.get("id") or "unknown")
@@ -694,7 +706,9 @@ class EventProcessor:
                 self._record_completed(event.frigate_event, duration_ms)
                 self._record_recent_outcome(event.frigate_event, "update_already_ingested")
                 return
-            if not self._admit_update_recovery(event.frigate_event):
+            # A replay after the recording-frame wait is the retry that was already admitted, so its
+            # own admission must not pause it; separate update messages are still throttled.
+            if not event.recording_wait_done and not self._admit_update_recovery(event.frigate_event):
                 self._record_drop(event.frigate_event, "update_recovery_cooldown", camera=event.camera)
                 return
             log.info(
@@ -980,6 +994,8 @@ class EventProcessor:
             entry = self._recording_waits.pop(event_id, None)
         end_data = entry.get("end_data") if entry else None
         if end_data is not None:
+            # Held behind the same deliberate wait, so it is no staler than the replay it follows.
+            end_data["__received_at_ts"] = time.time()
             await self._process_payload_durably(end_data)
 
     async def _process_payload_durably(self, data: Dict[str, Any]) -> None:

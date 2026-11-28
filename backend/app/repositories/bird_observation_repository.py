@@ -99,6 +99,11 @@ async def resolve_display_names_for_labels(
     return resolved
 
 
+def events_condition(alias: str, events: list[str]) -> tuple[str, list[str]]:
+    """A capture is one of these events; the list travels as one bound JSON value."""
+    return f"{alias}.frigate_event IN (SELECT value FROM json_each(?))", [json.dumps(events)]
+
+
 class BirdObservationRepository:
     def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
@@ -457,7 +462,21 @@ class BirdObservationRepository:
         hidden_only: bool = False,
         include_hidden: bool = False,
     ) -> tuple[str, list[str]]:
-        """Use the same resolved identities as the counted-bird display.
+        matched = await self.multiple_species_events(
+            start=start, end=end, camera=camera, hidden_only=hidden_only, include_hidden=include_hidden
+        )
+        return events_condition(alias, matched)
+
+    async def multiple_species_events(
+        self,
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        camera: str | None = None,
+        hidden_only: bool = False,
+        include_hidden: bool = False,
+    ) -> list[str]:
+        """The captures holding two or more named species, by the counted-bird display's identities.
 
         Only captures with at least two visible boxes need identity resolution.
         Bounded batches avoid loading historical evidence at once; no inference runs.
@@ -489,7 +508,7 @@ class BirdObservationRepository:
                     for event, summary in summaries.items()
                     if len({entry["species"].strip().casefold() for entry in summary["species"]}) >= 2
                 )
-        return f"{alias}.frigate_event IN (SELECT value FROM json_each(?))", [json.dumps(matched)]
+        return matched
 
     async def named_for_event(self, event: str, language: str = "en") -> list[dict]:
         birds = (await self.resolved_for_events([event])).get(event, [])

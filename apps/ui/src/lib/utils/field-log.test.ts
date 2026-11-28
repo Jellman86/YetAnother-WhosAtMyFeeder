@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Detection } from '../api';
 import type { GardenServerVisit } from '../api/garden';
 import type { DetectionVisit } from './visit-grouping';
-import { mergeFieldLog, namesCameras } from './field-log';
+import { fieldLogWindowLink, mergeFieldLog, namesCameras } from './field-log';
+import { parseExplorerQuery } from './explorer-query';
 
 describe('namesCameras', () => {
     it('leaves the camera off rows when every visit in the log came from one camera', () => {
@@ -68,5 +69,31 @@ describe('mergeFieldLog', () => {
     it('reads as a bird-only log when Garden is off or nothing was seen', () => {
         const rows = mergeFieldLog([birdVisit('robin', '2026-10-27T08:00:00Z')], [], 10);
         expect(rows).toEqual([{ kind: 'visit', key: 'visit:robin', at: Date.parse('2026-10-27T08:00:00Z'), visit: expect.anything() }]);
+    });
+});
+
+describe('fieldLogWindowLink', () => {
+    it('opens the Explorer on the last 24 hours with birds and Garden when the log holds both', () => {
+        expect(fieldLogWindowLink(true)).toBe('/events?date=24h&visitors=all');
+    });
+
+    it('opens the Explorer on the last 24 hours with birds only when the log holds only birds', () => {
+        expect(fieldLogWindowLink(false)).toBe('/events?date=24h&visitors=birds');
+    });
+
+    it('names the visitors, so a device that last chose Garden alone still opens what the log showed', () => {
+        for (const includesGarden of [true, false]) {
+            const query = parseExplorerQuery(fieldLogWindowLink(includesGarden).split('?')[1], { owner: true });
+            expect(query.datePreset).toBe('24h');
+            expect(query.subjects).toBe(includesGarden ? 'all' : 'birds');
+        }
+    });
+
+    it('opens the Explorer on Today when the Dashboard shows Today', () => {
+        expect(fieldLogWindowLink(true, 'today')).toBe('/events?date=today&visitors=all');
+        expect(fieldLogWindowLink(false, 'today')).toBe('/events?date=today&visitors=birds');
+        expect(fieldLogWindowLink(false, 'rolling')).toBe('/events?date=24h&visitors=birds');
+        const query = parseExplorerQuery(fieldLogWindowLink(false, 'today').split('?')[1], { owner: true });
+        expect(query.datePreset).toBe('today');
     });
 });

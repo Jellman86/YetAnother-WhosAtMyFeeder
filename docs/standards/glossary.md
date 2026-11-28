@@ -26,6 +26,7 @@ enforced, or enforced and not listed here.
 | **visit** | One bird coming to the feeder: everything the camera kept from its arrival until it had been gone for the visit gap (a minute unless the owner changes it under Settings → Identifying birds). Visits are what the app counts, lists and ranks. | detection, detections, sighting, sightings |
 | **capture** | One stored photograph from a visit, with its own time and score. A visit has one or more captures. | |
 | **record** | The page of one capture: its photograph, its identification, its evidence and its actions. "Open the record." | |
+| **full clip** | The longer clip YA-WAMF cuts from Frigate's recordings around one capture, the seconds before and after it set under Settings → Cameras & connection. It belongs to that capture, not to the whole visit; the short clip Frigate keeps for its event is just the clip. A clip cut short by missing recordings is a partial clip. | full visit, full visits, full visit clip, full visit clips, full-visit clip, full-visit clips, partial visit |
 | **call** | One bird heard by the microphone (BirdNET-Go). Calls are heard, visits are seen. | |
 | **observation** | Something the owner adds by hand (Add observation) or chooses to send to iNaturalist. Never a camera visit. | |
 | **sighting** | Someone else's report nearby, from eBird. Never this feeder's own visits. | |
@@ -36,11 +37,22 @@ whichever the sentence is about; "audio detection" is a call. A frame is one ima
 before anything is stored, and is not a capture. "Event" is Frigate's word for what it sends: use
 it only when the sentence is about Frigate ("Frigate no longer has this event").
 
+**A capture's media is its own.** Its clip and its photo options belong to that capture: "9 photo
+options from this capture", never "from this visit", and a record opened from a longer visit says
+so beside them ("Part of a visit: 6 captures, 12:44–12:46"). For everything in a visit, say "whole
+visit"; "full visit" and "partial visit" are reserved words the lint rejects, because they were
+once the full clip's name.
+
+**A visit is named by its own species.** Another species in one of its captures is a note under the
+name ("Also in one capture: Wood Pigeon") that opens that capture, never a replacement name such as
+"Multiple species". It says capture, not photo: the photo on a card is usually a crop of one bird,
+and the other bird is in the capture's whole scene.
+
 **Counting.** Two counts exist and they are never interchanged
 ([`layout-patterns.md`](layout-patterns.md), Standing):
 
 - **visits** wherever the visit rule has been applied: the Dashboard, Explorer, and the
-  Leaderboard's day, week and month views;
+  Leaderboard's today, last 24 hours, last 7 days and last 30 days views;
 - **captures** for a raw total of stored photographs, where no visit count exists: the
   Leaderboard's all-time view, a species' all-time total, storage and retention figures.
 
@@ -120,6 +132,7 @@ German is a full locale, not a rendering of the English. It uses the same one-te
 |---|---|---|
 | visit | Besuch | Erkennung, Erkennungen, Sichtung, Sichtungen |
 | capture | Aufnahme | |
+| full clip | vollständiger Clip | Vollbesuch-Clip, Vollbesuch-Clips, Vollbesuche, Vollständiger Besuch, vollständigen Besuchs, Teilweiser Besuch |
 | record | Eintrag | Datensatz, Datensatzes, Datensätze, Datensätzen |
 | call | Ruf | Audioerkennung, Audioerkennungen |
 | model | Modell | Klassifikator, Klassifikators, Klassifikatoren, Klassifizierer |
@@ -178,6 +191,10 @@ One form per language, in every string.
   (`formatDate`, `formatDay`, `formatShortDay`, `formatCalendarDay`, `formatDateTime`, `formatTime`,
   `formatHour`). They follow the owner's chosen date and clock format. No `toLocaleString` in a
   component, no date written into a locale string, and no seconds unless the second matters.
+- **A period has one name everywhere**: **All time**, **Today** (from local midnight to now), **Last
+  24 hours**, **Last 7 days** and **Last 30 days** (that many calendar days, today included), and
+  **Custom**. Not "Week" or "Month", which read as the calendar week or month; not "of the day",
+  which leaves open which day.
 - **A count chooses its word** with an ICU plural (`layout-patterns.md`, Writing). The number is
   passed as a number, so it is formatted for the reader's language.
 - **Every number the owner reads has its unit**, joined to it with a no-break space (U+00A0) so the

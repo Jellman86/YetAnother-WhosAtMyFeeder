@@ -30,6 +30,7 @@
   "detections_all_time": "Captures, all time",
   "detections_shared": "Captures, shared history",
   "visits_day": "Visits, last 24 hours",
+  "visits_today": "Visits, today",
   "visits_week": "Visits, last 7 days",
   "visits_month": "Visits, last 30 days",
   "detections_note": "Every identified capture counts once. One visit can hold several captures, so the Leaderboard’s visit counts are lower.",

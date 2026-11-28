@@ -54,7 +54,7 @@
                 default: '{queued} waiting. Failures in a row: {failures}.'
             })}
             {#if circuitOpenUntil}
-                · {$_('jobs.circuit_open_until', { default: 'Until' })}: {formatDateTime(circuitOpenUntil)}
+                · {$_('jobs.circuit_open_until', { values: { time: formatDateTime(circuitOpenUntil) }, default: 'Retrying after: {time}' })}
             {/if}
         </p>
         <div class="mt-3">

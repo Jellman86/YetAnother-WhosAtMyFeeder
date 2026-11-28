@@ -1,3 +1,4 @@
 {
-  "step_skipped": "Not run because an earlier step failed."
+  "step_skipped": "Not run because an earlier step failed.",
+  "step_failed": "The check did not pass."
 }

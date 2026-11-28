@@ -136,13 +136,13 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `MEDIA_CACHE__CACHE_CLIPS` | `false` | Keep copies of Frigate's event clips. Photographs, full-visit clips and previews are always kept. |
+| `MEDIA_CACHE__CACHE_CLIPS` | `false` | Keep copies of Frigate's event clips. Photographs, full clips and previews are always kept. |
 | `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS` | `false` | Derive the clearest recorded frame and strongest reliable crop automatically. |
 | `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_BIRD_CROP` | `false` | Deprecated compatibility flag; crop attempts are automatic whenever HQ snapshots are enabled. |
 | `MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY` | `90` | JPEG quality for high-quality snapshots. These are full-resolution frames, often several MB each. |
 | `MEDIA_CACHE__RETENTION_DAYS` | `0` | Days to keep cached media; `0` follows `MAINTENANCE__RETENTION_DAYS`, whose default is unlimited. |
 | `MEDIA_CACHE__PER_SPECIES_MINIMUM` | `0` | Protect the newest N detections of each species and their photographs from age cleanup (`0` disables the floor; `0`–`10000`). Clips are not protected by this floor. |
-| `MEDIA_CACHE__PER_SPECIES_MAXIMUM` | `0` | Maximum cached visits per species, excluding favourites (`0` is unlimited; `0`–`10000`). Removes media, preserving history. |
+| `MEDIA_CACHE__PER_SPECIES_MAXIMUM` | `0` | Maximum cached captures per species, excluding favourites (`0` is unlimited; `0`–`10000`). Removes media, preserving history. |
 | `MEDIA_CACHE__MAX_SIZE_MB` | `0` | Ordinary media budget in MiB (`0` is unlimited; `0`–`1048576`). Removes oldest non-favourite media; archived favourites and models are excluded. |
 | `MEDIA_CACHE__AUTOMATIC_MULTI_BIRD_SCAN` | `false` | Scan retained whole frames for additional birds automatically. Off by default, including upgrades; manual **Find more birds** remains available. |
 | `MEDIA_CACHE__BIRD_SCAN_MODE` | `intensive` | `standard` or `intensive` additional-bird search. Controls scan effort, not an upper limit on the bird count. |
@@ -154,7 +154,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 
 `MEDIA_CACHE__ENABLED` and `MEDIA_CACHE__CACHE_SNAPSHOTS` were removed (#622): photographs and visit
 media are always kept, within the retention and size limits. Either variable is still read once, on
-upgrade: if it was `false`, best-available snapshots (and, for `MEDIA_CACHE__ENABLED`, full-visit
+upgrade: if it was `false`, best-available snapshots (and, for `MEDIA_CACHE__ENABLED`, full
 clips) are turned off once unless their current environment overrides explicitly enable them.
 Review those options afterwards. The migration marker is persisted on the next settings save. A
 startup warning says where a retired switch is still set: delete an environment variable from your

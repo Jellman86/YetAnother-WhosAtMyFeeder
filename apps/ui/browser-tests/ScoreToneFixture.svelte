@@ -61,7 +61,6 @@
     <DetectionModal
         detection={capture(recordScore)}
         llmReady={false}
-        showVideoButton={false}
         onClose={() => {}}
         onViewSpecies={() => {}}
     />

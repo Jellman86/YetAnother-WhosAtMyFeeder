@@ -34,7 +34,7 @@
   "kind_auto_video": "自动视频分析",
   "kind_video_analysis": "视频分析",
   "kind_high_quality_snapshot": "最佳质量快照",
-  "kind_full_visit": "完整访问片段",
+  "kind_full_visit": "完整片段",
   "errors_clear": "清除错误记录",
   "errors_backend_empty": "自上次清除错误历史以来，后端没有记录任何警告或错误。",
   "errors_export_failed": "无法获取当前诊断信息。请重试。",
@@ -109,7 +109,7 @@
   "errors_filtered_hint": "在“设置 → 识别鸟类”中降低最低置信度下限可保留更多结果。",
   "errors_filtered_recent": "最近",
   "errors_activity_title": "发生了什么",
-  "errors_activity_subtitle": "按发生顺序显示已记录的到访、已过滤的检测和处理流程故障",
+  "errors_activity_subtitle": "按发生顺序显示已记录的到访、已过滤的检测、有意跳过的处理和处理流程故障",
   "errors_activity_window": "自本实例启动起 {started}",
   "errors_activity_no_window": "本实例未报告启动时间，因此暂时无法将活动归入某个时间段。",
   "errors_activity_empty": "自本实例于 {started} 前启动以来，尚未报告任何检测活动。",
@@ -118,8 +118,12 @@
   "errors_activity_recorded": "已记录的到访",
   "errors_activity_filtered": "已过滤",
   "errors_activity_fault": "处理流程故障",
+  "errors_activity_held_back": "有意跳过",
   "errors_activity_view_record": "查看记录",
   "errors_fault_preview": "预览 {species} 的失败检测画面",
+  "errors_held_back_preview": "预览 {subject} 的画面",
+  "errors_held_back_subject": "Frigate 事件",
+  "errors_held_back_subject_camera": "{camera} 的 Frigate 事件",
   "errors_subsystems_title": "子系统详情",
   "errors_filtered_preview": "预览被过滤为 {species} 的画面",
   "errors_filtered_frame_gone": "Frigate 中已没有这一画面",
@@ -418,6 +422,14 @@
     "retention_paused_daily_totals": {
       "title": "由于无法先保存每日统计，自动历史清理已暂停。",
       "next": "未删除任何访问记录。请检查数据库状态和磁盘空间；下次运行时将自动重试。"
+    },
+    "media_set_aside_unreturned": {
+      "title": "清理时暂时移开的部分照片或视频还未能放回原处。",
+      "next": "没有删除任何内容。YA-WAMF 会在下次存储检查时重试。如果反复出现，请检查存放媒体文件夹的磁盘是否有可用空间且可写入。"
+    },
+    "media_kept_copies": {
+      "title": "部分照片或视频在清理后无法放回原处，已作为备用副本保留。",
+      "next": "没有丢失任何内容：另一个文件占用了它们的位置，因此两者都已保留。删除该拍摄记录会同时删除其备用副本。存储指南说明了如何放回副本。"
     },
     "notification_queue_full": {
       "title": "由于发送队列已满，已丢弃一条通知。",

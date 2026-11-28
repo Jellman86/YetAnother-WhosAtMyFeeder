@@ -194,7 +194,9 @@ export interface components {
     AudioSourceSummaryResponse: {
     count: number;
     last_heard: string;
+    source_id?: string | null;
     source_name: string;
+    source_node?: string | null;
 };
     AudioSpeciesLeaderboardItemResponse: {
     avg_confidence: number;
@@ -209,9 +211,11 @@ export interface components {
     AudioSpeciesLeaderboardResponse: {
     history_start?: string | null;
     previous_window_complete?: boolean;
-    span: "day" | "week" | "month" | "all";
+    previous_window_mismatch?: "clock_change" | "shared_window" | "cleanup" | null;
+    span: "today" | "day" | "week" | "month" | "all";
     species: Array<components['schemas']['AudioSpeciesLeaderboardItemResponse']>;
     window_end: string;
+    window_shortened?: boolean;
     window_start: string;
 };
     AudioSpeciesSummaryResponse: {
@@ -231,6 +235,8 @@ export interface components {
     species_count: number;
     top_species: Array<components['schemas']['AudioSpeciesSummaryResponse']>;
     total: number;
+    window_end: string;
+    window_start: string;
 };
     AudioVisibilityRequest: {
     hidden: boolean;
@@ -440,6 +446,7 @@ export interface components {
     count: number;
     scientific_name?: string | null;
     species: string;
+    species_id?: number | null;
 };
     BirdWeatherTestRequest: {
     token?: string | null;
@@ -866,6 +873,8 @@ export interface components {
     latest_detection: components['schemas']['DetectionResponse'] | null;
     top_species: Array<components['schemas']['DailySpeciesSummary']>;
     total_count: number;
+    unknown_visit_count?: number;
+    unresolved_count?: number;
     visit_count?: number;
     window?: "rolling" | "today";
     window_end: string;
@@ -939,6 +948,7 @@ export interface components {
     observation_source?: string;
     scientific_name?: string | null;
     score: number;
+    species_id?: number | null;
     sub_label?: string | null;
     taxa_id?: number | null;
     temperature?: number | null;
@@ -1036,6 +1046,7 @@ export interface components {
     observation_source?: string;
     scientific_name?: string | null;
     score: number;
+    species_id?: number | null;
     sub_label?: string | null;
     taxa_id?: number | null;
     temperature?: number | null;
@@ -1272,14 +1283,17 @@ export interface components {
     EventFilterTotals: {
     audio_matched?: number;
     favorites?: number;
+    hidden?: number;
     total?: number;
     video_analysed?: number;
 };
     EventFilters: {
     camera_counts?: Record<string, number>;
     cameras: Array<string>;
+    gap_seconds?: number | null;
     species: Array<components['schemas']['EventFilterSpecies']>;
     totals?: components['schemas']['EventFilterTotals'];
+    unit?: "captures" | "visits";
 };
     EventsCountResponse: {
     count: number;
@@ -1808,7 +1822,8 @@ export interface components {
 };
     LeaderboardPortraitsResponse: {
     portraits: Array<components['schemas']['LeaderboardPortraitResponse']>;
-    span: "day" | "week" | "month" | "all";
+    span: "today" | "day" | "week" | "month" | "all";
+    window_start?: string | null;
 };
     LeaderboardSpeciesItemResponse: {
     common_name?: string | null;
@@ -1835,9 +1850,11 @@ export interface components {
     nearby_days_back?: number | null;
     nearby_radius_km?: number | null;
     previous_window_complete?: boolean;
-    span: "day" | "week" | "month";
+    previous_window_mismatch?: "clock_change" | "shared_window" | "cleanup" | null;
+    span: "today" | "day" | "week" | "month";
     species: Array<components['schemas']['LeaderboardSpeciesItemResponse']>;
     window_end: string;
+    window_shortened?: boolean;
     window_start: string;
 };
     LlmTestRequest: {
@@ -2943,6 +2960,7 @@ export interface components {
     status: "applied";
 };
     SnapshotCandidateListResponse: {
+    as_recorded_dismissed?: boolean;
     birds?: Array<components['schemas']['BirdObservationResponse']>;
     candidates: Array<components['schemas']['SnapshotCandidateResponse']>;
     current_candidate_id?: string | null;
@@ -2971,7 +2989,23 @@ export interface components {
     thumbnail_url?: string | null;
 };
     SnapshotDismissRequest: {
+    companion_candidate_ids?: Array<string> | null;
     dismissed: boolean;
+    expected_content_identities?: Record<string, string> | null;
+};
+    SnapshotDismissResponse: {
+    as_recorded_dismissed?: boolean;
+    birds?: Array<components['schemas']['BirdObservationResponse']>;
+    candidates: Array<components['schemas']['SnapshotCandidateResponse']>;
+    changed_dismissals?: Array<components['schemas']['SnapshotDismissalTarget']>;
+    current_candidate_id?: string | null;
+    current_source?: string | null;
+    event_id: string;
+    model_crop_miss_reason?: string | null;
+};
+    SnapshotDismissalTarget: {
+    candidate_id: string;
+    content_identity: string;
 };
     SnapshotGenerateResponse: {
     already_hq_bird_crop: boolean;
@@ -2985,7 +3019,7 @@ export interface components {
     original_frigate_snapshot_available?: boolean | null;
     result: string;
     source?: string | null;
-    status: "already_hq_bird_crop" | "generated_hq_bird_crop" | "generated_hq_snapshot" | "existing_crop_preserved";
+    status: "already_hq_bird_crop" | "generated_hq_bird_crop" | "generated_hq_snapshot" | "existing_crop_preserved" | "manual_selection_preserved" | "photo_settings_unreadable" | "photo_set_aside";
 };
     SnapshotStatusResponse: {
     already_hq_bird_crop: boolean;
@@ -3626,7 +3660,7 @@ export interface paths {
       operationId: "get_audio_species_leaderboard_api_audio_species_get";
       path: never;
       query: {
-    span?: "day" | "week" | "month" | "all";
+    span?: "today" | "day" | "week" | "month" | "all";
 };
       requestBody: unknown;
       response: components['schemas']['AudioSpeciesLeaderboardResponse'];
@@ -4299,6 +4333,7 @@ export interface paths {
     audio_confirmed_only?: boolean;
     camera?: string | null;
     end_date?: string | "today" | null;
+    end_time?: string | null;
     event_id?: string | null;
     favorites?: boolean;
     fields?: string | null;
@@ -4307,9 +4342,11 @@ export interface paths {
     multiple_species_only?: boolean;
     offset?: number;
     only_hidden?: boolean;
+    owner_confirmed_only?: boolean;
     sort?: "newest" | "oldest" | "confidence";
     species?: string | null;
     start_date?: string | "today" | null;
+    start_time?: string | null;
     taxon?: number | null;
 };
       requestBody: unknown;
@@ -4342,12 +4379,15 @@ export interface paths {
     audio_confirmed_only?: boolean;
     camera?: string | null;
     end_date?: string | "today" | null;
+    end_time?: string | null;
     favorites?: boolean;
     include_hidden?: boolean;
     multiple_species_only?: boolean;
     only_hidden?: boolean;
+    owner_confirmed_only?: boolean;
     species?: string | null;
     start_date?: string | "today" | null;
+    start_time?: string | null;
     taxon?: number | null;
 };
       requestBody: unknown;
@@ -4359,7 +4399,20 @@ export interface paths {
       operationId: "get_event_filters_api_events_filters_get";
       path: never;
       query: {
+    audio_confirmed_only?: boolean;
+    camera?: string | null;
+    end_date?: string | "today" | null;
+    end_time?: string | null;
+    favorites?: boolean;
     force_refresh?: boolean;
+    multiple_species_only?: boolean;
+    only_hidden?: boolean;
+    owner_confirmed_only?: boolean;
+    species?: string | null;
+    start_date?: string | "today" | null;
+    start_time?: string | null;
+    taxon?: number | null;
+    unit?: "captures" | "visits" | null;
 };
       requestBody: unknown;
       response: components['schemas']['EventFilters'];
@@ -4393,6 +4446,7 @@ export interface paths {
       query: {
     limit?: number;
     max_sightings?: number;
+    window?: "rolling" | "today";
     window_days?: number;
     window_hours?: number;
 };
@@ -4771,7 +4825,7 @@ export interface paths {
 };
       query: never;
       requestBody: components['schemas']['SnapshotDismissRequest'];
-      response: components['schemas']['SnapshotCandidateListResponse'];
+      response: components['schemas']['SnapshotDismissResponse'];
     };
   };
   "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg": {
@@ -5250,7 +5304,7 @@ export interface paths {
       path: never;
       query: {
     limit?: number;
-    span?: "day" | "week" | "month" | "all";
+    span?: "today" | "day" | "week" | "month" | "all";
 };
       requestBody: unknown;
       response: components['schemas']['LeaderboardPortraitsResponse'];
@@ -5261,7 +5315,7 @@ export interface paths {
       operationId: "get_leaderboard_species_api_leaderboard_species_get";
       path: never;
       query: {
-    span?: "day" | "week" | "month";
+    span?: "today" | "day" | "week" | "month";
 };
       requestBody: unknown;
       response: components['schemas']['LeaderboardSpeciesResponse'];
@@ -5901,7 +5955,7 @@ export interface paths {
       operationId: "get_detection_activity_heatmap_api_stats_detections_activity_heatmap_get";
       path: never;
       query: {
-    span?: "all" | "day" | "week" | "month";
+    span?: "all" | "today" | "day" | "week" | "month";
     species?: string | null;
 };
       requestBody: unknown;
@@ -5926,7 +5980,7 @@ export interface paths {
       query: {
     compare_species?: Array<string> | null;
     include_weather?: boolean;
-    span?: "all" | "day" | "week" | "month";
+    span?: "all" | "today" | "day" | "week" | "month";
 };
       requestBody: unknown;
       response: components['schemas']['DetectionsTimelineSpanResponse'];
@@ -6117,6 +6171,7 @@ export interface paths {
     multiple_species_only?: boolean;
     offset?: number;
     only_hidden?: boolean;
+    owner_confirmed_only?: boolean;
     sort?: string;
     species?: string | null;
     start_date?: string | "today" | null;

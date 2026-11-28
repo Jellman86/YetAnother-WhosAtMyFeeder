@@ -1,5 +1,6 @@
 <script lang="ts">
     import { compassPointKey, weatherConditionMessage } from '../utils/weather-condition';
+    import { formatSnapshotFallbackReason } from '../utils/snapshot-fallback-reason';
     import DialogHeader from './ui/DialogHeader.svelte';
     import ClassificationSource from './ClassificationSource.svelte';
     import RecordTechnicalDetails from './RecordTechnicalDetails.svelte';
@@ -35,12 +36,13 @@
         type AudioContextDetection,
         type SnapshotStatusResponse,
         type SnapshotCandidate,
+        type SnapshotDismissalTarget,
         type BirdObservation
     } from '../api';
     import type { Detection } from '../api';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import FrameStrip from './FrameStrip.svelte';
-    import { MediaQuery } from 'svelte/reactivity';
+    import { MediaQuery, SvelteSet } from 'svelte/reactivity';
     import CountedBirds from './CountedBirds.svelte';
     import BirdScanControl from './BirdScanControl.svelte';
     import { BirdScan } from '../utils/bird-scan.svelte';
@@ -73,7 +75,8 @@
         getDetectionClassificationSource,
         shouldShowVideoStatusNotice
     } from '../detection-classification-source';
-    import { formatDateTime } from '../utils/datetime';
+    import { formatDateTime, formatTime } from '../utils/datetime';
+    import type { RecordVisit } from './record-visit';
     import { formatTemperature } from '../utils/temperature';
     import { getManualTagSearchOptions } from '../search/manual-tag-search';
     import {
@@ -95,13 +98,17 @@
     import { fetchGardenDomesticBirds } from '../api/garden';
     import GardenDomesticSuggestion from './GardenDomesticSuggestion.svelte';
     import { domesticBirdForRecord, domesticBirdName, type DomesticBirdOption } from '../utils/domestic-birds';
+    import { canWatchRecordVideo } from '../utils/record-access';
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
 
     interface Props {
         detection: Detection;
+        /** The visit this capture is part of, when the record was opened from that visit. */
+        visit?: RecordVisit | null;
+        /** The full clip's length as the server measured it; null until it has. */
+        fullClipSeconds?: number | null;
         llmReady: boolean;
-        showVideoButton?: boolean;
         onClose: () => void;
         onReclassify?: (detection: Detection) => void;
         onPlayVideo?: (frigateEvent: string, playIntent?: 'auto' | 'user') => void;
@@ -110,7 +117,6 @@
         onHideSuccess?: (frigateEvent: string, detectionTime: string | undefined, isHidden: boolean) => void | Promise<void>;
         onViewSpecies: (speciesName: string) => void;
         onbirdschanged?: () => void;
-        readOnly?: boolean;
         fullVisitAvailable?: boolean;
         fullVisitFetched?: boolean;
         fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'partial' | 'failed';
@@ -118,8 +124,9 @@
 
     let {
         detection,
+        visit = null,
+        fullClipSeconds = null,
         llmReady,
-        showVideoButton = false,
         onClose,
         onReclassify,
         onPlayVideo,
@@ -128,7 +135,6 @@
         onHideSuccess,
         onViewSpecies,
         onbirdschanged,
-        readOnly = false,
         fullVisitAvailable = false,
         fullVisitFetched = false,
         fullVisitFetchState = 'idle'
@@ -137,7 +143,7 @@
     $effect(() => {
         const version = detectionsStore.publicHistoryVersion;
         const eventId = publicEventId;
-        if (!version || !authStore.isGuest || readOnly) return;
+        if (!version || !authStore.isGuest) return;
         const controller = new AbortController();
         untrack(() => {
             void fetchEvents({ eventId, limit: 1, fields: 'detail', signal: controller.signal,
@@ -305,9 +311,12 @@
 
     async function refreshSnapshotControls(eventId: string) {
         const requestEpoch = ++snapshotControlsEpoch;
+        const listRevision = candidateListRevision;
         const parentIdentity = untrack(() => countedParentIdentity);
         const isCurrent = () => requestEpoch === snapshotControlsEpoch
             && detection?.frigate_event === eventId && hasOwnerDetectionActions;
+        // A photo choice changed while this read was out: its answer may predate that change.
+        const listIsFresh = () => listRevision === candidateListRevision;
         if (!isCurrent()) return;
         snapshotCandidatesLoading = true;
         snapshotCandidatesError = false;
@@ -317,28 +326,34 @@
                 fetchSnapshotCandidates(eventId)
             ]);
             if (!isCurrent()) return;
-            snapshotStatus = status;
-            snapshotCandidates = candidateList.candidates ?? [];
+            if (listIsFresh()) {
+                snapshotCandidates = candidateList.candidates ?? [];
+                asRecordedDismissed = Boolean(candidateList.as_recorded_dismissed);
+                snapshotStatus = status;
+                currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
+                currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
+            }
             if (parentIdentity === countedParentIdentity) {
                 countedBirds = candidateList.birds ?? [];
                 countedBirdsGeneration += 1;
                 countedBirdsError = false;
                 countedBirdsLoading = false;
             }
-            currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
-            currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
         } catch {
             if (!isCurrent()) return;
-            snapshotStatus = null;
-            snapshotCandidates = [];
+            if (listIsFresh()) {
+                snapshotStatus = null;
+                snapshotCandidates = [];
+                asRecordedDismissed = false;
+                snapshotCandidatesError = true;
+                currentSnapshotCandidateId = null;
+                currentSnapshotSource = null;
+            }
             if (parentIdentity === countedParentIdentity) {
                 countedBirds = [];
                 countedBirdsGeneration += 1;
                 countedBirdsLoading = false;
             }
-            snapshotCandidatesError = true;
-            currentSnapshotCandidateId = null;
-            currentSnapshotSource = null;
         } finally {
             if (isCurrent()) {
                 snapshotCandidatesLoading = false;
@@ -406,6 +421,7 @@
             snapshotControlsSubject = null;
             snapshotStatus = null;
             snapshotCandidates = [];
+            asRecordedDismissed = false;
             countedBirds = [];
             snapshotCandidatesLoading = false;
             currentSnapshotCandidateId = null;
@@ -415,7 +431,9 @@
 
         if (snapshotControlsSubject !== eventId) {
             snapshotControlsSubject = eventId;
+            undoablePhotoRemoval = null;
             snapshotCandidates = [];
+            asRecordedDismissed = false;
             countedBirds = [];
             // Keep keyed rows and focus while rereading this same capture.
             untrack(() => { countedBirdsGeneration += 1; });
@@ -449,7 +467,7 @@
     const ARCHIVE_POLL_LIMIT = 45;
     $effect(() => {
         const eventId = detection?.frigate_event;
-        const wanted = !!detection?.is_favorite && authStore.hasOwnerAccess && !readOnly;
+        const wanted = !!detection?.is_favorite && authStore.hasOwnerAccess;
         // Read so that a retry (which sets the record back to pending) restarts the poll.
         void detection?.archive_state;
         void archiveCheckAttempt;
@@ -571,6 +589,14 @@
     }
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
+    let asRecordedDismissed = $state(false);
+    /**
+     * Advanced by each answered photo-choice change. A candidate read sent before it may describe
+     * the list before the change, so it is not allowed to replace the change's own answer.
+     */
+    let candidateListRevision = 0;
+    /** The capture whose last removed photo choice can still be undone, so its strip stays to offer Undo. */
+    let undoablePhotoRemoval = $state<string | null>(null);
     let countedBirds = $state<BirdObservation[]>([]);
     /** Advanced on every reread of the birds, so an edit answered after it is not applied. */
     let countedBirdsGeneration = $state(0);
@@ -618,12 +644,17 @@
     });
     let snapshotCandidatesLoading = $state(false);
     let snapshotCandidatesError = $state(false);
-    let snapshotApplyPending = $state(false);
-    let snapshotGeneratePending = $state(false);
+    // Photo work belongs to the capture that asked for it: another record neither shows it as its
+    // own nor waits for it, and a request that finishes after a switch still clears its own mark.
+    const photoApplyEvents = new SvelteSet<string>();
+    const photoGenerateEvents = new SvelteSet<string>();
+    const snapshotApplyPending = $derived(photoApplyEvents.has(detection.frigate_event));
+    const snapshotGeneratePending = $derived(photoGenerateEvents.has(detection.frigate_event));
     let currentSnapshotCandidateId = $state<string | null>(null);
     let currentSnapshotSource = $state<string | null>(null);
     /** The strip moment being saved as the photograph, while the request is in flight. */
-    let applyingMomentKey = $state<string | null>(null);
+    let applyingMoment = $state<{ eventId: string; key: string } | null>(null);
+    const applyingMomentKey = $derived(applyingMoment?.eventId === detection.frigate_event ? applyingMoment.key : null);
     let snapshotRefreshToken = $state(Date.now());
     const settledMediaVersion = $derived(
         detectionsStore.settledMediaVersion(detection.frigate_event)
@@ -641,7 +672,7 @@
     let reclassifyProgress = $derived(
         detectionsStore.progressMap.get(detection.frigate_event) || null
     );
-    let canPlayVideo = $derived(showVideoButton && !!onPlayVideo && (detection.has_clip || fullVisitFetched) && !reclassifyProgress);
+    let canPlayVideo = $derived(!!onPlayVideo && canWatchRecordVideo(authStore) && (detection.has_clip || fullVisitFetched) && !reclassifyProgress);
     let showFetchFullVisitAction = $derived(!!onFetchFullVisit && fullVisitAvailable && !fullVisitFetched && (fullVisitFetchState === 'partial' || fullVisitFetchState === 'failed') && !reclassifyProgress);
     let fullVisitFetchLabel = $derived.by(() => {
         if (fullVisitFetchState === 'fetching') {
@@ -652,6 +683,23 @@
         }
         return $_('video_player.fetch_full_visit', { default: 'Fetch full clip' });
     });
+    // The clip and the photo options belong to this one capture, so a longer visit is stated
+    // beside them: otherwise one capture's media reads as the whole visit.
+    const visitSpan = $derived.by(() => {
+        if (!visit || visit.captureCount < 2 || visit.frigateEvent !== detection.frigate_event) return null;
+        const startsAt = formatTime(visit.startTime);
+        const endsAt = formatTime(visit.endTime);
+        const span = startsAt === endsAt ? endsAt : `${startsAt}–${endsAt}`;
+        const captures = $_('visits.captures', { values: { count: visit.captureCount }, default: '{count, plural, one {# capture} other {# captures}}' });
+        return `${captures}, ${span}`;
+    });
+    // The length is the one the server measured on the clip itself. Settings say what a new clip
+    // would be cut to, not what an older one is, so without a measurement no length is stated.
+    const fullClipTitle = $derived(
+        fullClipSeconds === null
+            ? $_('detection.full_clip_title', { default: "This capture's full clip" })
+            : $_('detection.full_clip_seconds', { values: { seconds: Math.round(fullClipSeconds) }, default: "This capture's full clip, {seconds, plural, one {# second} other {# seconds}}" })
+    );
     let awaitingReclassifyOverlay = $state(false);
     let videoAnalysisStatus = $derived(detection.video_classification_status ?? null);
     let videoAnalysisActive = $derived(videoAnalysisStatus === 'processing' || videoAnalysisStatus === 'pending');
@@ -779,8 +827,8 @@
     });
     const inatEnabled = $derived(settingsStore.settings?.inaturalist_enabled ?? authStore.inaturalistEnabled ?? false);
     const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
-    const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && !!inatConnectedUser);
-    const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess && !readOnly);
+    const canShowInat = $derived(authStore.canModify && inatEnabled && !!inatConnectedUser);
+    const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess);
     // A bird record of a domestic bird: moved to Garden when the owner keeps it, otherwise asked about.
     const gardenOwner = $derived(hasOwnerDetectionActions && settingsStore.settings?.beta_garden_animals === true);
     let domesticOptions = $state.raw<DomesticBirdOption[]>([]);
@@ -809,10 +857,11 @@
     const originalFrigateSnapshotUrl = $derived.by(() => withCacheBust(getOriginalFrigateSnapshotUrl(detection.frigate_event), String(snapshotRefreshToken)));
     let canShowFavoriteAction = $derived(
         authStore.canModify
-        && !readOnly
         && !reclassifyProgress
     );
-    const originalFrigateSnapshotAvailable = $derived(snapshotStatus?.original_frigate_snapshot_available === true);
+    const originalFrigateSnapshotAvailable = $derived(
+        snapshotStatus?.original_frigate_snapshot_available === true && !asRecordedDismissed
+    );
     const fullFrameSnapshotCandidate = $derived(
         findMatchingFullFrameCandidate(snapshotCandidates, currentSnapshotCandidateId)
     );
@@ -884,6 +933,8 @@
     const wholeSceneReady = $derived(
         wholeScene.showing && sceneLoadedUrl !== null && sceneLoadedUrl === wholeSceneSources[0]
     );
+    // A whole scene the owner removed from the photo choices can still be looked at, but not saved.
+    const canUseWholeScene = $derived(wholeScene.pinned && wholeSceneReady && !fullFrameSnapshotCandidate?.photo_hidden);
 
     function wholeSceneLoaded(image: HTMLImageElement): void {
         sceneLoadedUrl = image.getAttribute('src');
@@ -975,6 +1026,7 @@
             snapshotCandidatesLoading
             || frameMoments.length > 0
             || canGenerateSnapshotCandidates
+            || undoablePhotoRemoval === detection.frigate_event
         )
     );
 
@@ -1048,9 +1100,12 @@
             });
         }
         if (error) {
-            return $_(
-                `detection.reclassification.snapshot_fallback_reason.${error}`,
-                { default: $_('detection.video_analysis.fallback_desc', { default: 'Video analysis was not available, so this capture was named from a single frame. The score may be lower.' }) }
+            return formatSnapshotFallbackReason(
+                error,
+                $_,
+                $_('detection.video_analysis.fallback_desc', {
+                    default: 'Video analysis was not available, so this capture was named from a single frame. The score may be lower.'
+                })
             );
         }
         // No error code: say what was learned about the event in Frigate, and no more than that.
@@ -1242,7 +1297,6 @@
     });
     async function handleManualTag(selection: SearchResult) {
         if (!authStore.hasOwnerAccess) return;
-        if (readOnly) return;
         if (!detection) return;
         if (updatingTag) return;
 
@@ -1280,7 +1334,6 @@
 
     async function handleHide() {
         if (!authStore.hasOwnerAccess) return;
-        if (readOnly) return;
         if (!detection) return;
         try {
             const result = await hideDetection(detection.frigate_event);
@@ -1314,7 +1367,6 @@
 
     async function handleDelete() {
         if (!authStore.hasOwnerAccess) return;
-        if (readOnly) return;
         if (!detection) return;
         if (!(await confirmAction({
             title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
@@ -1333,7 +1385,7 @@
     }
 
     async function handleFavoriteToggle() {
-        if (readOnly) return;
+        if (!authStore.hasOwnerAccess) return;
         if (!detection) return;
         favoritePending = true;
         try {
@@ -1381,25 +1433,74 @@
         await handleApplySnapshot('candidate', candidate.candidate_id);
     }
 
-    /** "Use this frame" from the strip: the photograph changes, the identification does not. */
-    async function removePhotoChoice(candidateId: string, dismissed: boolean): Promise<void> {
-        if (!hasOwnerDetectionActions || snapshotApplyPending) return;
-        const eventId = detection.frigate_event;
-        snapshotApplyPending = true;
+    interface PhotoRequestRecord {
+        eventId: string;
+        species: string;
+        time: string;
+    }
+
+    /** The record a photo request is for, named while it is still the open one. */
+    function photoRequestRecord(): PhotoRequestRecord {
+        return {
+            eventId: detection.frigate_event,
+            species: $birdNames(detection, showCommon, preferSci).primary,
+            time: formatDateTime(detection.detection_time)
+        };
+    }
+
+    /** A failure is always reported; after a switch it names its record, so it is not read as the open one's. */
+    function reportPhotoRequestFailure(record: PhotoRequestRecord, error: unknown): void {
+        const message = getErrorMessage(error) || $_('common.error', { default: 'Action failed' });
+        if (detection?.frigate_event === record.eventId) {
+            toastStore.error(message);
+            return;
+        }
+        toastStore.error(
+            $_('detection.photo_request_failed_for_record', {
+                values: { species: record.species, time: record.time, message },
+                default: 'The photo of {species} at {time} was not changed. {message}'
+            })
+        );
+    }
+
+    /** Removes or restores every candidate behind one strip choice, and says which removals changed. */
+    async function removePhotoChoice(
+        candidateIds: string[],
+        dismissed: boolean,
+        expectedContentIdentities?: Record<string, string>
+    ): Promise<SnapshotDismissalTarget[]> {
+        const [candidateId, ...companionCandidateIds] = candidateIds;
+        if (!candidateId || !hasOwnerDetectionActions || snapshotApplyPending) return [];
+        const record = photoRequestRecord();
+        const eventId = record.eventId;
+        photoApplyEvents.add(eventId);
         try {
-            const response = await dismissSnapshotCandidate(eventId, candidateId, dismissed);
-            if (detection.frigate_event === eventId && hasOwnerDetectionActions) snapshotCandidates = response.candidates;
+            const response = await dismissSnapshotCandidate(eventId, candidateId, dismissed, {
+                companionCandidateIds,
+                expectedContentIdentities
+            });
+            if (detection.frigate_event === eventId && hasOwnerDetectionActions) {
+                candidateListRevision += 1;
+                snapshotCandidates = response.candidates;
+                asRecordedDismissed = Boolean(response.as_recorded_dismissed);
+                currentSnapshotCandidateId = response.current_candidate_id ?? null;
+                currentSnapshotSource = response.current_source ?? currentSnapshotSource;
+                snapshotCandidatesError = false;
+                undoablePhotoRemoval = dismissed ? eventId : null;
+            }
+            return response.changed_dismissals ?? [];
         } catch (error) {
-            toastStore.error(getErrorMessage(error));
+            reportPhotoRequestFailure(record, error);
             throw error;
         } finally {
-            if (detection.frigate_event === eventId) snapshotApplyPending = false;
+            photoApplyEvents.delete(eventId);
         }
     }
 
     async function handleUseMoment(moment: FrameMoment) {
         if (!hasOwnerDetectionActions || snapshotApplyPending) return;
-        applyingMomentKey = moment.key;
+        const eventId = detection.frigate_event;
+        applyingMoment = { eventId, key: moment.key };
         try {
             if (moment.asRecorded) {
                 if (!originalFrigateSnapshotAvailable) return;
@@ -1410,7 +1511,7 @@
             if (!candidate) return;
             await handleApplySnapshot('candidate', candidate.candidate_id);
         } finally {
-            applyingMomentKey = null;
+            if (applyingMoment?.eventId === eventId) applyingMoment = null;
         }
     }
 
@@ -1418,24 +1519,28 @@
         mode: 'candidate' | 'revert_original',
         candidateId?: string | null
     ) {
-        if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotApplyPending) return;
-        snapshotApplyPending = true;
+        if (!authStore.hasOwnerAccess || !detection || snapshotApplyPending) return;
+        const record = photoRequestRecord();
+        const eventId = record.eventId;
+        photoApplyEvents.add(eventId);
         try {
-            const result = await applySnapshotCandidate(detection.frigate_event, {
+            const result = await applySnapshotCandidate(eventId, {
                 mode,
                 candidate_id: candidateId ?? null
             });
+            detectionsStore.notePhotoChanged(eventId);
+            if (!detection || detection.frigate_event !== eventId) return;
             snapshotStatus = result;
             snapshotRefreshToken = Date.now();
             currentSnapshotSource = result.source ?? null;
             currentSnapshotCandidateId = result.applied_candidate_id ?? null;
             resetMediaView();
             toastStore.success($_('detection.snapshot_apply_success', { default: 'Snapshot updated' }));
-            await refreshSnapshotControls(detection.frigate_event);
+            await refreshSnapshotControls(eventId);
         } catch (e) {
-            toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
+            reportPhotoRequestFailure(record, e);
         } finally {
-            snapshotApplyPending = false;
+            photoApplyEvents.delete(eventId);
         }
     }
 
@@ -1459,11 +1564,14 @@
     }
 
     async function handleGenerateSnapshotCandidates() {
-        if (!authStore.hasOwnerAccess || readOnly || !detection || snapshotGeneratePending) return;
-        const eventId = detection.frigate_event;
-        snapshotGeneratePending = true;
+        if (!authStore.hasOwnerAccess || !detection || snapshotGeneratePending) return;
+        const record = photoRequestRecord();
+        const eventId = record.eventId;
+        photoGenerateEvents.add(eventId);
         try {
             const result = await generateHighQualityBirdCropSnapshot(eventId);
+            // The photo changed whichever record is open now, so its thumbnails elsewhere refresh.
+            detectionsStore.notePhotoChanged(eventId);
             if (!detection || detection.frigate_event !== eventId) return;
             snapshotStatus = result;
             snapshotRefreshToken = Date.now();
@@ -1474,6 +1582,12 @@
             resetMediaView();
             if (result.status === 'existing_crop_preserved') {
                 toastStore.warning($_('detection.snapshot_existing_crop_preserved', { default: 'No reliable new crop was found; the existing crop was kept.' }));
+            } else if (result.status === 'manual_selection_preserved') {
+                toastStore.warning($_('detection.snapshot_manual_choice_kept', { default: 'Your chosen photo was kept, so no new photo was saved. Regenerate again or choose another photo to replace it.' }));
+            } else if (result.status === 'photo_set_aside') {
+                toastStore.warning($_('detection.snapshot_photo_set_aside', { default: "This capture's photo is being put back after a cleanup, so no new photo was saved. Health shows when it is back; try again then." }));
+            } else if (result.status === 'photo_settings_unreadable') {
+                toastStore.warning($_('detection.snapshot_settings_unreadable', { default: 'The photo was kept because its saved settings could not be read. Choose a photo for this record to replace it.' }));
             } else if (result.status === 'generated_hq_snapshot') {
                 toastStore.warning($_('detection.snapshot_generated_full_frame', { default: 'No reliable crop was found; the best full frame was saved.' }));
             } else if (snapshotCandidates.length > 0 && countedBirds.length > 0 && !snapshotCandidatesError) {
@@ -1487,9 +1601,9 @@
                 toastStore.warning($_('detection.snapshot_regenerate_no_candidates', { default: 'Snapshot regenerated, but no selectable candidates were produced.' }));
             }
         } catch (e) {
-            toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
+            reportPhotoRequestFailure(record, e);
         } finally {
-            snapshotGeneratePending = false;
+            photoGenerateEvents.delete(eventId);
         }
     }
 
@@ -1501,7 +1615,7 @@
 
     function handleReclassifyClick() {
         if (!authStore.hasOwnerAccess) return;
-        if (readOnly || !onReclassify) return;
+        if (!onReclassify) return;
         awaitingReclassifyOverlay = true;
         onReclassify(detection);
     }
@@ -1991,6 +2105,15 @@
                         {formatDateTime(detection.detection_time)} &middot; {detection.camera_name}
                     </dd>
                 </div>
+                {#if visitSpan}
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2" data-detection-visit-span>
+                        <dt class="flex items-center gap-2 text-muted">
+                            <svg class="h-3.5 w-3.5 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h4M4 12h10M4 17h16" /></svg>
+                            {$_('detection.fact_part_of_visit', { default: 'Part of a visit' })}
+                        </dt>
+                        <dd class="min-w-0 max-w-full text-right font-medium tabular-nums text-strong">{visitSpan}</dd>
+                    </div>
+                {/if}
                 {#if weatherSummary}
                     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2" data-detection-weather-row>
                         <dt class="flex items-center gap-2 text-muted">
@@ -2244,8 +2367,8 @@
                             {#if mediaFooterHasActions}
                             <!-- The star and play buttons sit on the photograph's lower edge rather than in a black
                                  band of their own under it, so the identification starts a band higher. -->
-                            <div class="flex flex-col gap-3 px-4 {wholeScene.pinned && wholeSceneReady ? 'pt-3' : ''}">
-                                {#if wholeScene.pinned && wholeSceneReady}
+                            <div class="flex flex-col gap-3 px-4 {canUseWholeScene ? 'pt-3' : ''}">
+                                {#if canUseWholeScene}
                                     <div class="flex" data-detection-whole-scene-actions>
                                         <button
                                             type="button"
@@ -2296,15 +2419,15 @@
                                                     e.preventDefault();
                                                     e.stopPropagation();
                                                 }}
-                                                title={fullVisitFetched ? $_('video_player.full_visit_ready', { default: 'Full visit clip ready' }) : $_('detection.play_video', { values: { species: primaryName } })}
-                                                aria-label={fullVisitFetched ? $_('detection.play_full_visit', { values: { species: primaryName }, default: 'Play full visit clip of {species}' }) : $_('detection.play_video', { values: { species: primaryName } })}
+                                                title={fullVisitFetched ? fullClipTitle : $_('detection.play_video', { values: { species: primaryName } })}
+                                                aria-label={fullVisitFetched ? $_('detection.play_full_visit', { values: { species: primaryName }, default: "Play this capture's full clip, {species}" }) : $_('detection.play_video', { values: { species: primaryName } })}
                                                 class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border shadow-xl backdrop-blur-xs transition-colors duration-150 focus:outline-hidden focus:ring-2 focus:ring-focus-on-dark {fullVisitFetched ? 'gap-2 border-on-media-accent/30 bg-accent px-3 text-accent-fg hover:bg-accent-hover' : 'w-11 border-on-media/25 bg-media/55 text-on-media'}"
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                                     <path d="M8 5v14l11-7z"/>
                                                 </svg>
                                                 {#if fullVisitFetched}
-                                                    <span class="text-2xs font-semibold">{$_('video_player.full_visit_action', { default: 'Full visit' })}</span>
+                                                    <span class="text-2xs font-semibold">{$_('video_player.full_visit_action', { default: 'Full clip' })}</span>
                                                 {/if}
                                             </button>
                                         {/if}
@@ -2395,7 +2518,7 @@
 
             <!-- One panel per identification: a new species starts its AI note afresh. -->
             {#key recordClassificationKey(detection)}
-                <RecordAiAnalysis {detection} {llmReady} {readOnly} />
+                <RecordAiAnalysis {detection} {llmReady} />
             {/key}
 
             <!-- The identifiers, last on screen and last in the tab order. -->

@@ -14,7 +14,7 @@ describe('leaderboard span bar', () => {
     const spanBar = speciesPageSource.slice(speciesPageSource.lastIndexOf('<Segmented', speciesPageSource.indexOf('data-leaderboard-span-bar')), speciesPageSource.indexOf('data-leaderboard-span-bar'));
 
     it('runs from the shortest window to the longest, as the standard lists it', () => {
-        const order = ['sort_by_day', 'sort_by_week', 'sort_by_month', 'sort_by_total'].map((key) => options.indexOf(key));
+        const order = ['sort_by_today', 'sort_by_day', 'sort_by_week', 'sort_by_month', 'sort_by_total'].map((key) => options.indexOf(key));
         expect(order.every((at) => at > -1)).toBe(true);
         expect([...order].sort((a, b) => a - b)).toEqual(order);
     });

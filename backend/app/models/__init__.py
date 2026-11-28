@@ -83,6 +83,8 @@ class Detection(APIModel):
     scientific_name: str | None = None
     common_name: str | None = None
     taxa_id: int | None = None
+    # The species catalogue's opaque identity, the one a visit is grouped by.
+    species_id: int | None = None
     frigate_status: str = "present"
     frigate_missing_since: datetime | None = None
     frigate_last_checked_at: datetime | None = None
@@ -111,6 +113,9 @@ class BirdSpeciesCount(BaseModel):
         None, description="Catalogue name in the reader's language, when the label resolves"
     )
     scientific_name: str | None = Field(None, description="Catalogue scientific name, when the label resolves")
+    species_id: int | None = Field(
+        None, description="Catalogue species id, when the label resolves; compare it with a capture's species_id"
+    )
 
 
 class DetectionBirdSummary(BaseModel):

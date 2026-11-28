@@ -1958,7 +1958,7 @@
         const confirmed = await confirmAction({
             title: $_('settings.data.clear_favorites_button', { default: 'Delete All Favorites' }),
             message: $_('settings.data.clear_favorites_confirm', {
-                default: 'Remove all favorite markers? This cannot be undone.'
+                default: 'Remove all favourite markers and their archived photos and clips? The visits stay in history. This cannot be undone.'
             }),
             confirmLabel: $_('settings.data.clear_favorites_button', { default: 'Delete All Favorites' })
         });
@@ -2037,11 +2037,11 @@
             message: count === null
                 ? $_('settings.data.purge_confirm_uncounted', {
                     values: { days },
-                    default: "Permanently delete every detection and the BirdNET-Go audio older than {days} days? The number of detections could not be read. Favourites and each species' newest kept visits stay. This cannot be undone."
+                    default: "Permanently delete every detection and the BirdNET-Go audio older than {days} days? The number of detections could not be read. Favourites and each species' newest kept captures stay. This cannot be undone."
                 })
                 : $_('settings.data.purge_confirm', {
                     values: { count, days },
-                    default: "Permanently delete {count, plural, one {# detection} other {# detections}} and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept visits stay. This cannot be undone."
+                    default: "Permanently delete {count, plural, one {# detection} other {# detections}} and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept captures stay. This cannot be undone."
                 })
         };
     }
@@ -2054,7 +2054,7 @@
         if (count === null) {
             return {
                 message: $_('settings.danger.confirm_uncounted', {
-                    default: 'Delete all detections, every cached photo and clip, and every archived favourite? The number of detections could not be read. This cannot be undone.'
+                    default: 'Delete all captures, every cached photo and clip, every archived favourite, and the daily totals that keep older Leaderboard history? The number of captures could not be read. This cannot be undone.'
                 })
             };
         }
@@ -2062,11 +2062,11 @@
             message: changed
                 ? $_('settings.danger.confirm_changed', {
                     values: { count },
-                    default: 'The number of detections changed while this was open. Delete all {count, plural, one {# detection} other {# detections}}, hidden ones included, every cached photo and clip, and every archived favourite? This cannot be undone.'
+                    default: 'The number of captures changed while this was open. Delete all {count, plural, one {# capture} other {# captures}}, hidden ones included, every cached photo and clip, every archived favourite, and the daily totals that keep older Leaderboard history? This cannot be undone.'
                 })
                 : $_('settings.danger.confirm', {
                     values: { count },
-                    default: 'Delete all {count, plural, one {# detection} other {# detections}}, hidden ones included, every cached photo and clip, and every archived favourite? This cannot be undone.'
+                    default: 'Delete all {count, plural, one {# capture} other {# captures}}, hidden ones included, every cached photo and clip, every archived favourite, and the daily totals that keep older Leaderboard history? This cannot be undone.'
                 })
         };
     }
@@ -2159,7 +2159,7 @@
         const confirmed = await confirmAction({
             title: $_('settings.data.cache_clear_button', { default: 'Clear Cached Files' }),
             message: $_('settings.data.cache_cleanup_confirm', {
-                default: "Delete cached photos and clips older than the retention period, and cached files that no longer belong to a detection? Favourites and each species' newest kept visits stay. This cannot be undone."
+                default: "Delete cached photos and clips older than the retention period, and cached files that no longer belong to a detection? Favourites and each species' newest kept captures stay. This cannot be undone."
             }),
             confirmLabel: $_('settings.data.cache_clear_button', { default: 'Clear Cached Files' })
         });

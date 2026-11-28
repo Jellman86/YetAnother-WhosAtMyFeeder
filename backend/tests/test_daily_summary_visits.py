@@ -64,7 +64,7 @@ async def seeded():
 @pytest.mark.asyncio
 async def test_species_counts_carry_visits_by_the_leaderboard_rule(seeded):
     async with get_db() as db:
-        rows = await DetectionRepository(db).get_daily_species_counts(START, END)
+        rows = (await DetectionRepository(db).get_window_visits(START, END)).rows
     by_name = {row["scientific_name"]: row for row in rows}
     assert by_name["Prunella modularis"]["count"] == 5
     # birdcam 0-54 seconds, birdcam 40 min, patiocam 30 seconds.
@@ -77,9 +77,9 @@ async def test_species_counts_carry_visits_by_the_leaderboard_rule(seeded):
 async def test_visit_openings_name_each_visit_once_with_its_camera(seeded):
     async with get_db() as db:
         repo = DetectionRepository(db)
-        openings = await repo.get_window_visit_openings(START, END)
+        openings = (await repo.get_window_visits(START, END)).visits
         last_seen = await repo.get_camera_last_seen(START, END)
-    assert [(item["camera"], int((item["opened_at"] - START).total_seconds())) for item in openings] == [
+    assert [(item.camera, int((item.opened_at - START).total_seconds())) for item in openings] == [
         ("birdcam", 0),
         ("patiocam", 30),
         ("birdcam", 36),
@@ -94,8 +94,8 @@ async def test_visit_openings_name_each_visit_once_with_its_camera(seeded):
 async def test_a_visit_running_when_the_window_opens_counts_once_inside_it(seeded):
     # The window opens at 24 seconds: the visit counts from its first capture inside it.
     async with get_db() as db:
-        openings = await DetectionRepository(db).get_window_visit_openings(START + timedelta(seconds=24), END)
-    assert [int((item["opened_at"] - START).total_seconds()) for item in openings] == [24, 30, 36, 2400]
+        openings = (await DetectionRepository(db).get_window_visits(START + timedelta(seconds=24), END)).visits
+    assert [int((item.opened_at - START).total_seconds()) for item in openings] == [24, 30, 36, 2400]
 
 
 @pytest.mark.asyncio

@@ -228,16 +228,32 @@ export async function generateHighQualityBirdCropSnapshot(frigateEvent: string):
     return handleResponse<SnapshotGenerateResponse>(response);
 }
 
-export async function dismissSnapshotCandidate(frigateEvent: string, candidateId: string, dismissed: boolean): Promise<SnapshotCandidateListResponse> {
-    const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/snapshot/candidates/${encodeURIComponent(candidateId)}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dismissed })
-    });
-    return handleResponse<SnapshotCandidateListResponse>(response);
+export type SnapshotDismissResponse = paths['/api/frigate/{event_id}/snapshot/candidates/{candidate_id}']['patch']['response'];
+export type SnapshotDismissalTarget = NonNullable<SnapshotDismissResponse['changed_dismissals']>[number];
+
+export interface PhotoChoiceChange {
+    /** The other framings behind the same thumbnail, removed or restored with it in one step. */
+    companionCandidateIds?: string[];
+    /** On restore, the pixels each removal was bound to; a later removal of other pixels stays. */
+    expectedContentIdentities?: Record<string, string>;
 }
 
-export async function fetchSnapshotCandidates(frigateEvent: string): Promise<SnapshotCandidateListResponse> {
-    const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/snapshot/candidates`);
-    const body = await handleResponse<SnapshotCandidateListResponse>(response);
+export async function dismissSnapshotCandidate(
+    frigateEvent: string,
+    candidateId: string,
+    dismissed: boolean,
+    change: PhotoChoiceChange = {}
+): Promise<SnapshotDismissResponse> {
+    const body: paths['/api/frigate/{event_id}/snapshot/candidates/{candidate_id}']['patch']['requestBody'] = { dismissed };
+    if (change.companionCandidateIds?.length) body.companion_candidate_ids = change.companionCandidateIds;
+    if (change.expectedContentIdentities) body.expected_content_identities = change.expectedContentIdentities;
+    const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/snapshot/candidates/${encodeURIComponent(candidateId)}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    return withCandidateMediaAuth(await handleResponse<SnapshotDismissResponse>(response));
+}
+
+function withCandidateMediaAuth<T extends { candidates: SnapshotCandidate[] }>(body: T): T {
     return {
         ...body,
         candidates: (body.candidates || []).map((candidate) => ({
@@ -246,6 +262,11 @@ export async function fetchSnapshotCandidates(frigateEvent: string): Promise<Sna
             thumbnail_url: candidate.thumbnail_url ? withAuthParams(candidate.thumbnail_url) : candidate.thumbnail_url
         }))
     };
+}
+
+export async function fetchSnapshotCandidates(frigateEvent: string): Promise<SnapshotCandidateListResponse> {
+    const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/snapshot/candidates`);
+    return withCandidateMediaAuth(await handleResponse<SnapshotCandidateListResponse>(response));
 }
 
 export async function updateCountedBird(

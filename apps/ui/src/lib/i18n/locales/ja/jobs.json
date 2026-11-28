@@ -34,7 +34,7 @@
   "kind_auto_video": "自動映像解析",
   "kind_video_analysis": "映像解析",
   "kind_high_quality_snapshot": "最高品質のスナップショット",
-  "kind_full_visit": "訪問全体のクリップ",
+  "kind_full_visit": "完全なクリップ",
   "errors_clear": "エラー履歴を消去",
   "errors_backend_empty": "エラー履歴を最後に消去してから、バックエンドは警告もエラーも記録していません。",
   "errors_export_failed": "現在の診断情報を取得できませんでした。もう一度お試しください。",
@@ -109,7 +109,7 @@
   "errors_filtered_hint": "さらに残すには、設定 → 鳥の識別で最小信頼度下限を下げてください。",
   "errors_filtered_recent": "最新",
   "errors_activity_title": "これまでの動き",
-  "errors_activity_subtitle": "記録された訪問、フィルターで除外された検出、パイプライン障害を発生順に表示します",
+  "errors_activity_subtitle": "記録された訪問、フィルターで除外された検出、意図的にスキップした処理、パイプライン障害を発生順に表示します",
   "errors_activity_window": "このインスタンスの起動から {started}",
   "errors_activity_no_window": "このインスタンスは起動時刻を報告していないため、まだ活動を期間に位置づけられません。",
   "errors_activity_empty": "このインスタンスが {started} 前に起動してから、検出アクティビティは報告されていません。",
@@ -118,8 +118,12 @@
   "errors_activity_recorded": "記録された訪問",
   "errors_activity_filtered": "フィルターで除外",
   "errors_activity_fault": "パイプライン障害",
+  "errors_activity_held_back": "意図的にスキップ",
   "errors_activity_view_record": "記録を表示",
   "errors_fault_preview": "{species} の失敗した検出フレームをプレビュー",
+  "errors_held_back_preview": "{subject} のフレームをプレビュー",
+  "errors_held_back_subject": "Frigate のイベント",
+  "errors_held_back_subject_camera": "{camera} の Frigate イベント",
   "errors_subsystems_title": "サブシステムの詳細",
   "errors_filtered_preview": "{species} として除外されたフレームをプレビュー",
   "errors_filtered_frame_gone": "Frigate にこのフレームは残っていません",
@@ -418,6 +422,14 @@
     "retention_paused_daily_totals": {
       "title": "日次集計を先に保存できなかったため、自動履歴クリーンアップを一時停止しました。",
       "next": "訪問データは削除されていません。データベースと空き容量を確認してください。次回実行時に再試行します。"
+    },
+    "media_set_aside_unreturned": {
+      "title": "クリーンアップで一時的に退避した写真や動画の一部を、まだ元に戻せていません。",
+      "next": "削除されたものはありません。YA-WAMF は次回のストレージ確認で再試行します。繰り返し発生する場合は、メディアフォルダーのディスクに空き容量があり、書き込みできることを確認してください。"
+    },
+    "media_kept_copies": {
+      "title": "クリーンアップで元に戻せなかった写真や動画の一部を、予備のコピーとして残しました。",
+      "next": "失われたものはありません。別のファイルが元の場所を使っていたため、両方を残しました。撮影を削除すると予備のコピーも削除されます。元に戻す方法はストレージのガイドで説明しています。"
     },
     "notification_queue_full": {
       "title": "送信キューが満杯だったため、通知を破棄しました。",

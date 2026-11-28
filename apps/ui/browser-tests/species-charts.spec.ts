@@ -49,7 +49,7 @@ test.beforeEach(async ({ page }) => {
             await route.fulfill({ json: { span: 'month', portraits: [] } });
         } else if (path === '/api/stats/detections/timeline') {
             await route.fulfill({ json: {
-                span: 'month', bucket: 'day', points, total_count: 54,
+                span: url.searchParams.get('span') ?? 'month', bucket: 'day', points, total_count: 54,
                 window_start: start, window_end: end,
                 compare_series: species.map(({ species }, speciesIndex) => ({
                     species,
@@ -246,7 +246,7 @@ test('repeated guest refreshes and a new window do not leave a fixed page height
         await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ })).toBeVisible();
         await expect(page.locator('[data-leaderboard-page]')).not.toHaveAttribute('style', /min-height: [1-9]/);
     }
-    await page.getByRole('button', { name: 'Week', exact: true }).click();
+    await page.getByRole('button', { name: 'Last 7 days', exact: true }).click();
     await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ })).toBeVisible();
     await expect(page.locator('[data-leaderboard-page]')).not.toHaveAttribute('style', /min-height: [1-9]/);
 });
@@ -375,7 +375,7 @@ test('the Dashboard link opens the 24 hour window at the species checks', async 
         return route.fulfill({ json: { span: 'day', species: [...species, junglefowl], window_start: start, window_end: end, nearby_radius_km: 50, nearby_days_back: 14 } });
     });
     await page.goto('/browser-tests/species-charts.html?span=day#checks');
-    await expect(page.getByRole('button', { name: 'Day', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Last 24 hours', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const checks = page.locator('[data-spotlight-checks]');
     await expect(checks).toContainText('Red Junglefowl');
     await expect(checks.getByRole('button').first()).toBeFocused();
@@ -450,6 +450,77 @@ test('a wall picture that fails keeps its cell, so nothing on the wall moves', a
     expect(broken).toBe(0);
 });
 
+test('expanding Show more visits loads revealed tiles and hover poster, and retries after transient failure', async ({ page }) => {
+    const requestedUrls: string[] = [];
+    let transientWallFailure = false;
+    await page.route(url => url.pathname === '/api/leaderboard/species', async route => {
+        const span = new URL(route.request().url()).searchParams.get('span') ?? 'month';
+        await route.fulfill({ json: { span, species, window_start: start, window_end: end } });
+    });
+    await page.route(url => url.pathname.startsWith('/api/about/showcase/') && url.pathname.endsWith('.jpg'), async route => {
+        requestedUrls.push(route.request().url());
+        const id = Number(route.request().url().match(/wall-(?:retry-)?(\d+)\.jpg/)?.[1] ?? -1);
+        if (transientWallFailure && id >= 50) {
+            await route.fulfill({ status: 503, headers: { 'Retry-After': '5', 'Cache-Control': 'no-store' }, contentType: 'text/plain', body: 'busy' });
+            return;
+        }
+        await route.fulfill({ headers: { 'Cache-Control': 'no-store' }, contentType: 'image/svg+xml', body: pixel });
+    });
+
+    wallCaptures = captures(80);
+    transientWallFailure = true;
+    await page.reload();
+    await expect(page.locator('[data-capture-wall-tile]').first()).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    const initialCount = await page.locator('[data-capture-wall-tile]').count();
+    expect(initialCount).toBeGreaterThan(0);
+
+    // Expanding while the backend is transiently unavailable shows missing cells for failed tiles without breaking layout.
+    await page.locator('[data-capture-wall-more]').click();
+    await expect.poll(() => page.locator('[data-capture-wall-tile]').count()).toBeGreaterThan(initialCount);
+    await expect(page.locator('[data-capture-wall-missing]').first()).toBeVisible();
+
+    // Once the upstream recovers, a real wall refetch (period switch) clears stale failures via retryGeneration without collapsing.
+    transientWallFailure = false;
+    await page.getByRole('button', { name: 'Last 7 days', exact: true }).click();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-capture-wall-missing]')).toHaveCount(0);
+
+    // Collapsing and re-expanding also retries tiles that failed transiently while expanded.
+    transientWallFailure = true;
+    wallCaptures = captures(80).map((item, index) => ({ ...item, frigate_event: `wall-retry-${index}` }));
+    await page.getByRole('button', { name: 'Last 30 days', exact: true }).click();
+    await expect(page.locator('[data-capture-wall-missing]').first()).toBeVisible();
+    transientWallFailure = false;
+    await page.locator('[data-capture-wall-more]').click();
+    await page.locator('[data-capture-wall-more]').click();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-capture-wall-missing]')).toHaveCount(0);
+
+    const lastTile = page.locator('[data-capture-wall-tile]').last();
+    await lastTile.scrollIntoViewIfNeeded();
+    await expect.poll(() => lastTile.locator('img').evaluate(img => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
+    const tileSrc = await lastTile.locator('img').getAttribute('src');
+    const focusedEvent = tileSrc?.match(/\/api\/about\/showcase\/(wall-(?:retry-)?\d+)\.jpg/)?.[1] ?? null;
+    expect(focusedEvent).not.toBeNull();
+
+    // Move the pointer off the wall so expanding does not trigger an unrelated tile hover,
+    // then focus the last expanded tile and verify its popout loads that exact visit's card poster.
+    await page.mouse.move(0, 0);
+    await page.locator('[data-capture-wall-tile][tabindex="0"]').focus();
+    await page.keyboard.press('End');
+    const popout = page.locator('[data-capture-wall-popout]');
+    await expect(popout).toBeVisible();
+    await expect(popout.locator('img')).toHaveAttribute('src', `/api/about/showcase/${focusedEvent}.jpg`);
+    await expect.poll(() => popout.locator('img').evaluate(img => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
+    expect(
+        requestedUrls.some(url => {
+            const parsed = new URL(url);
+            return parsed.pathname === `/api/about/showcase/${focusedEvent}.jpg` && !parsed.searchParams.has('size');
+        })
+    ).toBe(true);
+});
+
 test('the chart says from which day its counts come from daily totals, and nothing when none do', async ({ page }) => {
     // The default fixture counts stored captures only.
     await expect(page.locator('canvas[aria-label^="Captures over time"]')).toBeVisible();
@@ -491,4 +562,192 @@ test('the hour and weekday heatmap says sealed days have no time of day rather t
     await expect(page.locator('[data-heatmap-stored-only]')).toHaveText(
         'Hour and weekday count stored captures only: a daily total has no time of day.'
     );
+});
+
+const todayRanking = (species: unknown[], extra: Record<string, unknown> = {}) => ({
+    span: 'today', species, window_start: start, window_end: end,
+    previous_window_complete: false, previous_window_mismatch: null, nearby_check: 'off', ...extra,
+});
+
+test('Today asks Seen, Heard, the portraits and every chart, the one-species heatmap too, for today', async ({ page }) => {
+    const charted = ['/api/leaderboard/species', '/api/audio/species', '/api/leaderboard/portraits', '/api/stats/detections/timeline', '/api/stats/detections/activity-heatmap'];
+    const asked = new Map<string, string[]>();
+    await page.route(url => charted.includes(url.pathname), async route => {
+        const url = new URL(route.request().url());
+        const key = url.searchParams.get('species') ? `${url.pathname}?species` : url.pathname;
+        asked.set(key, [...(asked.get(key) ?? []), url.searchParams.get('span') ?? '']);
+        if (url.pathname === '/api/audio/species') {
+            return route.fulfill({ json: { span: url.searchParams.get('span'), species: [], window_start: start, window_end: end, previous_window_complete: false } });
+        }
+        return route.fallback();
+    });
+    await page.goto('/browser-tests/species-charts.html?birdnet');
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Today');
+    await page.locator('[data-leaderboard-heatmap-species]').getByRole('button', { name: 'Robin', exact: true }).click();
+    for (const path of [...charted, '/api/stats/detections/activity-heatmap?species']) {
+        await expect.poll(() => asked.get(path) ?? [], { message: path }).toContain('today');
+    }
+});
+
+test('an early Today says no visits have arrived yet and states a cut start', async ({ page }) => {
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ json: todayRanking([], { window_shortened: true, previous_window_mismatch: 'shared_window' }) }));
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Today', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('heading', { name: 'No visits yet today' })).toBeVisible();
+    await expect(page.getByText('Today counts from midnight, so it starts empty each morning.')).toBeVisible();
+    await expect(page.locator('[data-leaderboard-window-shortened]')).toContainText('Counted from');
+});
+
+test('a Today that failed to load shows its error, never an empty day', async ({ page }) => {
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ status: 400, json: { detail: 'Bad span' } }));
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'No visits yet today' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'No birds recorded yet' })).toHaveCount(0);
+});
+
+test('a Today of Unknown bird alone says the filter hides it, not that nothing came', async ({ page }) => {
+    const unknown = { ...species[0], species: 'Unknown Bird', common_name: null, scientific_name: null };
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ json: todayRanking([unknown]) }));
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.getByText('Only Unknown bird visits are available right now.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'No visits yet today' })).toHaveCount(0);
+});
+
+test('while Today loads, the rows and charts on screen keep the name of the period they counted', async ({ page }) => {
+    let answer: () => void = () => undefined;
+    const held = new Promise<void>(resolve => { answer = resolve; });
+    await page.route('**/api/leaderboard/species?span=today', async route => {
+        await held;
+        await route.fulfill({ json: todayRanking(species) });
+    });
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Last 30 days');
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Today', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Last 30 days');
+    await expect(page.locator('[data-leaderboard-rankings-window]')).not.toContainText('Today');
+    await expect(page.locator('[data-leaderboard-analytics-window]')).not.toContainText('Today');
+    answer();
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Today');
+    await expect(page.locator('[data-leaderboard-analytics-window]')).toContainText('Today');
+});
+
+test('a Today load answered either side of midnight is asked again, and shows one day throughout', async ({ page }) => {
+    const yesterday = '2026-09-07T23:00:00Z';
+    const today = '2026-09-08T23:00:00Z';
+    const todayEnd = '2026-09-09T00:10:00Z';
+    let rankings = 0;
+    await page.route('**/api/leaderboard/species?span=today', route => {
+        rankings += 1;
+        // The first ranking was read a moment before midnight; the charts after it.
+        return route.fulfill({ json: todayRanking(species, { window_start: rankings === 1 ? yesterday : today, window_end: todayEnd }) });
+    });
+    await page.route(url => url.pathname === '/api/stats/detections/timeline' && url.searchParams.get('span') === 'today', route => route.fulfill({ json: {
+        span: 'today', bucket: 'hour', points: [], total_count: 0, window_start: today, window_end: todayEnd,
+    } }));
+    await page.route(url => url.pathname === '/api/stats/detections/activity-heatmap' && url.searchParams.get('span') === 'today', route => route.fulfill({ json: {
+        span: 'today', window_start: today, window_end: todayEnd, total_count: 0, max_cell_count: 0, cells: [],
+    } }));
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    const rankingsWindow = page.locator('[data-leaderboard-rankings-window]');
+    await expect(rankingsWindow).toContainText('Today');
+    await expect.poll(() => rankings).toBe(2);
+    // The rankings, the wall and the charts all name the one day that was accepted.
+    const accepted = (await rankingsWindow.textContent())?.trim() ?? '';
+    await expect(page.locator('[data-leaderboard-analytics-window]')).toHaveText(accepted);
+    await expect(page.locator('[data-capture-wall] header p').first()).toContainText(accepted);
+    await page.waitForTimeout(500);
+    expect(rankings).toBe(2);
+});
+
+test('a Today that straddles midnight on every try is refused, and the last period stays whole', async ({ page }) => {
+    let heard = 0;
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ json: todayRanking(species, { window_start: '2026-09-07T23:00:00Z' }) }));
+    await page.route(url => url.pathname === '/api/audio/species', route => {
+        if (url_span(route) === 'today') heard += 1;
+        // Heard always answers for the next day, so no try ever agrees.
+        return route.fulfill({ json: { span: url_span(route), species: [], window_start: url_span(route) === 'today' ? '2026-09-08T23:00:00Z' : start, window_end: end, previous_window_complete: false } });
+    });
+    await page.goto('/browser-tests/species-charts.html?birdnet');
+    const rankingsWindow = page.locator('[data-leaderboard-rankings-window]');
+    await expect(rankingsWindow).toContainText('Last 30 days');
+    const before = await page.locator('[data-leaderboard-rankings]').textContent();
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.getByRole('alert')).toContainText('The day changed while the Leaderboard was loading');
+    expect(heard).toBe(3);
+    await expect(rankingsWindow).toContainText('Last 30 days');
+    expect(await page.locator('[data-leaderboard-rankings]').textContent()).toBe(before);
+});
+
+test('switching to Today keeps the last period whole until Seen and Heard have both answered', async ({ page }) => {
+    let answer: () => void = () => undefined;
+    const heardHeld = new Promise<void>(resolve => { answer = resolve; });
+    const calls = (span: string | null) => span === 'today'
+        ? [{ species: 'Robin', scientific_name: 'Robin', heard_count: 1, heard_prev_count: 0, heard_delta: 1, heard_percent: 0, avg_confidence: 0.8 }]
+        : [{ species: 'Robin', scientific_name: 'Robin', heard_count: 50, heard_prev_count: 40, heard_delta: 10, heard_percent: 25, avg_confidence: 0.8 }];
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ json: todayRanking([{ ...species[0], window_count: 2, window_prev_count: 0 }]) }));
+    await page.route(url => url.pathname === '/api/audio/species', async route => {
+        const span = url_span(route);
+        if (span === 'today') await heardHeld;
+        await route.fulfill({ json: { span, species: calls(span), window_start: start, window_end: end, previous_window_complete: false } });
+    });
+    await page.goto('/browser-tests/species-charts.html?birdnet');
+    await page.locator('[data-leaderboard-source="both"]').first().click();
+    const rankings = page.locator('[data-leaderboard-rankings]');
+    // Robin: 22 captures beside 50 calls over the last 30 days.
+    await expect(rankings).toContainText('Robin2250');
+    const before = await rankings.textContent();
+    const dates = await page.locator('[data-leaderboard-rankings-window]').textContent();
+
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Today', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    // Seen has answered for today; Heard has not, so nothing of either is shown yet.
+    await page.waitForTimeout(300);
+    expect(await rankings.textContent()).toBe(before);
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toHaveText(dates ?? '');
+
+    answer();
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Today');
+    // Today's 2 captures beside today's 1 call, never today's captures beside 30 days of calls.
+    await expect(rankings).toContainText('Robin21');
+    await expect(rankings).not.toContainText('Robin250');
+});
+
+function url_span(route: { request(): { url(): string } }): string | null {
+    return new URL(route.request().url()).searchParams.get('span');
+}
+
+test('a one-species grid answered for another day replaces the old period\'s grid with an honest gap', async ({ page }) => {
+    await page.locator('[data-leaderboard-heatmap-species]').getByRole('button', { name: 'Robin', exact: true }).click();
+    const grid = page.getByRole('grid', { name: /Activity by weekday and hour/ });
+    await expect(grid).toBeVisible();
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ json: todayRanking(species) }));
+    await page.route(url => url.pathname === '/api/stats/detections/activity-heatmap' && url.searchParams.get('span') === 'today' && url.searchParams.has('species'), route => route.fulfill({ json: {
+        span: 'today', species: 'Robin', window_start: '2026-08-31T23:00:00Z', window_end: end, total_count: 9, max_cell_count: 9,
+        cells: [{ day_of_week: 1, hour: 8, count: 9 }],
+    } }));
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Today');
+    await expect(page.getByText('That species’ activity could not be loaded.')).toBeVisible();
+    await expect(grid).toHaveCount(0);
+});
+
+test('Today charts that answer for another day on every try are taken down with a retry', async ({ page }) => {
+    let charts = 0;
+    await page.route('**/api/leaderboard/species?span=today', route => route.fulfill({ json: todayRanking(species) }));
+    await page.route(url => url.pathname === '/api/stats/detections/timeline' && url.searchParams.get('span') === 'today', route => {
+        charts += 1;
+        return route.fulfill({ json: { span: 'today', bucket: 'hour', points, total_count: 54, window_start: '2026-09-02T00:00:00Z', window_end: end } });
+    });
+    await expect(page.locator('canvas[aria-label^="Captures over time"]')).toBeVisible();
+    await page.getByRole('button', { name: 'Today', exact: true }).click();
+    const notice = page.locator('[data-leaderboard-charts-day-changed]');
+    await expect(notice).toContainText('The day changed while the charts were loading');
+    await expect(notice.getByRole('button', { name: 'Retry' })).toBeVisible();
+    expect(charts).toBe(3);
+    await expect(page.locator('[data-leaderboard-rankings-window]')).toContainText('Today');
+    // Neither the last period's charts nor the other day's are left on screen.
+    await expect(page.locator('canvas[aria-label^="Captures over time"]')).toHaveCount(0);
+    await expect(page.getByRole('grid', { name: /Activity by weekday and hour/ })).toHaveCount(0);
 });

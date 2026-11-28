@@ -1,4 +1,5 @@
 import type { GardenServerVisit } from '../api/garden';
+import type { DeskWindowKind } from './desk-window';
 import type { HealthTimelineRow } from './health-timeline';
 import type { DetectionVisit } from './visit-grouping';
 
@@ -7,7 +8,7 @@ import type { DetectionVisit } from './visit-grouping';
  * Operational fault history belongs to HealthActivityTimeline instead.
  */
 export type FieldLogRow =
-    | Exclude<HealthTimelineRow, { kind: 'fault' }>
+    | Exclude<HealthTimelineRow, { kind: 'fault' | 'held_back' }>
     | { kind: 'garden'; key: string; at: number; visit: GardenServerVisit };
 
 /**
@@ -41,6 +42,15 @@ export const FIELD_LOG_CELL = {
  */
 export function namesCameras(visits: readonly { camera: string }[]): boolean {
     return new Set(visits.map((visit) => visit.camera)).size > 1;
+}
+
+/**
+ * Where the log's "earlier visits" line opens the Explorer: the window the Dashboard shows (Today,
+ * or the last 24 hours) and the same visitors. The visitors are named, not left to the device, so
+ * an Explorer last left on Garden alone cannot hide the bird visits the line counted.
+ */
+export function fieldLogWindowLink(includesGarden: boolean, window: DeskWindowKind = 'rolling'): string {
+    return `/events?date=${window === 'today' ? 'today' : '24h'}&visitors=${includesGarden ? 'all' : 'birds'}`;
 }
 
 /**

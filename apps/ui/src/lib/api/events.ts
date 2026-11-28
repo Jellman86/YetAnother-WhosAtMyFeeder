@@ -7,6 +7,9 @@ export interface FetchEventsOptions {
     offset?: number;
     startDate?: string;
     endDate?: string;
+    /** An exact UTC instant; outranks `startDate`, for a window no calendar day states. */
+    startTime?: string;
+    endTime?: string;
     species?: string;
     camera?: string;
     sort?: 'newest' | 'oldest' | 'confidence';
@@ -15,6 +18,8 @@ export interface FetchEventsOptions {
     favoritesOnly?: boolean;
     audioConfirmedOnly?: boolean;
     multipleSpeciesOnly?: boolean;
+    /** Owner-only: records an owner named a species for; the server ignores it for visitors. */
+    ownerConfirmedOnly?: boolean;
     /** A catalogue taxon: species at or beneath it, from the Explorer search. */
     taxon?: number;
     eventId?: string;
@@ -24,12 +29,14 @@ export interface FetchEventsOptions {
 }
 
 export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
-    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, taxon, eventId, fields, requestKey, signal } = options;
+    const { limit = 50, offset = 0, startDate, endDate, startTime, endTime, species, camera, sort, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, ownerConfirmedOnly, taxon, eventId, fields, requestKey, signal } = options;
     const params = new URLSearchParams();
     params.set('limit', limit.toString());
     params.set('offset', offset.toString());
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
+    if (startTime) params.set('start_time', startTime);
+    if (endTime) params.set('end_time', endTime);
     if (species) params.set('species', species);
     if (camera) params.set('camera', camera);
     if (sort) params.set('sort', sort);
@@ -38,6 +45,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     if (favoritesOnly) params.set('favorites', 'true');
     if (audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
     if (multipleSpeciesOnly) params.set('multiple_species_only', 'true');
+    if (ownerConfirmedOnly) params.set('owner_confirmed_only', 'true');
     if (taxon) params.set('taxon', String(taxon));
     if (eventId) params.set('event_id', eventId);
     if (fields) params.set('fields', fields);
@@ -51,11 +59,14 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
         favoritesOnly ? 'favorites' : 'all',
         audioConfirmedOnly ? 'audio' : 'all',
         multipleSpeciesOnly ? 'multi-species' : 'all',
+        ownerConfirmedOnly ? 'owner-confirmed' : 'all',
         taxon ? `taxon-${taxon}` : 'all-taxa',
         eventId || 'all-events',
         fields || 'full',
         startDate || 'none',
         endDate || 'none',
+        startTime || 'none',
+        endTime || 'none',
         String(limit),
         String(offset)
     ].join('-');
@@ -77,13 +88,41 @@ export async function fetchEventClassificationStatus(frigateEventId: string): Pr
 export type EventFilters = paths['/api/events/filters']['get']['response'];
 export type EventFilterSpecies = EventFilters['species'][number];
 
+/** The options are every species and camera the viewer may see; their counts follow these filters. */
 export interface FetchEventFiltersOptions {
     forceRefresh?: boolean;
+    /** What each count counts; captures when not given. */
+    unit?: 'visits' | 'captures';
+    startDate?: string;
+    endDate?: string;
+    startTime?: string;
+    endTime?: string;
+    species?: string;
+    taxon?: number;
+    camera?: string;
+    favoritesOnly?: boolean;
+    audioConfirmedOnly?: boolean;
+    multipleSpeciesOnly?: boolean;
+    ownerConfirmedOnly?: boolean;
+    onlyHidden?: boolean;
 }
 
 export async function fetchEventFilters(options: FetchEventFiltersOptions = {}): Promise<EventFilters> {
     const params = new URLSearchParams();
     if (options.forceRefresh) params.set('force_refresh', 'true');
+    if (options.unit) params.set('unit', options.unit);
+    if (options.startDate) params.set('start_date', options.startDate);
+    if (options.endDate) params.set('end_date', options.endDate);
+    if (options.startTime) params.set('start_time', options.startTime);
+    if (options.endTime) params.set('end_time', options.endTime);
+    if (options.species) params.set('species', options.species);
+    if (options.taxon) params.set('taxon', String(options.taxon));
+    if (options.camera) params.set('camera', options.camera);
+    if (options.favoritesOnly) params.set('favorites', 'true');
+    if (options.audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
+    if (options.multipleSpeciesOnly) params.set('multiple_species_only', 'true');
+    if (options.ownerConfirmedOnly) params.set('owner_confirmed_only', 'true');
+    if (options.onlyHidden) params.set('only_hidden', 'true');
     const query = params.toString();
     const response = await apiFetch(`${API_BASE}/events/filters${query ? `?${query}` : ''}`);
     return handleResponse<EventFilters>(response);
@@ -92,6 +131,8 @@ export async function fetchEventFilters(options: FetchEventFiltersOptions = {}):
 export interface EventsCountOptions {
     startDate?: string;
     endDate?: string;
+    startTime?: string;
+    endTime?: string;
     species?: string;
     camera?: string;
     includeHidden?: boolean;
@@ -99,6 +140,7 @@ export interface EventsCountOptions {
     favoritesOnly?: boolean;
     audioConfirmedOnly?: boolean;
     multipleSpeciesOnly?: boolean;
+    ownerConfirmedOnly?: boolean;
     taxon?: number;
     requestKey?: string | null;
 }
@@ -106,10 +148,12 @@ export interface EventsCountOptions {
 export type EventsCountResponse = paths['/api/events/count']['get']['response'];
 
 export async function fetchEventsCount(options: EventsCountOptions = {}): Promise<EventsCountResponse> {
-    const { startDate, endDate, species, camera, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, taxon, requestKey } = options;
+    const { startDate, endDate, startTime, endTime, species, camera, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, ownerConfirmedOnly, taxon, requestKey } = options;
     const params = new URLSearchParams();
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
+    if (startTime) params.set('start_time', startTime);
+    if (endTime) params.set('end_time', endTime);
     if (species) params.set('species', species);
     if (camera) params.set('camera', camera);
     if (includeHidden) params.set('include_hidden', 'true');
@@ -117,6 +161,7 @@ export async function fetchEventsCount(options: EventsCountOptions = {}): Promis
     if (favoritesOnly) params.set('favorites', 'true');
     if (audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
     if (multipleSpeciesOnly) params.set('multiple_species_only', 'true');
+    if (ownerConfirmedOnly) params.set('owner_confirmed_only', 'true');
     if (taxon) params.set('taxon', String(taxon));
 
     const filterKey = [
@@ -127,9 +172,12 @@ export async function fetchEventsCount(options: EventsCountOptions = {}): Promis
         favoritesOnly ? 'favorites' : 'all',
         audioConfirmedOnly ? 'audio' : 'all',
         multipleSpeciesOnly ? 'multi-species' : 'all',
+        ownerConfirmedOnly ? 'owner-confirmed' : 'all',
         taxon ? `taxon-${taxon}` : 'all-taxa',
         startDate || 'none',
-        endDate || 'none'
+        endDate || 'none',
+        startTime || 'none',
+        endTime || 'none'
     ].join('-');
     return fetchWithAbort<EventsCountResponse>(
         requestKey === undefined ? filterKey : requestKey,
@@ -215,7 +263,10 @@ export async function fetchHiddenCount(): Promise<paths['/api/events/hidden-coun
 export type ReviewQueueResponse = paths['/api/events/review-queue']['get']['response'];
 
 /** Everything waiting on a person, oldest first, with the full count. Owner only. */
-export async function fetchReviewQueue(options: { limit: number; signal?: AbortSignal }): Promise<ReviewQueueResponse> {
-    const response = await apiFetch(`${API_BASE}/events/review-queue?limit=${options.limit}`, { signal: options.signal });
+type ReviewQueueWindow = NonNullable<paths['/api/events/review-queue']['get']['query']['window']>;
+
+/** What waits on the owner in `window`: the Dashboard's Today or its last 24 hours. */
+export async function fetchReviewQueue(options: { limit: number; window?: ReviewQueueWindow; signal?: AbortSignal }): Promise<ReviewQueueResponse> {
+    const response = await apiFetch(`${API_BASE}/events/review-queue?limit=${options.limit}&window=${options.window ?? 'rolling'}`, { signal: options.signal });
     return handleResponse<ReviewQueueResponse>(response);
 }

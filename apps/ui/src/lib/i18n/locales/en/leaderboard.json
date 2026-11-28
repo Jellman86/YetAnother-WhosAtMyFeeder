@@ -1,9 +1,9 @@
 {
   "title": "Species Leaderboard",
-  "sort_by_total": "Total",
-  "sort_by_day": "Day",
-  "sort_by_week": "Week",
-  "sort_by_month": "Month",
+  "sort_by_total": "All time",
+  "sort_by_day": "Last 24 hours",
+  "sort_by_week": "Last 7 days",
+  "sort_by_month": "Last 30 days",
   "include_unknown": "Include Unknown bird",
   "source_toggle": "Seen or heard",
   "source_seen": "Seen",
@@ -78,6 +78,8 @@
   "weather_overlay_no_data": "No weather data in this range yet.",
   "weather_overlay_range_limited": "Weather overlays are available for the day, week and month spans.",
   "load_failed": "The leaderboard could not be loaded. Check that YA-WAMF is reachable, then try again.",
+  "today_changed": "The day changed while the Leaderboard was loading, so nothing new is shown. Retry to count the new day.",
+  "charts_day_changed": "The day changed while the charts were loading, so they are not shown. Retry to draw the new day.",
   "species_compare_title": "Species comparison",
   "species_compare_subtitle": "Top species over time",
   "activity_heatmap_subtitle": "Activity by hour and weekday",
@@ -219,5 +221,13 @@
   "table_share": "Share",
   "standing_heading": "How the window stands",
   "no_activity_daily_totals": "These days come from daily totals, which keep the count of captures but not the time of day.",
-  "heatmap_stored_only": "Hour and weekday count stored captures only: a daily total has no time of day."
+  "heatmap_stored_only": "Hour and weekday count stored captures only: a daily total has no time of day.",
+  "sort_by_today": "Today",
+  "heatmap_day_column": "Day",
+  "today_empty_title": "No visits yet today",
+  "today_empty_desc": "Today counts from midnight, so it starts empty each morning. Visits appear here as they arrive. Choose Last 24 hours to include yesterday evening.",
+  "window_shortened_note": "Counted from {time}, when the history shared with guests begins.",
+  "trend_not_comparable_clock": "No trend today. A clock change skipped or repeated this time yesterday, or made the two days different lengths.",
+  "trend_not_comparable_shared": "No trend here. The history shared with guests does not cover the whole earlier window.",
+  "trend_not_comparable_cleanup": "No trend here. Cleanup removed some captures from the windows being compared, so one count would be too low."
 }

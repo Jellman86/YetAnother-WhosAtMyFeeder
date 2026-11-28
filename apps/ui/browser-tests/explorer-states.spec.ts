@@ -79,7 +79,8 @@ test('a failed first read says so with Try again, never "No events yet" or "0 vi
     await expect(count(page)).toHaveText('Count unavailable');
     await expect(count(page)).toHaveAttribute('role', 'status');
     await expect(page.getByText('No events yet')).toHaveCount(0);
-    await expect(page.getByText(/^0 visits$/)).toHaveCount(0);
+    // The filter rail reads its own counts aloud with their unit; outside it nothing claims 0 visits.
+    await expect(page.getByText(/^0 visits$/).and(page.locator(':not([data-events-filter-bar] *)'))).toHaveCount(0);
     await expect(page.locator('[data-explorer-empty]')).toHaveCount(0);
     const retry = alert.getByRole('button', { name: 'Try again' });
     expect((await retry.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);

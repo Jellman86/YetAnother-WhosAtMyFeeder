@@ -73,11 +73,20 @@ def whole_days(window: CountWindow, zone: tzinfo, floor: date | None) -> tuple[d
 
 
 async def sealed_species_counts(
-    db: aiosqlite.Connection, windows: Sequence[CountWindow], *, zone: tzinfo, floor: date | None
+    db: aiosqlite.Connection,
+    windows: Sequence[CountWindow],
+    *,
+    zone: tzinfo,
+    floor: date | None,
+    totals: bool = True,
 ) -> SealedSpeciesCounts:
-    """Sealed totals and lost captures per species for each window; ``floor`` keeps a guest's window."""
+    """Sealed totals and lost captures per species for each window; ``floor`` keeps a guest's window.
+
+    With ``totals`` false no sealed day is counted from its daily total; captures Frigate lost still
+    count on their live day, as the hourly chart counts them.
+    """
     repo = DailyTotalsRepository(db)
-    spans = [whole_days(window, zone, floor) for window in windows]
+    spans = [whole_days(window, zone, floor) if totals else None for window in windows]
     found = SealedSpeciesCounts()
 
     def entry(key: str, species: str, scientific: str | None, common: str | None, taxa: int | None) -> SealedSpecies:

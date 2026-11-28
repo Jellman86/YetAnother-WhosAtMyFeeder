@@ -1305,9 +1305,31 @@
             "title": "Last Heard",
             "type": "string"
           },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
           "source_name": {
             "title": "Source Name",
             "type": "string"
+          },
+          "source_node": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Node"
           }
         },
         "required": [
@@ -1396,8 +1418,25 @@
             "title": "Previous Window Complete",
             "type": "boolean"
           },
+          "previous_window_mismatch": {
+            "anyOf": [
+              {
+                "enum": [
+                  "clock_change",
+                  "shared_window",
+                  "cleanup"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Window Mismatch"
+          },
           "span": {
             "enum": [
+              "today",
               "day",
               "week",
               "month",
@@ -1416,6 +1455,11 @@
           "window_end": {
             "title": "Window End",
             "type": "string"
+          },
+          "window_shortened": {
+            "default": false,
+            "title": "Window Shortened",
+            "type": "boolean"
           },
           "window_start": {
             "title": "Window Start",
@@ -1533,9 +1577,19 @@
           "total": {
             "title": "Total",
             "type": "integer"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
           }
         },
         "required": [
+          "window_start",
+          "window_end",
           "total",
           "species_count",
           "source_count",
@@ -2915,6 +2969,18 @@
             "description": "The stored label, usually the classifier's scientific name",
             "title": "Species",
             "type": "string"
+          },
+          "species_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Catalogue species id, when the label resolves; compare it with a capture's species_id",
+            "title": "Species Id"
           }
         },
         "required": [
@@ -5840,6 +5906,16 @@
             "title": "Total Count",
             "type": "integer"
           },
+          "unknown_visit_count": {
+            "default": 0,
+            "title": "Unknown Visit Count",
+            "type": "integer"
+          },
+          "unresolved_count": {
+            "default": 0,
+            "title": "Unresolved Count",
+            "type": "integer"
+          },
           "visit_count": {
             "default": 0,
             "title": "Visit Count",
@@ -6461,6 +6537,17 @@
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "species_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species Id"
           },
           "sub_label": {
             "anyOf": [
@@ -7296,6 +7383,17 @@
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "species_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species Id"
           },
           "sub_label": {
             "anyOf": [
@@ -8879,7 +8977,7 @@
         "type": "object"
       },
       "EventFilterTotals": {
-        "description": "Counts for the facets that are a flag rather than a value.",
+        "description": "Counts for the facets that are a flag rather than a value, in the response's `unit`.",
         "properties": {
           "audio_matched": {
             "default": 0,
@@ -8889,6 +8987,11 @@
           "favorites": {
             "default": 0,
             "title": "Favorites",
+            "type": "integer"
+          },
+          "hidden": {
+            "default": 0,
+            "title": "Hidden",
             "type": "integer"
           },
           "total": {
@@ -8906,7 +9009,7 @@
         "type": "object"
       },
       "EventFilters": {
-        "description": "Available filter options for events.",
+        "description": "Available filter options for events, each counted as choosing it would show.",
         "properties": {
           "camera_counts": {
             "additionalProperties": {
@@ -8923,6 +9026,17 @@
             "title": "Cameras",
             "type": "array"
           },
+          "gap_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gap Seconds"
+          },
           "species": {
             "items": {
               "$ref": "#/components/schemas/EventFilterSpecies"
@@ -8935,9 +9049,19 @@
             "default": {
               "audio_matched": 0,
               "favorites": 0,
+              "hidden": 0,
               "total": 0,
               "video_analysed": 0
             }
+          },
+          "unit": {
+            "default": "captures",
+            "enum": [
+              "captures",
+              "visits"
+            ],
+            "title": "Unit",
+            "type": "string"
           }
         },
         "required": [
@@ -12728,6 +12852,7 @@
           },
           "span": {
             "enum": [
+              "today",
               "day",
               "week",
               "month",
@@ -12735,6 +12860,17 @@
             ],
             "title": "Span",
             "type": "string"
+          },
+          "window_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Window Start"
           }
         },
         "required": [
@@ -12928,8 +13064,25 @@
             "title": "Previous Window Complete",
             "type": "boolean"
           },
+          "previous_window_mismatch": {
+            "anyOf": [
+              {
+                "enum": [
+                  "clock_change",
+                  "shared_window",
+                  "cleanup"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Window Mismatch"
+          },
           "span": {
             "enum": [
+              "today",
               "day",
               "week",
               "month"
@@ -12947,6 +13100,11 @@
           "window_end": {
             "title": "Window End",
             "type": "string"
+          },
+          "window_shortened": {
+            "default": false,
+            "title": "Window Shortened",
+            "type": "boolean"
           },
           "window_start": {
             "title": "Window Start",
@@ -21043,7 +21201,7 @@
           },
           "media_cache_per_species_maximum": {
             "default": 0,
-            "description": "Maximum cached visits per species, excluding favourites; 0 is unlimited",
+            "description": "Maximum cached captures per species, excluding favourites; 0 is unlimited",
             "maximum": 10000.0,
             "minimum": 0.0,
             "title": "Media Cache Per Species Maximum",
@@ -22409,6 +22567,11 @@
       },
       "SnapshotCandidateListResponse": {
         "properties": {
+          "as_recorded_dismissed": {
+            "default": false,
+            "title": "As Recorded Dismissed",
+            "type": "boolean"
+          },
           "birds": {
             "items": {
               "$ref": "#/components/schemas/BirdObservationResponse"
@@ -22637,15 +22800,144 @@
       },
       "SnapshotDismissRequest": {
         "properties": {
+          "companion_candidate_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 16,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Companion Candidate Ids"
+          },
           "dismissed": {
             "title": "Dismissed",
             "type": "boolean"
+          },
+          "expected_content_identities": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "maxLength": 160,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxProperties": 17,
+                "propertyNames": {
+                  "maxLength": 160,
+                  "minLength": 1
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Content Identities"
           }
         },
         "required": [
           "dismissed"
         ],
         "title": "SnapshotDismissRequest",
+        "type": "object"
+      },
+      "SnapshotDismissResponse": {
+        "properties": {
+          "as_recorded_dismissed": {
+            "default": false,
+            "title": "As Recorded Dismissed",
+            "type": "boolean"
+          },
+          "birds": {
+            "items": {
+              "$ref": "#/components/schemas/BirdObservationResponse"
+            },
+            "title": "Birds",
+            "type": "array"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotCandidateResponse"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "changed_dismissals": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotDismissalTarget"
+            },
+            "title": "Changed Dismissals",
+            "type": "array"
+          },
+          "current_candidate_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Candidate Id"
+          },
+          "current_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Source"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "model_crop_miss_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Crop Miss Reason"
+          }
+        },
+        "required": [
+          "event_id",
+          "candidates"
+        ],
+        "title": "SnapshotDismissResponse",
+        "type": "object"
+      },
+      "SnapshotDismissalTarget": {
+        "properties": {
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "content_identity": {
+            "title": "Content Identity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "content_identity"
+        ],
+        "title": "SnapshotDismissalTarget",
         "type": "object"
       },
       "SnapshotGenerateResponse": {
@@ -22721,7 +23013,10 @@
               "already_hq_bird_crop",
               "generated_hq_bird_crop",
               "generated_hq_snapshot",
-              "existing_crop_preserved"
+              "existing_crop_preserved",
+              "manual_selection_preserved",
+              "photo_settings_unreadable",
+              "photo_set_aside"
             ],
             "title": "Status",
             "type": "string"
@@ -25685,7 +25980,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.24.2"
+    "version": "2.25.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -25842,7 +26137,7 @@
     },
     "/api/about/showcase/{event_id}.jpg": {
       "get": {
-        "description": "The stored photograph at card or tile size, under the same access rules as the photograph.",
+        "description": "The visit photograph at card or tile size, under the same access rules as snapshot.jpg.",
         "operationId": "get_about_reel_image_api_about_showcase__event_id__jpg_get",
         "parameters": [
           {
@@ -26924,12 +27219,15 @@
         "operationId": "get_audio_species_leaderboard_api_audio_species_get",
         "parameters": [
           {
+            "description": "`today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored call.",
             "in": "query",
             "name": "span",
             "required": false,
             "schema": {
               "default": "week",
+              "description": "`today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored call.",
               "enum": [
+                "today",
                 "day",
                 "week",
                 "month",
@@ -30465,6 +30763,44 @@
             }
           },
           {
+            "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
+              "title": "End Time"
+            }
+          },
+          {
             "description": "Filter by species name",
             "in": "query",
             "name": "species",
@@ -30571,6 +30907,18 @@
               "default": false,
               "description": "Owner: captures with at least two named bird species",
               "title": "Multiple Species Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+            "in": "query",
+            "name": "owner_confirmed_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+              "title": "Owner Confirmed Only",
               "type": "boolean"
             }
           },
@@ -30855,6 +31203,44 @@
             }
           },
           {
+            "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
+              "title": "End Time"
+            }
+          },
+          {
             "description": "Filter by species name",
             "in": "query",
             "name": "species",
@@ -30923,6 +31309,18 @@
               "default": false,
               "description": "Owner: captures with at least two named bird species",
               "title": "Multiple Species Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+            "in": "query",
+            "name": "owner_confirmed_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+              "title": "Owner Confirmed Only",
               "type": "boolean"
             }
           },
@@ -31008,7 +31406,7 @@
     },
     "/api/events/filters": {
       "get": {
-        "description": "Get available filter options (species and cameras) from the database.",
+        "description": "Filter options (species and cameras), each counted as choosing it would show.\n\nCounts follow the window and the other filters, the way the events or visits list reads them;\na facet is never narrowed by its own choice, and a species is counted by its own filter. A\nvisitor's counts keep their history window.",
         "operationId": "get_event_filters_api_events_filters_get",
         "parameters": [
           {
@@ -31020,6 +31418,227 @@
               "default": false,
               "description": "Bypass short-lived filter cache and fetch fresh species/camera options",
               "title": "Force Refresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "What each count counts: single captures (when not given), or visits grouped by the shared visit rule",
+            "in": "query",
+            "name": "unit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "captures",
+                    "visits"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "What each count counts: single captures (when not given), or visits grouped by the shared visit rule",
+              "title": "Unit"
+            }
+          },
+          {
+            "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
+            "in": "query",
+            "name": "start_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "First day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
+              "title": "Start Date"
+            }
+          },
+          {
+            "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
+            "in": "query",
+            "name": "end_date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "const": "today",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Last day (inclusive): an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC",
+              "title": "End Date"
+            }
+          },
+          {
+            "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
+            "in": "query",
+            "name": "start_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
+              "title": "Start Time"
+            }
+          },
+          {
+            "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
+            "in": "query",
+            "name": "end_time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
+              "title": "End Time"
+            }
+          },
+          {
+            "description": "Chosen species; counts every facet but the species list",
+            "in": "query",
+            "name": "species",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Chosen species; counts every facet but the species list",
+              "title": "Species"
+            }
+          },
+          {
+            "description": "Chosen catalogue taxon; counts every facet but the species list",
+            "in": "query",
+            "name": "taxon",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Chosen catalogue taxon; counts every facet but the species list",
+              "title": "Taxon"
+            }
+          },
+          {
+            "description": "Chosen camera; counts every facet but the camera list",
+            "in": "query",
+            "name": "camera",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Chosen camera; counts every facet but the camera list",
+              "title": "Camera"
+            }
+          },
+          {
+            "description": "Count only favourites",
+            "in": "query",
+            "name": "favorites",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Count only favourites",
+              "title": "Favorites",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Count only audio matches",
+            "in": "query",
+            "name": "audio_confirmed_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Count only audio matches",
+              "title": "Audio Confirmed Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Owner: count only captures with at least two named bird species",
+            "in": "query",
+            "name": "multiple_species_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: count only captures with at least two named bird species",
+              "title": "Multiple Species Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+            "in": "query",
+            "name": "owner_confirmed_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+              "title": "Owner Confirmed Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Owner: count only hidden records, and offer the species and cameras they hold",
+            "in": "query",
+            "name": "only_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: count only hidden records, and offer the species and cameras they hold",
+              "title": "Only Hidden",
               "type": "boolean"
             }
           }
@@ -31162,7 +31781,7 @@
     },
     "/api/events/review-queue": {
       "get": {
-        "description": "Everything waiting on a person: the source of Needs your call (#917).\n\nCounted here rather than from a recent page of detections, so a visit stays\nqueued however many others arrive after it. Owner only.",
+        "description": "Everything waiting on a person: the source of Needs your call (#917).\n\nCounted here rather than from a recent page of detections, so a visit stays\nqueued however many others arrive after it. Owner only. The window bounds the captures that\nwait for a species, so the queue agrees with the day summary's ``unresolved_count`` for the same\nwindow; a new species waits whenever it was first seen in the last ``window_days``.",
         "operationId": "get_review_queue_api_events_review_queue_get",
         "parameters": [
           {
@@ -31180,13 +31799,29 @@
             }
           },
           {
-            "description": "How far back a detection can still be waiting",
+            "description": "`rolling`: the last `window_hours`. `today`: from local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC, as `GET /api/stats/daily-summary?window=today` counts it.",
+            "in": "query",
+            "name": "window",
+            "required": false,
+            "schema": {
+              "default": "rolling",
+              "description": "`rolling`: the last `window_hours`. `today`: from local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC, as `GET /api/stats/daily-summary?window=today` counts it.",
+              "enum": [
+                "rolling",
+                "today"
+              ],
+              "title": "Window",
+              "type": "string"
+            }
+          },
+          {
+            "description": "How far back a detection can still be waiting, for the rolling window",
             "in": "query",
             "name": "window_hours",
             "required": false,
             "schema": {
               "default": 24,
-              "description": "How far back a detection can still be waiting",
+              "description": "How far back a detection can still be waiting, for the rolling window",
               "maximum": 168,
               "minimum": 1,
               "title": "Window Hours",
@@ -33175,7 +33810,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SnapshotCandidateListResponse"
+                  "$ref": "#/components/schemas/SnapshotDismissResponse"
                 }
               }
             },
@@ -35791,14 +36426,15 @@
         "operationId": "get_leaderboard_portraits_api_leaderboard_portraits_get",
         "parameters": [
           {
-            "description": "The leaderboard's window",
+            "description": "The leaderboard's window. `today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored capture.",
             "in": "query",
             "name": "span",
             "required": false,
             "schema": {
               "default": "month",
-              "description": "The leaderboard's window",
+              "description": "The leaderboard's window. `today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored capture.",
               "enum": [
+                "today",
                 "day",
                 "week",
                 "month",
@@ -35861,18 +36497,19 @@
     },
     "/api/leaderboard/species": {
       "get": {
-        "description": "Leaderboard species stats for a rolling window aligned to the current time.\n\nSpan definitions:\n- day: last 24 hours\n- week: last 7 days\n- month: last 30 days",
+        "description": "Leaderboard species stats for a window aligned to the current time.\n\nSpan definitions:\n- today: local midnight to now, compared with yesterday up to the same time of day\n- day: last 24 hours\n- week: last 7 days\n- month: last 30 days",
         "operationId": "get_leaderboard_species_api_leaderboard_species_get",
         "parameters": [
           {
-            "description": "Rolling window for leaderboard stats",
+            "description": "`today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days.",
             "in": "query",
             "name": "span",
             "required": false,
             "schema": {
               "default": "week",
-              "description": "Rolling window for leaderboard stats",
+              "description": "`today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days.",
               "enum": [
+                "today",
                 "day",
                 "week",
                 "month"
@@ -38824,19 +39461,20 @@
     },
     "/api/stats/detections/activity-heatmap": {
       "get": {
-        "description": "Get detection activity grouped by weekday and hour for a rolling span.",
+        "description": "Get detection activity grouped by weekday and hour for the leaderboard's span.",
         "operationId": "get_detection_activity_heatmap_api_stats_detections_activity_heatmap_get",
         "parameters": [
           {
-            "description": "Time span for the heatmap",
+            "description": "Time span for the heatmap. `today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored capture.",
             "in": "query",
             "name": "span",
             "required": false,
             "schema": {
               "default": "week",
-              "description": "Time span for the heatmap",
+              "description": "Time span for the heatmap. `today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored capture.",
               "enum": [
                 "all",
+                "today",
                 "day",
                 "week",
                 "month"
@@ -38961,19 +39599,20 @@
     },
     "/api/stats/detections/timeline": {
       "get": {
-        "description": "Get detections over time for a rolling span aligned to the current time.\n\nSpan definitions (UI semantics):\n- day: last 24 hours, bucketed hourly\n- week: last 7 days, bucketed daily\n- month: last 30 days, bucketed daily\n- all: bucketed dynamically based on available history",
+        "description": "Get detections over time for a rolling span aligned to the current time.\n\nSpan definitions (UI semantics):\n- today: local midnight to now, bucketed hourly\n- day: last 24 hours, bucketed hourly\n- week: last 7 days, bucketed daily\n- month: last 30 days, bucketed daily\n- all: bucketed dynamically based on available history",
         "operationId": "get_detection_timeline_span_api_stats_detections_timeline_get",
         "parameters": [
           {
-            "description": "Time span for the timeline",
+            "description": "Time span for the timeline. `today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored capture.",
             "in": "query",
             "name": "span",
             "required": false,
             "schema": {
               "default": "week",
-              "description": "Time span for the timeline",
+              "description": "Time span for the timeline. `today`: local midnight to now, in the zone `X-Timezone` names, else the instance's `TZ`, else UTC. `day`: the last 24 hours. `week`: the last 7 days. `month`: the last 30 days. `all`: every stored capture.",
               "enum": [
                 "all",
+                "today",
                 "day",
                 "week",
                 "month"
@@ -39939,7 +40578,7 @@
             }
           },
           {
-            "description": "Exact start instant; overrides start_date",
+            "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
             "in": "query",
             "name": "start_time",
             "required": false,
@@ -39953,12 +40592,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Exact start instant; overrides start_date",
+              "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
               "title": "Start Time"
             }
           },
           {
-            "description": "Exact end instant; overrides end_date",
+            "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
             "in": "query",
             "name": "end_time",
             "required": false,
@@ -39972,7 +40611,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Exact end instant; overrides end_date",
+              "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
               "title": "End Time"
             }
           },
@@ -40015,6 +40654,18 @@
             "schema": {
               "default": false,
               "title": "Multiple Species Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+            "in": "query",
+            "name": "owner_confirmed_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested video reclassification); a visit matches when any capture in view does. Ignored for visitors",
+              "title": "Owner Confirmed Only",
               "type": "boolean"
             }
           },
@@ -40201,7 +40852,7 @@
             }
           },
           {
-            "description": "Exact start instant; overrides start_date",
+            "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
             "in": "query",
             "name": "start_time",
             "required": false,
@@ -40215,12 +40866,12 @@
                   "type": "null"
                 }
               ],
-              "description": "Exact start instant; overrides start_date",
+              "description": "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides start_date",
               "title": "Start Time"
             }
           },
           {
-            "description": "Exact end instant; overrides end_date",
+            "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
             "in": "query",
             "name": "end_time",
             "required": false,
@@ -40234,7 +40885,7 @@
                   "type": "null"
                 }
               ],
-              "description": "Exact end instant; overrides end_date",
+              "description": "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `\u00b1HH:MM` offset; overrides end_date",
               "title": "End Time"
             }
           },

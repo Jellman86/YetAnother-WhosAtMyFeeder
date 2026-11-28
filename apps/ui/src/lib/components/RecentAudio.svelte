@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { withinCounted, type DeskWindowKind } from '../utils/desk-window';
     import { onMount, onDestroy, untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fetchRecentAudio, type AudioDetection, type AudioSummaryResponse } from '../api';
@@ -24,12 +25,18 @@
         onNavigate,
         summary,
         summaryLoading,
-        matchedCalls = null
+        matchedCalls = null,
+        summaryFailed = false,
+        windowKind = 'rolling'
     }: {
         onNavigate?: (path: string) => void;
         summary: AudioSummaryResponse | null;
         summaryLoading: boolean;
         matchedCalls?: number | null;
+        /** The latest read of the summary failed, so a missing summary is not "nothing heard". */
+        summaryFailed?: boolean;
+        /** The Dashboard's window, which the summary was read for. */
+        windowKind?: DeskWindowKind;
     } = $props();
 
     const RECENT_AUDIO_LIMIT = 1;
@@ -119,7 +126,9 @@
         audioLoader.dispose();
     });
 
-    const latestCall = $derived(audioDetections[0] ?? null);
+    // The latest call is read on its own; it is shown only inside the window the summary counted, so
+    // yesterday's call never stands under Today while the two readings catch up with each other.
+    const latestCall = $derived(audioDetections.find((call) => withinCounted(call.timestamp, summary?.window_start, summary?.window_end)) ?? null);
     const mostHeard = $derived((summary?.top_species ?? []).slice(0, MOST_HEARD_LIMIT));
     const mostHeardMax = $derived(Math.max(1, ...mostHeard.map((item) => item.count)));
 </script>
@@ -133,13 +142,17 @@
             </svg>
             {$_('dashboard.desk.heard_title', { default: 'Heard' })}
         </h2>
-        <p class="mt-0.5 text-sm text-muted">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
+        <p class="mt-0.5 text-sm text-muted">{windowKind === 'today' ? $_('dashboard.day_bar.window_today', { default: 'Today' }) : $_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
     </div>
 
     {#if (loading || summaryLoading) && !summary}
         <div class="h-24 animate-pulse rounded-lg bg-surface-raised"></div>
+    {:else if !summary && summaryFailed}
+        <p class="text-xs text-muted" data-dashboard-heard-unavailable>
+            {$_('dashboard.desk.heard_unavailable', { default: 'Calls heard could not be loaded. The dashboard tries again every minute.' })}
+        </p>
     {:else if !summary || summary.total === 0}
-        <p class="text-xs text-muted">{$_('dashboard.desk.heard_empty', { default: 'No calls heard in the last 24 hours.' })}</p>
+        <p class="text-xs text-muted">{windowKind === 'today' ? $_('dashboard.desk.heard_empty_today', { default: 'No calls heard yet today.' }) : $_('dashboard.desk.heard_empty', { default: 'No calls heard in the last 24 hours.' })}</p>
     {:else}
         <!-- The day bar already carries calls heard and cross-confirmed; this card says what was heard. -->
         <p class="font-display text-lg font-bold text-strong" data-dashboard-species-heard>

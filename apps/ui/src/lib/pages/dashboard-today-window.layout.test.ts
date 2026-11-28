@@ -1,0 +1,172 @@
+import { describe, expect, it } from 'vitest';
+
+import dashboardSource from './Dashboard.svelte?raw';
+import dayBarSource from '../components/DayBar.svelte?raw';
+import histogramSource from '../components/DailyHistogram.svelte?raw';
+import reviewQueueSource from '../components/ReviewQueueCard.svelte?raw';
+import recentAudioSource from '../components/RecentAudio.svelte?raw';
+import visitorsSource from '../components/TopVisitors.svelte?raw';
+import contextSource from '../components/DeskContextCards.svelte?raw';
+import fieldLogSource from '../components/FieldLog.svelte?raw';
+import statsApiSource from '../api/stats.ts?raw';
+import eventsApiSource from '../api/events.ts?raw';
+
+function between(source: string, start: string, end: string): string {
+    const from = source.indexOf(start);
+    expect(from, start).toBeGreaterThan(-1);
+    const to = source.indexOf(end, from + start.length);
+    expect(to, end).toBeGreaterThan(from);
+    return source.slice(from, to);
+}
+
+describe('the Dashboard\'s Today (#1097)', () => {
+    it('offers Today beside the last 24 hours at the heading, and names the window it shows', () => {
+        expect(dayBarSource).toContain("{ value: 'today', label: $_('dashboard.day_bar.window_today', { default: 'Today' }) }");
+        expect(dayBarSource).toContain("{ value: 'rolling', label: $_('dashboard.day_bar.window', { default: 'Last 24 hours' }) }");
+        expect(dayBarSource).toContain('<Segmented');
+        expect(dayBarSource).toContain("label={$_('dashboard.day_bar.window_choice', { default: 'Period shown' })}");
+        const heading = between(dayBarSource, '<h1', '</h1>');
+        expect(heading).toContain('{windowName}');
+        expect(dayBarSource).toContain("windowKind === 'today'\n            ? $_('dashboard.day_bar.window_today'");
+    });
+
+    it('remembers the choice on this device and starts on the last 24 hours', () => {
+        expect(dashboardSource).toContain('let windowChoice = $state<DeskWindowKind>(readDeskWindowChoice(() => localStorage));');
+        expect(between(dashboardSource, 'function chooseWindow(', '\n    }')).toContain('saveDeskWindowChoice(() => localStorage, next);');
+        expect(dashboardSource).toContain('choice={windowChoice}');
+        expect(dashboardSource).toContain('onwindowchange={chooseWindow}');
+    });
+
+    it('names the window of the figures on screen, never the one still being read', () => {
+        expect(dashboardSource).toContain('const deskKind = $derived<DeskWindowKind>(shownWindow?.kind ?? windowChoice);');
+        // The window is published with the summary it was read for, and cleared with it.
+        expect(dashboardSource).toContain('summary = summaryRes; summaryHour = Number.isNaN(counted.getTime()) ? desk.end.getHours() : counted.getHours(); shownWindow = desk;');
+        // The chart ends in the hour the server counted to.
+        expect(dashboardSource).toContain('const counted = new Date(summaryRes.window_end);');
+        expect(dashboardSource).toContain('clear: () => { summary = null; shownWindow = null;');
+        for (const prop of [
+            '<DayBar',
+            '<ReviewQueueCard',
+            '<DeskContextCards',
+            '<RecentAudio',
+            '<DailyHistogram',
+            '<TopVisitors'
+        ]) {
+            expect(between(dashboardSource, prop, '/>')).toContain('windowKind={deskKind}');
+        }
+    });
+
+    it('clears every reading and drops the reads in flight when the window changes', () => {
+        const reread = between(dashboardSource, 'function rereadDesk(): void {', '\n    }');
+        const loads = reread.indexOf('void loadSummary();');
+        for (const loader of ['summaryLoader', 'audioSummaryLoader', 'reviewQueueLoader', 'speciesChecksLoader']) {
+            const at = reread.indexOf(`${loader}.invalidate();`);
+            expect(at, loader).toBeGreaterThan(-1);
+            expect(at).toBeLessThan(loads);
+        }
+        expect(reread).toContain('reviewSessionRequest += 1;');
+    });
+
+    it('settles one window per load and gives it to every read on the desk', () => {
+        const summaryRead = between(dashboardSource, 'const summaryLoader = createObservationProjectionLoader({', 'apply:');
+        expect(summaryRead).toContain('const { value, window: desk } = await readDeskDay(async (desk) => {');
+        expect(summaryRead).toContain("}, ({ summaryRes }) => [summaryRes.window_start], ({ sharedDayMoved }) => !sharedDayMoved);");
+        expect(summaryRead).toContain('fetchDailySummary(desk.kind, signal)');
+        expect(summaryRead).toContain("fetchGardenVisits({ start: window.startTime, end: window.endTime, order: 'newest', limit: VISIT_ROW_LIMIT }, signal)");
+        expect(summaryRead).toContain("fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' })");
+        // Every read is settled and checked by readOneDay for the day the desk is reading.
+        expect(dashboardSource).toContain('return readOneDay({ kind: windowChoice, day: windowChoice === \'today\' ? readingDay : null, clock: () => new Date(), read, countedFrom, consistent });');
+        expect(dashboardSource).toContain('(window) => fetchReviewQueue({ limit: REVIEW_QUEUE_READ_LIMIT, window: window.kind, signal }),');
+        expect(dashboardSource).toContain('(window) => fetchReviewQueue({ limit: REVIEW_SESSION_READ_LIMIT, window: window.kind }),');
+        expect(dashboardSource.match(/\(response\) => \[response\.window_start\]/g)).toHaveLength(2);
+        expect(dashboardSource).toContain("const span = window.kind === 'today' ? 'today' : 'day';");
+        expect(dashboardSource).toContain('fetchLeaderboardSpecies(span, signal)');
+        expect(dashboardSource).toContain('fetchAudioSpeciesLeaderboard(span, signal)');
+        expect(dashboardSource).toContain('({ leaderboard, audio }) => [leaderboard.window_start, audio?.window_start ?? null]');
+        expect(dashboardSource).toContain('(desk) => fetchAudioSummary({ start_date: desk.start.toISOString(), end_date: desk.end.toISOString() }, signal),');
+        expect(dashboardSource).toContain('(value) => [value.window_start]');
+        // Each loader that notices midnight passed rolls the whole desk over instead of failing.
+        expect(dashboardSource.match(/if \(e instanceof DayTurnedError\) \{ rollOverIfNewDay\(\); return; \}/g)).toHaveLength(4);
+        expect(statsApiSource).toContain('`${API_BASE}/stats/daily-summary?window=${window}`');
+        expect(eventsApiSource).toContain("&window=${options.window ?? 'rolling'}");
+    });
+
+    it('keeps live captures inside the window and reads the new day at local midnight', () => {
+        expect(dashboardSource).toContain('withinDeskWindow(detectionsStore.detections, now.getTime(), deskWindowStart(deskKind, now))');
+        const midnight = between(dashboardSource, "if (windowChoice !== 'today') return;\n        void dayTurn;", 'return () => clearTimeout(timer);');
+        expect(midnight).toContain('setTimeout(() => untrack(rollOverIfNewDay), msUntilNextLocalMidnight(new Date()) + 1000);');
+        const rollOver = between(dashboardSource, 'function rollOverIfNewDay(): void {', '\n    }');
+        expect(rollOver).toContain("deskWindowStart('today', new Date()) === readingDay) return;");
+        expect(rollOver).toContain('rereadDesk();');
+        expect(between(dashboardSource, 'function rereadDesk(): void {', '\n    }')).toContain("readingDay = deskWindowStart('today', new Date());");
+    });
+
+    it('says "yet today" only of a Today that was read, and tells a guest where shared history starts', () => {
+        // The log shows its empty message only once a read succeeded with nothing in it.
+        const loading = fieldLogSource.indexOf('{#if loading && renderRows.length === 0}');
+        const empty = fieldLogSource.indexOf('{:else if renderRows.length === 0}');
+        const failed = fieldLogSource.indexOf('{:else if unavailable');
+        expect(loading).toBeGreaterThan(-1);
+        expect(failed).toBeGreaterThan(loading);
+        expect(empty).toBeGreaterThan(failed);
+        expect(dashboardSource).toContain('emptyMessage={fieldLogEmpty}');
+        expect(dashboardSource).toContain('let sharedFrom = $derived(authStore.isGuest && shownWindow ? sharedHistoryStart(shownWindow, summary?.window_start) : null);');
+        expect(dayBarSource).toContain('data-day-bar-shared-from');
+    });
+
+    it('opens the Explorer on the window the log shows', () => {
+        expect(dashboardSource).toContain('hiddenLabel={fieldLogEarlier}');
+        expect(dashboardSource).toContain("$_('dashboard.field_log.earlier_today'");
+        expect(dashboardSource).toContain('onseewindow={() => onnavigate?.(fieldLogWindowLink(gardenAvailable, deskKind))}');
+        expect(dashboardSource).toContain('onopenchecks={() => onnavigate?.(speciesChecksLink(deskKind))}');
+    });
+
+    it('draws Today from midnight to the current hour', () => {
+        expect(histogramSource).toContain("Array.from({ length: currentHour + 1 }, (_, hour) => ({ hour, value: data[hour] ?? 0, isNow: hour === currentHour }))");
+        expect(histogramSource).toContain("dashboard.histogram.visits_per_hour_today");
+        expect(histogramSource).toContain("dashboard.histogram.aria_today");
+    });
+
+    it('words every card for the window it was read for', () => {
+        expect(reviewQueueSource).toContain('dashboard.review_queue.empty_today');
+        expect(reviewQueueSource).toContain('dashboard.review_queue.visits_clear_today');
+        expect(recentAudioSource).toContain('dashboard.desk.heard_empty_today');
+        expect(visitorsSource).toContain('dashboard.top_visitors_empty_today');
+        for (const source of [recentAudioSource, visitorsSource, contextSource]) {
+            expect(source).toContain("windowKind === 'today' ? $_('dashboard.day_bar.window_today', { default: 'Today' })");
+        }
+    });
+
+    it('opens an open walkthrough afresh on the new day, or closes it rather than keep yesterday\'s list', () => {
+        expect(between(dashboardSource, 'function rereadDesk(): void {', '\n    }')).toContain('if (reviewSessionOpen) void refreshReviewSession();');
+        const refresh = between(dashboardSource, 'async function refreshReviewSession(): Promise<void> {', '\n    }\n');
+        expect(refresh).toContain('reviewSessionKey += 1;');
+        expect(refresh).toContain('if (request === reviewSessionRequest) reviewSessionOpen = false;');
+        expect(dashboardSource).toContain('{#key reviewSessionKey}');
+    });
+
+    it('never keeps an empty reading once a refresh of it fails', () => {
+        const failed = between(dashboardSource, 'const summaryLoader = createObservationProjectionLoader({', 'settled:');
+        expect(failed).toContain('if (authStore.isGuest || (summary?.visit_count === 0 && serverVisits.length === 0 && gardenVisits.length === 0)) {');
+        expect(dashboardSource).toContain('if (authStore.isGuest || audioSummary?.total === 0) audioSummary = null;');
+        expect(dashboardSource).toContain('summaryFailed={audioSummaryFailed}');
+        expect(recentAudioSource).toContain('{:else if !summary && summaryFailed}');
+        // With Garden unread, an empty log is said of birds only.
+        expect(dashboardSource).toContain("$_('dashboard.no_bird_visits_today', { default: 'No bird visits yet today.' })");
+    });
+
+    it('reads a guest\'s log over the start the figures counted from, and again if the shared day moved', () => {
+        const summaryRead = between(dashboardSource, 'const summaryLoader = createObservationProjectionLoader({', 'apply:');
+        expect(summaryRead).toContain('const sharedFrom = authStore.isGuest ? narrowedToSharedDay(desk, summaryRes.window_start) : null;');
+        expect(summaryRead).toContain('[visitsRes, gardenRes] = await readLog(window);');
+        expect(summaryRead).toContain('({ sharedDayMoved }) => !sharedDayMoved');
+    });
+
+    it('takes Garden\'s earlier rows down when Garden could not be read', () => {
+        expect(dashboardSource).toContain('if (gardenRes?.page) { gardenVisits = gardenRes.page.visits; gardenTotal = gardenRes.page.total; }\n            else { gardenVisits = []; gardenTotal = 0; }');
+    });
+
+    it('shows the latest call only inside the window the Heard summary counted', () => {
+        expect(recentAudioSource).toContain('withinCounted(call.timestamp, summary?.window_start, summary?.window_end)');
+    });
+});

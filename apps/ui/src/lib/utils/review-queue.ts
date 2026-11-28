@@ -172,8 +172,3 @@ export function buildReviewQueue(
     const items = open.slice(0, limit).map((entry) => entry.detection);
     return { items, total, remaining: Math.max(total - items.length, 0), oldest: items[0] ?? null, reasons, newSpeciesSightings };
 }
-
-/** A guest cannot read the queue, so the day bar's figure comes from the history they can see. */
-export function visibleUnresolvedCount(detections: readonly Detection[], reviewThreshold: number | null): number {
-    return detections.filter((detection) => !detection.is_hidden && !detection.manual_tagged && needsReview(detection, reviewThreshold)).length;
-}

@@ -218,7 +218,7 @@ video moment for multi-frame species refinement, preventing one visual frame fro
 ### Video consensus and safe abstention (1 August 2026)
 
 Video reclassification samples unique frames with a deterministic centre-weighted distribution.
-Event clips favour the centre more strongly; complete recording/full-visit clips retain broader
+Event clips favour the centre more strongly; complete recording/full clips retain broader
 edge coverage. Rounding collisions are repaired beside their intended timestamp, so they cannot
 silently turn into adjacent frames at the beginning of the clip.
 

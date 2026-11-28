@@ -1,3 +1,4 @@
 {
-  "step_skipped": "Non eseguito perché un passaggio precedente non è riuscito."
+  "step_skipped": "Non eseguito perché un passaggio precedente non è riuscito.",
+  "step_failed": "Il controllo non è stato superato."
 }

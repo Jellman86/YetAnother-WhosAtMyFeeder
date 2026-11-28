@@ -11,7 +11,7 @@ describe('audio history filters', () => {
     });
 
     it('reports a change to any filter the list depends on', () => {
-        for (const change of [{ days: 7 }, { species: 'Dunnock' }, { source: 'BirdCam' }, { minConfidence: 0.5 }]) {
+        for (const change of [{ window: '7d' as const }, { species: 'Dunnock' }, { source: 'BirdCam' }, { minConfidence: 0.5 }]) {
             expect(audioHistoryFiltersDiffer({ ...DEFAULT_AUDIO_HISTORY_FILTERS, ...change }, DEFAULT_AUDIO_HISTORY_FILTERS)).toBe(true);
         }
     });
@@ -22,8 +22,8 @@ describe('audio history filters', () => {
     });
 
     it('settles text and numbers as the request sends them', () => {
-        expect(settledAudioHistoryFilters({ days: 7, species: ' Robin ', source: ' mic ', minConfidence: 0.25 })).toEqual({
-            days: 7,
+        expect(settledAudioHistoryFilters({ window: '7d', species: ' Robin ', source: ' mic ', minConfidence: 0.25 })).toEqual({
+            window: '7d',
             species: 'Robin',
             source: 'mic',
             minConfidence: 0.25

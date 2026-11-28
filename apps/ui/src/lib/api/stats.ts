@@ -4,8 +4,11 @@ import type { paths } from './generated/openapi';
 export type DailySpeciesSummary = paths['/api/stats/daily-summary']['get']['response']['top_species'][number];
 export type DailySummary = paths['/api/stats/daily-summary']['get']['response'];
 
-export async function fetchDailySummary(): Promise<DailySummary> {
-    const response = await apiFetch(`${API_BASE}/stats/daily-summary`);
+type DailySummaryWindow = NonNullable<paths['/api/stats/daily-summary']['get']['query']['window']>;
+
+/** The day's figures for `rolling` (the last 24 hours) or `today` (from the viewer's local midnight). */
+export async function fetchDailySummary(window: DailySummaryWindow = 'rolling', signal?: AbortSignal): Promise<DailySummary> {
+    const response = await apiFetch(`${API_BASE}/stats/daily-summary?window=${window}`, { signal });
     return handleResponse<DailySummary>(response);
 }
 export type AIUsageResponse = paths['/api/stats/ai/usage']['get']['response'];

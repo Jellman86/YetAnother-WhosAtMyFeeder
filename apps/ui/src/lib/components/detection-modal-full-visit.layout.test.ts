@@ -3,6 +3,8 @@ import detectionModalSource from './DetectionModal.svelte?raw';
 import aiAnalysisSource from './record/RecordAiAnalysis.svelte?raw';
 import eventsPageSource from '../pages/Events.svelte?raw';
 import dashboardPageSource from '../pages/Dashboard.svelte?raw';
+import openerSource from './RecordDialogs.svelte?raw';
+import detectionSyncSource from '../utils/detection-sync.ts?raw';
 
 describe('detection modal full-visit fetch wiring', () => {
     it('threads full-visit state and actions into the details modal', () => {
@@ -12,9 +14,11 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('fullVisitFetchState');
         expect(detectionModalSource).toContain("fullVisitFetchState === 'failed'");
         expect(detectionModalSource).toContain('Fetch full clip');
-        expect(detectionModalSource).toContain('Full visit');
+        // The clip and photo options belong to this capture; "Full visit" read as the whole visit.
+        expect(detectionModalSource).not.toContain("'Full visit'");
         expect(detectionModalSource).toContain('getSnapshotUrl(detection.frigate_event)');
-        expect(detectionModalSource).toContain("title={fullVisitFetched ? $_('video_player.full_visit_ready'");
+        expect(detectionModalSource).toContain('title={fullVisitFetched ? fullClipTitle');
+        expect(detectionModalSource).toContain("$_('detection.full_clip_seconds'");
         // The accent fill carries its own ink, which holds AA in every mode (KIT-02).
         expect(detectionModalSource).toContain("fullVisitFetched ? 'gap-2 border-on-media-accent/30 bg-accent px-3 text-accent-fg");
         expect(detectionModalSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
@@ -22,29 +26,23 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).not.toContain('{#if fullVisitFetched}\n                                    <div');
         expect(detectionModalSource).not.toContain('absolute inset-0 flex items-center justify-center pointer-events-none');
         expect(detectionModalSource).toContain('inline-flex min-h-11 items-center gap-2 rounded-full border border-on-media/25 bg-media/55');
-        expect(detectionModalSource).toContain("video_player.full_visit_action', { default: 'Full visit' }");
+        expect(detectionModalSource).toContain("video_player.full_visit_action', { default: 'Full clip' }");
         expect(detectionModalSource).not.toContain('img src={getThumbnailUrl(detection.frigate_event)}');
         expect(detectionModalSource).toContain("title={videoFailureInsight.summary}");
         expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full border border-on-media-fail/70 bg-media/55 text-on-media-fail');
         expect(detectionModalSource).not.toContain("<span>{$_('detection.frigate_badge', { default: 'Frigate' })}</span>");
 
-        expect(eventsPageSource).toContain("fullVisitAvailable={fullVisitAvailability[selectedEvent.frigate_event] === 'available'}");
-        expect(eventsPageSource).toContain('selectedEventFullVisitHandler');
-        expect(eventsPageSource).toContain('onFetchFullVisit={selectedEventFullVisitHandler}');
-        expect(eventsPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');
+        // Every page opens the record through the shared opener, which wires the full visit once.
+        expect(openerSource).toContain("fullVisitAvailable={fullVisitStore.availability[record.frigate_event] === 'available'}");
+        expect(openerSource).toContain('onFetchFullVisit={fullVisitHandler}');
+        expect(openerSource).toContain("initialFullVisitPromoted={fullVisitStore.fetchState[video.frigateEvent] === 'ready'}");
+        expect(openerSource).toContain('autoFetch: true');
         expect(eventsPageSource).not.toContain('preferredClipVariantByEvent');
-        expect(eventsPageSource).toContain("autoFetch: true");
-        expect(dashboardPageSource).toContain("autoFetch: true");
-
-        expect(dashboardPageSource).toContain("fullVisitAvailable={fullVisitAvailability[selectedEvent.frigate_event] === 'available'}");
-        expect(dashboardPageSource).toContain('selectedEventFullVisitHandler');
-        expect(dashboardPageSource).toContain('onFetchFullVisit={selectedEventFullVisitHandler}');
-        expect(dashboardPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');
         expect(dashboardPageSource).not.toContain('preferredClipVariantByEvent');
     });
 
     it('gates owner-only detection actions behind explicit owner access', () => {
-        expect(detectionModalSource).toContain('const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess && !readOnly);');
+        expect(detectionModalSource).toContain('const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess);');
         expect(detectionModalSource).toContain('{#if hasOwnerDetectionActions}');
         expect(detectionModalSource).toContain('{#if hasOwnerDetectionActions && showTagDropdown}');
         expect(detectionModalSource).toContain('if (!authStore.hasOwnerAccess) return;');
@@ -61,6 +59,32 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('handleUseMoment');
         expect(detectionModalSource).toContain('handleGenerateSnapshotCandidates');
         expect(detectionModalSource).toContain('handleApplySnapshot');
+        const applyStart = detectionModalSource.indexOf('async function handleApplySnapshot(');
+        const applyEnd = detectionModalSource.indexOf('async function refreshBirdsAfterScan(', applyStart);
+        expect(applyStart).toBeGreaterThan(-1);
+        expect(applyEnd).toBeGreaterThan(applyStart);
+        const applyBlock = detectionModalSource.slice(applyStart, applyEnd);
+        expect(applyBlock).toContain('const record = photoRequestRecord();');
+        expect(applyBlock).toContain('const eventId = record.eventId;');
+        // A late failure is reported under the record it was for, never dropped.
+        expect(applyBlock).toContain('reportPhotoRequestFailure(record, e);');
+        expect(applyBlock).toContain('await applySnapshotCandidate(eventId,');
+        expect(applyBlock).toContain('detectionsStore.notePhotoChanged(eventId);');
+        const staleGuard = 'if (!detection || detection.frigate_event !== eventId) return;';
+        // The photo's own thumbnails refresh before a record switch can end the handler.
+        expect(applyBlock.indexOf('detectionsStore.notePhotoChanged(eventId);')).toBeLessThan(applyBlock.indexOf(staleGuard));
+        const regenStart = detectionModalSource.indexOf('async function handleGenerateSnapshotCandidates()');
+        const regenEnd = detectionModalSource.indexOf('function handleFetchFullVisitClick(', regenStart);
+        expect(regenStart).toBeGreaterThan(-1);
+        expect(regenEnd).toBeGreaterThan(regenStart);
+        const regenBlock = detectionModalSource.slice(regenStart, regenEnd);
+        expect(regenBlock.indexOf('detectionsStore.notePhotoChanged(eventId);')).toBeGreaterThan(-1);
+        expect(regenBlock.indexOf('detectionsStore.notePhotoChanged(eventId);')).toBeLessThan(regenBlock.indexOf(staleGuard));
+        expect(regenBlock).toContain('reportPhotoRequestFailure(record, e);');
+        // In-flight photo work is held per capture, so a switch neither inherits nor strands it.
+        expect(detectionModalSource).toContain('photoApplyEvents.has(detection.frigate_event)');
+        expect(detectionModalSource).toContain('photoGenerateEvents.has(detection.frigate_event)');
+        expect(detectionModalSource).not.toMatch(/^\s+snapshot(Apply|Generate)Pending = /m);
         // The moment strip and its "as recorded" moment live in FrameStrip.svelte (#256).
         expect(detectionModalSource).toContain('<FrameStrip');
         expect(detectionModalSource).not.toContain("Save this frame");
@@ -89,7 +113,9 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(aiAnalysisSource).toContain('(detection.ai_analysis ?? null)');
         expect(detectionModalSource).toContain('const nextDetection = applyManualTagResult(detection, result);');
         expect(detectionModalSource).toContain('Object.assign(detection, nextDetection);');
-        expect(dashboardPageSource).toContain('asText(d.ai_analysis)');
-        expect(dashboardPageSource).toContain('asText(d.ai_analysis_timestamp)');
+        // The open record follows the live store on the fields the note changes.
+        expect(detectionSyncSource).toContain('asText(d.ai_analysis)');
+        expect(detectionSyncSource).toContain('asText(d.ai_analysis_timestamp)');
+        expect(openerSource).toContain('withLiveFields(current, updated)');
     });
 });

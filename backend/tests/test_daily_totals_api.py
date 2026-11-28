@@ -511,3 +511,41 @@ async def test_a_bird_whose_identity_moved_after_its_day_was_sealed_is_one_row(s
     assert blackbirds[0]["avg_confidence"] == pytest.approx(0.9)
     rows = _leaderboard((await client.get("/api/leaderboard/species?span=month")).json())
     assert rows["Turdus merula"]["window_count"] == 5
+
+
+@pytest.mark.asyncio
+async def test_today_has_no_trend_when_cleanup_sealed_part_of_yesterday(serve, monkeypatch):
+    # One-day retention sealed yesterday and kept only its favourite. Yesterday up to noon cannot
+    # take that day's total, so the kept favourite alone would be compared with today.
+    rows = [
+        ("ret-bb-1", "2036-02-24 08:00:00", "Turdus merula", False),
+        ("ret-bb-2", "2036-02-24 09:00:00", "Turdus merula", True),
+        ("ret-bb-3", "2036-02-25 08:00:00", "Turdus merula", False),
+    ]
+    client, _db = await serve(rows, cutoff=datetime(2036, 2, 25, 0, 0))
+
+    body = (await client.get("/api/leaderboard/species?span=today")).json()
+
+    assert _leaderboard(body)["Turdus merula"]["window_count"] == 1
+    assert body["previous_window_mismatch"] == "cleanup"
+    assert body["previous_window_complete"] is False
+
+
+@pytest.mark.asyncio
+async def test_today_never_counts_a_sealed_day_its_hourly_chart_leaves_out(serve, monkeypatch):
+    # London's 26 October 2036 runs 25 hours, 23:00 UTC on the 25th to midnight UTC on the 27th, and
+    # holds the whole of Lagos's 26 October, which cleanup has sealed.
+    monkeypatch.setattr(sys.modules[__name__], "NOW", datetime(2036, 10, 26, 23, 30))
+    rows = [
+        ("lag-bb-1", "2036-10-26 10:00:00", "Turdus merula", False),
+        ("lag-bb-2", "2036-10-26 23:20:00", "Turdus merula", False),
+    ]
+    client, _db = await serve(rows, zone="Africa/Lagos", cutoff=datetime(2036, 10, 26, 23, 10))
+    london = {"X-Timezone": "Europe/London"}
+
+    board = (await client.get("/api/leaderboard/species?span=today", headers=london)).json()
+    chart = (await client.get("/api/stats/detections/timeline?span=today", headers=london)).json()
+
+    assert _leaderboard(board)["Turdus merula"]["window_count"] == 1
+    assert sum(point["count"] for point in chart["points"]) == 1
+    assert board["previous_window_complete"] is False

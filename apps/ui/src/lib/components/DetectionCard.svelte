@@ -15,7 +15,9 @@
     import { birdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
     import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
-    import type { SpeciesInCapture } from '../utils/visit-captures';
+    import type { CompanionSpecies } from '../utils/visit-captures';
+    import CompanionSpeciesNote from './CompanionSpeciesNote.svelte';
+    import { canWatchRecordVideo } from '../utils/record-access';
 
     interface Props {
         detection: Detection;
@@ -37,8 +39,10 @@
          * the record. Without it the card is the plain, closed shape.
          */
         footer?: Snippet;
-        /** Species in the visit's busiest capture, when there is more than one. */
-        speciesMix?: SpeciesInCapture[] | null;
+        /** Other species seen in one capture of this visit, and that capture. */
+        companions?: CompanionSpecies | null;
+        /** Opens the capture the other species were seen in. */
+        onopenCapture?: (capture: Detection) => void;
         /** Heard calls that fold into this visit because they confirm it. */
         matchedCalls?: number;
         /** Whether a person confirmed this record's species, and of what that is true. */
@@ -60,11 +64,11 @@
         fullVisitFetched = false,
         fullVisitFetchState: _fullVisitFetchState = 'idle',
         footer,
-        speciesMix = null,
+        companions = null,
+        onopenCapture,
         matchedCalls = 0,
         ownerConfirmation = null
     }: Props = $props();
-    const mixed = $derived((speciesMix?.length ?? 0) >= 2);
 
     // Check if this detection is being reclassified
     let reclassifyProgress = $derived(!hideProgress ? detectionsStore.getReclassificationProgress(detection.frigate_event) : null);
@@ -75,8 +79,9 @@
     const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false);
     let naming = $derived($birdNames(detection, showCommon, preferSci));
 
-    let primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
-    let subName = $derived(mixed ? null : naming.secondary);
+    // A visit is named by its own species; another species in one capture is a note beneath.
+    let primaryName = $derived(naming.primary);
+    let subName = $derived(naming.secondary);
     // While selecting, the card is a toggle named by what it picks, as a list row is.
     const selectSubject = $derived(`${primaryName}, ${formatTime(detection.detection_time)}`);
     const recordLabel = $derived(
@@ -152,7 +157,7 @@
         }
     }
 
-    const canPlayVideo = $derived(!!onPlay && (detection.has_clip || fullVisitFetched));
+    const canPlayVideo = $derived(!!onPlay && canWatchRecordVideo(authStore) && (detection.has_clip || fullVisitFetched));
 </script>
 
 <div class="relative h-full rounded-4xl transition-all duration-300 ease-out">
@@ -289,14 +294,9 @@
                     {subName}
                 </p>
             {/if}
-            {#if mixed && speciesMix}
-                <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.species_in_capture', { default: 'Species in this capture' })}>
-                    {#each speciesMix as entry (entry.species)}
-                        <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2 text-2xs font-semibold text-ink">
-                            {$birdNames(entry, showCommon, preferSci).primary}<span class="font-bold tabular-nums text-accent-ink">{entry.count}</span>
-                        </li>
-                    {/each}
-                </ul>
+            {#if companions && onopenCapture && !selectionMode}
+                <!-- Above the card's own button, so it opens the capture it names, not the record shown. -->
+                <CompanionSpeciesNote {companions} onopen={onopenCapture} class="relative z-20 mt-1" />
             {/if}
             {#if hasAudioConfirmed && matchedCalls > 0}
                 <p class="mt-1 text-2xs font-semibold text-accent-ink">
@@ -325,12 +325,10 @@
                 </svg>
                 {formatTime(detection.detection_time)}
             </BadgeHint>
-            {#if !mixed}
             <BadgeHint text={$_('detection.confidence_hint', { values: { score: (detection.score * 100).toFixed(0) } })} class="flex min-h-11 items-center gap-1.5 text-xs font-semibold tabular-nums text-ink">
                 <span class="h-2 w-2 rounded-full {SCORE_FILL[scoreBand(detection.score)]}" data-detection-score></span>
                 {(detection.score * 100).toFixed(0)}%
             </BadgeHint>
-            {/if}
             {#if canPlayVideo}
                 <span class="relative inline-flex">
                 <button
@@ -353,8 +351,8 @@
                 {#if fullVisitFetched}
                     <BadgeHint
                         class="absolute -right-0.5 -top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-surface bg-accent text-accent-fg shadow-md"
-                        text={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
-                        label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
+                        text={$_('video_player.full_visit_ready', { default: 'Full clip ready' })}
+                        label={$_('video_player.full_visit_ready', { default: 'Full clip ready' })}
                     >
                         <svg class="h-2 w-2" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                             <path d="M7 3H5a2 2 0 00-2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>

@@ -6,7 +6,7 @@ import {
     needsSpeciesCheck,
     parseSpeciesPageLink,
     readRangeCheck,
-    SPECIES_CHECKS_LINK,
+    speciesChecksLink,
     windowSpeciesChecks,
     type RangeCheckReading
 } from './species-checks';
@@ -100,9 +100,20 @@ describe('windowSpeciesChecks', () => {
 });
 
 describe('the link to the Species page checks', () => {
-    it('opens the 24 hour window at the checks', () => {
-        expect(SPECIES_CHECKS_LINK).toBe('/species?span=day#checks');
+    it('opens the Dashboard\'s window at the checks', () => {
+        expect(speciesChecksLink('rolling')).toBe('/species?span=day#checks');
+        // On Today the Dashboard opens the Leaderboard on Today, the window its checks were read for.
+        expect(speciesChecksLink('today')).toBe('/species?span=today#checks');
+        expect(parseSpeciesPageLink('?span=today', '#checks')).toEqual({ span: 'today', focusChecks: true });
         expect(parseSpeciesPageLink('?span=day', '#checks')).toEqual({ span: 'day', focusChecks: true });
+    });
+
+    it('reads Today and keeps day for the last 24 hours', () => {
+        expect(parseSpeciesPageLink('?span=today', '')).toEqual({ span: 'today', focusChecks: false });
+        expect(parseSpeciesPageLink('?span=day', '')).toEqual({ span: 'day', focusChecks: false });
+        expect(parseSpeciesPageLink('?span=week', '')).toEqual({ span: 'week', focusChecks: false });
+        expect(parseSpeciesPageLink('?span=month', '')).toEqual({ span: 'month', focusChecks: false });
+        expect(parseSpeciesPageLink('?span=Today', '')).toEqual({ span: null, focusChecks: false });
     });
 
     it('keeps the page default for a missing or unknown span', () => {

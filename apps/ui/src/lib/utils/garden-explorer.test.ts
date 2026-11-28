@@ -74,6 +74,7 @@ describe('gardenBlocker', () => {
         favoritesOnly: false,
         showHidden: false,
         multipleSpeciesOnly: false,
+        ownerConfirmedOnly: false,
         audioConfirmedOnly: false,
         sortOrder: 'newest',
         groupVisits: true,
@@ -88,6 +89,7 @@ describe('gardenBlocker', () => {
     it('steps aside beside birds for anything that only describes a bird visit', () => {
         expect(gardenBlocker('all', { ...open, speciesFilter: 'Turdus merula' })).toBe('bird_filter');
         expect(gardenBlocker('all', { ...open, showHidden: true })).toBe('bird_filter');
+        expect(gardenBlocker('all', { ...open, ownerConfirmedOnly: true })).toBe('bird_filter');
         expect(gardenBlocker('all', { ...open, sortOrder: 'confidence' })).toBe('confidence_sort');
         expect(gardenBlocker('all', { ...open, groupVisits: false })).toBe('ungrouped');
         expect(gardenBlocker('all', { ...open, selectionMode: true })).toBe('selection');
@@ -96,6 +98,7 @@ describe('gardenBlocker', () => {
     it('shows Garden on its own regardless, saying the bird filters do not apply', () => {
         expect(gardenBlocker('garden', open)).toBeNull();
         expect(gardenBlocker('garden', { ...open, favoritesOnly: true, sortOrder: 'confidence' })).toBe('bird_filter_ignored');
+        expect(gardenBlocker('garden', { ...open, ownerConfirmedOnly: true })).toBe('bird_filter_ignored');
     });
 });
 

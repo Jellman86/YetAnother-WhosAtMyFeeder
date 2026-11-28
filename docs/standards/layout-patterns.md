@@ -28,17 +28,47 @@ Six decisions carry most of the design. Apply them before reaching for a compone
 
 ### 1.1 One window per surface
 
-Every number on a screen describes the same slice of time. The dashboard says "Last 24 hours" and
-then counts visits, species, unresolved detections, camera activity and audio calls over the same
-rolling 24 hours, via `withinDeskWindow()`. Every line on the desk names that window the same way:
-the field log's "earlier visits in the last 24 hours", the review queue's empty state and the log's
-empty state, never "today" or "of the day". A screen whose header says one thing and whose cards
-count another is broken even when every figure is individually correct.
+Every number on a screen describes the same slice of time. The dashboard offers two windows beside
+its heading, **Today** (from the viewer's local midnight) and **Last 24 hours** (the default, so an
+early morning is never empty), and each device remembers its choice (`utils/desk-window.ts`). Each
+load settles one window (`deskWindow()`) and gives it to every read: the day summary's `window`,
+the visits' and Garden's exact instants, the Heard summary's `start_date` and `end_date`, the review
+queue's `window` and the species checks' `span`. Live captures stay on the desk only inside it
+(`withinDeskWindow()`), and an open Dashboard on Today reads the new day at local midnight.
+Midnight never splits a load: every read goes through `readOneDay()`, which settles the window for
+the day the desk is reading and checks each answer's `window_start` against it. A read that notices
+midnight has passed on this side reads the whole desk again for the new day; an answer for another
+day (a server already past midnight) is asked again at most twice and is never shown. The day is
+checked again when each answer lands, so an old-day answer settling just after midnight is not
+shown either. A guest's log is read over the start the figures counted from when the shared
+history narrowed it, and read again if the shared UTC day moved during the read. An open
+review walkthrough takes the new day's list at midnight, or closes. Every
+line on the desk names that window the same way: "earlier visits in the last 24 hours" or "earlier
+visits today", and the review queue's, the log's and the cards' empty states, never "of the day". A
+screen whose header says one thing and whose cards count another is broken even when every figure
+is individually correct.
+
+The heading names the window the figures on screen were read for, never the one being read. A new
+choice clears every reading and drops the reads in flight, so the figures stand as placeholders
+under the new name until its answers land, and a slower answer for the window just left cannot
+appear under it. "No visits yet today" is said only of a Today that was read and is empty; a read
+that failed says so instead, and an empty reading is dropped once a refresh of it fails, since
+nothing then shows it is still empty. With Garden unread, an empty log says "No bird visits", and a
+Heard summary that could not be read says so rather than "No calls heard". Garden that could not be
+read shows none of its earlier rows, and the Heard card names a latest call only inside the window
+its summary counted. When a guest's shared history starts after their midnight, the server
+counts from its start and says so in `window_start`, and the heading says from what time Today is
+shown.
 
 A link that leaves the page says where it goes and points onward, not down: "9 earlier visits in
-the last 24 hours, open in Explorer" with a right chevron. The Explorer's address holds whole days (a
-preset or a custom range of dates), not a rolling window, so the link opens it unfiltered rather
-than on a window that is not the desk's.
+the last 24 hours, open in Explorer" with a right chevron. It opens the Explorer on the same
+window, `/events?date=24h` (or `/events?date=today` on Today), and names the visitors the log holds
+(`visitors=all` while Garden is on, `visitors=birds` otherwise), so a device that last left the
+Explorer on Garden alone cannot hide the visits the line counted. The Explorer's "Last 24 hours" fixes one pair of exact instants
+for each read and gives the same pair to the visits, the captures, their count, Garden and the
+heard calls. The header's "See full history" is a different promise and stays unfiltered, so
+`FieldLog` takes the two as separate callbacks: `onseeall` for the header, `onseewindow` for the
+truncation line.
 
 When you add a panel, take the already-windowed list, not `detectionsStore.detections`.
 
@@ -100,11 +130,19 @@ Work that is waiting is first-class: the review queue is a docked card with a co
 someone has to think to apply. A flagged row states its reason in words ("Below the naming
 threshold"), never by colour alone.
 
-"Needs your call" holds every kind of waiting work in the desk's window, not only the visits. It
-also names the species the leaderboard's range check flags over the same 24 hours
-(`windowSpeciesChecks()` in `leaderboard/species-checks.ts`, the predicate the Species page's
-**Needs a check** uses), links to them at `/species?span=day#checks`, and offers the kept-bird
-action through the same `KeptBirdOffers` component. `needsYourCall()` in
+"Needs your call" holds every kind of waiting work in the desk's window, not only the visits. The
+captures it waits on are the ones the **Unresolved** figure counts over the same window
+(`GET /api/events/review-queue?window=`), so the two never disagree; a new species waits beside
+them whenever it was first seen in the last fortnight, and the day bar says "nothing needs your
+call" only when neither waits. It also names the species the leaderboard's range check flags over
+the same window (`windowSpeciesChecks()` in `leaderboard/species-checks.ts`, the predicate the
+Species page's **Needs a check** uses, read with `span=today` on Today), links to them on the
+same window (`speciesChecksLink()`: `/species?span=today#checks` on Today, `/species?span=day#checks`
+over the last 24 hours), and offers the kept-bird
+action through the same `KeptBirdOffers` component. The checks count what the Leaderboard counts
+for that window, stored captures and captures Frigate lost, never a sealed day's total, so the card
+and the page it opens name the same species; the day's figures and the waiting captures count the
+stored captures a person can open. `needsYourCall()` in
 `utils/needs-your-call.ts` decides what the card may say: each reading (visits, species checks)
 is loading, unavailable, clear, waiting or stale on its own, and "Nothing waiting on you" appears
 only when both were measured and are zero. A leaderboard answer measures the species checks only
@@ -439,6 +477,15 @@ visit's frames, the analysis and facts, then the reference; held sideways on a p
 identification is on the first screen
 ```
 
+**One record, the same controls wherever it opens.** About, the Dashboard and the Explorer open a
+record and its video only through `RecordDialogs`, which wires the play button, the video player,
+the full visit, reclassification and the record's live updates the same way for each. Only access
+decides what a record offers: the owner sees every control, and a guest sees video only while
+**Share video with guests** is on and a download only while **Allow clip downloads** is also on
+(`utils/record-access.ts`). A page supplies only what is its own, such as removing a row from its
+list after a delete, and never takes a control away. `record-dialogs.layout.test.ts` and
+`browser-tests/record-parity.spec.ts` hold this.
+
 The decision sits with the picture it is made from, and the reference is a reading column of its
 own. Before this the record was three columns of three heights under one scroll, and the column
 that held only the photograph was half empty. The shape is decided from what the record holds when
@@ -708,7 +755,8 @@ busiest day in the viewer's own calendar days, and its newest arrival, which mus
 least three times or confirmed so a single misidentification is never announced. Beside them is
 the latest visit with a stored crop, which plays its film once one is made and opens its record. A
 guest sees the shared window only, and the heading says so, so a short window never reads as a
-young feeder. A shared-history change clears the guest's portrait immediately and reloads its facts
+young feeder. The latest visit opens the same record as everywhere else, with its video and full
+visit. A shared-history change clears the guest's portrait immediately and reloads its facts
 and latest visit; an older response cannot restore withdrawn media. The install count beneath is a cached read of the telemetry worker's public summary,
 off with update checks, and absent rather than zero when unknown.
 
@@ -739,7 +787,8 @@ column beside it; below that they follow it, the two history lists side by side 
 | `DeskContextCards` | Standing operational context | Put actions in it |
 | `TopVisitors` | A full-width band | Place it in the context rail; it lays out horizontally and compresses badly |
 | `InstancePipeline` | Deployment state as a flow | Use it as a settings surface |
-| `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
+| `RecordDialogs` | Opening a record and its video from any page: the record (`DetectionModal`), the player (`VideoPlayer`), the full visit and live updates, wired once | Render `DetectionModal` or `VideoPlayer` directly, or leave out a control on one page |
+| `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` through `RecordDialogs` |
 | `ActivityHeatmap` | A weekday by hour grid that reads a slot on hover, tap or arrow keys, with hour and day totals in its margins; `unit` names what a cell counts (captures on the Leaderboard, calls heard on Audio history) | Rely on native `title` tooltips; they arrive late and never on touch |
 | `HeatmapSpeciesChips` | The row above a weekday grid that shows one species instead of all: **All species** then up to five species, `aria-pressed` buttons with `min-h-11` targets; shared by the Leaderboard and Audio history, and hidden when there is only one species to choose | Hand-roll a second chip row for another grid, or keep a choice the window no longer offers |
 | `CameraWatchRow` | One Frigate camera in **Settings → Cameras & connection → Cameras to watch**, shaped as a settings row: the camera's name and Preview on the left; "Watch for" (Off, Birds, Garden animals or Both, as one select) and, while it watches birds, its role (select) in the control column; motion photos below while it watches Garden animals | Add a second camera list for one subject elsewhere; link to this list and summarise instead |

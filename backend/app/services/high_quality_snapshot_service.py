@@ -320,7 +320,7 @@ class HighQualitySnapshotService:
             if event_id.startswith("manual_"):
                 continue
             metadata = await media_cache.get_snapshot_metadata(event_id) or {}
-            if metadata.get("manual_selection") or metadata.get("storage_evicted"):
+            if await media_cache.has_live_manual_selection(event_id, metadata) or metadata.get("storage_evicted"):
                 continue
             async with get_db() as db:
                 candidates = await DetectionRepository(db).list_snapshot_candidates(event_id)
@@ -525,15 +525,15 @@ class HighQualitySnapshotService:
             ),
         )
         if not replaced:
-            return self._record_outcome(event_id, "snapshot_replace_failed")
+            return self._record_outcome(event_id, self._refused_replace_outcome(event_id))
         # A favourite's archive follows the photograph the pipeline settles on (#178).
         from app.services.archive_service import archive_service
 
         await archive_service.refresh_photograph(event_id)
 
         await self._apply_classification_refinement(event_id, classification_candidates)
-        if (await media_cache.get_snapshot_metadata(event_id) or {}).get("manual_selection"):
-            return self._record_outcome(event_id, "manual_selection_preserved")
+        if kept := await self._kept_photo_outcome(event_id):
+            return self._record_outcome(event_id, kept)
         if manual_override and initial_metadata.get("manual_selection"):
             async with media_cache._snapshot_commit_lock(event_id):
                 if not (await media_cache.get_snapshot_metadata(event_id) or {}).get("manual_selection"):
@@ -759,7 +759,7 @@ class HighQualitySnapshotService:
                 ),
             )
             if not replaced:
-                return self._record_outcome(event_id, "snapshot_replace_failed")
+                return self._record_outcome(event_id, self._refused_replace_outcome(event_id))
             # A favourite's archive follows the photograph the pipeline settles on (#178).
             from app.services.archive_service import archive_service
 
@@ -777,10 +777,9 @@ class HighQualitySnapshotService:
                 size=len(image_bytes),
                 source=snapshot_source,
             )
-            manual = (await media_cache.get_snapshot_metadata(event_id) or {}).get("manual_selection")
             result = self._record_outcome(
                 event_id,
-                "manual_selection_preserved" if manual else "bird_crop_replaced" if crop_applied else "replaced",
+                await self._kept_photo_outcome(event_id) or ("bird_crop_replaced" if crop_applied else "replaced"),
             )
             await self._persist_processing_outcome(event_id, result, expected_revision=revision)
             return result
@@ -1237,6 +1236,7 @@ class HighQualitySnapshotService:
         from app.services.photo_presence import has_reusable_bird_presence
 
         metadata = await media_cache.get_snapshot_metadata(event_id) or {}
+        # A manual choice (or a missing photo behind a stale sidecar) is never defended as an auto incumbent.
         if metadata.get("manual_selection") or metadata.get("storage_evicted"):
             return None
         async with get_db() as db:
@@ -3783,6 +3783,24 @@ class HighQualitySnapshotService:
             return None
         return parsed
 
+    @staticmethod
+    def _refused_replace_outcome(event_id: str) -> str:
+        """A photo an interrupted cleanup set aside is being put back, which is not a failed write."""
+        return "photo_set_aside" if media_cache._snapshot_set_aside(event_id) else "snapshot_replace_failed"
+
+    @staticmethod
+    async def _kept_photo_outcome(event_id: str) -> str | None:
+        """Why a replace_snapshot call kept the photo, or None when it wrote the new one.
+
+        It keeps a live owner choice, and fails closed when the choice's sidecar cannot be read.
+        Either way nothing was written, so the outcome must not claim a new photo.
+        """
+        if not await media_cache.has_live_manual_selection(event_id):
+            return None
+        if await media_cache.get_snapshot_metadata(event_id) is None:
+            return "photo_settings_unreadable"
+        return "manual_selection_preserved"
+
     def _record_outcome(self, event_id: str, result: str) -> str:
         self._outcomes[result] += 1
         self._last_result = {"event_id": event_id, "result": result}
@@ -3810,6 +3828,7 @@ class HighQualitySnapshotService:
                     "replaced",
                     "bird_crop_replaced",
                     "manual_selection_preserved",
+                    "photo_settings_unreadable",
                     "existing_crop_preserved",
                 }:
                     await repo.record_success(HQ_PROCESSING_PIPELINE, event_id, expected_revision=expected_revision)

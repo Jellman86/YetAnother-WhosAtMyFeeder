@@ -1,5 +1,5 @@
 /** The Leaderboard's time spans, as its span bar names them. */
-export type RowSpan = 'day' | 'week' | 'month' | 'all';
+export type RowSpan = 'today' | 'day' | 'week' | 'month' | 'all';
 
 /** The figure a ranking row showed for a species: its unit, and the window it covers. */
 export interface RowFigure {

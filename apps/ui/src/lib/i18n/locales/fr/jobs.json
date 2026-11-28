@@ -34,7 +34,7 @@
   "kind_auto_video": "Analyse vidéo automatique",
   "kind_video_analysis": "Analyse vidéo",
   "kind_high_quality_snapshot": "Captures de qualité optimale",
-  "kind_full_visit": "Clips de visites complètes",
+  "kind_full_visit": "Clips complets",
   "errors_clear": "Effacer l’historique des erreurs",
   "errors_backend_empty": "Le backend n’a enregistré aucun avertissement ni aucune erreur depuis le dernier effacement de l’historique des erreurs.",
   "errors_export_failed": "Impossible de récupérer les diagnostics actuels. Réessayez.",
@@ -109,7 +109,7 @@
   "errors_filtered_hint": "Abaissez le seuil minimal de confiance dans Paramètres → Identifier les oiseaux pour en conserver davantage.",
   "errors_filtered_recent": "Les plus récentes",
   "errors_activity_title": "Ce qui s’est passé",
-  "errors_activity_subtitle": "Visites enregistrées, détections filtrées et défaillances du pipeline, dans l’ordre où elles se sont produites",
+  "errors_activity_subtitle": "Visites enregistrées, détections filtrées, travail ignoré volontairement et défaillances du pipeline, dans l’ordre où ils se sont produits",
   "errors_activity_window": "Depuis le démarrage de cette instance, {started}",
   "errors_activity_no_window": "Cette instance n’a pas indiqué son heure de démarrage, l’activité ne peut donc pas encore être située dans une période.",
   "errors_activity_empty": "Aucune activité de détection n’a été signalée depuis le démarrage de cette instance il y a {started}.",
@@ -118,8 +118,12 @@
   "errors_activity_recorded": "Visite enregistrée",
   "errors_activity_filtered": "Écarté par le filtre",
   "errors_activity_fault": "Défaillance du pipeline",
+  "errors_activity_held_back": "Ignoré volontairement",
   "errors_activity_view_record": "Voir la fiche",
   "errors_fault_preview": "Aperçu de l’image de détection échouée pour {species}",
+  "errors_held_back_preview": "Aperçu de l’image pour {subject}",
+  "errors_held_back_subject": "Événement Frigate",
+  "errors_held_back_subject_camera": "Événement Frigate sur {camera}",
   "errors_subsystems_title": "Détail des sous-systèmes",
   "errors_filtered_preview": "Aperçu de l’image filtrée comme {species}",
   "errors_filtered_frame_gone": "Frigate n’a plus cette image",
@@ -418,6 +422,14 @@
     "retention_paused_daily_totals": {
       "title": "Le nettoyage automatique de l'historique s'est mis en pause car les totaux quotidiens n'ont pas pu être enregistrés.",
       "next": "Aucune visite n'a été supprimée. Vérifiez la base de données et l'espace disque ; le nettoyage réessaiera au prochain passage."
+    },
+    "media_set_aside_unreturned": {
+      "title": "Certaines photos ou vidéos mises de côté par le nettoyage n’ont pas encore pu être remises en place.",
+      "next": "Rien n’a été supprimé. YA-WAMF réessaie à la prochaine vérification du stockage. Si cela se reproduit, vérifiez que le disque du dossier des médias a de l’espace libre et est accessible en écriture."
+    },
+    "media_kept_copies": {
+      "title": "Certaines photos ou vidéos ont été gardées en copies de secours, car le nettoyage n’a pas pu les remettre en place.",
+      "next": "Rien n’a été perdu : un autre fichier avait pris leur place, les deux ont donc été conservés. Supprimer la capture supprime aussi sa copie de secours. Le guide du stockage explique comment en remettre une en place."
     },
     "notification_queue_full": {
       "title": "Une notification a été ignorée car la file d'envoi était pleine.",

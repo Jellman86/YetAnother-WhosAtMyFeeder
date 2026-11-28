@@ -88,7 +88,6 @@
     <DetectionModal
         detection={record}
         llmReady={false}
-        showVideoButton={false}
         onClose={() => { handedOff = false; }}
         onViewSpecies={() => {}}
     />

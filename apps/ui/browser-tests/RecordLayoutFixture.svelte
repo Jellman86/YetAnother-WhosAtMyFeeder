@@ -44,8 +44,7 @@
 <DetectionModal
     {detection}
     llmReady={false}
-    showVideoButton={!short}
-    onPlayVideo={() => {}}
+    onPlayVideo={short ? undefined : () => {}}
     onClose={() => {}}
     onViewSpecies={() => {}}
 />

@@ -3,15 +3,19 @@ from datetime import datetime
 
 from app.repositories.detection_repository import (
     DETECTION_SELECT_COLUMNS,
+    species_match_sql,
+    visit_taxon_match,
     Detection,
     DetectionRepository,
     _row_to_detection,
 )
 from app.repositories.catalogue_identity import species_ids_condition
 from app.repositories.audio_history_repository import public_audio_evidence_sql
+from app.repositories.bird_observation_repository import BirdObservationRepository, events_condition
 from app.config import settings
 from app.services.visit_grouping import valid_event_bounds
 from app.utils.canonical_species import hidden_species_exact_labels
+from app.utils.owner_confirmation import owner_confirmed_sql
 
 
 class VisitRepository(DetectionRepository):
@@ -163,11 +167,7 @@ class VisitRepository(DetectionRepository):
         favorites: bool = False,
         audio_only: bool = False,
         public_audio: bool = False,
-        multiple_species_only: bool = False,
-        start: datetime | None = None,
-        end: datetime | None = None,
-        camera: str | None = None,
-        hidden_only: bool = False,
+        mixed_events: list[str] | None = None,
         species_ids: Collection[int] | None = None,
     ) -> tuple[str, list]:
         clauses = []
@@ -185,18 +185,15 @@ class VisitRepository(DetectionRepository):
                 params.extend(values)
             clauses.append("(" + " OR ".join(species_clauses) + ")")
         if taxa_id is not None:
-            clauses.append("d.taxa_id = ?")
-            params.append(taxa_id)
+            clause, values = species_match_sql(visit_taxon_match(taxa_id), "d")
+            clauses.append(clause)
+            params.extend(values)
         species_ids_clause, species_ids_params = species_ids_condition(species_ids, "d.species_id")
         if species_ids_clause:
             clauses.append(species_ids_clause)
             params.extend(species_ids_params)
-        if multiple_species_only:
-            from app.repositories.bird_observation_repository import BirdObservationRepository
-
-            clause, values = await BirdObservationRepository(self.db).multiple_species_condition(
-                start=start, end=end, camera=camera, hidden_only=hidden_only
-            )
+        if mixed_events is not None:
+            clause, values = events_condition("d", mixed_events)
             clauses.append(clause)
             params.extend(values)
         if favorites:
@@ -210,6 +207,68 @@ class VisitRepository(DetectionRepository):
             else:
                 clauses.append("d.audio_confirmed = 1")
         return " AND ".join(clauses) or "1 = 1", params
+
+    async def visit_match(
+        self,
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        camera: str | None = None,
+        camera_in_condition: bool = False,
+        hidden_only: bool = False,
+        gap_seconds: int | None = None,
+        species: str | None = None,
+        species_any: list[str] | None = None,
+        taxa_id: int | None = None,
+        favorites: bool = False,
+        audio_only: bool = False,
+        public_audio: bool = False,
+        multiple_species_only: bool = False,
+        owner_confirmed_only: bool = False,
+        species_ids: Collection[int] | None = None,
+        mixed_events: list[str] | None = None,
+    ) -> tuple[str, list, str, list, list[str] | None]:
+        """The grouping CTE and the condition a member of ``visit_members d`` meets in a matching visit.
+
+        A visit matches when any of its members meets the condition, so a count of matching visits
+        is ``COUNT(DISTINCT d.visit_id)`` over the members that meet it. With ``camera_in_condition``
+        the camera narrows the condition and not the grouping: a camera's visits are the same either
+        way, because identities are read across every camera and visits never span two, so readers
+        of several cameras can share one grouping. ``mixed_events`` is the multiple-species evidence
+        when the caller has read it already.
+        """
+        cte, params = await self.grouping_cte(
+            start=start,
+            end=end,
+            camera=None if camera_in_condition else camera,
+            hidden_only=hidden_only,
+            gap_seconds=gap_seconds,
+        )
+        if multiple_species_only and mixed_events is None:
+            mixed_events = await BirdObservationRepository(self.db).multiple_species_events(
+                start=start, end=end, camera=camera, hidden_only=hidden_only
+            )
+        elif not multiple_species_only:
+            mixed_events = None
+        condition, values = await self._matching_condition(
+            species_ids=species_ids,
+            species=species,
+            species_any=species_any,
+            taxa_id=taxa_id,
+            favorites=favorites,
+            audio_only=audio_only,
+            public_audio=public_audio,
+            mixed_events=mixed_events,
+        )
+        if owner_confirmed_only:
+            # A visit is confirmed when any capture in view is, as its badge says, so the other
+            # filters may be met by a different capture of the same visit.
+            confirmed_sql = await owner_confirmed_sql(self.db, "v")
+            condition = f"{condition} AND d.visit_id IN (SELECT v.visit_id FROM visit_members v WHERE {confirmed_sql})"
+        if camera and camera_in_condition:
+            condition = f"{condition} AND d.camera_name = ?"
+            values = [*values, camera]
+        return cte, params, condition, values, mixed_events
 
     async def list_visits(
         self,
@@ -228,13 +287,16 @@ class VisitRepository(DetectionRepository):
         audio_only: bool = False,
         public_audio: bool = False,
         multiple_species_only: bool = False,
+        owner_confirmed_only: bool = False,
         species_ids: Collection[int] | None = None,
         gap_seconds: int | None = None,
     ) -> tuple[list[dict], int]:
-        cte, params = await self.grouping_cte(
-            start=start, end=end, camera=camera, hidden_only=hidden_only, gap_seconds=gap_seconds
-        )
-        condition, values = await self._matching_condition(
+        cte, params, condition, values, mixed_events = await self.visit_match(
+            start=start,
+            end=end,
+            camera=camera,
+            hidden_only=hidden_only,
+            gap_seconds=gap_seconds,
             species_ids=species_ids,
             species=species,
             species_any=species_any,
@@ -243,11 +305,9 @@ class VisitRepository(DetectionRepository):
             audio_only=audio_only,
             public_audio=public_audio,
             multiple_species_only=multiple_species_only,
-            start=start,
-            end=end,
-            camera=camera,
-            hidden_only=hidden_only,
+            owner_confirmed_only=owner_confirmed_only,
         )
+        confirmed_sql = await owner_confirmed_sql(self.db, "v")
         audio_sql, audio_params = ("1 = 1", [])
         if public_audio:
             audio_sql, audio_params = await public_audio_evidence_sql(self.db)
@@ -259,15 +319,22 @@ class VisitRepository(DetectionRepository):
         ), matched_members AS (
             SELECT v.* FROM visit_members v WHERE v.visit_id IN (SELECT visit_id FROM matching_visits)
         )"""
+        peak_params: list = []
         if not public_audio and await self._table_exists("bird_observations"):
-            cte += """, bird_counts AS (
+            # Under the "Multiple bird species" filter the visit points at a capture that holds
+            # them, so the species it was found for are the ones its card names and opens.
+            mixed_first = ""
+            if mixed_events is not None:
+                mixed_clause, peak_params = events_condition("v", mixed_events)
+                mixed_first = f"CASE WHEN {mixed_clause} THEN 0 ELSE 1 END, "
+            cte += f""", bird_counts AS (
                 SELECT frigate_event, COUNT(*) AS counted FROM bird_observations
                 WHERE is_hidden = 0
                     AND frigate_event IN (SELECT frigate_event FROM matched_members)
                 GROUP BY frigate_event
             ), header_members AS (
                 SELECT v.*, b.counted, ROW_NUMBER() OVER (
-                    PARTITION BY v.visit_id ORDER BY COALESCE(b.counted, 0) DESC, v.score DESC, v.id DESC
+                    PARTITION BY v.visit_id ORDER BY {mixed_first}COALESCE(b.counted, 0) DESC, v.score DESC, v.id DESC
                 ) AS peak_position FROM matched_members v
                 LEFT JOIN bird_counts b ON b.frigate_event = v.frigate_event
             )"""
@@ -282,10 +349,11 @@ class VisitRepository(DetectionRepository):
                 MAX(CASE WHEN v.representative_position = 1 THEN v.frigate_event END) AS representative_event,
                 MAX(CASE WHEN v.latest_position = 1 THEN v.frigate_event END) AS latest_event,
                 MAX(v.manual_tagged) AS manual_tagged, {peak} AS peak_event,
+                MAX(CASE WHEN {confirmed_sql} THEN 1 ELSE 0 END) AS owner_confirmed,
                 MAX(CASE WHEN v.audio_confirmed = 1 AND {audio_sql} THEN 1 ELSE 0 END) AS audio_confirmed
             FROM header_members v GROUP BY v.visit_id
         )"""
-        params.extend([*values, *audio_params])
+        params.extend([*values, *peak_params, *audio_params])
         order = {
             "newest": "latest_time DESC",
             "oldest": "start_time ASC",

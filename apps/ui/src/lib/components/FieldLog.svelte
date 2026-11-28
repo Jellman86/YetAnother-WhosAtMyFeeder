@@ -32,13 +32,17 @@
         unavailable?: boolean;
         /** Garden visits were asked for and could not be read, so their absence is not a quiet garden. */
         gardenUnavailable?: boolean;
-        onselect?: (detection: Detection) => void;
+        /** Opens a capture's record, with the visit it was chosen from. */
+        onselect?: (detection: Detection, visit: DetectionVisit) => void;
         onidentify?: (detection: Detection) => void;
         onplay?: (detection: Detection) => void;
         ongardenopen?: (visit: GardenServerVisit) => void;
         gardenScope?: GardenCaptureScope;
         ongardencapture?: (visit: GardenServerVisit, capture: GardenCapture, index: number) => void;
+        /** The header's link: the whole history, no window. */
         onseeall?: () => void;
+        /** The truncation line's link: the Explorer on this log's own window. */
+        onseewindow?: () => void;
         onretry?: () => void;
     }
 
@@ -61,6 +65,7 @@
         gardenScope,
         ongardencapture,
         onseeall,
+        onseewindow,
         onretry
     }: Props = $props();
 
@@ -218,7 +223,7 @@
                     <FieldLogGardenRow visit={row.visit} {grid} {showCamera} scope={gardenScope}
                         onopen={(visit) => ongardenopen?.(visit)} oncapture={ongardencapture ? (capture, index) => ongardencapture?.(row.visit, capture, index) : undefined} />
                 {:else}
-                    <FieldLogVisitRow visit={row.visit} {grid} {showCamera} {canIdentify} {onselect} {onidentify} {onplay} />
+                    <FieldLogVisitRow visit={row.visit} {grid} {showCamera} {canIdentify} onselect={onselect ? (detection) => onselect(detection, row.visit) : undefined} {onidentify} {onplay} />
                 {/if}
             {/each}
         </ol>
@@ -226,7 +231,7 @@
         {#if hiddenCount > 0}
             <button
                 class="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold text-muted transition-colors hover:bg-surface-raised focus-ring"
-                onclick={() => onseeall?.()}
+                onclick={() => onseewindow?.()}
                 data-field-log-more
             >
                 <!-- It leaves the page for the Explorer, so it says so and points onward, not down. -->

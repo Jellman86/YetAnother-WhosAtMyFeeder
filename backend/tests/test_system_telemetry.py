@@ -338,6 +338,94 @@ def test_history_keeps_a_rolling_window_and_measures_the_rest_of_the_host() -> N
     assert history.snapshot().points[-1].other_cpu_percent == 0.0
 
 
+def test_history_retains_accelerator_descriptors_across_unmeasured_gaps_until_window_expires() -> None:
+    from app.services.system_telemetry import SystemTelemetryHistory
+
+    history = SystemTelemetryHistory(window_seconds=15, interval_seconds=5)
+    gpu = AcceleratorReading(id="drm:card0", kind="gpu", label="Intel GPU", scope="app", utilization_percent=None)
+
+    history.record(SystemTelemetrySample(cpu_percent=19.0, accelerators=(gpu,)), [], at=0.0)
+    history.record(SystemTelemetrySample(cpu_percent=20.0, accelerators=()), [], at=5.0)
+
+    mid = history.snapshot()
+    assert [(item.id, item.label, item.utilization_percent) for item in mid.accelerators] == [
+        ("drm:card0", "Intel GPU", None)
+    ]
+    assert mid.accelerator_kind == "gpu"
+    assert mid.accelerator_label == "Intel GPU"
+    assert mid.points[-1].accelerator_percent is None
+
+    # Once the window rolls completely past every sample containing the device, its descriptor expires.
+    history.record(SystemTelemetrySample(cpu_percent=21.0, accelerators=()), [], at=10.0)
+    history.record(SystemTelemetrySample(cpu_percent=22.0, accelerators=()), [], at=15.0)
+    expired = history.snapshot()
+    assert expired.accelerators == []
+    assert expired.accelerator_kind is None
+    assert expired.accelerator_label is None
+
+
+def test_primary_accelerator_prefers_readable_unmeasured_gpu_over_unreadable_device() -> None:
+    nvidia = AcceleratorReading(
+        id="nvidia-0",
+        kind="gpu",
+        label="NVIDIA GPU",
+        scope="device",
+        utilization_percent=None,
+        unreadable="nvidia_no_counter",
+    )
+    intel = AcceleratorReading(
+        id="gpu-0000:00:02.0",
+        kind="gpu",
+        label="Intel GPU",
+        scope="app",
+        utilization_percent=None,
+    )
+    sample = SystemTelemetrySample(cpu_percent=12.0, accelerators=(nvidia, intel))
+    assert sample.primary_accelerator == intel
+
+
+@pytest.mark.asyncio
+async def test_system_telemetry_endpoint_distinguishes_named_null_zero_and_absent_accelerator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    samples = iter(
+        [
+            SystemTelemetrySample(
+                cpu_percent=19.0,
+                accelerators=(
+                    AcceleratorReading(
+                        id="drm:card0", kind="gpu", label="Intel GPU", scope="app", utilization_percent=None
+                    ),
+                ),
+            ),
+            SystemTelemetrySample(
+                cpu_percent=19.0,
+                accelerators=(
+                    AcceleratorReading(
+                        id="drm:card0", kind="gpu", label="Intel GPU", scope="app", utilization_percent=0.0
+                    ),
+                ),
+            ),
+            SystemTelemetrySample(cpu_percent=19.0, accelerators=()),
+        ]
+    )
+
+    class StubSampler:
+        def sample(self, pids=()) -> SystemTelemetrySample:
+            return next(samples)
+
+    monkeypatch.setattr(stats_router, "system_telemetry_sampler", StubSampler(), raising=False)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        first = (await client.get("/api/system-telemetry")).json()
+        second = (await client.get("/api/system-telemetry")).json()
+        third = (await client.get("/api/system-telemetry")).json()
+
+    assert first["accelerator"] == {"kind": "gpu", "label": "Intel GPU", "utilization_percent": None}
+    assert second["accelerator"] == {"kind": "gpu", "label": "Intel GPU", "utilization_percent": 0.0}
+    assert third["accelerator"] is None
+
+
 @pytest.mark.asyncio
 async def test_system_telemetry_history_is_for_the_owner_only(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.services.system_telemetry import ProcessLoad, SystemTelemetryHistory

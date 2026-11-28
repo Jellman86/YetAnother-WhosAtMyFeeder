@@ -287,6 +287,23 @@ async def test_multiple_species_filter_matches_full_visit_and_named_species_only
 
 
 @pytest.mark.asyncio
+async def test_multiple_species_filter_points_the_visit_at_the_capture_that_holds_them(repo):
+    busiest = await capture(repo, 0, 0)
+    mixed = await capture(repo, 1, 10)
+    await birds(repo, busiest, ["Turdus merula", "Turdus merula", "Turdus merula"])
+    await birds(repo, mixed, ["Turdus merula", "Erithacus rubecula"])
+    window = {"start": START, "end": START + timedelta(minutes=5)}
+
+    unfiltered, _ = await repo.list_visits(**window)
+    assert unfiltered[0]["peak_event"] == busiest
+
+    filtered, total = await repo.list_visits(**window, multiple_species_only=True)
+    assert total == 1
+    assert filtered[0]["capture_count"] == 2
+    assert filtered[0]["peak_event"] == mixed
+
+
+@pytest.mark.asyncio
 async def test_removed_photo_is_reversible_and_keeps_counting_evidence(repo):
     event = await capture(repo, 0, 0)
     await birds(repo, event, ["Turdus merula"])
@@ -304,16 +321,16 @@ async def test_removed_photo_is_reversible_and_keeps_counting_evidence(repo):
         ],
     )
     with pytest.raises(ValueError, match="Choose another"):
-        await repo.dismiss_snapshot_candidate(event, "chosen", True)
-    assert await repo.dismiss_snapshot_candidate(event, "bad-photo", True)
+        await repo.set_snapshot_candidate_dismissals(event, ["chosen"], True)
+    assert await repo.set_snapshot_candidate_dismissals(event, ["bad-photo"], True) is not None
     listed = await repo.list_snapshot_candidates(event)
     assert len(listed) == 2
     assert listed[1]["photo_hidden"]
     async with repo.db.execute("SELECT COUNT(*) FROM bird_observations WHERE frigate_event = ?", (event,)) as cursor:
         assert (await cursor.fetchone())[0] == 1
-    assert await repo.dismiss_snapshot_candidate(event, "bad-photo", False)
+    assert await repo.set_snapshot_candidate_dismissals(event, ["bad-photo"], False) is not None
     assert not (await repo.list_snapshot_candidates(event))[1]["photo_hidden"]
-    assert not await repo.dismiss_snapshot_candidate(event, "missing", True)
+    assert await repo.set_snapshot_candidate_dismissals(event, ["missing"], True) is None
 
 
 @pytest.mark.asyncio
@@ -324,8 +341,8 @@ async def test_all_visit_statistics_use_same_overlap_and_identity_rules(repo):
     await capture(repo, 1, 20)
     await capture(repo, 2, 150)
     end = START + timedelta(minutes=10)
-    assert len(await repo.get_window_visit_openings(START, end)) == 1
-    assert (await repo.get_daily_species_counts(START, end))[0]["visit_count"] == 1
+    assert len((await repo.get_window_visits(START, end)).visits) == 1
+    assert (await repo.get_window_visits(START, end)).rows[0]["visit_count"] == 1
     assert (await repo.get_daily_visit_counts(start_date=START, end_date=end))["2033-10-03"] == 1
 
 
@@ -339,7 +356,7 @@ async def test_date_boundary_counts_each_windows_visible_visit_once(repo):
         visits, total = await repo.list_visits(start=start, end=end)
         assert total == 1
         assert visits[0]["capture_count"] == 1
-        assert len(await repo.get_window_visit_openings(start, end)) == 1
+        assert len((await repo.get_window_visits(start, end)).visits) == 1
 
 
 @pytest.mark.asyncio
@@ -709,7 +726,7 @@ async def test_removal_rechecks_selection_at_the_write(repo, monkeypatch):
     await repo.mark_selected_snapshot_candidate(event, "race-photo")
     monkeypatch.setattr(repo, "list_snapshot_candidates", AsyncMock(return_value=stale))
     with pytest.raises(ValueError, match="Choose another photograph"):
-        await repo.dismiss_snapshot_candidate(event, "race-photo", True)
+        await repo.set_snapshot_candidate_dismissals(event, ["race-photo"], True)
     async with repo.db.execute(
         "SELECT COUNT(*) FROM snapshot_candidate_dismissals WHERE frigate_event=?", (event,)
     ) as cursor:

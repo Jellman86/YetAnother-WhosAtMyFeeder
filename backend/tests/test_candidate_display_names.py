@@ -202,6 +202,7 @@ async def test_snapshot_candidates_endpoint_includes_resolved_classifier_common_
     ):
         mock_get_db.return_value.__aenter__.return_value = AsyncMock()
         mock_bird_repo_cls.return_value.named_for_event = AsyncMock(return_value=[])
+        mock_repo_cls.return_value.is_as_recorded_dismissed = AsyncMock(return_value=False)
         mock_repo_cls.return_value.list_snapshot_candidates = AsyncMock(
             return_value=[
                 {

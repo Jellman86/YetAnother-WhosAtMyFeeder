@@ -278,7 +278,7 @@ async def _snapshot_preservation_outcome(
 ) -> str | None:
     from app.services.high_quality_snapshot_service import HQ_PROCESSING_PIPELINE
 
-    if metadata.get("manual_selection"):
+    if await media_cache.has_live_manual_selection(event_id, metadata):
         return "manual_selection_preserved"
     state = await ProcessingJobRepository(repo.db).get(HQ_PROCESSING_PIPELINE, event_id)
     if state and state.last_error == "storage_evicted":
@@ -353,8 +353,11 @@ async def _commit_video_snapshot_unlocked(
 ) -> str:
     selected = next(candidate for candidate in candidates if candidate["selected"])
     async with media_cache._media_write_lease(event_id), media_cache._snapshot_commit_lock(event_id):
+        if media_cache._snapshot_set_aside(event_id):
+            # The photo an interrupted cleanup set aside goes back first; video recovery waits for it.
+            return "photo_set_aside"
         metadata = await media_cache.get_snapshot_metadata(event_id) or {}
-        if metadata.get("manual_selection"):
+        if await media_cache.has_live_manual_selection(event_id, metadata):
             return "manual_selection_preserved"
         from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 
@@ -403,7 +406,7 @@ async def _commit_video_snapshot_unlocked(
                 existing,
                 candidates,
                 reviewed_frames={(bird["clip_variant"], bird["frame_index"]) for bird in birds},
-                manual_candidate_id=metadata.get("manual_candidate_id"),
+                manual_candidate_id=None,
                 displayed_photo_sha256=displayed_photo_sha256,
             )
             rows = [
@@ -431,6 +434,7 @@ async def _commit_video_snapshot_unlocked(
                 await media_cache._write_snapshot_metadata(
                     event_id,
                     source=selected["snapshot_source"],
+                    manual_selection=False if metadata.get("manual_selection") else None,
                     image_bytes=selected["image_bytes"],
                     film_alignment=selected.get("film_alignment"),
                 )

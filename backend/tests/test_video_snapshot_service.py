@@ -34,7 +34,7 @@ async def _dismissed_video_photo(clip, event, *, legacy=False):
     async with get_db() as db:
         repo = DetectionRepository(db)
         await repo.replace_snapshot_candidates(event, [removed])
-        assert await repo.dismiss_snapshot_candidate(event, removed["candidate_id"], True)
+        assert await repo.set_snapshot_candidate_dismissals(event, [removed["candidate_id"]], True) is not None
         await db.execute(
             """INSERT INTO bird_observations (frigate_event, bird_index, candidate_id, clip_variant,
             frame_index, crop_box_json, species, classifier_score, manual_species, is_hidden)
@@ -158,7 +158,10 @@ async def test_video_commit_waits_for_photo_action_then_rechecks_removal(clip, m
     candidates, _ = await _dismissed_video_photo(clip, event)
     monkeypatch.setattr(module.archive_service, "refresh_photograph", AsyncMock())
     async with get_db() as db:
-        assert await DetectionRepository(db).dismiss_snapshot_candidate(event, "removed-choice", False)
+        assert (
+            await DetectionRepository(db).set_snapshot_candidate_dismissals(event, ["removed-choice"], False)
+            is not None
+        )
     async with photo_choice_lock(event):
         commit = asyncio.create_task(
             module._commit_video_snapshot(
@@ -174,7 +177,10 @@ async def test_video_commit_waits_for_photo_action_then_rechecks_removal(clip, m
                 await asyncio.wait_for(asyncio.shield(commit), 0.1)
         finally:
             async with get_db() as db:
-                assert await DetectionRepository(db).dismiss_snapshot_candidate(event, "removed-choice", True)
+                assert (
+                    await DetectionRepository(db).set_snapshot_candidate_dismissals(event, ["removed-choice"], True)
+                    is not None
+                )
     assert await commit == "photo_choice_removed"
     assert await module.media_cache.get_snapshot(event) == b"original-photo"
 
@@ -593,6 +599,37 @@ async def test_photo_preflight_does_not_decode_for_an_owner_selected_photo(clip,
         == "manual_selection_preserved"
     )
     decode.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_video_replacement_clears_an_owner_choice_when_its_photo_is_missing(clip, monkeypatch):
+    event_id = "video-recovery-stale-choice"
+    await _seed(event_id)
+    photo = await module.media_cache.replace_snapshot(
+        event_id, b"owner-photo", manual_selection=True, manual_candidate_id="old-choice"
+    )
+    assert photo is not None
+    photo.unlink()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
+
+    assert await module.replace_video_snapshot(event_id, clip, _result(), clip_variant="event") == "replaced"
+
+    assert await module.media_cache.get_snapshot(event_id)
+    metadata = await module.media_cache.get_snapshot_metadata(event_id)
+    assert metadata and not metadata.get("manual_selection") and not metadata.get("manual_candidate_id")
+
+
+@pytest.mark.asyncio
+async def test_video_recovery_waits_while_the_photo_is_set_aside(clip, monkeypatch):
+    event_id = "video-recovery-set-aside"
+    await _seed(event_id)
+    photo = await module.media_cache.cache_snapshot(event_id, b"photo-being-put-back")
+    assert photo is not None
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True)
+    monkeypatch.setattr(module.media_cache, "_set_aside_pending", {photo})
+
+    assert await module.replace_video_snapshot(event_id, clip, _result(), clip_variant="event") == "photo_set_aside"
+    assert await module.media_cache.get_snapshot(event_id) == b"photo-being-put-back"
 
 
 @pytest.mark.asyncio

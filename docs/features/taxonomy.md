@@ -21,7 +21,9 @@ is most visible, because it shows both names together:
 
 ![The Leaderboard with the Month window and the Seen filter selected: Dunnock, Prunella modularis, as the large photograph with 235 visits, and eight smaller photographs beside it, four of them (Golden-crowned Sparrow, Eastern Gray Squirrel, Brown-headed Cowbird, Dark-eyed Junco) marked Check because nobody reported them nearby. Beneath, a band reads 18 species, 289 visits, busiest hour 09:00, 8 of 18 species heard or confirmed, no Rising yet because the history needs a full earlier window, and Dunnock seen most recently](../images/leaderboard.png)
 
-The **Day / Week / Month / Total** buttons set the window. **Seen / Heard / Both** decide what the
+The **Today / Last 24 hours / Last 7 days / Last 30 days / All time** buttons set the window.
+**Today** counts from your local midnight and compares with yesterday up to the same time; a
+guest whose shared history starts later sees the time counting starts from. **Seen / Heard / Both** decide what the
 ranking counts: **Seen** ranks by camera visits, **Heard** by BirdNET-Go detections, and
 **Both** by the two added together, which also brings in species that were only ever heard, never
 photographed. **Both** is a sum, not an intersection: a species does not need evidence from both

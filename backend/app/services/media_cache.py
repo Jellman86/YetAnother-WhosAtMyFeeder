@@ -1,8 +1,9 @@
 """Media cache service for storing snapshots and clips locally."""
 
 import asyncio
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from functools import wraps
+import errno
 import json
 import hashlib
 import math
@@ -19,7 +20,7 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import Any, AsyncIterator, Awaitable, Callable, Optional
 
-from app.utils.tasks import create_background_task
+from app.utils.tasks import create_background_task, finish_started_operation
 from app.utils.system_stats import get_process_uid_gid
 
 log = structlog.get_logger()
@@ -85,6 +86,20 @@ def film_alignment_for_digest(alignment: Any, digest: str) -> dict | None:
         return None
 
 
+def cached_thumbnail_allowed_for_current_snapshot(metadata: dict | None, *, has_snapshot: bool) -> bool:
+    """Return whether a cached thumbnail still matches the current snapshot provenance."""
+    source = str((metadata or {}).get("source") or "").strip()
+    if has_snapshot:
+        # Legacy thumbnails had no source metadata. Once a canonical snapshot is
+        # available, regenerate from it so cards follow the current snapshot config.
+        return source == "snapshot_derived"
+    # Without a canonical snapshot, keep old cached thumbnails for compatibility
+    # unless metadata proves they were derived from a now-missing snapshot.
+    if not source:
+        return True
+    return source == "frigate_thumbnail"
+
+
 def sanitize_event_id(event_id: str) -> str:
     """An event id as a safe file name: alphanumerics, dash, underscore and dot only.
 
@@ -135,8 +150,122 @@ def cache_name_event_id(name: str) -> str:
     return name
 
 
+def possible_cache_owners(event_id: str, paths: list[Path]) -> set[str]:
+    """A generated variant name may also be a supported literal visit ID."""
+    owners = {event_id}
+    for path in paths:
+        for suffix in (".jpg.meta.json", ".mp4.meta.json", ".jpg", ".mp4", ".json"):
+            if path.name.endswith(suffix):
+                stem = path.name[: -len(suffix)]
+                owners.add(stem)
+                for variant in ("_thumb", "_recording", "_preview"):
+                    if stem.endswith(variant):
+                        owners.add(stem[: -len(variant)])
+                        break
+                break
+    owners.update(MediaCacheService._media_write_owner(owner) for owner in tuple(owners))
+    return owners
+
+
+def is_canonical_snapshot_file(event_id: str, path: Path) -> bool:
+    """Return whether ``path`` is the visit's own display photograph, thumbnail, or sidecar."""
+    if path.parent != SNAPSHOTS_DIR:
+        return False
+    try:
+        safe_id = sanitize_event_id(event_id)
+    except ValueError:
+        return False
+    return path.name in {
+        f"{safe_id}.jpg",
+        f"{safe_id}.jpg.meta.json",
+        f"{safe_id}_thumb.jpg",
+        f"{safe_id}_thumb.jpg.meta.json",
+    }
+
+
+def has_manual_snapshot_selection(event_id: str) -> bool:
+    """Return whether ``event_id`` holds a nonempty owner-selected canonical photograph.
+
+    Fails closed on unexpected filesystem or unreadable sidecar errors while a photo exists so
+    transient I/O failures cannot expose an owner-chosen photograph to eviction.
+    """
+    try:
+        safe_id = sanitize_event_id(event_id)
+    except ValueError:
+        return False
+    snapshot_path = SNAPSHOTS_DIR / f"{safe_id}.jpg"
+    metadata_path = SNAPSHOTS_DIR / f"{safe_id}.jpg.meta.json"
+    try:
+        info = snapshot_path.stat()
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
+    if not stat.S_ISREG(info.st_mode) or info.st_size <= 0:
+        return False
+    try:
+        parsed = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return False
+    except (OSError, ValueError, TypeError):
+        return True
+    return not isinstance(parsed, dict) or bool(parsed.get("manual_selection"))
+
+
+# A staged name is hidden and ends in ".tmp", so every cache reader and inventory already skips it.
+# Orphan cleanup stages files it has proved have no parent; the storage sweep may finish them.
+_STAGED_DELETION_SUFFIX = ".evicting.tmp"
+_STAGED_DELETION_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_STAGED_DELETION_SUFFIX))
+# Age cleanup stages files of captures that still exist, and only it may delete them. One left behind
+# by a crash goes back to its name, so the next age cleanup decides again with every check.
+_AGE_STAGED_SUFFIX = ".ageing.tmp"
+_AGE_STAGED_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_AGE_STAGED_SUFFIX))
+# A set-aside copy whose name a newer file took is kept under this name rather than deleted.
+_KEPT_BESIDE_SUFFIX = ".kept.tmp"
+_KEPT_BESIDE_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}" + re.escape(_KEPT_BESIDE_SUFFIX))
+
+
+def kept_copy_original(kept: Path) -> Path:
+    """The cache file a spare copy was kept for."""
+    match = _KEPT_BESIDE_NAME.fullmatch(kept.name)
+    if match is None:
+        raise ValueError(f"Not a spare copy: {kept.name}")
+    return kept.with_name(match.group(1))
+
+
+# A volume without hard links (some network and FUSE mounts) reports one of these.
+_NO_HARD_LINK_ERRNOS = frozenset(
+    code
+    for code in (
+        errno.EPERM,
+        errno.EOPNOTSUPP,
+        getattr(errno, "ENOTSUP", None),
+        errno.EXDEV,
+        errno.EMLINK,
+        errno.ENOSYS,
+    )
+    if code is not None
+)
+
+
+_HIDDEN_CLIP_WRITE_NAME = re.compile(r"\.(.+)\.[0-9a-f]{32}\.tmp\.mp4")
+
+
+def _clip_named_by_its_writer(path: Path) -> Path:
+    """A streaming clip writer's hidden temporary file, named as the clip it becomes."""
+    match = _HIDDEN_CLIP_WRITE_NAME.fullmatch(path.name)
+    return path.with_name(f"{match.group(1)}.mp4") if match else path
+
+
 def _unlink_if_present(path: Path) -> None:
     path.unlink(missing_ok=True)
+
+
+def _read_bytes_if_present(path: Path) -> bytes | None:
+    try:
+        return path.read_bytes()
+    except FileNotFoundError:
+        return None
 
 
 def _clip_duration_seconds(path: Path) -> Optional[float]:
@@ -198,6 +327,13 @@ class MediaCacheService:
         self._snapshot_commit_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
         self._media_lifecycle_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
         self._active_media_writes: dict[str, int] = {}
+        # Age cleanup, orphan cleanup and the storage sweep never interleave, so each can tell its own
+        # staged files from ones an interrupted run left behind.
+        self.housekeeping_lock = asyncio.Lock()
+        # Names whose set-aside copy could not go back yet. Every return rebuilds it from disk.
+        self._set_aside_pending: set[Path] = set()
+        # Recovery copies kept beside a newer file at their name, as last counted on disk.
+        self._kept_copies = 0
         try:
             self._ensure_dirs()
         except Exception as e:
@@ -294,21 +430,7 @@ class MediaCacheService:
 
     async def _complete_file_operation(self, operation: Callable, *args) -> Any:
         """Keep lifecycle locks until executor I/O really finishes, even after cancellation."""
-        task = asyncio.create_task(asyncio.to_thread(operation, *args))
-        cancellation = None
-        while not task.done():
-            try:
-                await asyncio.shield(task)
-            except asyncio.CancelledError as exc:
-                cancellation = exc
-            except BaseException:
-                break
-        if cancellation is not None:
-            # Retrieve a worker exception before propagating the caller cancellation.
-            if not task.cancelled():
-                task.exception()
-            raise cancellation
-        return task.result()
+        return await finish_started_operation(asyncio.to_thread(operation, *args))
 
     async def _emit_recording_clip_cached(self, event_id: str) -> None:
         """Notify listeners after a validated recording clip is available."""
@@ -389,6 +511,8 @@ class MediaCacheService:
         try:
             path = self._thumbnail_path(event_id) if thumbnail else self._snapshot_path(event_id)
             info = await aiofiles.os.stat(path)
+            if thumbnail and await self._thumbnail_slot_has_snapshot(event_id, path.stem):
+                return None
         except (OSError, ValueError):
             return None
         if not stat.S_ISREG(info.st_mode) or info.st_size <= 0:
@@ -469,6 +593,27 @@ class MediaCacheService:
                 pass
             raise
 
+    async def _has_nonempty_snapshot(self, event_id: str) -> bool:
+        try:
+            path = self._snapshot_path(event_id)
+        except ValueError:
+            return False
+        try:
+            info = await aiofiles.os.stat(path)
+        except FileNotFoundError:
+            return False
+        except OSError:
+            return True
+        return stat.S_ISREG(info.st_mode) and info.st_size > 0
+
+    async def has_live_manual_selection(self, event_id: str, metadata: dict | None = None) -> bool:
+        """Return whether ``event_id`` has an active owner photo choice backed by a live file."""
+        meta = metadata if metadata is not None else await self.get_snapshot_metadata(event_id)
+        if not meta:
+            # Display reads treat missing and unreadable metadata alike. A writer must distinguish them.
+            return await asyncio.to_thread(has_manual_snapshot_selection, event_id)
+        return bool(meta.get("manual_selection")) and await self._has_nonempty_snapshot(event_id)
+
     @_tracks_media_write
     async def cache_snapshot(
         self,
@@ -493,13 +638,21 @@ class MediaCacheService:
             return None
         try:
             async with self._snapshot_commit_lock(event_id):
-                metadata = await self.get_snapshot_metadata(event_id) or {}
-                if metadata.get("manual_selection"):
+                if self._snapshot_set_aside(event_id):
+                    log.debug("Left a set-aside photo's name alone", event_id=event_id)
+                    return None
+                stored_metadata = await self.get_snapshot_metadata(event_id)
+                metadata = stored_metadata or {}
+                has_live_photo = await self._has_nonempty_snapshot(event_id)
+                if has_live_photo and (
+                    metadata.get("manual_selection")
+                    or (stored_metadata is None and await asyncio.to_thread(has_manual_snapshot_selection, event_id))
+                ):
                     return self._snapshot_path(event_id)
                 path = self._snapshot_path(event_id)
                 previous_source = str(metadata.get("source") or "")
                 refined = previous_source.startswith(("high_quality_", "hq_candidate_", "video_evidence_"))
-                if source.startswith("frigate_") and refined and await self.get_snapshot_path(event_id) is not None:
+                if source.startswith("frigate_") and refined and has_live_photo:
                     if isinstance(event_hints, dict):
                         await self._write_snapshot_metadata(
                             event_id,
@@ -513,6 +666,7 @@ class MediaCacheService:
                     event_id,
                     source=source,
                     event_hints=event_hints,
+                    manual_selection=False if metadata.get("manual_selection") else None,
                     recording_alignment=recording_alignment,
                     image_bytes=image_bytes,
                     film_alignment=film_alignment,
@@ -544,30 +698,74 @@ class MediaCacheService:
             return None
         try:
             async with self._snapshot_commit_lock(event_id):
-                metadata = await self.get_snapshot_metadata(event_id) or {}
+                if not (manual_selection or clear_manual_selection) and self._snapshot_set_aside(event_id):
+                    # Only an owner's choice may take the name of a photo that has not gone back yet.
+                    log.debug("Left a set-aside photo's name alone", event_id=event_id)
+                    return None
+                stored_metadata = await self.get_snapshot_metadata(event_id)
+                metadata = stored_metadata or {}
+                live_manual = (
+                    bool(metadata.get("manual_selection")) and await self._has_nonempty_snapshot(event_id)
+                    if stored_metadata is not None
+                    else await asyncio.to_thread(has_manual_snapshot_selection, event_id)
+                )
                 manual_choice_changed = (
                     clear_manual_selection
-                    and metadata.get("manual_selection")
-                    and metadata.get("updated_at") != expected_manual_selection_updated_at
+                    and live_manual
+                    and (stored_metadata is None or metadata.get("updated_at") != expected_manual_selection_updated_at)
                 )
-                if (automatic and metadata.get("manual_selection")) or manual_choice_changed:
+                if (automatic and live_manual) or manual_choice_changed:
                     return self._snapshot_path(event_id)
+                stale_manual = bool(metadata.get("manual_selection")) and not live_manual
                 path = self._snapshot_path(event_id)
-                await self._write_bytes_atomic(path, image_bytes)
-                await self._write_snapshot_metadata(
-                    event_id,
-                    source=source,
-                    manual_selection=True if manual_selection else False if clear_manual_selection else None,
-                    manual_candidate_id=manual_candidate_id,
-                    image_bytes=image_bytes,
-                    film_alignment=film_alignment,
-                )
-                await self.delete_thumbnail(event_id)
+
+                async def write_sidecar() -> None:
+                    await self._write_snapshot_metadata(
+                        event_id,
+                        source=source,
+                        manual_selection=(
+                            True if manual_selection else False if (clear_manual_selection or stale_manual) else None
+                        ),
+                        manual_candidate_id=manual_candidate_id,
+                        image_bytes=image_bytes,
+                        film_alignment=film_alignment,
+                    )
+
+                async def publish() -> None:
+                    if manual_selection:
+                        # Protection is written before the pixels it protects, so no failure or crash
+                        # can leave the owner's photo on disk without the flag that keeps it.
+                        sidecar_path = self._snapshot_metadata_path(event_id)
+                        previous_sidecar = await asyncio.to_thread(_read_bytes_if_present, sidecar_path)
+                        await write_sidecar()
+                        try:
+                            await self._write_bytes_atomic(path, image_bytes)
+                        except Exception:
+                            await self._restore_sidecar(event_id, sidecar_path, previous_sidecar)
+                            raise
+                    else:
+                        # Removing protection waits for the replacement pixels, for the same reason.
+                        await self._write_bytes_atomic(path, image_bytes)
+                        await write_sidecar()
+                    await self.delete_thumbnail(event_id)
+
+                # A later writer must see the new pixels and the selection that protects them.
+                await finish_started_operation(publish(), name="snapshot_publication")
             log.debug("Replaced cached snapshot", event_id=event_id, size=len(image_bytes))
             return path
         except Exception as e:
             log.error("Failed to replace cached snapshot", event_id=event_id, error=str(e))
             return None
+
+    async def _restore_sidecar(self, event_id: str, sidecar_path: Path, previous: bytes | None) -> None:
+        """Undo a protecting sidecar whose photo never landed. Failing to undo it keeps the old photo protected."""
+        try:
+            if previous is None:
+                await asyncio.to_thread(_unlink_if_present, sidecar_path)
+            else:
+                await self._write_bytes_atomic(sidecar_path, previous)
+        except Exception as exc:
+            log.warning("Could not restore the photo sidecar after a failed choice", event_id=event_id, error=str(exc))
 
     async def _write_snapshot_metadata(
         self,
@@ -605,9 +803,10 @@ class MediaCacheService:
             # One digest, hashed off the event loop, serves every field below.
             digest = await asyncio.to_thread(image_sha256_hex, image_bytes)
             # Binds this sidecar's provenance to the exact photograph it describes.
-            # The image is written before its sidecar, so a reader that checks
+            # The image and its sidecar are separate files, so a reader that checks
             # this against the bytes it decoded can never pair new pixels with
-            # old provenance. Hint-only updates keep the existing identity.
+            # old provenance, whichever is written first. Hint-only updates keep
+            # the existing identity.
             metadata["image_sha256"] = digest
             # Localization refreshed without writing the image cannot redefine its origin.
             metadata["snapshot_photo_hints"] = (
@@ -628,9 +827,13 @@ class MediaCacheService:
             return False
         async with self._snapshot_commit_lock(event_id):
             snapshot_path = await self.get_snapshot_path(event_id)
-            if snapshot_path is None:
+            if snapshot_path is None or self._snapshot_set_aside(event_id):
                 return False
-            metadata = await self.get_snapshot_metadata(event_id) or {}
+            stored_metadata = await self.get_snapshot_metadata(event_id)
+            if stored_metadata is None and await asyncio.to_thread(has_manual_snapshot_selection, event_id):
+                # Keep the owner-choice safeguard when the existing sidecar cannot be read.
+                return False
+            metadata = stored_metadata or {}
             await self._write_snapshot_metadata(
                 event_id,
                 source=str(metadata.get("source") or "unknown"),
@@ -646,6 +849,16 @@ class MediaCacheService:
         except ValueError:
             return None
         return path if await aiofiles.os.path.exists(path) else None
+
+    async def get_thumbnail_path(self, event_id: str) -> Optional[Path]:
+        """Where a cached thumbnail lives, or None when there is none."""
+        try:
+            path = self._thumbnail_path(event_id)
+        except ValueError:
+            return None
+        if await aiofiles.os.path.exists(path) and not await self._thumbnail_slot_has_snapshot(event_id, path.stem):
+            return path
+        return None
 
     async def get_snapshot_metadata(self, event_id: str) -> Optional[dict]:
         """Read cached snapshot metadata, if present and valid."""
@@ -671,8 +884,13 @@ class MediaCacheService:
             return None
         try:
             path = self._thumbnail_path(event_id)
-            await self._write_bytes_atomic(path, image_bytes)
-            await self._write_thumbnail_metadata(event_id, source=source)
+            async with self._snapshot_commit_lock(path.stem):
+                if await self._thumbnail_slot_has_snapshot(event_id, path.stem):
+                    return None
+                if self._snapshot_set_aside(event_id):
+                    return None
+                await self._write_bytes_atomic(path, image_bytes)
+                await self._write_thumbnail_metadata(event_id, source=source)
             log.debug("Cached thumbnail", event_id=event_id, size=len(image_bytes))
             return path
         except Exception as e:
@@ -707,6 +925,13 @@ class MediaCacheService:
             log.debug("Failed to read cached thumbnail metadata", event_id=event_id, error=str(e))
             return None
 
+    async def _thumbnail_slot_has_snapshot(self, event_id: str, slot_event_id: str) -> bool:
+        """A thumbnail path may be the canonical path of a different literal capture ID."""
+        metadata = await self.get_thumbnail_metadata(event_id)
+        if metadata is None:
+            return await asyncio.to_thread(has_manual_snapshot_selection, slot_event_id)
+        return metadata.get("event_id") == slot_event_id or "image_sha256" in metadata or "manual_selection" in metadata
+
     async def get_snapshot(self, event_id: str) -> Optional[bytes]:
         """Get a cached snapshot.
 
@@ -740,12 +965,15 @@ class MediaCacheService:
         """
         try:
             path = self._thumbnail_path(event_id)
-            if await aiofiles.os.path.exists(path):
+            async with self._snapshot_commit_lock(path.stem):
+                if not await aiofiles.os.path.exists(path) or await self._thumbnail_slot_has_snapshot(
+                    event_id, path.stem
+                ):
+                    return None
                 async with aiofiles.open(path, "rb") as f:
                     data = await f.read()
                 self._touch_access_time(path)
                 return data
-            return None
         except Exception as e:
             log.error("Failed to read cached thumbnail", event_id=event_id, error=str(e))
             return None
@@ -797,14 +1025,17 @@ class MediaCacheService:
         try:
             thumbnail_path = self._thumbnail_path(event_id)
             metadata_path = self._thumbnail_metadata_path(event_id)
-            removed = False
-            if await aiofiles.os.path.exists(thumbnail_path):
-                await aiofiles.os.remove(thumbnail_path)
-                removed = True
-            if await aiofiles.os.path.exists(metadata_path):
-                await aiofiles.os.remove(metadata_path)
-                removed = True
-            return removed
+            async with self._snapshot_commit_lock(thumbnail_path.stem):
+                if await self._thumbnail_slot_has_snapshot(event_id, thumbnail_path.stem):
+                    return False
+                removed = False
+                if await aiofiles.os.path.exists(thumbnail_path):
+                    await aiofiles.os.remove(thumbnail_path)
+                    removed = True
+                if await aiofiles.os.path.exists(metadata_path):
+                    await aiofiles.os.remove(metadata_path)
+                    removed = True
+                return removed
         except Exception as e:
             log.error("Failed to delete cached thumbnail", event_id=event_id, error=str(e))
             return False
@@ -833,6 +1064,8 @@ class MediaCacheService:
             return None
         try:
             path = self._clip_path(event_id)
+            if self._names_set_aside(path):
+                return None
             async with aiofiles.open(path, "wb") as f:
                 await f.write(clip_bytes)
             log.debug("Cached clip", event_id=event_id, size=len(clip_bytes))
@@ -863,6 +1096,8 @@ class MediaCacheService:
             return None
         try:
             path = self._clip_path(event_id)
+            if self._names_set_aside(path):
+                return None
             total_size = 0
             async with aiofiles.open(path, "wb") as f:
                 async for chunk in chunks:
@@ -960,6 +1195,9 @@ class MediaCacheService:
             return None
 
         async with self._recording_clip_commit_lock(event_id):
+            if self._names_set_aside(path):
+                await asyncio.to_thread(_unlink_if_present, tmp_path)
+                return None
             existing_duration = await asyncio.to_thread(_valid_clip_duration_seconds, path)
             if existing_duration is not None and candidate_duration <= existing_duration:
                 log.info(
@@ -1152,6 +1390,8 @@ class MediaCacheService:
         try:
             sprite_path = self._preview_sprite_path(event_id)
             manifest_path = self._preview_manifest_path(event_id)
+            if self._names_set_aside(sprite_path, manifest_path):
+                return False
             async with aiofiles.open(sprite_path, "wb") as f:
                 await f.write(sprite_bytes)
             async with aiofiles.open(manifest_path, "w", encoding="utf-8") as f:
@@ -1213,6 +1453,18 @@ class MediaCacheService:
                 # A missing-parent visit will be retried by mandatory orphan recovery.
                 return
             await self._complete_file_operation(self._delete_visit_files_sync, event_id)
+            if not self._kept_copies:
+                # Every return pass counts spare copies on disk, and only a return creates one.
+                return
+            # A capture deleted from history takes its recovery copies with it.
+            try:
+                safe_id = sanitize_event_id(event_id)
+            except ValueError:
+                return
+            for kept in await asyncio.to_thread(self._kept_copies_sync, safe_id):
+                await self._complete_file_operation(_unlink_if_present, kept)
+        if self._kept_copies:
+            await self._recount_kept_copies()
 
     @_tracks_media_write
     async def set_manual_snapshot_selection(self, event_id: str, selected: bool) -> None:
@@ -1223,7 +1475,8 @@ class MediaCacheService:
             )
             await self._write_bytes_atomic(self._snapshot_metadata_path(event_id), json.dumps(metadata).encode())
 
-    def _delete_visit_files_sync(self, event_id: str, paths: list[Path] | None = None) -> int:
+    @staticmethod
+    def _owned_visit_files_sync(event_id: str, paths: list[Path] | None = None) -> list[Path]:
         safe_id = sanitize_event_id(event_id)
         candidates = (
             paths
@@ -1233,211 +1486,711 @@ class MediaCacheService:
             ]
         )
         # Resolve every owner before removing sidecars used to disambiguate filenames.
-        owned = [
+        return [
             path
             for path in candidates
             if path.is_file() and not path.name.endswith(".tmp") and cache_file_event_id(path) == safe_id
         ]
-        freed = 0
-        for path in owned:
+
+    def _stage_visit_deletion_sync(self, event_id: str, paths: list[Path]) -> list[tuple[Path, Path]]:
+        """Move a visit's files to hidden deletion names: gone to every reader, still restorable.
+
+        A rename is quick and touches no file contents, so the slow unlink can happen later
+        without holding anything a writer needs. A failure part-way puts every file back.
+        """
+        return self._stage_paths_sync(self._owned_visit_files_sync(event_id, paths))
+
+    def _stage_paths_sync(self, paths: list[Path], suffix: str = _STAGED_DELETION_SUFFIX) -> list[tuple[Path, Path]]:
+        staged: list[tuple[Path, Path]] = []
+        try:
+            for path in paths:
+                target = path.with_name(f".{path.name}.{uuid.uuid4().hex}{suffix}")
+                try:
+                    path.rename(target)
+                except FileNotFoundError:
+                    continue
+                staged.append((path, target))
+        except BaseException:
             try:
-                freed += path.stat().st_size
-                path.unlink(missing_ok=True)
+                self._restore_staged_deletion_sync(staged)
+            except OSError:
+                if suffix == _AGE_STAGED_SUFFIX:
+                    self._hold_set_aside_names(staged)
+                raise
+            raise
+        return staged
+
+    @staticmethod
+    def _restore_staged_deletion_sync(staged: list[tuple[Path, Path]]) -> None:
+        for original, target in staged:
+            try:
+                target.rename(original)
             except FileNotFoundError:
                 continue
-        return freed
 
-    async def cleanup_empty_files(self) -> dict:
-        return await asyncio.to_thread(self._cleanup_empty_files_sync)
+    @staticmethod
+    def _remove_staged_deletions_sync(staged_paths: list[Path]) -> dict[str, int]:
+        """Unlink staged files. One that cannot be removed now stays staged for the next sweep."""
+        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
+        for path in staged_paths:
+            match = _STAGED_DELETION_NAME.fullmatch(path.name) or _AGE_STAGED_NAME.fullmatch(path.name)
+            original_name = match.group(1) if match else path.name
+            try:
+                size = path.stat().st_size
+                path.unlink()
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                log.warning("Could not remove a staged cache file; will retry", path=str(path), error=str(exc))
+                continue
+            stats["bytes_freed"] += size
+            if path.parent == SNAPSHOTS_DIR and original_name.endswith(".jpg"):
+                stats["snapshots_deleted"] += 1
+            elif path.parent == CLIPS_DIR and original_name.endswith(".mp4"):
+                stats["clips_deleted"] += 1
+            elif path.parent == PREVIEWS_DIR:
+                stats["previews_deleted"] += 1
+        return stats
 
-    def _cleanup_empty_files_sync(self) -> dict:
-        """Delete empty/corrupt cached files (0-byte files).
+    @staticmethod
+    def _staged_deletions_sync() -> list[Path]:
+        """Files an earlier sweep decided to delete but could not unlink, including before a restart."""
+        return [
+            path
+            for directory in (SNAPSHOTS_DIR, CLIPS_DIR, PREVIEWS_DIR)
+            if directory.exists()
+            for path in directory.iterdir()
+            if _STAGED_DELETION_NAME.fullmatch(path.name)
+        ]
 
-        Returns:
-            Dict with cleanup stats
+    @staticmethod
+    def _age_staged_leftovers_sync() -> list[Path]:
+        return [
+            path
+            for directory in (SNAPSHOTS_DIR, CLIPS_DIR, PREVIEWS_DIR)
+            if directory.exists()
+            for path in directory.iterdir()
+            if _AGE_STAGED_NAME.fullmatch(path.name)
+        ]
+
+    @staticmethod
+    def _age_staged_original(staged: Path) -> Path:
+        match = _AGE_STAGED_NAME.fullmatch(staged.name)
+        if match is None:
+            raise ValueError(f"Not an age-staged file: {staged.name}")
+        return staged.with_name(match.group(1))
+
+    @staticmethod
+    def _name_holds_owner_choice_sync(original: Path) -> bool:
+        """Whether the photo now at a canonical photo's name is provably an owner's choice.
+
+        Unlike the eviction check, this fails open: a set-aside copy is deleted only when the sidecar
+        reads cleanly, marks a manual selection and names, by hash, the very photo at the name. Any read
+        error, missing hash or mismatch keeps both copies.
         """
-        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0}
+        name = original.name
+        if original.parent != SNAPSHOTS_DIR:
+            return False
+        stem = name[: -len(".jpg.meta.json")] if name.endswith(".jpg.meta.json") else name.removesuffix(".jpg")
+        if stem == name:
+            return False
+        try:
+            sidecar = json.loads((SNAPSHOTS_DIR / f"{stem}.jpg.meta.json").read_text(encoding="utf-8"))
+            photo = (SNAPSHOTS_DIR / f"{stem}.jpg").read_bytes()
+        except (OSError, ValueError):
+            return False
+        if not isinstance(sidecar, dict) or sidecar.get("manual_selection") is not True:
+            return False
+        recorded = sidecar.get("image_sha256")
+        return isinstance(recorded, str) and bool(photo) and recorded == image_sha256_hex(photo)
 
-        # Clean empty snapshots
+    @classmethod
+    def _settle_taken_name_sync(cls, staged: Path, original: Path) -> str:
+        """The name came back taken. Only an owner's choice may replace the set-aside copy; anything
+        else might be an automatic write, so both are kept and neither is deleted."""
+        try:
+            if os.path.samefile(staged, original):
+                # A crash or a failed unlink left one file under both names; it is already back.
+                staged.unlink(missing_ok=True)
+                return "finished"
+        except FileNotFoundError:
+            return "finished"
+        if cls._name_holds_owner_choice_sync(original):
+            staged.unlink(missing_ok=True)
+            return "owner_choice_kept"
+        kept = staged.with_name(f".{original.name}.{uuid.uuid4().hex}{_KEPT_BESIDE_SUFFIX}")
+        staged.rename(kept)
+        log.warning(
+            "A set-aside file's name was taken by a newer file; kept both",
+            path=str(original),
+            kept_as=str(kept),
+        )
+        return "kept_beside"
+
+    @classmethod
+    def _link_age_staged_file_back_sync(cls, staged: Path) -> str | None:
+        """Move a left-over file back without ever replacing a file at its name.
+
+        A hard link fails when the name is taken, so nothing published meanwhile is overwritten.
+        Returns the outcome, or None when the volume has no hard links.
+        """
+        original = cls._age_staged_original(staged)
+        try:
+            os.link(staged, original)
+        except FileExistsError:
+            return cls._settle_taken_name_sync(staged, original)
+        except FileNotFoundError:
+            return "finished"
+        except OSError as exc:
+            if exc.errno in _NO_HARD_LINK_ERRNOS:
+                return None
+            raise
+        try:
+            staged.unlink(missing_ok=True)
+        except OSError as exc:
+            # The file is back; the stray second name is removed by the next pass.
+            log.debug("Could not remove a returned file's set-aside name", path=str(staged), error=str(exc))
+        return "returned"
+
+    @classmethod
+    def _rename_age_staged_file_back_sync(cls, staged: Path) -> str:
+        """The fallback without hard links. Callers hold the visit's commit locks, so no writer publishes meanwhile."""
+        original = cls._age_staged_original(staged)
+        try:
+            if original.exists():
+                return cls._settle_taken_name_sync(staged, original)
+            staged.rename(original)
+        except FileNotFoundError:
+            return "finished"
+        return "returned"
+
+    async def _return_age_staged_file(self, staged: Path) -> str:
+        outcome = await self._complete_file_operation(self._link_age_staged_file_back_sync, staged)
+        if outcome is not None:
+            return outcome
+        # Without hard links the move is a check and a rename, so every visit the name could
+        # belong to is locked, in sorted order: a literal ID can end in _thumb, _recording or _preview.
+        original = self._age_staged_original(staged)
+        owners = sorted(possible_cache_owners(cache_name_event_id(original.name), [original]))
+        async with AsyncExitStack() as locks:
+            for owner in owners:
+                await locks.enter_async_context(self._snapshot_commit_lock(owner))
+                await locks.enter_async_context(self._recording_clip_commit_lock(owner))
+            return await self._complete_file_operation(self._rename_age_staged_file_back_sync, staged)
+
+    @staticmethod
+    def _kept_copies_sync(event_id: str | None = None) -> list[Path]:
+        """Recovery copies on disk, all of them or one capture's."""
+        kept = []
+        for directory in (SNAPSHOTS_DIR, CLIPS_DIR, PREVIEWS_DIR):
+            if not directory.exists():
+                continue
+            for path in directory.iterdir():
+                match = _KEPT_BESIDE_NAME.fullmatch(path.name)
+                if match and (event_id is None or cache_name_event_id(match.group(1)) == event_id):
+                    kept.append(path)
+        return kept
+
+    @property
+    def kept_copies_count(self) -> int:
+        """Recovery copies kept beside a newer file at their name; Health shows them while any exist."""
+        return self._kept_copies
+
+    async def _recount_kept_copies(self) -> None:
+        self._kept_copies = len(await asyncio.to_thread(self._kept_copies_sync))
+        if self._kept_copies:
+            from app.services.error_diagnostics import error_diagnostics_history
+
+            error_diagnostics_history.record(
+                source="media_cache",
+                component="media_cache",
+                reason_code="media_kept_copies",
+                message="Cached media kept as recovery copies beside newer files at their names.",
+                severity="warning",
+                context={"files": self._kept_copies},
+            )
+
+    @property
+    def set_aside_pending_count(self) -> int:
+        """Files set aside by an interrupted cleanup that have not gone back yet, as last read from disk."""
+        return len(self._set_aside_pending)
+
+    def _names_set_aside(self, *paths: Path) -> bool:
+        """An automatic writer leaves alone a name whose set-aside copy has not gone back yet."""
+        return any(path in self._set_aside_pending for path in paths)
+
+    def _snapshot_set_aside(self, event_id: str) -> bool:
+        """Whether this capture's photo, its sidecar or its thumbnail is still set aside."""
+        if not self._set_aside_pending:
+            return False
+        try:
+            photo = self._snapshot_path(event_id)
+            thumbnail = self._thumbnail_path(event_id)
+        except ValueError:
+            return False
+        return self._names_set_aside(
+            photo, self._snapshot_metadata_path(event_id), thumbnail, thumbnail.with_suffix(".jpg.meta.json")
+        )
+
+    def _visit_has_set_aside(self, event_ids: set[str]) -> bool:
+        return any(cache_name_event_id(path.name) in event_ids for path in self._set_aside_pending)
+
+    def _hold_set_aside_names(self, staged: list[tuple[Path, Path]]) -> None:
+        """Hold every name whose restore was not proved. It reads nothing from disk: right after an I/O
+        error the disk is the least trustworthy witness, and the next return rebuilds the set anyway."""
+        self._set_aside_pending.update(original for original, _target in staged)
+
+    async def return_age_staged_files(self) -> int:
+        """Put back files an interrupted age cleanup staged, so the next age cleanup decides again.
+
+        Run at startup before any media service, and by the storage sweep under the housekeeping lock,
+        when no age cleanup can be running. Nothing is overwritten and nothing is deleted except a
+        set-aside copy an owner's choice has replaced. A file that cannot be moved now stays set aside,
+        unharmed, and automatic writers leave its name alone until it goes back.
+        """
+        returned = 0
+        pending: set[Path] = set()
+        for staged in await asyncio.to_thread(self._age_staged_leftovers_sync):
+            try:
+                returned += int(await self._return_age_staged_file(staged) == "returned")
+            except OSError as exc:
+                pending.add(self._age_staged_original(staged))
+                log.warning(
+                    "Could not return a file an interrupted age cleanup set aside; will retry",
+                    path=str(staged),
+                    error=str(exc),
+                )
+        # Rebuilt from what is on disk now, so it is the same after a restart.
+        self._set_aside_pending = pending
+        await self._recount_kept_copies()
+        if returned:
+            log.info("Returned files an interrupted age cleanup had set aside", files=returned)
+        if pending:
+            from app.services.error_diagnostics import error_diagnostics_history
+
+            error_diagnostics_history.record(
+                source="media_cache",
+                component="media_cache",
+                reason_code="media_set_aside_unreturned",
+                message="Cached media set aside by an interrupted cleanup could not be returned yet.",
+                severity="warning",
+                context={"files": len(pending)},
+            )
+        return returned
+
+    def _delete_visit_files_sync(self, event_id: str, paths: list[Path] | None = None) -> int:
+        owned = self._owned_visit_files_sync(event_id, paths)
+        bytes_freed = 0
+        for path in owned:
+            try:
+                size = path.stat().st_size
+                path.unlink()
+            except FileNotFoundError:
+                continue
+            bytes_freed += size
+        return bytes_freed
+
+    @staticmethod
+    def _discover_empty_files_sync() -> tuple[list[Path], list[Path], list[Path]]:
+        empty_snapshots: list[Path] = []
+        empty_clips: list[Path] = []
+        empty_previews: list[Path] = []
         for path in SNAPSHOTS_DIR.glob("*.jpg"):
             try:
                 if path.stat().st_size == 0:
-                    path.unlink()
-                    stats["snapshots_deleted"] += 1
-                    log.debug("Removed empty snapshot", path=str(path))
-            except FileNotFoundError:
-                pass  # Already deleted
-            except Exception as e:
-                log.warning("Failed to delete empty snapshot", path=str(path), error=str(e))
-
-        # Clean empty clips (0-byte artifacts from failed writes).
-        # Sub-threshold stub files are handled by get_clip_path at read time.
+                    empty_snapshots.append(path)
+            except OSError:
+                continue
         for path in CLIPS_DIR.glob("*.mp4"):
             try:
                 if path.stat().st_size == 0:
-                    path.unlink()
-                    stats["clips_deleted"] += 1
-                    log.debug("Removed empty clip", path=str(path))
-            except FileNotFoundError:
-                pass  # Already deleted
-            except Exception as e:
-                log.warning("Failed to delete empty clip", path=str(path), error=str(e))
-
-        # Clean empty preview artifacts
+                    empty_clips.append(path)
+            except OSError:
+                continue
         for path in PREVIEWS_DIR.glob("*"):
             try:
                 if path.is_file() and path.stat().st_size == 0:
-                    path.unlink()
-                    stats["previews_deleted"] += 1
-                    log.debug("Removed empty preview artifact", path=str(path))
-            except FileNotFoundError:
-                pass
-            except Exception as e:
-                log.warning("Failed to delete empty preview artifact", path=str(path), error=str(e))
+                    empty_previews.append(path)
+            except OSError:
+                continue
+        return empty_snapshots, empty_clips, empty_previews
+
+    @staticmethod
+    def _remove_empty_snapshot_locked_sync(path: Path) -> bool:
+        try:
+            if path.stat().st_size != 0:
+                return False
+            path.unlink()
+        except FileNotFoundError:
+            return False
+        meta_path = path.with_suffix(".jpg.meta.json")
+        if meta_path.is_file():
+            try:
+                parsed = json.loads(meta_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, TypeError):
+                parsed = None
+            if isinstance(parsed, dict) and isinstance(parsed.get("event_hints"), dict) and parsed["event_hints"]:
+                # Preserve event-time localization hints while clearing stale photo identity/selection.
+                cleaned = {
+                    key: value
+                    for key, value in parsed.items()
+                    if key
+                    not in {
+                        "manual_selection",
+                        "manual_candidate_id",
+                        "image_sha256",
+                        "film_alignment",
+                        "snapshot_photo_hints",
+                        "recording_alignment",
+                    }
+                }
+                tmp_path = meta_path.with_name(f"{meta_path.name}.{uuid.uuid4().hex}.tmp")
+                try:
+                    tmp_path.write_bytes(json.dumps(cleaned, sort_keys=True).encode("utf-8"))
+                    tmp_path.replace(meta_path)
+                except OSError:
+                    _unlink_if_present(tmp_path)
+            else:
+                _unlink_if_present(meta_path)
+        if not path.name.endswith("_thumb.jpg"):
+            stem = path.stem
+            thumb_path = path.with_name(f"{stem}_thumb.jpg")
+            thumb_meta_path = path.with_name(f"{stem}_thumb.jpg.meta.json")
+            try:
+                thumb_meta = (
+                    json.loads(thumb_meta_path.read_text(encoding="utf-8")) if thumb_meta_path.is_file() else None
+                )
+            except (OSError, ValueError, TypeError):
+                thumb_meta = None
+            if isinstance(thumb_meta, dict) and thumb_meta.get("source") == "snapshot_derived":
+                _unlink_if_present(thumb_path)
+                _unlink_if_present(thumb_meta_path)
+        log.debug("Removed empty snapshot", path=str(path))
+        return True
+
+    @staticmethod
+    def _remove_empty_file_if_zero_sync(path: Path) -> bool:
+        try:
+            if not path.is_file() or path.stat().st_size != 0:
+                return False
+            path.unlink()
+            return True
+        except FileNotFoundError:
+            return False
+
+    async def cleanup_empty_files(self) -> dict:
+        """Delete empty/corrupt cached files (0-byte files) under per-event locks."""
+        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0}
+        empty_snapshots, empty_clips, empty_previews = await asyncio.to_thread(self._discover_empty_files_sync)
+
+        for path in empty_snapshots:
+            # A thumbnail name can also be the literal ID of a camera capture.
+            owners = {path.stem}
+            if path.stem.endswith("_thumb"):
+                owners.add(path.stem[:-6])
+            else:
+                owners.add(f"{path.stem}_thumb")
+            write_owners = {self._media_write_owner(owner) for owner in owners}
+            async with AsyncExitStack() as locks:
+                for owner in sorted(owners):
+                    await locks.enter_async_context(self._snapshot_commit_lock(owner))
+                for owner in sorted(write_owners):
+                    await locks.enter_async_context(self._media_lifecycle_lock(owner))
+                if write_owners & self.get_active_write_event_ids():
+                    continue
+                try:
+                    if await self._complete_file_operation(self._remove_empty_snapshot_locked_sync, path):
+                        stats["snapshots_deleted"] += 1
+                except Exception as e:
+                    log.warning("Failed to delete empty snapshot", path=str(path), error=str(e))
+
+        for path in empty_clips:
+            # A streaming writer's hidden file is empty until its first chunk; its lease is the clip's.
+            named = _clip_named_by_its_writer(path)
+            event_id = cache_name_event_id(named.name)
+            owners = {self._media_write_owner(owner) for owner in possible_cache_owners(event_id, [named])}
+            async with self._recording_clip_commit_lock(event_id), AsyncExitStack() as leases:
+                for owner in sorted(owners):
+                    await leases.enter_async_context(self._media_lifecycle_lock(owner))
+                if owners & self.get_active_write_event_ids():
+                    continue
+                try:
+                    if await self._complete_file_operation(self._remove_empty_file_if_zero_sync, path):
+                        stats["clips_deleted"] += 1
+                        log.debug("Removed empty clip", path=str(path))
+                except Exception as e:
+                    log.warning("Failed to delete empty clip", path=str(path), error=str(e))
+
+        for path in empty_previews:
+            stem = path.stem
+            owner = self._media_write_owner(stem)
+            async with self._media_lifecycle_lock(owner):
+                if owner in self.get_active_write_event_ids():
+                    continue
+                try:
+                    if await self._complete_file_operation(self._remove_empty_file_if_zero_sync, path):
+                        stats["previews_deleted"] += 1
+                        log.debug("Removed empty preview artifact", path=str(path))
+                except Exception as e:
+                    log.warning("Failed to delete empty preview artifact", path=str(path), error=str(e))
 
         if stats["snapshots_deleted"] > 0 or stats["clips_deleted"] > 0 or stats["previews_deleted"] > 0:
             log.info("Empty file cleanup complete", **stats)
         return stats
+
+    @staticmethod
+    def _collect_media_groups_sync(cutoff: float) -> list[tuple[str, str, str, list[Path]]]:
+        groups: list[tuple[str, str, str, list[Path]]] = []
+        for directory, kind, media_suffix in (
+            (SNAPSHOTS_DIR, "snapshots", ".jpg"),
+            (CLIPS_DIR, "clips", ".mp4"),
+            (PREVIEWS_DIR, "previews", ".jpg"),
+        ):
+            if not directory.exists():
+                continue
+            visits: dict[str, list[Path]] = {}
+            aged_visits = set()
+            for path in directory.iterdir():
+                if path.name.endswith(".tmp"):
+                    continue
+                try:
+                    info = path.stat()
+                except OSError:
+                    continue
+                if not stat.S_ISREG(info.st_mode):
+                    continue
+                event_id = cache_file_event_id(path)
+                visits.setdefault(event_id, []).append(path)
+                if info.st_mtime < cutoff:
+                    aged_visits.add(event_id)
+            # Keep newer siblings in the group for the final age and ownership check.
+            groups.extend(
+                (kind, media_suffix, event_id, paths) for event_id, paths in visits.items() if event_id in aged_visits
+            )
+        return groups
+
+    def _stage_aged_paths_sync(
+        self, target_paths: list[Path], cutoff: float, media_suffix: str
+    ) -> list[tuple[Path, Path]]:
+        """Stage a group for deletion only if its newest media file is still older than the cutoff."""
+        live_paths: list[tuple[Path, os.stat_result]] = []
+        for path in target_paths:
+            try:
+                info = path.stat()
+            except FileNotFoundError:
+                continue
+            if stat.S_ISREG(info.st_mode):
+                live_paths.append((path, info))
+        if not live_paths:
+            return []
+        media_stats = [info for path, info in live_paths if path.name.endswith(media_suffix)]
+        newest_write = max(info.st_mtime for info in (media_stats or [info for _, info in live_paths]))
+        if newest_write >= cutoff:
+            return []
+        return self._stage_paths_sync([path for path, _info in live_paths], _AGE_STAGED_SUFFIX)
+
+    @staticmethod
+    async def _cached_media_visit_rows(possible_owners: set[str]) -> list[dict]:
+        from app.database import get_db
+        from app.repositories.detection_repository import DetectionRepository
+
+        # A plain read: it holds no SQLite lock once it returns.
+        async with get_db() as db:
+            return await DetectionRepository(db).list_cached_media_visits(sorted(possible_owners))
+
+    @staticmethod
+    async def _settle_staged_age_group(
+        kind: str, event_id: str, possible_owners: set[str], staged: list[tuple[Path, Path]]
+    ) -> list[tuple[Path, Path]]:
+        """Recheck the parents and record the eviction in one short, file-free write.
+
+        Returns the staged files to put back: all of them for a visit favourited meanwhile, and the main
+        photograph of one confirmed meanwhile.
+        """
+        from app.database import get_db
+        from app.repositories.detection_repository import DetectionRepository
+        from app.repositories.processing_job_repository import ProcessingJobRepository
+        from app.services.high_quality_snapshot_service import HQ_PROCESSING_PIPELINE
+
+        async with get_db() as db:
+            await db.execute("BEGIN IMMEDIATE")
+            try:
+                rows = await DetectionRepository(db).list_cached_media_visits(sorted(possible_owners))
+                if any(row["is_favorite"] for row in rows):
+                    await db.rollback()
+                    return staged
+                returned: list[tuple[Path, Path]] = []
+                if kind == "snapshots":
+                    confirmed = {row["event_id"] for row in rows if row.get("owner_confirmed")}
+                    returned = [
+                        pair
+                        for pair in staged
+                        if any(is_canonical_snapshot_file(owner, pair[0]) for owner in confirmed)
+                    ]
+                    if len(returned) < len(staged):
+                        await ProcessingJobRepository(db).mark_storage_evicted(HQ_PROCESSING_PIPELINE, event_id)
+                await db.commit()
+                return returned
+            except BaseException:
+                await db.rollback()
+                raise
+
+    async def _age_media_group(
+        self,
+        *,
+        kind: str,
+        media_suffix: str,
+        event_id: str,
+        paths: list[Path],
+        cutoff: float,
+        protected_event_ids: set[str],
+        protected_snapshot_event_ids: set[str],
+        canonical_protected: set[str],
+    ) -> tuple[int, int, int]:
+        """Age one visit's group without holding SQLite's writer lock across disk I/O.
+
+        The caller holds the group's media locks, so no writer touches its files meanwhile. The files
+        are staged by rename, the final check and eviction marker share one short transaction, and the
+        unlink runs after it with no connection open. Returns (deleted_count, bytes_freed, protected_skipped).
+        """
+        from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+
+        possible_owners = possible_cache_owners(event_id, paths)
+        active = high_quality_snapshot_service.get_active_event_ids() | self.get_active_write_event_ids()
+        if possible_owners & (protected_event_ids | active):
+            return 0, 0, len(paths)
+        if kind == "snapshots" and (possible_owners & protected_snapshot_event_ids):
+            return 0, 0, len(paths)
+        if self._visit_has_set_aside(possible_owners):
+            # Part of this visit has not gone back yet; it is judged once it has.
+            return 0, 0, len(paths)
+
+        rows = await self._cached_media_visit_rows(possible_owners)
+        if any(row["is_favorite"] for row in rows):
+            return 0, 0, len(paths)
+        kept_paths: list[Path] = []
+        if kind == "snapshots":
+            db_confirmed = {row["event_id"] for row in rows if row.get("owner_confirmed")}
+            protected_owners = {
+                owner
+                for owner in possible_owners
+                if owner in canonical_protected
+                or owner in db_confirmed
+                or await asyncio.to_thread(has_manual_snapshot_selection, owner)
+            }
+            kept_paths = [
+                path for path in paths if any(is_canonical_snapshot_file(owner, path) for owner in protected_owners)
+            ]
+        target_paths = [path for path in paths if path not in kept_paths]
+        if not target_paths:
+            return 0, 0, len(kept_paths)
+        staged = await self._complete_file_operation(self._stage_aged_paths_sync, target_paths, cutoff, media_suffix)
+        if not staged:
+            return 0, 0, len(kept_paths)
+        try:
+            returned = await self._settle_staged_age_group(kind, event_id, possible_owners, staged)
+        except BaseException:
+            await self._put_back_or_hold(staged)
+            raise
+        if returned:
+            await self._put_back_or_hold(returned)
+        removed = await self._complete_file_operation(
+            self._remove_staged_deletions_sync,
+            [target for original, target in staged if (original, target) not in returned],
+        )
+        return removed[f"{kind}_deleted"], removed["bytes_freed"], len(kept_paths) + len(returned)
+
+    async def _put_back_or_hold(self, staged: list[tuple[Path, Path]]) -> None:
+        """Restore staged files. Any that cannot go back now are held: automatic writers leave their
+        names alone until the storage sweep returns them."""
+        try:
+            await self._complete_file_operation(self._restore_staged_deletion_sync, staged)
+        except OSError:
+            self._hold_set_aside_names(staged)
+            raise
 
     async def cleanup_old_media(
         self,
         retention_days: int,
         protected_event_ids: Optional[set[str]] = None,
         protected_snapshot_event_ids: Optional[set[str]] = None,
+        protected_canonical_photo_event_ids: Optional[set[str]] = None,
     ) -> dict:
-        from app.services.high_quality_snapshot_service import high_quality_snapshot_service, HQ_PROCESSING_PIPELINE
-        from app.repositories.processing_job_repository import ProcessingJobRepository
-        from app.database import get_db
+        from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 
-        protected = set(protected_event_ids or ()) | high_quality_snapshot_service.get_active_event_ids()
-        stats = await asyncio.to_thread(
-            self._cleanup_old_media_sync, retention_days, protected, protected_snapshot_event_ids
-        )
-        evicted = stats.pop("evicted_snapshot_event_ids", set())
-        if evicted:
-            async with get_db() as db:
-                for event_id in evicted:
-                    await ProcessingJobRepository(db).mark_storage_evicted(HQ_PROCESSING_PIPELINE, event_id)
-                await db.commit()
-        return stats
-
-    def _cleanup_old_media_sync(
-        self,
-        retention_days: int,
-        protected_event_ids: Optional[set[str]] = None,
-        protected_snapshot_event_ids: Optional[set[str]] = None,
-    ) -> dict:
-        """Age a visit's variants together, keeping sidecars with fresh photographs."""
-        protected = protected_event_ids or set()
-        empty_stats = self._cleanup_empty_files_sync()
+        empty_stats = await self.cleanup_empty_files()
         stats = {**empty_stats, "bytes_freed": 0, "protected_skipped": 0}
         if retention_days <= 0:
             return stats
+
+        protected = set(protected_event_ids or ())
+        snapshot_protected = set(protected_snapshot_event_ids or ())
+        canonical_protected = set(protected_canonical_photo_event_ids or ())
         cutoff = (datetime.now() - timedelta(days=retention_days)).timestamp()
-        stats["evicted_snapshot_event_ids"] = set()
-        for directory, kind, media_suffix, exemptions in (
-            (SNAPSHOTS_DIR, "snapshots", ".jpg", protected | (protected_snapshot_event_ids or set())),
-            (CLIPS_DIR, "clips", ".mp4", protected),
-            (PREVIEWS_DIR, "previews", ".jpg", protected),
-        ):
-            visits: dict[str, list[Path]] = {}
-            for path in directory.iterdir():
-                if path.is_file() and not path.name.endswith(".tmp"):
-                    visits.setdefault(cache_file_event_id(path), []).append(path)
-            for event_id, paths in visits.items():
-                if event_id in exemptions:
-                    stats["protected_skipped"] += len(paths)
-                    continue
+        groups = await asyncio.to_thread(self._collect_media_groups_sync, cutoff)
+
+        for kind, media_suffix, event_id, paths in groups:
+            possible_owners = possible_cache_owners(event_id, paths)
+            active = high_quality_snapshot_service.get_active_event_ids() | self.get_active_write_event_ids()
+            exemptions = protected | active | (snapshot_protected if kind == "snapshots" else set())
+            if possible_owners & exemptions:
+                stats["protected_skipped"] += len(paths)
+                continue
+            # The housekeeping lock is held while this group's files are staged, so the storage sweep
+            # never mistakes them for ones an interrupted run left behind. It is released between
+            # groups, so a long cleanup never holds the sweep or a manual cleanup off for its length.
+            async with (
+                self.housekeeping_lock,
+                self._snapshot_commit_lock(event_id),
+                self._recording_clip_commit_lock(event_id),
+                AsyncExitStack() as leases,
+            ):
+                owners = {self._media_write_owner(owner) for owner in possible_owners}
+                for owner in sorted(owners):
+                    await leases.enter_async_context(self._media_lifecycle_lock(owner))
                 try:
-                    media_paths = [path for path in paths if path.name.endswith(media_suffix)]
-                    newest_write = max(path.stat().st_mtime for path in (media_paths or paths))
-                    if newest_write >= cutoff:
-                        continue
-                    for path in paths:
-                        size = path.stat().st_size
-                        path.unlink(missing_ok=True)
-                        stats["bytes_freed"] += size
-                        if path.name.endswith(media_suffix) or kind == "previews":
-                            stats[f"{kind}_deleted"] += 1
-                    if kind == "snapshots":
-                        stats["evicted_snapshot_event_ids"].add(event_id)
-                except FileNotFoundError:
-                    continue
+                    deleted_count, bytes_freed, protected_skipped = await finish_started_operation(
+                        self._age_media_group(
+                            kind=kind,
+                            media_suffix=media_suffix,
+                            event_id=event_id,
+                            paths=paths,
+                            cutoff=cutoff,
+                            protected_event_ids=protected,
+                            protected_snapshot_event_ids=snapshot_protected,
+                            canonical_protected=canonical_protected,
+                        ),
+                        name="media_age_cleanup",
+                    )
                 except OSError as exc:
                     log.warning("Failed to age cached visit media", event_id=event_id, kind=kind, error=str(exc))
-        log.info(
-            "Media cache cleanup complete",
-            **{key: value for key, value in stats.items() if key != "evicted_snapshot_event_ids"},
-        )
-        return stats
+                    continue
+                stats[f"{kind}_deleted"] += deleted_count
+                stats["bytes_freed"] += bytes_freed
+                stats["protected_skipped"] += protected_skipped
 
-    async def cleanup_orphaned_media(self, valid_event_ids: set[str]) -> dict:
-        return await asyncio.to_thread(self._cleanup_orphaned_media_sync, valid_event_ids)
-
-    def _cleanup_orphaned_media_sync(self, valid_event_ids: set[str]) -> dict:
-        """Delete cached media for events that no longer exist in DB.
-
-        Args:
-            valid_event_ids: Set of event IDs that still exist
-
-        Returns:
-            Dict with cleanup stats
-        """
-        stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
-
-        # Clean orphaned snapshots
-        for path in SNAPSHOTS_DIR.glob("*"):
-            if not path.is_file() or path.name.endswith(".tmp"):
-                continue
-            event_id = cache_file_event_id(path)
-            if event_id not in valid_event_ids:
-                try:
-                    size = path.stat().st_size
-                    path.unlink()
-                    stats["snapshots_deleted"] += 1
-                    stats["bytes_freed"] += size
-                except Exception as e:
-                    log.warning("Failed to delete orphaned snapshot", path=str(path), error=str(e))
-
-        # Clean orphaned clips
-        for path in CLIPS_DIR.glob("*"):
-            if not path.is_file() or path.name.endswith(".tmp"):
-                continue
-            event_id = cache_file_event_id(path)
-            if event_id not in valid_event_ids:
-                try:
-                    size = path.stat().st_size
-                    path.unlink()
-                    stats["clips_deleted"] += 1
-                    stats["bytes_freed"] += size
-                except Exception as e:
-                    log.warning("Failed to delete orphaned clip", path=str(path), error=str(e))
-
-        # Clean orphaned preview artifacts
-        for path in PREVIEWS_DIR.glob("*"):
-            if path.suffix not in (".jpg", ".json"):
-                continue
-            event_id = cache_file_event_id(path)
-            if event_id not in valid_event_ids:
-                try:
-                    size = path.stat().st_size
-                    path.unlink()
-                    stats["previews_deleted"] += 1
-                    stats["bytes_freed"] += size
-                except Exception as e:
-                    log.warning("Failed to delete orphaned preview asset", path=str(path), error=str(e))
-
-        log.info("Orphaned media cleanup complete", **stats)
+        log.info("Media cache cleanup complete", **stats)
         return stats
 
     async def clear_all(self) -> dict:
-        return await asyncio.to_thread(self._clear_all_sync)
+        stats = await asyncio.to_thread(self._clear_all_sync)
+        await self._recount_kept_copies()
+        return stats
 
     def _clear_all_sync(self) -> dict:
         """Delete ALL cached media files."""
         stats = {"snapshots_deleted": 0, "clips_deleted": 0, "previews_deleted": 0, "bytes_freed": 0}
 
-        # Clean all snapshots
+        # Recovery copies go with everything else.
+        for path in self._kept_copies_sync():
+            try:
+                size = path.stat().st_size
+                path.unlink()
+                stats["bytes_freed"] += size
+            except Exception as e:
+                log.warning("Failed to delete a recovery copy", path=str(path), error=str(e))
+
+        # Clean all snapshots and metadata sidecars
         for path in SNAPSHOTS_DIR.glob("*.jpg"):
             try:
                 size = path.stat().st_size
@@ -1446,8 +2199,15 @@ class MediaCacheService:
                 stats["bytes_freed"] += size
             except Exception as e:
                 log.warning("Failed to delete snapshot", path=str(path), error=str(e))
+        for path in SNAPSHOTS_DIR.glob("*.meta.json"):
+            try:
+                size = path.stat().st_size
+                path.unlink()
+                stats["bytes_freed"] += size
+            except Exception as e:
+                log.warning("Failed to delete snapshot metadata", path=str(path), error=str(e))
 
-        # Clean all clips
+        # Clean all clips and metadata sidecars
         for path in CLIPS_DIR.glob("*.mp4"):
             try:
                 size = path.stat().st_size
@@ -1456,6 +2216,13 @@ class MediaCacheService:
                 stats["bytes_freed"] += size
             except Exception as e:
                 log.warning("Failed to delete clip", path=str(path), error=str(e))
+        for path in CLIPS_DIR.glob("*.meta.json"):
+            try:
+                size = path.stat().st_size
+                path.unlink()
+                stats["bytes_freed"] += size
+            except Exception as e:
+                log.warning("Failed to delete clip metadata", path=str(path), error=str(e))
 
         # Clean all previews
         for path in PREVIEWS_DIR.glob("*"):
@@ -1528,6 +2295,19 @@ class MediaCacheService:
                     snapshot_size += size
                 else:
                     clip_size += size
+
+        # A recovery copy is cached bytes on this disk, so it counts towards Space used.
+        for path in self._kept_copies_sync():
+            try:
+                size = path.stat().st_size
+            except Exception:
+                continue
+            if path.parent == SNAPSHOTS_DIR:
+                snapshot_size += size
+            elif path.parent == CLIPS_DIR:
+                clip_size += size
+            else:
+                preview_size += size
 
         for path in PREVIEWS_DIR.glob("*"):
             if not path.is_file() or path.name.endswith(".tmp"):

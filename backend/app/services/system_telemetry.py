@@ -19,6 +19,28 @@ from app.services.accelerator_telemetry import (
 log = structlog.get_logger()
 
 
+def _primary_accelerator(readings: Iterable[AcceleratorReading]) -> AcceleratorReading | None:
+    """Pick the one accelerator the sidebar's single-line meter can show.
+
+    A device-wide counter comes before an app-scoped one, measured readings come
+    before unmeasured ones, and readable devices come before unreadable ones so a
+    host with both an unreadable NVIDIA GPU and a readable Intel GPU shows the
+    Intel GPU even before its first numeric reading arrives.
+    """
+    items = tuple(readings)
+    if not items:
+        return None
+    for scope in ("device", "app"):
+        for reading in items:
+            if reading.scope == scope and reading.utilization_percent is not None:
+                return reading
+    for scope in ("device", "app"):
+        for reading in items:
+            if reading.scope == scope and not reading.unreadable:
+                return reading
+    return items[0]
+
+
 @dataclass(frozen=True)
 class SystemTelemetrySample:
     cpu_percent: float | None
@@ -27,17 +49,7 @@ class SystemTelemetrySample:
 
     @property
     def primary_accelerator(self) -> AcceleratorReading | None:
-        """The one accelerator the sidebar's single-line graph can show.
-
-        A device wide counter comes before an app scoped one, so that small graph
-        never implies this app is the only user of a device it cannot see all of.
-        """
-        measured = [reading for reading in self.accelerators if reading.utilization_percent is not None]
-        for scope in ("device", "app"):
-            for reading in measured:
-                if reading.scope == scope:
-                    return reading
-        return self.accelerators[0] if self.accelerators else None
+        return _primary_accelerator(self.accelerators)
 
 
 class SystemTelemetrySampler:
@@ -317,6 +329,7 @@ class SystemTelemetryHistory:
         self._processes: list[ProcessLoad] = []
         self._accelerator: tuple[str | None, str | None] = (None, None)
         self._accelerators: list[AcceleratorReading] = []
+        self._accelerator_descriptors: dict[str, AcceleratorReading] = {}
         self._lock = Lock()
 
     def record(self, sample: SystemTelemetrySample, processes: Iterable[ProcessLoad], *, at: float) -> None:
@@ -341,8 +354,29 @@ class SystemTelemetryHistory:
             if sample.drm_diagnostics is not None:
                 self._drm_diagnostics.append(DrmProbeSnapshot(at=at, diagnostic=sample.drm_diagnostics))
             self._processes = process_list
-            self._accelerators = list(sample.accelerators)
-            self._accelerator = (primary.kind, primary.label) if primary else (None, None)
+            for reading in sample.accelerators:
+                self._accelerator_descriptors[reading.id] = reading
+            active_ids = {aid for pt in self._points for aid in pt.accelerators}
+            active_ids.update(reading.id for reading in sample.accelerators)
+            for stale_id in list(self._accelerator_descriptors):
+                if stale_id not in active_ids:
+                    del self._accelerator_descriptors[stale_id]
+            current_ids = {reading.id for reading in sample.accelerators}
+            retained = [
+                AcceleratorReading(
+                    id=desc.id,
+                    kind=desc.kind,
+                    label=desc.label,
+                    scope=desc.scope,
+                    utilization_percent=None,
+                    unreadable=desc.unreadable,
+                )
+                for aid, desc in self._accelerator_descriptors.items()
+                if aid not in current_ids
+            ]
+            self._accelerators = [*sample.accelerators, *retained]
+            resolved_primary = primary or _primary_accelerator(self._accelerators)
+            self._accelerator = (resolved_primary.kind, resolved_primary.label) if resolved_primary else (None, None)
 
     def snapshot(self) -> SystemHistorySnapshot:
         with self._lock:

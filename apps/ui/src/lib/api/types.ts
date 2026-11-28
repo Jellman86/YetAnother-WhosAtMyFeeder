@@ -49,6 +49,8 @@ export interface Detection {
     scientific_name?: string | null;
     common_name?: string | null;
     taxa_id?: number | null;
+    /** The species catalogue's opaque identity, the one a visit is grouped by. */
+    species_id?: number | null;
     video_classification_score?: number;
     video_classification_label?: string;
     video_classification_timestamp?: string;

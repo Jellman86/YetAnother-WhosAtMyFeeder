@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request, Query, HTTPException, Path as ApiPath
 from fastapi.responses import Response
 import httpx
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 import json
 import structlog
 from pydantic import BaseModel, Field
@@ -17,14 +17,21 @@ from app.services.audio.heard_groups import (
 )
 from app.repositories.visit_repository import VisitRepository
 from app.services.broadcaster import broadcaster
-from app.services.leaderboard_window import previous_window_is_complete
+from app.services.leaderboard_window import (
+    LEADERBOARD_SPAN_DESCRIPTION,
+    WindowMismatch,
+    LeaderboardWindows,
+    leaderboard_windows,
+    previous_window_is_complete,
+)
 from app.services.weekday_hour_grid import weekday_hour_grid
 from app.config import settings
 from app.auth import AuthContext, require_owner
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.database import get_db
-from app.repositories.audio_history_repository import AudioHistoryRepository
+from app.repositories.audio_history_repository import AudioHistoryRepository, filter_names_a_source
+from app.utils.audio_source_identity import AudioSourceDirectory
 from app.repositories.detection_repository import DetectionRepository, match_audio_history_visual_events
 from app.utils.language import get_user_language
 from app.utils.timezone import calendar_timezone
@@ -165,12 +172,22 @@ class AudioHourlyCountResponse(BaseModel):
 
 
 class AudioSourceSummaryResponse(BaseModel):
+    # The name on the source's newest call: a renamed source is one entry with all of its calls.
     source_name: str
+    # BirdNET-Go's id for the source, which tells apart two sources that carry the same name.
+    # Null for calls from before BirdNET-Go reported ids.
+    source_id: str | None = None
+    # The BirdNET-Go install the source belongs to, which tells apart two installs whose sources
+    # share a name and an id. Null when its calls name none.
+    source_node: str | None = None
     count: int
     last_heard: str
 
 
 class AudioSummaryResponse(BaseModel):
+    # The window counted, which for a guest is the requested one narrowed to the shared history.
+    window_start: str
+    window_end: str
     total: int
     species_count: int
     source_count: int
@@ -192,11 +209,17 @@ class AudioSpeciesLeaderboardItemResponse(BaseModel):
 
 
 class AudioSpeciesLeaderboardResponse(BaseModel):
-    span: Literal["day", "week", "month", "all"]
+    span: Literal["today", "day", "week", "month", "all"]
     window_start: str
     window_end: str
+    # Whether a guest's allowance moved window_start later than the span asks for.
+    window_shortened: bool = False
     history_start: str | None = None
     previous_window_complete: bool = False
+    # Why the previous window is no fair comparison whatever the history holds, or null when it is:
+    # a clock change in today, a guest's allowance cutting either window, or cleanup having removed
+    # captures from part of one.
+    previous_window_mismatch: WindowMismatch | None = None
     species: list[AudioSpeciesLeaderboardItemResponse]
 
 
@@ -211,10 +234,15 @@ def _normalized_species_aliases(*values: str | None) -> set[str]:
 
 
 class AudioHistoryQuery(BaseModel):
-    start_date: datetime | None
-    end_date: datetime | None
+    start_date: datetime
+    end_date: datetime
     public_start: datetime | None = None
     public_end: datetime | None = None
+
+    @property
+    def counted_end(self) -> datetime:
+        """The last instant counted: the requested end, or the exclusive end of a guest's shared day."""
+        return min(self.end_date, self.public_end) if self.public_end else self.end_date
 
 
 def _history_window(
@@ -241,6 +269,29 @@ def _history_window(
 
     return AudioHistoryQuery(
         start_date=resolved_start, end_date=resolved_end, public_start=public_start, public_end=public_end
+    )
+
+
+async def _viewer_source_directory(
+    repo: AudioHistoryRepository,
+    *,
+    public_start: datetime | None,
+    public_end: datetime | None,
+    only_hidden: bool = False,
+) -> AudioSourceDirectory:
+    """The sources a view names, read from the calls it may show.
+
+    A guest's is read from the shared window only, so no source name or id from outside it reaches
+    them: not as a label, not through a source or search filter, and not by an older call joining a
+    source renamed before the window. The owner's hidden view names and counts hidden calls, and
+    every call the owner keeps decides which source an older id-less call belongs to.
+    """
+    return await repo.load_audio_source_directory(
+        minimum_start=public_start,
+        maximum_end=public_end,
+        hidden=only_hidden,
+        # Only an owner's view is unbounded at its start; a guest's never sees hidden calls.
+        owner_evidence=public_start is None,
     )
 
 
@@ -344,19 +395,30 @@ async def get_audio_history(
         source = None
     async with privacy_checked_db(get_db) as db:
         repo = DetectionRepository(db)
-        result = await AudioHistoryRepository(db).get_audio_history(
-            start_date=window.start_date,
-            end_date=window.end_date,
-            species=species,
-            source=source,
-            min_confidence=min_confidence,
-            maximum_end=window.public_end,
-            only_hidden=only_hidden,
-            search=search,
-            search_include_source=not hide_sensor,
-            limit=limit,
-            offset=offset,
-        )
+        audio_repo = AudioHistoryRepository(db)
+        async with audio_repo.one_reading():
+            # Read only for a filter that names a source: a plain window needs no names but its own.
+            directory = (
+                await _viewer_source_directory(
+                    audio_repo, public_start=window.public_start, public_end=window.public_end, only_hidden=only_hidden
+                )
+                if filter_names_a_source(source, search, not hide_sensor)
+                else None
+            )
+            result = await audio_repo.get_audio_history(
+                start_date=window.start_date,
+                end_date=window.end_date,
+                species=species,
+                source=source,
+                min_confidence=min_confidence,
+                maximum_end=window.public_end,
+                only_hidden=only_hidden,
+                search=search,
+                search_include_source=not hide_sensor,
+                limit=limit,
+                offset=offset,
+                directory=directory,
+            )
         if result["items"]:
             correlation_window = max(0, int(settings.frigate.audio_correlation_window_seconds))
             item_times: list[datetime] = []
@@ -422,23 +484,30 @@ async def get_audio_summary(
         source = None
     async with privacy_checked_db(get_db) as db:
         repo = AudioHistoryRepository(db)
-        result = await repo.get_audio_history_summary(
-            start_date=window.start_date,
-            end_date=window.end_date,
-            species=species,
-            source=source,
-            min_confidence=min_confidence,
-            maximum_end=window.public_end,
-            only_hidden=only_hidden,
-            search=search,
-            search_include_source=not hide_sensor,
-        )
+        async with repo.one_reading():
+            result = await repo.get_audio_history_summary(
+                directory=await _viewer_source_directory(
+                    repo, public_start=window.public_start, public_end=window.public_end, only_hidden=only_hidden
+                ),
+                start_date=window.start_date,
+                end_date=window.end_date,
+                species=species,
+                source=source,
+                min_confidence=min_confidence,
+                maximum_end=window.public_end,
+                only_hidden=only_hidden,
+                search=search,
+                search_include_source=not hide_sensor,
+                calendar_zone=calendar_timezone(request),
+            )
     # The scientific name stays: `species` is translated, so it is the only name the activity grid
     # can be asked for exactly.
     await localize_audio_detections(result["top_species"], lang)
     if hide_sensor:
         result["sources"] = []
         result["source_count"] = 0
+    result["window_start"] = serialize_api_datetime(window.start_date)
+    result["window_end"] = serialize_api_datetime(window.counted_end)
 
     return result
 
@@ -486,23 +555,31 @@ async def get_audio_activity_heatmap(
     if hide_sensor:
         source = None
     async with privacy_checked_db(get_db) as db:
-        utc_hourly_counts = await AudioHistoryRepository(db).get_audio_activity_utc_hourly_counts(
-            start_date=window.start_date,
-            end_date=window.end_date,
-            species=species,
-            source=source,
-            min_confidence=min_confidence,
-            maximum_end=window.public_end,
-            scientific_name=scientific_name,
-            only_hidden=only_hidden,
-            search=search,
-            search_include_source=not hide_sensor,
-        )
-    grid = weekday_hour_grid(utc_hourly_counts, calendar_timezone(request))
-    window_end = min(window.end_date, window.public_end) if window.public_end else window.end_date
+        repo = AudioHistoryRepository(db)
+        async with repo.one_reading():
+            utc_quarter_hour_counts = await repo.get_audio_activity_utc_quarter_hour_counts(
+                directory=(
+                    await _viewer_source_directory(
+                        repo, public_start=window.public_start, public_end=window.public_end, only_hidden=only_hidden
+                    )
+                    if filter_names_a_source(source, search, not hide_sensor)
+                    else None
+                ),
+                start_date=window.start_date,
+                end_date=window.end_date,
+                species=species,
+                source=source,
+                min_confidence=min_confidence,
+                maximum_end=window.public_end,
+                scientific_name=scientific_name,
+                only_hidden=only_hidden,
+                search=search,
+                search_include_source=not hide_sensor,
+            )
+    grid = weekday_hour_grid(utc_quarter_hour_counts, calendar_timezone(request))
     return AudioActivityHeatmapResponse(
         window_start=serialize_api_datetime(window.start_date),
-        window_end=serialize_api_datetime(window_end),
+        window_end=serialize_api_datetime(window.counted_end),
         total_count=grid.total_count,
         max_cell_count=grid.max_cell_count,
         cells=[
@@ -661,30 +738,29 @@ async def get_heard_groups(
     )
 
 
-def _leaderboard_window(span: str) -> tuple[datetime, datetime, datetime, datetime]:
-    """Rolling window + prior window for the audio leaderboard, aligned to the
-    visual leaderboard spans in ``routers/species.py`` (day=24h, week=7d,
-    month=30d). ``all`` collapses the lower bound to the epoch so every stored
-    detection counts and the prior window contributes nothing."""
-    now = datetime.now(timezone.utc)
-    if span == "all":
-        window_start = datetime(1970, 1, 1, tzinfo=timezone.utc)
-        return window_start, now, window_start, window_start
-    if span == "day":
-        window = timedelta(hours=24)
-    elif span == "week":
-        window = timedelta(days=7)
-    else:
-        window = timedelta(days=30)
-    window_start = now - window
-    return window_start, now, window_start - window, window_start
+def _audio_leaderboard_windows(
+    span: str, *, now: datetime, zone: tzinfo, floor: datetime | None, ceiling: datetime | None
+) -> LeaderboardWindows:
+    """The visual leaderboard's windows for ``span``, so Seen, Heard and Both count the same stretch.
+
+    ``all`` reaches back to the epoch, so every stored call counts and the prior window holds nothing.
+    """
+    if span != "all":
+        return leaderboard_windows(span, now=now, zone=zone, floor=floor, ceiling=ceiling)
+    epoch = datetime(1970, 1, 1)
+    end = now.astimezone(timezone.utc).replace(tzinfo=None)
+    start = max(epoch, floor) if floor is not None else epoch
+    end = min(end, ceiling) if ceiling is not None else end
+    return LeaderboardWindows(start, end, start, start, mismatch=None, shortened=False)
 
 
 @router.get("/species", response_model=AudioSpeciesLeaderboardResponse)
 @guest_rate_limit()
 async def get_audio_species_leaderboard(
     request: Request,
-    span: Literal["day", "week", "month", "all"] = Query(default="week"),
+    span: Literal["today", "day", "week", "month", "all"] = Query(
+        default="week", description=f"{LEADERBOARD_SPAN_DESCRIPTION} `all`: every stored call."
+    ),
     auth: AuthContext = Depends(require_public_audio),
 ):
     """Heard-count leaderboard over persisted BirdNET-Go detections.
@@ -694,14 +770,17 @@ async def get_audio_species_leaderboard(
     merge these onto the camera "seen" leaderboard. Species names are localized through
     the same taxonomy path as the visual leaderboard so client-side matching lines up.
     """
-    window_start, window_end, prev_start, prev_end = _leaderboard_window(span)
-    public_cutoff, public_end = (None, None) if auth.is_owner else public_events_window(window_end)
-    if public_cutoff is not None:
-        window_start = max(window_start, public_cutoff)
-        prev_start = max(prev_start, public_cutoff)
-    if public_end is not None:
-        window_end = min(window_end, public_end)
-        prev_end = min(prev_end, public_end)
+    now = datetime.now(timezone.utc)
+    public_cutoff, public_end = (None, None) if auth.is_owner else public_events_window(now)
+    windows = _audio_leaderboard_windows(
+        span,
+        now=now,
+        zone=calendar_timezone(request),
+        floor=public_cutoff.replace(tzinfo=None) if public_cutoff is not None else None,
+        ceiling=public_end.replace(tzinfo=None) if public_end is not None else None,
+    )
+    window_start, window_end = windows.start, windows.end
+    prev_start, prev_end = windows.prev_start, windows.prev_end
     lang = get_user_language(request) or "en"
     unknown_labels = getattr(settings.classification, "unknown_bird_labels", None) or []
 
@@ -743,10 +822,12 @@ async def get_audio_species_leaderboard(
 
     return {
         "span": span,
-        "window_start": window_start.isoformat(),
-        "window_end": window_end.isoformat(),
+        "window_start": window_start.replace(tzinfo=timezone.utc).isoformat(),
+        "window_end": window_end.replace(tzinfo=timezone.utc).isoformat(),
+        "window_shortened": windows.shortened,
+        "previous_window_mismatch": windows.mismatch,
         "history_start": serialize_api_datetime(history_start) if history_start else None,
-        "previous_window_complete": span != "all"
+        "previous_window_complete": windows.comparable
         and prev_start < prev_end
         and previous_window_is_complete(history_start=history_start, prev_start=prev_start),
         "species": species,

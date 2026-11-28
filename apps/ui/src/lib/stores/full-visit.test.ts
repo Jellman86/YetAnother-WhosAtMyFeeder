@@ -33,6 +33,33 @@ describe('FullVisitStore', () => {
         expect(store.isFetched('evt-1')).toBe(true);
     });
 
+    it('keeps the full clip length the server measured, never one worked out from settings', async () => {
+        const api = await import('../api');
+        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: true, state: 'complete', durationSeconds: 30.2 });
+        const { FullVisitStore } = await import('./full-visit.svelte');
+        const store = new FullVisitStore();
+
+        await store.ensureAvailability('evt-1');
+
+        expect(store.getDurationSeconds('evt-1')).toBe(30.2);
+    });
+
+    it('knows no length when the server measured none, or the clip has gone', async () => {
+        const api = await import('../api');
+        vi.mocked(api.checkRecordingClipAvailable)
+            .mockResolvedValueOnce({ available: true, fetched: true, state: 'complete', durationSeconds: 31 })
+            .mockResolvedValueOnce({ available: false, fetched: false, state: null, durationSeconds: null })
+            .mockResolvedValueOnce({ available: true, fetched: true, state: 'complete', durationSeconds: null });
+        const { FullVisitStore } = await import('./full-visit.svelte');
+        const store = new FullVisitStore();
+
+        await store.ensureAvailability('evt-1');
+        await store.ensureAvailability('evt-1', { refresh: true });
+        expect(store.getDurationSeconds('evt-1')).toBeNull();
+        await store.ensureAvailability('evt-1', { refresh: true });
+        expect(store.getDurationSeconds('evt-1')).toBeNull();
+    });
+
     it('does not restore promoted full-visit state from local storage without a fresh probe', async () => {
         const api = await import('../api');
         vi.mocked(api.fetchRecordingClip).mockResolvedValue({

@@ -2,6 +2,7 @@ import asyncio
 import time
 import unicodedata
 from collections.abc import Collection
+from dataclasses import dataclass
 from fastapi import APIRouter, HTTPException, Query, Request, Response, Depends
 from typing import List, Optional, Literal
 from datetime import datetime, date, timedelta, timezone, tzinfo
@@ -13,6 +14,7 @@ from app.utils.diagnostic_redaction import safe_error_message
 from app.database import get_db
 from app.models import DetectionListItemResponse, DetectionResponse
 from app.repositories.detection_repository import DetectionRepository, Detection as StoredDetection
+from app.repositories.explorer_facet_repository import ExplorerFacetRepository, FacetCount, OptionFilter
 from app.config import settings
 from app.services.classifier_service import get_classifier
 from app.services.frigate_client import frigate_client
@@ -29,6 +31,7 @@ from app.services.detection_presenter import (
     video_classification_model_name,
 )
 from app.services.explorer_search import bird_taxon_members
+from app.services.explorer_facets import Facet, FacetScope, facet_scope, viewer_scope
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.audio.audio_service import audio_service
 from app.services.i18n_service import i18n_service
@@ -46,9 +49,9 @@ from app.utils.public_access import (
     public_events_cutoff,
     public_events_window,
 )
-from app.utils.calendar_day import CalendarDay, calendar_window, clamp_window, local_date
+from app.utils.calendar_day import CalendarDay, calendar_window, clamp_window, local_date, today_so_far
 from app.utils.timezone import calendar_timezone
-from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
+from app.utils.api_datetime import ExactInstant, serialize_api_datetime, utc_naive_datetime, utc_naive_now
 from app.utils.canonical_species import (
     hidden_species_exact_labels,
     UNKNOWN_BIRD_DISPLAY_LABEL as CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL,
@@ -125,6 +128,25 @@ UNKNOWN_BIRD_DISPLAY_LABEL = CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL
 MAX_FILTER_DATE_RANGE_DAYS = 365
 
 
+MAX_EXACT_WINDOW = timedelta(days=MAX_FILTER_DATE_RANGE_DAYS)
+
+
+def _enforce_exact_window(start: Optional[datetime], end: Optional[datetime]) -> None:
+    """Check the caller's own exact window, before any guest allowance narrows it.
+
+    Its length is elapsed time, so the viewer's zone cannot turn one request into two answers.
+    """
+    if start is None or end is None:
+        return
+    if end < start:
+        raise HTTPException(status_code=400, detail="The end time is before the start time")
+    if end - start > MAX_EXACT_WINDOW:
+        raise HTTPException(
+            status_code=400,
+            detail=f"The end time must be at most {MAX_FILTER_DATE_RANGE_DAYS} days after the start time",
+        )
+
+
 def _enforce_max_date_range(start_date: Optional[date], end_date: Optional[date]) -> None:
     if start_date is None or end_date is None:
         return
@@ -139,6 +161,16 @@ _LAST_INSTANT = timedelta(microseconds=1)
 CALENDAR_DAY_HELP = (
     "an ISO date or `today`, read as a calendar day in the zone `X-Timezone` names, else the instance's `TZ`, else UTC"
 )
+EXACT_START_HELP = (
+    "Exact start instant (inclusive): an ISO 8601 date and time with `Z` or a `±HH:MM` offset; overrides start_date"
+)
+EXACT_END_HELP = (
+    "Exact end instant (inclusive): an ISO 8601 date and time with `Z` or a `±HH:MM` offset; overrides end_date"
+)
+OWNER_CONFIRMED_HELP = (
+    "Owner: only records an owner named a species for (a species pick, a confirmed upload or a requested "
+    "video reclassification); a visit matches when any capture in view does. Ignored for visitors"
+)
 NEXT_OFFSET_HEADER = "X-Next-Offset"
 
 
@@ -149,13 +181,12 @@ def requested_calendar_window(
     return calendar_window(start_day, end_day, now=utc_naive_now().replace(tzinfo=timezone.utc), zone=zone)
 
 
-def visible_history_window(
-    auth: AuthContext, start: Optional[datetime], end: Optional[datetime], zone: tzinfo
+def guest_history_window(
+    auth: AuthContext, start: Optional[datetime], end: Optional[datetime]
 ) -> tuple[Optional[datetime], Optional[datetime]]:
-    """Narrow a naive-UTC window to what this viewer may see, then bound its length.
+    """Intersect a naive-UTC window with a guest's allowance; an owner's is unchanged.
 
-    A guest's allowance is intersected with the request after the zone is resolved, so no
-    date, keyword or ``X-Timezone`` can widen it.
+    A window wholly outside the allowance stays inverted, so it reads nothing rather than failing.
     """
     if not auth.is_owner and settings.public_access.enabled:
         floor, ceiling = public_events_window()
@@ -165,8 +196,46 @@ def visible_history_window(
             floor=floor.replace(tzinfo=None),
             ceiling=None if ceiling is None else ceiling.replace(tzinfo=None) - _LAST_INSTANT,
         )
+    return start, end
+
+
+def visible_history_window(
+    auth: AuthContext, start: Optional[datetime], end: Optional[datetime], zone: tzinfo
+) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Narrow a naive-UTC window to what this viewer may see, then bound its length.
+
+    A guest's allowance is intersected with the request after the zone is resolved, so no
+    date, keyword or ``X-Timezone`` can widen it.
+    """
+    start, end = guest_history_window(auth, start, end)
     _enforce_max_date_range(local_date(start, zone=zone), local_date(end, zone=zone))
     return start, end
+
+
+def visible_request_window(
+    request: Request,
+    auth: AuthContext,
+    start_day: CalendarDay | None,
+    end_day: CalendarDay | None,
+    start_time: datetime | None,
+    end_time: datetime | None,
+) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Exact instants win over calendar days; the viewer's allowance narrows either.
+
+    Days keep their calendar rule. A window with an exact bound is checked as the caller sent it,
+    then narrowed, so a well-formed window outside a guest's allowance reads nothing.
+    """
+    zone = calendar_timezone(request)
+    # A day an instant replaces is never resolved: a calendar edge has no local midnight in UTC.
+    day_start, day_end = requested_calendar_window(
+        start_day if start_time is None else None, end_day if end_time is None else None, zone
+    )
+    if start_time is None and end_time is None:
+        return visible_history_window(auth, day_start, day_end, zone)
+    start = utc_naive_datetime(start_time) if start_time else day_start
+    end = utc_naive_datetime(end_time) if end_time else day_end
+    _enforce_exact_window(start, end)
+    return guest_history_window(auth, start, end)
 
 
 def parse_species_filter(species: Optional[str]) -> tuple[Optional[str], Optional[int]]:
@@ -437,31 +506,88 @@ class EventFilterSpecies(BaseModel):
     scientific_name: Optional[str] = None
     common_name: Optional[str] = None
     taxa_id: Optional[int] = None
-    #: Visible detections for this species, so a filter can state its result count
-    #: before it is applied.
+    #: Results choosing this species would give under the other filters, counted in `unit`.
     count: int = 0
 
 
 class EventFilterTotals(BaseModel):
-    """Counts for the facets that are a flag rather than a value."""
+    """Counts for the facets that are a flag rather than a value, in the response's `unit`."""
 
     total: int = 0
     favorites: int = 0
     audio_matched: int = 0
     video_analysed: int = 0
+    #: Owner: hidden records under the other filters; always 0 for a visitor.
+    hidden: int = 0
 
 
 class EventFilters(BaseModel):
-    """Available filter options for events."""
+    """Available filter options for events, each counted as choosing it would show."""
 
     species: List[EventFilterSpecies]
     cameras: List[str]
-    #: Detections per camera. Empty when camera names are hidden from guests.
+    #: Results per camera under the other filters. Empty when camera names are hidden from guests.
     camera_counts: dict[str, int] = {}
     totals: EventFilterTotals = EventFilterTotals()
+    #: What every count counts: single captures, or visits grouped by the shared visit rule.
+    unit: Literal["captures", "visits"] = "captures"
+    #: The visit gap the visits were grouped with; null when captures are counted.
+    gap_seconds: Optional[int] = None
 
 
-_event_filters_cache: dict[tuple[str, bool, str], tuple[float, EventFilters]] = {}
+@dataclass(frozen=True)
+class _EventFilterOptions:
+    """The options the rail offers, before any count: the slow part, resolved once per cache window."""
+
+    species: list[EventFilterSpecies]
+    cameras: list[str]
+    #: When the history was read for them: an answer built from them is no fresher.
+    read_at: float
+
+
+class _EventFilterCache:
+    """An owner's option lists, and the answer to the request with no window or filter, for a minute.
+
+    As before the counts followed the filters: a forced refresh empties it. A request that started
+    before the refresh never writes back what it read. Counts under a window or a filter are never
+    kept; they are read with the results, from the history as it is.
+    """
+
+    def __init__(self) -> None:
+        self.options: dict[tuple, tuple[float, _EventFilterOptions]] = {}
+        self.answers: dict[tuple, tuple[float, EventFilters]] = {}
+        #: Moves on every clear; a store from an earlier generation is refused.
+        self.generation = 0
+
+    @staticmethod
+    def _fresh(entry: tuple | None, now: float) -> bool:
+        return entry is not None and (now - entry[0]) < EVENT_FILTERS_CACHE_TTL_SECONDS
+
+    def option(self, key: tuple, now: float) -> "_EventFilterOptions | None":
+        entry = self.options.get(key)
+        return entry[1] if entry is not None and self._fresh(entry, now) else None
+
+    def answer(self, key: tuple, now: float) -> "EventFilters | None":
+        entry = self.answers.get(key)
+        return entry[1] if entry is not None and self._fresh(entry, now) else None
+
+    def keep_option(self, key: tuple, now: float, generation: int, options: "_EventFilterOptions") -> None:
+        if generation == self.generation:
+            self.options[key] = (now, options)
+
+    def keep_answer(self, key: tuple, now: float, generation: int, answer: "EventFilters") -> None:
+        if generation == self.generation:
+            self.answers[key] = (now, answer)
+
+    def clear(self) -> None:
+        self.generation += 1
+        self.options.clear()
+        self.answers.clear()
+
+
+_event_filters_cache = _EventFilterCache()
+#: The cache's clock, apart from the event loop's, so a test can move it.
+_monotonic = time.monotonic
 
 
 def _event_filter_start_date(auth: AuthContext, now: datetime | None = None) -> datetime | None:
@@ -478,38 +604,39 @@ class EventsCountResponse(BaseModel):
     filtered: bool
 
 
-@router.get("/events/filters", response_model=EventFilters)
-@guest_rate_limit()
-async def get_event_filters(
-    request: Request,
-    force_refresh: bool = Query(
-        default=False, description="Bypass short-lived filter cache and fetch fresh species/camera options"
-    ),
-    auth: AuthContext = Depends(get_auth_context_with_legacy),
-):
-    """Get available filter options (species and cameras) from the database."""
-    hide_camera_names = (
-        not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
-    )
+async def _event_filter_options(
+    request: Request, auth: AuthContext, *, hide_camera_names: bool, hidden: bool, generation: int
+) -> _EventFilterOptions:
+    """Every species and camera the viewer's visible history holds, named in their language.
+
+    Options do not follow the chosen period, so a species not seen today can still be chosen. An
+    owner's view of hidden records offers what those records hold.
+    """
     policy_now = datetime.now(timezone.utc)
     start_date = _event_filter_start_date(auth, policy_now)
     end_date = None if auth.is_owner else public_events_window(policy_now)[1]
     lang = get_user_language(request)
     cache_scope = start_date.date().isoformat() if start_date else "owner"
-    cache_key = (lang, hide_camera_names, cache_scope)
-    now = time.monotonic()
-    if auth.is_owner and not force_refresh:
-        cached = _event_filters_cache.get(cache_key)
-        if cached and (now - cached[0]) < EVENT_FILTERS_CACHE_TTL_SECONDS:
-            return cached[1]
+    cache_key = (lang, hide_camera_names, cache_scope, hidden, tuple(settings.classification.unknown_bird_labels or ()))
+    now = _monotonic()
+    if auth.is_owner:
+        cached = _event_filters_cache.option(cache_key, now)
+        if cached is not None:
+            return cached
     # Names are resolved without a connection. Each species that is not yet
     # cached costs an iNaturalist request with a ten-second timeout, five at a
     # time, against a pool of five — so the connection is released around the
     # whole loop and each cache read takes its own.
     async with get_db() as db:
         repo = DetectionRepository(db)
-        species_rows = await repo.get_unique_species_with_taxonomy(start_date=start_date, end_date=end_date)
-        cameras = [] if hide_camera_names else await repo.get_unique_cameras(start_date=start_date, end_date=end_date)
+        species_rows = await repo.get_unique_species_with_taxonomy(
+            start_date=start_date, end_date=end_date, hidden=hidden
+        )
+        cameras = (
+            []
+            if hide_camera_names
+            else await repo.get_unique_cameras(start_date=start_date, end_date=end_date, hidden=hidden)
+        )
 
     unknown_label_keys = {
         key
@@ -521,12 +648,9 @@ async def get_event_filters(
     }
 
     semaphore = asyncio.Semaphore(LOCALIZED_NAME_CONCURRENCY)
-    species_options: list[EventFilterSpecies] = []
 
-    async def resolve_species(
-        row: tuple[str, Optional[str], Optional[str], Optional[int], int],
-    ) -> EventFilterSpecies:
-        display_name, scientific_name, common_name, taxa_id, detection_count = row
+    async def resolve_species(row: tuple[str, Optional[str], Optional[str], Optional[int]]) -> EventFilterSpecies:
+        display_name, scientific_name, common_name, taxa_id = row
         if (
             _normalize_species_name(display_name) in unknown_label_keys
             or should_hide_species_label(display_name)
@@ -539,7 +663,6 @@ async def get_event_filters(
                 scientific_name=None,
                 common_name=None,
                 taxa_id=None,
-                count=detection_count,
             )
         async with semaphore:
             taxonomy = await taxonomy_service.get_names(display_name)
@@ -566,13 +689,9 @@ async def get_event_filters(
                 scientific_name=sci_name,
                 common_name=com_name,
                 taxa_id=t_id,
-                count=detection_count,
             )
 
-    if species_rows:
-        resolved = await asyncio.gather(*(resolve_species(row) for row in species_rows))
-    else:
-        resolved = []
+    resolved = await asyncio.gather(*(resolve_species(row) for row in species_rows)) if species_rows else []
 
     # Deduplicate: taxa_id is most canonical, then scientific_name, then raw value.
     # The SQL query already collapses most variants, but taxonomy resolution in
@@ -587,36 +706,160 @@ async def get_event_filters(
             key = f"sci:{item.scientific_name.strip().lower()}"
         else:
             key = item.value.lower()
-        kept = seen.get(key)
-        if kept is not None:
-            # Merged after taxonomy resolution: the counts belong to the same species,
-            # so they add rather than the second one being discarded.
-            kept.count += item.count
-            continue
-        seen[key] = item
-        species_options.append(item)
+        seen.setdefault(key, item)
 
+    options = _EventFilterOptions(species=list(seen.values()), cameras=cameras, read_at=now)
+    if auth.is_owner:
+        _event_filters_cache.keep_option(cache_key, now, generation, options)
+    return options
+
+
+def _option_filter(value: str) -> OptionFilter:
+    """A species option as the results read it when it is chosen."""
+    species_name, taxa_id = parse_species_filter(value)
+    species_name, aliases = resolve_species_display_filter_aliases(species_name, taxa_id)
+    return OptionFilter(species=species_name, species_any=tuple(aliases) if aliases else None, taxa_id=taxa_id)
+
+
+@router.get("/events/filters", response_model=EventFilters)
+@guest_rate_limit()
+async def get_event_filters(
+    request: Request,
+    force_refresh: bool = Query(
+        default=False, description="Bypass short-lived filter cache and fetch fresh species/camera options"
+    ),
+    unit: Optional[Literal["captures", "visits"]] = Query(
+        default=None,
+        description="What each count counts: single captures (when not given), or visits grouped by the shared visit rule",
+    ),
+    start_date: Optional[CalendarDay] = Query(default=None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
+    end_date: Optional[CalendarDay] = Query(default=None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
+    start_time: Optional[ExactInstant] = Query(default=None, description=EXACT_START_HELP),
+    end_time: Optional[ExactInstant] = Query(default=None, description=EXACT_END_HELP),
+    species: Optional[str] = Query(default=None, description="Chosen species; counts every facet but the species list"),
+    taxon: Optional[int] = Query(
+        default=None, ge=1, description="Chosen catalogue taxon; counts every facet but the species list"
+    ),
+    camera: Optional[str] = Query(default=None, description="Chosen camera; counts every facet but the camera list"),
+    favorites: bool = Query(default=False, description="Count only favourites"),
+    audio_confirmed_only: bool = Query(default=False, description="Count only audio matches"),
+    multiple_species_only: bool = Query(
+        default=False, description="Owner: count only captures with at least two named bird species"
+    ),
+    owner_confirmed_only: bool = Query(default=False, description=OWNER_CONFIRMED_HELP),
+    only_hidden: bool = Query(
+        default=False, description="Owner: count only hidden records, and offer the species and cameras they hold"
+    ),
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+):
+    """Filter options (species and cameras), each counted as choosing it would show.
+
+    Counts follow the window and the other filters, the way the events or visits list reads them;
+    a facet is never narrowed by its own choice, and a species is counted by its own filter. A
+    visitor's counts keep their history window.
+    """
+    # The window is checked before any name is resolved, so a malformed one costs nothing.
+    start, end = visible_request_window(request, auth, start_date, end_date, start_time, end_time)
+    hide_camera_names = (
+        not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
+    )
+    hidden_view = auth.is_owner and only_hidden
+    visits = unit == "visits"
+    counted_unit: Literal["captures", "visits"] = "visits" if visits else "captures"
+    # Read once, so the gap the response reports is the gap these visits were grouped with.
+    gap_seconds = settings.visits.gap_seconds
+    # Only the request with no window and no filter is kept, as it always was: anything scoped is
+    # read with its results, from the history as it is now.
+    unscoped = not any(
+        (
+            unit,
+            start_date,
+            end_date,
+            start_time,
+            end_time,
+            species,
+            taxon,
+            camera,
+            favorites,
+            audio_confirmed_only,
+            multiple_species_only,
+            owner_confirmed_only,
+            only_hidden,
+        )
+    )
+    answer_key = (get_user_language(request), tuple(settings.classification.unknown_bird_labels or ()))
+    now = _monotonic()
+    if auth.is_owner and force_refresh:
+        _event_filters_cache.clear()
+    # Taken before anything is read, so a refresh during this read keeps what it reads out of the cache.
+    generation = _event_filters_cache.generation
+    if auth.is_owner and unscoped:
+        cached_answer = _event_filters_cache.answer(answer_key, now)
+        if cached_answer is not None:
+            return cached_answer
+
+    options = await _event_filter_options(
+        request, auth, hide_camera_names=hide_camera_names, hidden=hidden_view, generation=generation
+    )
+    species_name, taxa_id = parse_species_filter(species)
+    species_name, species_aliases = resolve_species_display_filter_aliases(species_name, taxa_id)
+    scope = viewer_scope(
+        FacetScope(
+            start=start,
+            end=end,
+            camera=camera,
+            hidden_only=only_hidden,
+            species=species_name,
+            species_any=tuple(species_aliases) if species_aliases else None,
+            taxa_id=taxa_id,
+            species_ids=await bird_taxon_members(taxon) if taxon else None,
+            favorites=favorites,
+            audio_only=audio_confirmed_only,
+            multiple_species_only=multiple_species_only,
+            owner_confirmed_only=owner_confirmed_only,
+        ),
+        owner=auth.is_owner,
+        show_audio=settings.public_access.show_audio,
+        show_camera_names=not hide_camera_names,
+    )
+    # What a visitor is not shown is not counted: hidden records, unshared cameras and audio.
+    flags = [Facet.TOTAL, Facet.FAVOURITES, Facet.VIDEO]
+    if auth.is_owner or settings.public_access.show_audio:
+        flags.append(Facet.AUDIO)
     async with get_db() as db:
-        repo = DetectionRepository(db)
-        camera_counts = (
-            {} if hide_camera_names else await repo.get_camera_counts(start_date=start_date, end_date=end_date)
-        )
-        totals = await repo.get_facet_totals(
-            start_date=start_date, end_date=end_date, public_audio_evidence=not auth.is_owner
-        )
+        repo = ExplorerFacetRepository(db)
+        if auth.is_owner and (only_hidden or await repo.has_hidden_detections()):
+            flags.append(Facet.HIDDEN)
+        facets = [
+            FacetCount(
+                facet_scope(scope, Facet.SPECIES),
+                by="species",
+                options={option.value: _option_filter(option.value) for option in options.species},
+            ),
+            *(FacetCount(facet_scope(scope, flag)) for flag in flags),
+        ]
+        if not hide_camera_names:
+            facets.append(FacetCount(facet_scope(scope, Facet.CAMERA), by="camera"))
+        counts = await repo.facet_counts(facets, visits=visits, gap_seconds=gap_seconds)
+    species_counts = counts[0]
+    totals = {flag.value: tallies.get("", 0) for flag, tallies in zip(flags, counts[1 : 1 + len(flags)], strict=True)}
+    camera_counts = {} if hide_camera_names else {name: n for name, n in sorted(counts[-1].items()) if name}
 
-        if not auth.is_owner and not settings.public_access.show_audio:
-            totals["audio_matched"] = 0
-
-        result = EventFilters(
-            species=species_options,
-            cameras=cameras,
-            camera_counts=camera_counts,
-            totals=EventFilterTotals(**totals),
-        )
-        if auth.is_owner:
-            _event_filters_cache[cache_key] = (now, result)
-        return result
+    result = EventFilters(
+        species=[
+            option.model_copy(update={"count": species_counts.get(option.value, 0)}) for option in options.species
+        ],
+        # A camera the counts found is offered even before the kept list has caught up with it.
+        cameras=sorted(set(options.cameras) | {name for name, n in camera_counts.items() if n > 0}),
+        camera_counts=camera_counts,
+        totals=EventFilterTotals(**totals),
+        unit=counted_unit,
+        gap_seconds=gap_seconds if visits else None,
+    )
+    if auth.is_owner and unscoped:
+        # Dated by its option list, so the answer expires no later than the list inside it.
+        _event_filters_cache.keep_answer(answer_key, min(now, options.read_at), generation, result)
+    return result
 
 
 # Field presets for the events API
@@ -700,6 +943,8 @@ async def get_events(
     ),
     start_date: Optional[CalendarDay] = Query(default=None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
     end_date: Optional[CalendarDay] = Query(default=None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
+    start_time: Optional[ExactInstant] = Query(default=None, description=EXACT_START_HELP),
+    end_time: Optional[ExactInstant] = Query(default=None, description=EXACT_END_HELP),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     event_id: Optional[str] = Query(default=None, max_length=255, description="Filter by exact Frigate event ID"),
@@ -711,6 +956,7 @@ async def get_events(
     multiple_species_only: bool = Query(
         default=False, description="Owner: captures with at least two named bird species"
     ),
+    owner_confirmed_only: bool = Query(default=False, description=OWNER_CONFIRMED_HELP),
     sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
     only_hidden: bool = Query(default=False, description="Return only hidden/ignored detections"),
@@ -728,10 +974,7 @@ async def get_events(
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
 
-    zone = calendar_timezone(request)
-    start_datetime, end_datetime = visible_history_window(
-        auth, *requested_calendar_window(start_date, end_date, zone), zone
-    )
+    start_datetime, end_datetime = visible_request_window(request, auth, start_date, end_date, start_time, end_time)
 
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
@@ -773,6 +1016,7 @@ async def get_events(
             audio_confirmed_only=audio_confirmed_only,
             public_audio_evidence=not auth.is_owner,
             multiple_species_only=multiple_species_only and auth.is_owner,
+            owner_confirmed_only=owner_confirmed_only and auth.is_owner,
             frigate_event=event_id,
             species_ids=species_ids,
         )
@@ -949,7 +1193,16 @@ REVIEW_QUEUE_NEW_SPECIES_LIMIT = 20_000
 async def get_review_queue(
     request: Request,
     limit: int = Query(default=12, ge=1, le=500, description="How many to list, oldest first"),
-    window_hours: int = Query(default=24, ge=1, le=168, description="How far back a detection can still be waiting"),
+    window: Literal["rolling", "today"] = Query(
+        default="rolling",
+        description=(
+            "`rolling`: the last `window_hours`. `today`: from local midnight to now, in the zone `X-Timezone` "
+            "names, else the instance's `TZ`, else UTC, as `GET /api/stats/daily-summary?window=today` counts it."
+        ),
+    ),
+    window_hours: int = Query(
+        default=24, ge=1, le=168, description="How far back a detection can still be waiting, for the rolling window"
+    ),
     max_sightings: int = Query(default=3, ge=1, le=50, description="A species with more sightings is established"),
     window_days: int = Query(default=14, ge=1, le=365, description="Only species first seen this recently"),
     auth: AuthContext = Depends(require_owner),
@@ -957,10 +1210,15 @@ async def get_review_queue(
     """Everything waiting on a person: the source of Needs your call (#917).
 
     Counted here rather than from a recent page of detections, so a visit stays
-    queued however many others arrive after it. Owner only.
+    queued however many others arrive after it. Owner only. The window bounds the captures that
+    wait for a species, so the queue agrees with the day summary's ``unresolved_count`` for the same
+    window; a new species waits whenever it was first seen in the last ``window_days``.
     """
     window_end = utc_naive_now()
-    window_start = window_end - timedelta(hours=window_hours)
+    if window == "today":
+        window_start, _ = today_so_far(now=window_end.replace(tzinfo=timezone.utc), zone=calendar_timezone(request))
+    else:
+        window_start = window_end - timedelta(hours=window_hours)
     async with get_db() as db:
         repo = DetectionRepository(db)
         new_species = await repo.get_new_species_candidates(
@@ -968,6 +1226,8 @@ async def get_review_queue(
             first_seen_cutoff=window_end - timedelta(days=window_days),
             excluded_labels=hidden_species_exact_labels(),
             limit=REVIEW_QUEUE_NEW_SPECIES_LIMIT,
+            # As of the window's end, exclusive, as the waiting captures are counted.
+            before=window_end,
         )
         entries, total = await repo.get_review_queue(
             window_start=window_start,
@@ -1000,6 +1260,8 @@ async def get_events_count(
     request: Request,
     start_date: Optional[CalendarDay] = Query(default=None, description=f"First day (inclusive): {CALENDAR_DAY_HELP}"),
     end_date: Optional[CalendarDay] = Query(default=None, description=f"Last day (inclusive): {CALENDAR_DAY_HELP}"),
+    start_time: Optional[ExactInstant] = Query(default=None, description=EXACT_START_HELP),
+    end_time: Optional[ExactInstant] = Query(default=None, description=EXACT_END_HELP),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     favorites: bool = Query(default=False, description="Only count favorited detections"),
@@ -1007,6 +1269,7 @@ async def get_events_count(
     multiple_species_only: bool = Query(
         default=False, description="Owner: captures with at least two named bird species"
     ),
+    owner_confirmed_only: bool = Query(default=False, description=OWNER_CONFIRMED_HELP),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
     only_hidden: bool = Query(default=False, description="Count only hidden/ignored detections"),
     taxon: Optional[int] = Query(
@@ -1018,10 +1281,7 @@ async def get_events_count(
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
-    zone = calendar_timezone(request)
-    start_datetime, end_datetime = visible_history_window(
-        auth, *requested_calendar_window(start_date, end_date, zone), zone
-    )
+    start_datetime, end_datetime = visible_request_window(request, auth, start_date, end_date, start_time, end_time)
     # Apply public access restrictions
     if not auth.is_owner and settings.public_access.enabled:
         include_hidden = False
@@ -1052,11 +1312,26 @@ async def get_events_count(
             audio_confirmed_only=audio_confirmed_only,
             public_audio_evidence=not auth.is_owner,
             multiple_species_only=multiple_species_only and auth.is_owner,
+            owner_confirmed_only=owner_confirmed_only and auth.is_owner,
             species_ids=species_ids,
         )
 
         # Determine if any filters are applied
-        filtered = any([start_date, end_date, species, camera, favorites, audio_confirmed_only, only_hidden, taxon])
+        filtered = any(
+            [
+                start_date,
+                end_date,
+                start_time,
+                end_time,
+                species,
+                camera,
+                favorites,
+                audio_confirmed_only,
+                only_hidden,
+                taxon,
+                owner_confirmed_only and auth.is_owner,
+            ]
+        )
 
         return EventsCountResponse(count=count, filtered=filtered)
 

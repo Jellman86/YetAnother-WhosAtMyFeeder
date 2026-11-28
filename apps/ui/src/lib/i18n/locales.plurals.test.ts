@@ -144,6 +144,46 @@ describe('counted strings', () => {
         expect(russian).toEqual(['1 визит', '3 визита', '5 визитов', '11 визитов', '21 визит', '24 визита', '25 визитов']);
     });
 
+    it('keeps Russian plural one branches carrying the quantity so 21 never reads as singular 1', async () => {
+        const missingQuantity: string[] = [];
+        for (const [key, value] of leaves(ru as LocaleRoot)) {
+            for (const element of getMessageFormatter(value).getAst()) {
+                if ('pluralType' in element && 'options' in element) {
+                    const options = element.options as Record<string, { value: Ast }>;
+                    const oneBranch = options.one;
+                    if (!oneBranch) continue;
+                    const hasPoundOrVar = (nodes: Ast): boolean =>
+                        nodes.some(
+                            (node) =>
+                                node.type === 7 ||
+                                ('value' in node && node.type === 1 && node.value === element.value) ||
+                                ('children' in node && hasPoundOrVar(node.children as Ast))
+                        );
+                    // Only flag counted phrases where few/many/other display the number, so
+                    // unit-only or pronoun-only plurals (which never display the number) stay valid.
+                    const otherCarriesQuantity = ['few', 'many', 'other'].some(
+                        (form) => options[form] && hasPoundOrVar(options[form].value)
+                    );
+                    if (otherCarriesQuantity && !hasPoundOrVar(oneBranch.value)) {
+                        missingQuantity.push(key);
+                    }
+                }
+            }
+        }
+        expect(missingQuantity).toEqual([]);
+
+        await locale.set('ru');
+        for (const key of [
+            'audio.history.hidden_count_message',
+            'audio.history.restored_count_message',
+            'leaderboard.check.all_selected',
+            'settings.save_bar.conflicts'
+        ]) {
+            expect(format(ru as LocaleRoot, key, { count: 21 }), `${key} at 21`).toContain('21');
+        }
+        await locale.set('en');
+    });
+
     it('counts the groups, events and snapshots of a diagnostics bundle each with its own word', () => {
         const one = { groups: 1, events: 1, snapshots: 1 };
         const several = { groups: 2, events: 14, snapshots: 3 };

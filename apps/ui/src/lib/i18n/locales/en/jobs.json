@@ -36,7 +36,7 @@
   "kind_auto_video": "Automatic video analysis",
   "kind_video_analysis": "Video analysis",
   "kind_high_quality_snapshot": "Best-quality snapshots",
-  "kind_full_visit": "Full visit clips",
+  "kind_full_visit": "Full clips",
   "errors_clear": "Clear error history",
   "errors_backend_empty": "The backend has recorded no warnings or errors since the error history was last cleared. Connection problems are listed at the top of this page, not here.",
   "errors_export_failed": "The diagnostics could not be read. Try again; if it keeps failing, check that YA-WAMF is running.",
@@ -106,17 +106,21 @@
   "errors_filtered_hint": "Lower the minimum confidence floor in Settings → Identifying birds to keep more of these as Unknown bird.",
   "errors_filtered_recent": "Most recent",
   "errors_activity_title": "What happened",
-  "errors_activity_subtitle": "Recorded visits, filtered events and faults, in the order they happened",
+  "errors_activity_subtitle": "Recorded visits, filtered events, work skipped on purpose and faults, in the order they happened",
   "errors_activity_window": "Since this instance started, {started}",
   "errors_activity_no_window": "This instance has not reported when it started, so activity cannot be placed in a window yet.",
-  "errors_activity_empty": "No visits, filtered events or faults have been reported since this instance started {started} ago.",
+  "errors_activity_empty": "No visits, filtered events, work skipped on purpose or faults have been reported since this instance started {started} ago.",
   "errors_activity_earlier": "{count, plural, one {# earlier event in this window} other {# earlier events in this window}}",
   "errors_activity_key": "Activity key",
   "errors_activity_recorded": "Recorded visit",
   "errors_activity_filtered": "Filtered out",
   "errors_activity_fault": "Fault",
+  "errors_activity_held_back": "Skipped on purpose",
   "errors_activity_view_record": "View record",
   "errors_fault_preview": "Preview the frame that failed for {species}",
+  "errors_held_back_preview": "Preview the frame for {subject}",
+  "errors_held_back_subject": "Frigate event",
+  "errors_held_back_subject_camera": "Frigate event on {camera}",
   "errors_subsystems_title": "Detail by part",
   "errors_filtered_preview": "Preview the frame filtered as {species}",
   "errors_filtered_frame_gone": "Frigate no longer has this frame",
@@ -418,6 +422,14 @@
     "retention_paused_daily_totals": {
       "title": "Automatic history cleanup paused because daily counts could not be saved first.",
       "next": "No visits were deleted. Check database health and free disk space; cleanup will retry on its next run."
+    },
+    "media_set_aside_unreturned": {
+      "title": "Some photos or videos that cleanup set aside could not be put back yet.",
+      "next": "Nothing was deleted. YA-WAMF tries again at the next storage check. If this keeps happening, check that the disk holding the media folder has free space and can be written to."
+    },
+    "media_kept_copies": {
+      "title": "Some photos or videos were kept as spare copies after a cleanup could not put them back.",
+      "next": "Nothing was lost: another file had taken their place, so both were kept. Deleting the capture removes its spare copy. The storage guide explains how to put one back."
     },
     "notification_queue_full": {
       "title": "A notification was dropped because the send queue was full.",

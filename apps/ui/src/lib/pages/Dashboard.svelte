@@ -3,20 +3,14 @@
     import { settingsPartPath } from '../settings/settings-route';
     import { onMount, untrack } from 'svelte';
     import LazyModal from '../components/LazyModal.svelte';
-    import {
-        loadDetectionModal,
-        loadGardenCaptureModal,
-        loadReviewQueueModal,
-        loadSpeciesDetailModal,
-        loadVideoPlayer
-    } from '../components/lazy-dialogs';
+    import { loadGardenCaptureModal, loadReviewQueueModal, loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import DailyHistogram from '../components/DailyHistogram.svelte';
     import TopVisitors from '../components/TopVisitors.svelte';
     import FieldLog from '../components/FieldLog.svelte';
     import { fetchGardenVisits, type GardenServerVisit } from '../api/garden';
     import { gardenHistory } from '../stores/garden_history.svelte';
     import { GardenVisitViewer } from '../utils/garden-visit-viewer.svelte';
-    import { mergeFieldLog } from '../utils/field-log';
+    import { fieldLogWindowLink, mergeFieldLog } from '../utils/field-log';
     import NotableNearby from '../components/NotableNearby.svelte';
     import ReviewQueueCard from '../components/ReviewQueueCard.svelte';
     import ProviderWarning from '../components/ProviderWarning.svelte';
@@ -27,13 +21,17 @@
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import type { AudioSummaryResponse, Detection, DailySummary } from '../api';
-    import { deleteDetection, hideDetection, IdentificationChangedError, updateDetectionSpecies, fetchAudioSummary, fetchDailySummary, reclassifyDetection, fetchReviewQueue, updateSettings, fetchLeaderboardSpecies, fetchAudioSpeciesLeaderboard } from '../api';
-    import { readRangeCheck, SPECIES_CHECKS_LINK, type RangeCheckReading } from '../leaderboard/species-checks';
+    import { deleteDetection, hideDetection, IdentificationChangedError, updateDetectionSpecies, fetchAudioSummary, fetchDailySummary, fetchReviewQueue, updateSettings, fetchLeaderboardSpecies, fetchAudioSpeciesLeaderboard } from '../api';
+    import { readRangeCheck, speciesChecksLink, type RangeCheckReading } from '../leaderboard/species-checks';
     import { needsYourCall, type ReadingStatus, type SpeciesChecksView } from '../utils/needs-your-call';
     import type { DomesticBirdKey } from '../utils/domestic-birds';
     import { DomesticBirdOffers } from '../utils/domestic-bird-offers.svelte';
     import { birdNames } from '../naming';
-    import { videoHeadingFor, type VideoHeading } from '../components/video-heading';
+    import { videoHeadingFor } from '../components/video-heading';
+    import RecordDialogs from '../components/RecordDialogs.svelte';
+    import { recordVisit, type RecordVisit } from '../components/record-visit';
+    import type { RecordVideo } from '../components/record-video';
+    import { canWatchRecordVideo, recordingClipsOn } from '../utils/record-access';
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
@@ -47,10 +45,22 @@
     import { _ } from 'svelte-i18n';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
-    import { selectReclassificationStrategy } from '../utils/reclassification';
 
-    import { fromServerVisit, withinDeskWindow } from '../utils/visit-grouping';
-    import { buildReviewQueue, EMPTY_REVIEW_QUEUE_READING, readingFromResponse, visibleUnresolvedCount, withoutEvent, type ReviewQueueReading } from '../utils/review-queue';
+    import { fromServerVisit, withinDeskWindow, type DetectionVisit as VisitGroup } from '../utils/visit-grouping';
+    import {
+        DayTurnedError,
+        deskWindowStart,
+        readOneDay,
+        readDeskWindowChoice,
+        saveDeskWindowChoice,
+        narrowedToSharedDay,
+        sharedHistoryStart,
+        type DeskWindow,
+        type DeskWindowKind
+    } from '../utils/desk-window';
+    import { msUntilNextLocalMidnight } from './audio-history-window';
+    import { formatTime } from '../utils/datetime';
+    import { buildReviewQueue, EMPTY_REVIEW_QUEUE_READING, readingFromResponse, withoutEvent, type ReviewQueueReading } from '../utils/review-queue';
     import { dayBarSlots } from '../utils/day-bar';
     import { liveFeedState } from '../utils/live-feed-state';
     import { serviceConnectionsStore } from '../stores/service_connections.svelte';
@@ -81,44 +91,60 @@
         () => $_('garden.save_error', { default: 'Could not save your review. Try again.' })
     );
 
+    // The window this device chose, and the window the figures on screen were read for. A new choice
+    // clears every reading, so nothing read for one window is ever shown under the other's name.
+    let windowChoice = $state<DeskWindowKind>(readDeskWindowChoice(() => localStorage));
+    let shownWindow = $state.raw<DeskWindow | null>(null);
+    const deskKind = $derived<DeskWindowKind>(shownWindow?.kind ?? windowChoice);
+    // Advanced at local midnight while Today is chosen, so the live captures move to the new day too.
+    let dayTurn = $state(0);
+    // The local midnight the desk reads while Today is chosen. Every read is checked against it, so
+    // one load never shows a new day's figures beside the old day's visits or calls.
+    let readingDay = deskWindowStart('today', new Date());
+
+    /** One read of the desk's window, never across two days (see `readOneDay`). */
+    function readDeskDay<T>(
+        read: (window: DeskWindow) => Promise<T>,
+        countedFrom: (value: T) => readonly (string | null | undefined)[],
+        consistent?: (value: T) => boolean
+    ): Promise<{ value: T; window: DeskWindow }> {
+        return readOneDay({ kind: windowChoice, day: windowChoice === 'today' ? readingDay : null, clock: () => new Date(), read, countedFrom, consistent });
+    }
+
     let summary = $state<DailySummary | null>(null);
-    // The clock hour the summary's rolling window ended in, so the activity chart ends where its data does.
+    // The clock hour the summary's window ended in, so the activity chart ends where its data does.
     let summaryHour = $state(new Date().getHours());
     let summaryLoading = $state(true);
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let notableRefreshKey = $state(0);
-    let lastModalEventId = $state<string | null>(null);
 
     const birdnetEnabled = $derived(
         (settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false) && authStore.canViewAudio
     );
 
-    // Video playback state
-    let showVideo = $state(false);
-    let videoEventId = $state<string | null>(null);
-    let videoHeading = $state<VideoHeading | null>(null);
-    let videoPlayIntent = $state<'auto' | 'user'>('auto');
-    let fullVisitAvailability = $derived(fullVisitStore.availability);
-    let fullVisitFetchState = $derived(fullVisitStore.fetchState);
+    let video = $state.raw<RecordVideo | null>(null);
     let recordingClipFetchEnabled = $derived(
-        (settingsStore.settings?.recording_clip_enabled ?? false) &&
-        (settingsStore.settings?.clips_enabled ?? false)
+        recordingClipsOn(settingsStore.settings, publicSettingsStore.settings) && canWatchRecordVideo(authStore)
     );
-    let selectedEventFullVisitHandler = $derived.by(() => {
-        const current = selectedEvent;
-        if (!current || !recordingClipFetchEnabled) return undefined;
-        return () => handleFetchFullVisit(current);
-    });
+
+    // The visit a record was opened from, so the record can say it is one capture of that visit.
+    let openedVisit = $state<RecordVisit | null>(null);
 
     /** Opening a record closes any video still playing, so one overlay is shown at a time. */
-    function openRecord(detection: Detection): void {
-        showVideo = false;
+    function openRecord(detection: Detection, visit?: VisitGroup): void {
+        video = null;
+        openedVisit = recordVisit(detection.frigate_event, visit);
         selectedEvent = detection;
     }
 
-    // One window for the whole desk, so the day bar, the log and the context cards agree.
-    let deskDetections = $derived(withinDeskWindow(detectionsStore.detections));
+    // One window for the whole desk, so the day bar, the log and the context cards agree. A capture
+    // the live stream adds is kept only if it falls inside it: never yesterday's in Today.
+    let deskDetections = $derived.by(() => {
+        void dayTurn;
+        const now = new Date();
+        return withinDeskWindow(detectionsStore.detections, now.getTime(), deskWindowStart(deskKind, now));
+    });
     let reviewThreshold = $derived(settingsStore.settings?.classification_threshold ?? null);
 
     // The day reads as visits, not frames: repeat frames of one bird fold into one row, and a
@@ -146,6 +172,7 @@
             detectionsStore.recordOwnerSpeciesChoice(applyManualTagResult(detection, result));
             toastStore.show($_('detection.species_updated', { default: 'Species updated' }), 'success');
             loadReviewQueue();
+            void loadSummary();
         } catch (e) {
             if (e instanceof IdentificationChangedError) {
                 // Changed elsewhere: say what it reads now, and show that rather than the old copy.
@@ -165,6 +192,7 @@
             detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
             reviewReading = withoutEvent(reviewReading, detection.frigate_event);
             loadReviewQueue();
+            void loadSummary();
         } catch (e) {
             toastStore.show(getErrorMessage(e), 'error');
             throw e;
@@ -230,8 +258,12 @@
     }
 
     const reviewQueueLoader = createObservationProjectionLoader({
-        fetch: (signal) => fetchReviewQueue({ limit: REVIEW_QUEUE_READ_LIMIT, signal }),
-        apply: (response) => {
+        // Needs your call waits on the captures of the desk's window, as the Unresolved figure counts them.
+        fetch: (signal) => readDeskDay(
+            (window) => fetchReviewQueue({ limit: REVIEW_QUEUE_READ_LIMIT, window: window.kind, signal }),
+            (response) => [response.window_start]
+        ),
+        apply: ({ value: response }) => {
             reviewReading = readingFromResponse(response);
             reviewReadingStatus = 'ready';
             dayReadFailed.queue = false;
@@ -241,6 +273,7 @@
             reviewReadingStatus = 'loading';
         },
         fail: (e) => {
+            if (e instanceof DayTurnedError) { rollOverIfNewDay(); return; }
             reviewReadingStatus = 'unavailable';
             dayReadFailed.queue = true;
             logger.warn('Review queue unavailable', { message: getErrorMessage(e) });
@@ -273,46 +306,70 @@
     let reviewSessionReading = $state.raw<ReviewQueueReading>(EMPTY_REVIEW_QUEUE_READING);
     let reviewSessionOpening = false;
     let reviewSessionRequest = 0;
+    // The walkthrough captures its list when it opens; a new list for a new day opens it afresh.
+    let reviewSessionKey = $state(0);
+    function readReviewSession(): Promise<ReviewQueueReading> {
+        return readDeskDay(
+            (window) => fetchReviewQueue({ limit: REVIEW_SESSION_READ_LIMIT, window: window.kind }),
+            (response) => [response.window_start]
+        ).then(({ value }) => readingFromResponse(value));
+    }
     async function openReviewSession(): Promise<void> {
         if (reviewSessionOpening) return;
         reviewSessionOpening = true;
         const request = ++reviewSessionRequest;
         try {
-            const response = await fetchReviewQueue({ limit: REVIEW_SESSION_READ_LIMIT });
+            const reading = await readReviewSession();
             if (request !== reviewSessionRequest) return;
-            reviewSessionReading = readingFromResponse(response);
+            reviewSessionReading = reading;
             reviewSessionOpen = true;
         } catch (e) {
-            if (request === reviewSessionRequest) toastStore.show(getErrorMessage(e), 'error');
+            if (request !== reviewSessionRequest) return;
+            if (e instanceof DayTurnedError) rollOverIfNewDay();
+            else toastStore.show(getErrorMessage(e), 'error');
         } finally {
             reviewSessionOpening = false;
         }
     }
+    /** At midnight an open walkthrough takes the new day's list, or closes rather than keep yesterday's. */
+    async function refreshReviewSession(): Promise<void> {
+        const request = ++reviewSessionRequest;
+        try {
+            const reading = await readReviewSession();
+            if (request !== reviewSessionRequest || !reviewSessionOpen) return;
+            reviewSessionReading = reading;
+            reviewSessionKey += 1;
+        } catch {
+            if (request === reviewSessionRequest) reviewSessionOpen = false;
+        }
+    }
 
-    // The range check over the desk's 24 hours: the Species page's day window, flagged the same way,
-    // so the desk never says nothing is waiting while a species check is.
+    // The range check over the desk's window (the Species page's day window, or Today), flagged the
+    // same way, so the desk never says nothing is waiting while a species check is.
     const UNREAD_RANGE_CHECK: RangeCheckReading = { status: 'loading', checks: [], nearbyRadiusKm: null };
     let rangeCheck = $state.raw<RangeCheckReading>(UNREAD_RANGE_CHECK);
     const speciesChecksLoader = createObservationProjectionLoader({
-        fetch: async (signal) => {
+        fetch: (signal) => readDeskDay(async (window) => {
+            const span = window.kind === 'today' ? 'today' : 'day';
             // BirdNET silence only means "not heard" when its rollup for the same window loaded.
             const heard = birdnetEnabled
-                ? fetchAudioSpeciesLeaderboard('day', signal).then((response) => response.species, (error: unknown) => {
+                ? fetchAudioSpeciesLeaderboard(span, signal).then((response) => response, (error: unknown) => {
                     if (signal.aborted) throw error;
                     return null;
                 })
                 : Promise.resolve(null);
-            const [leaderboard, audio] = await Promise.all([fetchLeaderboardSpecies('day', signal), heard]);
+            const [leaderboard, audio] = await Promise.all([fetchLeaderboardSpecies(span, signal), heard]);
             return { leaderboard, audio };
-        },
-        apply: ({ leaderboard, audio }) => {
-            const next = readRangeCheck(rangeCheck, leaderboard, audio);
+        }, ({ leaderboard, audio }) => [leaderboard.window_start, audio?.window_start ?? null]),
+        apply: ({ value: { leaderboard, audio } }) => {
+            const next = readRangeCheck(rangeCheck, leaderboard, audio?.species ?? null);
             if (next.status !== 'unavailable') domesticOffers.measured();
             rangeCheck = next;
             dayReadFailed.checks = next.status === 'unavailable';
         },
         clear: () => { rangeCheck = UNREAD_RANGE_CHECK; domesticOffers.measured(); },
         fail: (e) => {
+            if (e instanceof DayTurnedError) { rollOverIfNewDay(); return; }
             rangeCheck = { ...rangeCheck, status: 'unavailable' };
             dayReadFailed.checks = true;
             logger.warn('Species checks unavailable for the dashboard', { message: getErrorMessage(e) });
@@ -362,54 +419,10 @@
         }
     });
 
-    $effect(() => {
-        if (!recordingClipFetchEnabled || !selectedEvent) {
-            return;
-        }
-        const eventId = selectedEvent.frigate_event;
-        const isNewOpen = eventId !== lastModalEventId;
-        if (isNewOpen) {
-            lastModalEventId = eventId;
-            // Force fresh probe: a cached 'unavailable' from a previous check may
-            // now be wrong if the clip was fetched in another session or tab.
-            void fullVisitStore.ensureAvailability(eventId, { refresh: true, autoFetch: true });
-        } else {
-            // Same event still open (SSE update to selectedEvent while modal is open).
-            // Non-refresh probe respects the current cache — no redundant round-trips.
-            void fullVisitStore.ensureAvailability(eventId, { autoFetch: true });
-        }
-    });
-
-    function detectionSyncSignature(d: Detection): string {
-        const asText = (value: unknown) => {
-            if (value === null || value === undefined) return '';
-            return String(value);
-        };
-        const asNumber = (value: unknown) => {
-            const parsed = Number(value);
-            return Number.isFinite(parsed) ? String(parsed) : '';
-        };
-        const asFlag = (value: unknown) => (value ? '1' : '0');
-        return [
-            asText(d.frigate_event),
-            asText(d.display_name),
-            asNumber(d.score),
-            asFlag(d.manual_tagged),
-            asFlag(d.is_hidden),
-            asFlag(d.is_favorite),
-            asText(d.video_classification_status),
-            asText(d.video_classification_label),
-            asNumber(d.video_classification_score),
-            asText(d.ai_analysis),
-            asText(d.ai_analysis_timestamp),
-            JSON.stringify(d.bird_summary ?? null),
-        ].join('|');
-    }
-
     // Visits, as the log counts them. The summary counts the whole window; until it arrives the
     // loaded visits stand in, never the frame count, which is a different unit.
-    let last24hCount = $derived(summary?.visit_count ?? allVisits.length);
-    let last24hSpecies = $derived(summary?.top_species.length ?? 0);
+    let windowVisitCount = $derived(summary?.visit_count ?? allVisits.length);
+    let windowSpeciesCount = $derived(summary?.top_species.length ?? 0);
     let audioConfirmations = $derived(summary?.audio_confirmations ?? 0);
     // Configuration decides which figures the day bar holds, so loading fills cells rather than adding them.
     let daySlots = $derived(dayBarSlots({
@@ -438,37 +451,60 @@
         fetch: async (signal) => {
             await settleGardenSwitch(signal);
             readGardenAvailable = gardenAvailable;
-            const now = new Date();
-            const window = { startTime: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), endTime: now.toISOString() };
-            // A Garden failure is stated beside the birds rather than taking the whole log down.
-            const gardenRead = gardenAvailable
-                ? fetchGardenVisits({ start: window.startTime, end: window.endTime, order: 'newest', limit: VISIT_ROW_LIMIT }, signal)
-                    .then((page) => ({ page }), (error: unknown) => {
-                        if (signal.aborted) throw error;
-                        logger.warn('Garden visits unavailable for the field log', { message: getErrorMessage(error) });
-                        return { page: null };
-                    })
-                : Promise.resolve(null);
-            const [summaryRes, visitsRes, gardenRes] = await Promise.all([
-                fetchDailySummary(),
-                fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' }),
-                gardenRead
-            ]);
-            return { summaryRes, visitsRes, gardenRes, window };
+            // One pair of instants for this load: the summary's window, the visits and Garden all read it.
+            const readLog = (window: { startTime: string; endTime: string }) => {
+                // A Garden failure is stated beside the birds rather than taking the whole log down.
+                const gardenRead = gardenAvailable
+                    ? fetchGardenVisits({ start: window.startTime, end: window.endTime, order: 'newest', limit: VISIT_ROW_LIMIT }, signal)
+                        .then((page) => ({ page }), (error: unknown) => {
+                            if (signal.aborted) throw error;
+                            logger.warn('Garden visits unavailable for the field log', { message: getErrorMessage(error) });
+                            return { page: null };
+                        })
+                    : Promise.resolve(null);
+                return Promise.all([fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' }), gardenRead]);
+            };
+            const utcDay = (): string => new Date().toISOString().slice(0, 10);
+            const { value, window: desk } = await readDeskDay(async (desk) => {
+                const sharedDayAtStart = utcDay();
+                let window = { startTime: desk.start.toISOString(), endTime: desk.end.toISOString() };
+                let [summaryRes, [visitsRes, gardenRes]] = await Promise.all([fetchDailySummary(desk.kind, signal), readLog(window)]);
+                // A guest's shared history can start after the window asked for. The log is read again
+                // over the start the figures counted from, so its rows and the figures agree.
+                const sharedFrom = authStore.isGuest ? narrowedToSharedDay(desk, summaryRes.window_start) : null;
+                if (sharedFrom) {
+                    window = { startTime: sharedFrom, endTime: window.endTime };
+                    [visitsRes, gardenRes] = await readLog(window);
+                }
+                // The shared history moves at UTC midnight: a guest read that crossed it is read again.
+                const sharedDayMoved = authStore.isGuest && utcDay() !== sharedDayAtStart;
+                return { summaryRes, visitsRes, gardenRes, window, sharedDayMoved };
+            }, ({ summaryRes }) => [summaryRes.window_start], ({ sharedDayMoved }) => !sharedDayMoved);
+            return { ...value, desk };
         },
-        apply: ({ summaryRes, visitsRes, gardenRes, window }) => {
-            summary = summaryRes; summaryHour = new Date().getHours();
+        apply: ({ summaryRes, visitsRes, gardenRes, window, desk }) => {
+            // The chart ends in the hour the server's count did, not the hour the read was sent in.
+            const counted = new Date(summaryRes.window_end);
+            summary = summaryRes; summaryHour = Number.isNaN(counted.getTime()) ? desk.end.getHours() : counted.getHours(); shownWindow = desk;
+            summaryRefreshFailed = false;
             dayReadFailed.summary = false;
             serverVisits = visitsRes.visits.map((visit) => fromServerVisit(visit, window)); totalVisits = visitsRes.total;
             gardenWindow = { start: window.startTime, end: window.endTime };
             gardenUnavailable = gardenRes !== null && gardenRes.page === null;
-            if (gardenRes === null) { gardenVisits = []; gardenTotal = 0; }
-            else if (gardenRes.page) { gardenVisits = gardenRes.page.visits; gardenTotal = gardenRes.page.total; }
+            // Garden that could not be read shows none of its earlier rows beside "only birds are shown".
+            if (gardenRes?.page) { gardenVisits = gardenRes.page.visits; gardenTotal = gardenRes.page.total; }
+            else { gardenVisits = []; gardenTotal = 0; }
         },
-        clear: () => { summary = null; serverVisits = []; totalVisits = 0; gardenVisits = []; gardenTotal = 0; gardenUnavailable = false; },
+        clear: () => { summary = null; shownWindow = null; serverVisits = []; totalVisits = 0; gardenVisits = []; gardenTotal = 0; gardenUnavailable = false; summaryRefreshFailed = false; },
         fail: (e) => {
+            if (e instanceof DayTurnedError) { rollOverIfNewDay(); return; }
             dayReadFailed.summary = true;
-            if (authStore.isGuest) summary = null;
+            summaryRefreshFailed = true;
+            // An earlier reading that found nothing is no reading once a refresh fails: an empty
+            // window is said only of a read that succeeded. A guest keeps nothing a refresh lost.
+            if (authStore.isGuest || (summary?.visit_count === 0 && serverVisits.length === 0 && gardenVisits.length === 0)) {
+                summary = null; shownWindow = null;
+            }
             if (isTransientRequestError(e)) {
                 logger.warn('Dashboard summary fetch failed (transient)', { message: getErrorMessage(e) });
             } else {
@@ -485,18 +521,96 @@
         return summaryLoader.load();
     }
 
+    // The latest read of the day failed; what is on screen, if anything, is an earlier reading.
+    let summaryRefreshFailed = $state(false);
+
     // Until the day has been read, its figures are unknown rather than zero.
     let summaryPending = $derived(summary === null && summaryLoading);
     let summaryUnavailable = $derived(summary === null && !summaryLoading);
-    let historyReadingStatus = $derived<ReadingStatus>(
-        detectionsStore.historyStatus === 'ready'
-            ? 'ready'
-            : detectionsStore.historyStatus === 'failed' && !detectionsStore.isLoading
-              ? 'unavailable'
-              : 'loading'
+    let queueStatus = $derived<ReadingStatus>(reviewReadingStatus);
+    let unresolvedCount = $derived<number | null>(
+        typeof summary?.unresolved_count === 'number' ? summary.unresolved_count : null
     );
-    let queueStatus = $derived<ReadingStatus>(canReview ? reviewReadingStatus : historyReadingStatus);
-    let unresolvedTotal = $derived(canReview ? reviewQueue.total : visibleUnresolvedCount(deskDetections, reviewThreshold));
+
+    // A guest's Today starts where the owner's shared history does when that is after their midnight.
+    let sharedFrom = $derived(authStore.isGuest && shownWindow ? sharedHistoryStart(shownWindow, summary?.window_start) : null);
+    // "Yet today" is said only of a Today that was read and is empty; a failed read says so instead.
+    // With Garden unread, only birds were measured, so the empty log says birds.
+    let fieldLogEmpty = $derived.by(() => {
+        if (gardenUnavailable) {
+            if (sharedFrom) {
+                return $_('dashboard.no_bird_visits_shared', {
+                    values: { time: formatTime(sharedFrom) },
+                    default: 'No bird visits since {time}, when the shared history starts.'
+                });
+            }
+            return deskKind === 'today'
+                ? $_('dashboard.no_bird_visits_today', { default: 'No bird visits yet today.' })
+                : $_('dashboard.no_bird_visits', { default: 'No bird visits in the last 24 hours.' });
+        }
+        if (sharedFrom) {
+            return $_('dashboard.waiting_first_visitor_shared', {
+                values: { time: formatTime(sharedFrom) },
+                default: 'No visits since {time}, when the shared history starts. New visits appear here as they arrive.'
+            });
+        }
+        return deskKind === 'today'
+            ? $_('dashboard.waiting_first_visitor_today', { default: 'No visits yet today. New visits appear here as they arrive.' })
+            : null;
+    });
+    let fieldLogEarlier = $derived(
+        deskKind === 'today'
+            ? $_('dashboard.field_log.earlier_today', {
+                values: { count: hiddenVisitCount },
+                default: '{count, plural, one {# earlier visit today, open in Explorer} other {# earlier visits today, open in Explorer}}'
+            })
+            : null
+    );
+
+    /** This device's choice of window, remembered here, read again from the start. */
+    function chooseWindow(next: DeskWindowKind): void {
+        if (next === windowChoice) return;
+        windowChoice = next;
+        saveDeskWindowChoice(() => localStorage, next);
+        rereadDesk();
+    }
+
+    /**
+     * Every reading the desk shows, read again for the chosen window. Each is cleared first and its
+     * read in flight is dropped, so a slower answer for the window just left can never land under
+     * the new name.
+     */
+    function rereadDesk(): void {
+        readingDay = deskWindowStart('today', new Date());
+        summaryLoading = true;
+        audioSummaryLoading = true;
+        summaryLoader.invalidate();
+        audioSummaryLoader.invalidate();
+        reviewQueueLoader.invalidate();
+        speciesChecksLoader.invalidate();
+        reviewSessionRequest += 1;
+        void loadSummary();
+        if (birdnetEnabled) void audioSummaryLoader.load();
+        loadReviewQueue();
+        loadSpeciesChecks();
+        if (reviewSessionOpen) void refreshReviewSession();
+    }
+
+    /** Midnight has passed since the day being read was settled: read the new day, once. */
+    function rollOverIfNewDay(): void {
+        if (windowChoice !== 'today' || deskWindowStart('today', new Date()) === readingDay) return;
+        dayTurn += 1;
+        rereadDesk();
+    }
+
+    // Today becomes another day at local midnight; the open page reads the new one. A read that
+    // notices midnight first rolls over sooner.
+    $effect(() => {
+        if (windowChoice !== 'today') return;
+        void dayTurn;
+        const timer = setTimeout(() => untrack(rollOverIfNewDay), msUntilNextLocalMidnight(new Date()) + 1000);
+        return () => clearTimeout(timer);
+    });
 
     let needsCall = $derived(needsYourCall({
         canReview,
@@ -617,13 +731,21 @@
     // What the microphone heard: the day bar's call count and the Heard card read this one summary.
     let audioSummary = $state.raw<AudioSummaryResponse | null>(null);
     let audioSummaryLoading = $state(true);
+    let audioSummaryFailed = $state(false);
 
     const audioSummaryLoader = createObservationProjectionLoader({
-        fetch: (signal) => fetchAudioSummary({ days: 1 }, signal),
-        apply: (value) => { audioSummary = value; },
-        clear: () => { audioSummary = null; },
+        // The Heard figures count the desk's own instants, so they agree with the day bar's window.
+        fetch: (signal) => readDeskDay(
+            (desk) => fetchAudioSummary({ start_date: desk.start.toISOString(), end_date: desk.end.toISOString() }, signal),
+            (value) => [value.window_start]
+        ),
+        apply: ({ value }) => { audioSummary = value; audioSummaryFailed = false; },
+        clear: () => { audioSummary = null; audioSummaryFailed = false; },
         fail: (e) => {
-            if (authStore.isGuest) audioSummary = null;
+            if (e instanceof DayTurnedError) { rollOverIfNewDay(); return; }
+            audioSummaryFailed = true;
+            // As with the day: nothing heard is said only of a read that succeeded.
+            if (authStore.isGuest || audioSummary?.total === 0) audioSummary = null;
             if (isTransientRequestError(e)) {
                 logger.warn('Audio summary unavailable (transient)', { message: getErrorMessage(e) });
             } else {
@@ -666,69 +788,11 @@
         });
     });
 
-    $effect(() => {
-        if (!selectedEvent) return;
-        const updated = detectionsStore.detections.find(
-            (d) => d.frigate_event === selectedEvent?.frigate_event
-        );
-        // Avoid proxy-identity churn causing a self-triggering effect loop.
-        if (updated) {
-            const definedPatch = Object.fromEntries(
-                Object.entries(updated).filter(([, value]) => value !== undefined)
-            ) as Partial<Detection>;
-            const merged = { ...selectedEvent, ...definedPatch } as Detection;
-            if (detectionSyncSignature(merged) !== detectionSyncSignature(selectedEvent)) {
-                selectedEvent = merged;
-            }
-        }
-    });
-
-    async function handleReclassify() {
-        if (!selectedEvent) return;
-        const eventId = selectedEvent.frigate_event;
-        const requestedStrategy = selectReclassificationStrategy(
-            selectedEvent.has_clip,
-            fullVisitFetchState[eventId]
-        );
-        try {
-            const result = await reclassifyDetection(eventId, requestedStrategy);
-
-            if (result.status === 'queued') return;
-            if (!result.updated) {
-                toastStore.warning($_('notifications.reclassify_no_result'));
-                return;
-            }
-
-            // Check if backend used a different strategy (fallback occurred)
-            if (result.actual_strategy && result.actual_strategy !== requestedStrategy) {
-                toastStore.warning($_('notifications.reclassify_fallback'));
-            }
-        } catch (error) {
-            detectionsStore.dismissReclassification(eventId);
-            const message = getErrorMessage(error);
-            console.error('Failed to start reclassification', message, error);
-            toastStore.error($_('notifications.reclassify_failed', { values: { message } }));
-        }
-    }
-
-    async function handleFetchFullVisit(detection: Detection) {
-        try {
-            const complete = await fullVisitStore.fetchFullVisit(detection.frigate_event);
-            if (complete) {
-                toastStore.success($_('video_player.full_visit_ready', { default: 'Full visit clip ready' }));
-            } else {
-                toastStore.warning($_('video_player.partial_visit_ready', { default: 'A partial visit is ready; retry shortly for the complete clip.' }));
-            }
-        } catch (e) {
-            const message = e instanceof Error ? e.message : $_('video_player.full_visit_failed', { default: 'Could not fetch full visit clip' });
-            toastStore.error(message);
-        }
-    }
-
     function handleSpeciesSummaryClick(speciesFilter: string) {
-        // Top Visitors is last-24h data; avoid forcing "today" which can hide valid events
-        // around midnight boundaries. Filter by species/taxa only.
-        onnavigate?.(`/events?species=${encodeURIComponent(speciesFilter)}`);
+        // Over the last 24 hours Today would hide the visits before midnight, so the species alone
+        // filters; Today's list opens on Today.
+        const day = deskKind === 'today' ? '&date=today' : '';
+        onnavigate?.(`/events?species=${encodeURIComponent(speciesFilter)}${day}`);
     }
 
     /** A bird correction, exclusion or recount changes the day's total and the log's summaries. */
@@ -741,18 +805,23 @@
 
 <div class="space-y-6">
     <DayBar
-        visitCount={summary ? last24hCount : null}
+        visitCount={summary ? windowVisitCount : null}
+        unknownVisitCount={summary ? (summary.unknown_visit_count ?? 0) : null}
         countedBirds={summary ? (summary.counted_birds ?? 0) : null}
         countedCaptures={summary ? (summary.counted_captures ?? 0) : null}
-        speciesCount={summary ? last24hSpecies : null}
-        unresolvedCount={queueStatus === 'ready' || unresolvedTotal > 0 ? unresolvedTotal : null}
-        othersAwaitReview={canReview && needsCall.checks !== 'clear' && needsCall.checks !== 'off'}
+        speciesCount={summary ? windowSpeciesCount : null}
+        unresolvedCount={unresolvedCount}
+        othersAwaitReview={canReview && ((needsCall.checks !== 'clear' && needsCall.checks !== 'off') || needsCall.visits !== 'clear')}
         audioCalls={audioSummary?.total ?? null}
         audioConfirmations={summary ? audioConfirmations : null}
         slots={daySlots}
-        loading={summaryPending || queueStatus === 'loading'}
+        loading={summaryPending}
         audioLoading={audioSummaryLoading}
         feed={liveFeedState(detectionsStore.connected, serviceConnectionsStore.connections)}
+        windowKind={deskKind}
+        choice={windowChoice}
+        onwindowchange={chooseWindow}
+        {sharedFrom}
     />
 
     <ProviderWarning {onnavigate} />
@@ -775,9 +844,10 @@
                     onretry={retryReviewQueue}
                     onreview={openRecord}
                     onreviewall={() => void openReviewSession()}
-                    onopenchecks={() => onnavigate?.(SPECIES_CHECKS_LINK)}
+                    onopenchecks={() => onnavigate?.(speciesChecksLink(deskKind))}
                     onretrychecks={() => loadSpeciesChecks({ retry: true })}
                     onkept={speciesKept}
+                    windowKind={deskKind}
                 />
             </div>
         {/if}
@@ -786,6 +856,8 @@
             <FieldLog
                 rows={fieldLogRows}
                 hiddenCount={hiddenVisitCount}
+                emptyMessage={fieldLogEmpty}
+                hiddenLabel={fieldLogEarlier}
                 placeholderRows={VISIT_ROW_LIMIT}
                 loading={summaryPending}
                 unavailable={summaryUnavailable}
@@ -797,8 +869,9 @@
                 canIdentify={canReview}
                 onselect={openRecord}
                 onidentify={openRecord}
-                onplay={(detection) => { videoEventId = detection.frigate_event; videoHeading = videoHeadingFor(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames); showVideo = true; }}
+                onplay={(detection) => (video = { frigateEvent: detection.frigate_event, heading: videoHeadingFor(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames), shareToken: null, playIntent: 'user' })}
                 onseeall={() => onnavigate?.(gardenVisits.length > 0 ? '/events?visitors=all' : '/events')}
+                onseewindow={() => onnavigate?.(fieldLogWindowLink(gardenAvailable, deskKind))}
             />
         </div>
 
@@ -814,6 +887,7 @@
                     cameraVisits={summary?.camera_visits ?? null}
                     loading={summaryPending}
                     unavailable={summaryUnavailable}
+                    windowKind={deskKind}
                 />
 
                 {#if birdnetEnabled}
@@ -822,6 +896,8 @@
                         summary={audioSummary}
                         summaryLoading={audioSummaryLoading}
                         matchedCalls={summary ? audioConfirmations : null}
+                        summaryFailed={audioSummaryFailed}
+                        windowKind={deskKind}
                     />
                 {/if}
             </div>
@@ -829,7 +905,7 @@
             <!-- Reference: the shape of the day, the area around the feeder, who comes most. -->
             <div class="flex min-w-0 flex-col gap-6" data-dashboard-rail-reference>
                 {#if summary}
-                    <DailyHistogram data={summary.hourly_visits ?? []} currentHour={summaryHour} />
+                    <DailyHistogram data={summary.hourly_visits ?? []} currentHour={summaryHour} windowKind={deskKind} />
                 {:else if summaryLoading}
                     <div class="h-40 animate-pulse rounded-2xl bg-surface-raised motion-reduce:animate-none"></div>
                 {/if}
@@ -846,6 +922,7 @@
                         <TopVisitors
                             species={summary.top_species}
                             onSpeciesClick={handleSpeciesSummaryClick}
+                            windowKind={deskKind}
                         />
                     {:else if summaryLoading}
                         <div class="h-40 animate-pulse rounded-2xl bg-surface-raised motion-reduce:animate-none"></div>
@@ -857,6 +934,7 @@
 </div>
 
 {#if reviewSessionOpen && canReview}
+    {#key reviewSessionKey}
     {@const fullQueue = buildReviewQueue(reviewSessionReading, {
         reviewThreshold,
         limit: Number.MAX_SAFE_INTEGER,
@@ -879,37 +957,16 @@
             />
         {/snippet}
     </LazyModal>
+    {/key}
 {/if}
 
-<!-- Event Detail Modal -->
-{#if selectedEvent}
-    <LazyModal loader={loadDetectionModal} onclose={() => (selectedEvent = null)}>
-        {#snippet children(DetectionModal)}
-            {#if selectedEvent}
-                <DetectionModal
-                    onbirdschanged={handleBirdsChanged}
-                    detection={selectedEvent}
-                    llmReady={settingsStore.llmReady}
-                    showVideoButton={true}
-                    fullVisitAvailable={fullVisitAvailability[selectedEvent.frigate_event] === 'available'}
-                    fullVisitFetched={fullVisitFetchState[selectedEvent.frigate_event] === 'ready'}
-                    fullVisitFetchState={fullVisitFetchState[selectedEvent.frigate_event] ?? 'idle'}
-                    onClose={() => selectedEvent = null}
-                    onReclassify={handleReclassify}
-                    onFetchFullVisit={selectedEventFullVisitHandler}
-                    onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
-                        videoEventId = frigateEvent;
-                        videoHeading = selectedEvent ? videoHeadingFor(selectedEvent, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary, $birdNames) : null;
-                        videoPlayIntent = playIntent;
-                        showVideo = true;
-                        selectedEvent = null;
-                    }}
-                    onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
-                />
-            {/if}
-        {/snippet}
-    </LazyModal>
-{/if}
+<RecordDialogs
+    bind:record={selectedEvent}
+    bind:video
+    bind:visit={openedVisit}
+    onViewSpecies={(species: string) => (selectedSpecies = species)}
+    onbirdschanged={handleBirdsChanged}
+/>
 
 {#if gardenViewer.capture && gardenAvailable}
     <LazyModal loader={loadGardenCaptureModal} onclose={() => gardenViewer.close()}>
@@ -941,25 +998,6 @@
         {/snippet}
     </LazyModal>
 {/if}
-{#if showVideo && videoEventId}
-    <LazyModal loader={loadVideoPlayer} onclose={() => { showVideo = false; videoEventId = null; }}>
-        {#snippet children(VideoPlayer)}
-            {#if videoEventId}
-                <VideoPlayer
-                    frigateEvent={videoEventId}
-                    heading={videoHeading}
-                    playIntent={videoPlayIntent}
-                    initialFullVisitPromoted={fullVisitFetchState[videoEventId] === 'ready'}
-                    onClose={() => {
-                        showVideo = false;
-                        videoEventId = null;
-                    }}
-                />
-            {/if}
-        {/snippet}
-    </LazyModal>
-{/if}
-
 <style>
     /* From 1280px the log spans the rail's two rows: Needs your call, then the rest of the rail. The
        rail's first row is only as tall as the card, so the log's height never opens a gap under it. */

@@ -303,12 +303,15 @@ async def run_cleanup():
                 repo = DetectionRepository(db)
                 if not favorite_event_ids:
                     favorite_event_ids = await repo.get_favorite_frigate_event_ids()
-                # Favourites keep everything; the per-species floor keeps photographs only (#178).
+                # Favourites keep everything; the per-species floor keeps photographs only (#178);
+                # owner-confirmed captures keep their main photograph while clips and alternates age out (#1109).
                 floor_ids = await repo.get_species_floor_frigate_event_ids(species_floor)
+                owner_confirmed_ids = await repo.get_owner_confirmed_frigate_event_ids()
             cache_stats = await media_cache.cleanup_old_media(
                 cache_retention,
                 protected_event_ids=favorite_event_ids,
                 protected_snapshot_event_ids=floor_ids,
+                protected_canonical_photo_event_ids=owner_confirmed_ids,
             )
             if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
                 log.info("Media cache cleanup completed", **cache_stats)
@@ -455,6 +458,16 @@ def _log_startup_diagnostics(test_mode: bool) -> None:
     )
 
 
+async def _return_interrupted_age_cleanup() -> None:
+    """Files an age cleanup set aside before a crash go back before anything reads the cache.
+
+    The archive, the record and new photos must never see them as missing; the storage sweep
+    returns any left over later as a safety net.
+    """
+    async with media_cache.housekeeping_lock:
+        await media_cache.return_age_staged_files()
+
+
 async def _revalidate_stale_accelerators() -> None:
     """Identification model first, so the bird finder's check never delays it."""
     from app.services.bird_finder_revalidation import bird_finder_revalidation
@@ -539,6 +552,7 @@ async def lifespan(app: FastAPI):
     open_crop_processes()
 
     revalidation_task = None
+    audio_source_backfill_task = None
     # Startup
     cleanup_running = True
     cleanup_task = None
@@ -562,6 +576,12 @@ async def lifespan(app: FastAPI):
             fatal=True,
             startup_phase="database",
             startup_progress=68,
+        )
+        await _run_lifecycle_phase(
+            app,
+            "media_cache_return_interrupted_cleanup",
+            _return_interrupted_age_cleanup,
+            fatal=False,
         )
         from app.services.garden_capture_service import garden_capture_service
 
@@ -606,6 +626,11 @@ async def lifespan(app: FastAPI):
         from app.services.species_catalog_backfill import start_background_catalog_backfill
 
         create_background_task(start_background_catalog_backfill(), name="species_catalog_backfill")
+        from app.services.audio.source_backfill import start_background_audio_source_backfill
+
+        audio_source_backfill_task = create_background_task(
+            start_background_audio_source_backfill(), name="audio_source_backfill"
+        )
         await _run_lifecycle_phase(
             app,
             "notification_dispatcher_start",
@@ -762,6 +787,10 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
+    from app.services.audio.source_backfill import stop_audio_source_backfill
+
+    # Before anything closes the database it writes to.
+    await stop_audio_source_backfill(audio_source_backfill_task)
     if revalidation_task is not None:
         revalidation_task.cancel()
         try:
@@ -1326,7 +1355,15 @@ def build_health_payload(files: HealthFileReadings) -> dict[str, object]:
         "media_integrity_scan": get_media_integrity_scan_status(),
         # Photographs and visit media are always kept, so a folder that cannot be written is a
         # fault to report, not a setting someone chose (#622).
-        "media_storage": {"available": media_cache.available, "error": media_cache.unavailable_reason},
+        "media_storage": {
+            "available": media_cache.available,
+            "error": media_cache.unavailable_reason,
+            # Files an interrupted cleanup set aside that have not gone back yet; Health's incident
+            # for them is open while this is above zero and closes by itself at zero.
+            "set_aside_pending": media_cache.set_aside_pending_count,
+            # Recovery copies kept beside a newer file at their name; open while above zero.
+            "kept_copies": media_cache.kept_copies_count,
+        },
         "mqtt": mqtt_health,
         "frigate_api": {"state": frigate_reachability.state, "last_failure": frigate_reachability.last_failure},
         "video_classifier": video_health,

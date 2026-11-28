@@ -4,6 +4,23 @@ Use **Explorer** to find a camera visit, listen to calls from the same part of t
 what was photographed. A camera visit groups nearby captures of the same species on one camera;
 it is not a count of distinct individual birds.
 
+An Unknown bird is usually its own visit, because nothing yet says which bird it was. Once it is
+named, by **Analyse all unknowns**, by the photo search or by you, it follows the same rule as every
+other capture: within the visit gap of a visit of that species on the same camera, it joins that
+visit. **Visits** on the Dashboard can then fall by one, or by two when the capture sat between two
+visits, and every capture stays. Under **Visits** the Dashboard says how many of its visits are
+Unknown birds, the same number **Top visitors** shows for Unknown bird when Unknown bird appears
+there; hover over that line, focus it or tap it for the reason. A legacy group name from an older model ("Great tit and allies") also
+shows as Unknown bird, but its captures are grouped like a species, so naming one of them can split
+its visit and raise **Visits** instead. A record you added by hand stays its own visit even once it is
+named.
+
+**Unresolved** counts something else: the captures still waiting for a decision. Naming a capture at
+or above the naming threshold, or confirming it yourself, takes it out of **Unresolved**, whether or
+not it joined another visit. A batch result below the naming threshold can join a visit while the
+capture still waits in **Unresolved**. The two figures often fall together during a batch, but not
+always.
+
 ## Show what was seen and heard
 
 1. Open **Explorer** and choose a time range. Use **Cameras** and the other filters to narrow the
@@ -14,8 +31,16 @@ it is not a count of distinct individual birds.
 3. Each heard band gives its time span and species counts. Choose **Show calls** for the strongest
    call of each species, then play it or move through its spectrogram. Arrow keys move the
    playhead one second.
-4. Open a visit to inspect its captures. A capture with several species says **Multiple species**
-   and shows a chip for each species; open it to inspect each bird.
+4. Open a visit to inspect its captures. A visit is always named by its own species. When one of
+   its captures also holds another species, a note under the name says so, for example **Also in
+   one capture: Common Wood-Pigeon**; choose it to open that capture and inspect each bird. The
+   **Multiple bird species** filter points each visit at a capture that holds them.
+5. A record is one capture. Its photo options and its **Full clip** (the recording Frigate kept
+   around that capture, by the seconds set under **Settings → Cameras & connection**) belong to
+   that capture alone. The full clip states its length once YA-WAMF has measured it; a clip cut
+   before the seconds were changed keeps its own length. When the capture is part of a longer visit, the record says **Part of a
+   visit** with the visit's number of captures and its time span, whether it was opened here or
+   from the Dashboard field log.
 
 ![A heard band between camera visits showing three European Robin calls from 08:30 to 08:34 and a Show calls control; the count tile appears when no spectrogram is retained](../images/explorer-heard-calls.png)
 
@@ -41,6 +66,16 @@ stored call information remain available. A call-loading failure does not remove
 - **Cards** and **List** change how visits are drawn. A card shows the photograph, the time, the
   confidence, the names, the day and the camera. Weather is in the record, which you open from the
   card.
+- **The numbers beside the filters** count what choosing each one would show: in the chosen
+  period, as **Visits** or **Captures** (the unit is named beside **All species**, and read out with
+  each number), and under the other filters you have chosen. A list is never narrowed by its own
+  choice, so every species stays listed while one is chosen, with **0** for a species not seen in
+  the period. **Hidden** appears once anything has been hidden, counts the hidden records under the
+  other filters, and lists the species and cameras those records hold. The numbers are read after
+  the results, so they never slow the page. While they are read the list says **Counting…**: under
+  new filters each number waits in a placeholder; on another page of the same filters the last
+  numbers stay in view until the new ones arrive. If they cannot be read, the list says so and
+  **Refresh options** tries again.
 - **Filters**, on a phone or with the desktop rail hidden, opens the filters as a sheet over the
   page. Each choice applies at once; **Close**, `Escape` or a tap outside returns you to the
   results, with keyboard focus back on **Filters**.

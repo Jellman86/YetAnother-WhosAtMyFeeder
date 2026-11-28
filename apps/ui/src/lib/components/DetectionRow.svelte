@@ -24,9 +24,11 @@
     import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
-    import type { SpeciesInCapture } from '../utils/visit-captures';
+    import type { CompanionSpecies } from '../utils/visit-captures';
+    import CompanionSpeciesNote from './CompanionSpeciesNote.svelte';
     import { frameScan } from '../utils/frame-scan';
     import FrameScanRibbon from './FrameScanRibbon.svelte';
+    import { canWatchRecordVideo } from '../utils/record-access';
 
     interface Props {
         detection: Detection;
@@ -34,24 +36,19 @@
         onPlay?: (detection: Detection) => void;
         selectionMode?: boolean;
         selected?: boolean;
-        /** Species in the visit's busiest capture, when there is more than one. */
-        speciesMix?: SpeciesInCapture[] | null;
-        /** That busiest capture, stacked behind the visit's photo so the row reads as several birds. */
-        stackFrame?: Detection | null;
+        /** Other species seen in one capture of this visit, and that capture. */
+        companions?: CompanionSpecies | null;
         /** Heard calls that fold into this visit because they confirm it. */
         matchedCalls?: number;
         /** Whether a person confirmed this record's species, and of what that is true. */
         ownerConfirmation?: 'visit' | 'capture' | null;
-        /** Opens the capture the species were counted in. */
-        onopenCapture?: () => void;
+        /** Opens the capture the other species were seen in. */
+        onopenCapture?: (capture: Detection) => void;
         /** The open detail view already shows this detection's scan. */
         hideProgress?: boolean;
     }
 
-    let { detection, onclick, onPlay, selectionMode = false, selected = false, speciesMix = null, stackFrame = null, matchedCalls = 0, ownerConfirmation = null, onopenCapture, hideProgress = false }: Props = $props();
-    const uid = $props.id();
-    let speciesOpen = $state(false);
-    const mixed = $derived((speciesMix?.length ?? 0) >= 2);
+    let { detection, onclick, onPlay, selectionMode = false, selected = false, companions = null, matchedCalls = 0, ownerConfirmation = null, onopenCapture, hideProgress = false }: Props = $props();
 
     /** Today and Yesterday by name; anything older by date. Matches the card. */
     const dayLabel = $derived.by(() => {
@@ -72,13 +69,14 @@
     const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false);
     const naming = $derived($birdNames(detection, showCommon, preferSci));
 
-    const primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
-    const subName = $derived(mixed ? null : naming.secondary);
+    // A visit is named by its own species; another species in one capture is a note beneath.
+    const primaryName = $derived(naming.primary);
+    const subName = $derived(naming.secondary);
     const isFavorite = $derived(!!detection.is_favorite);
     const isManualObservation = $derived(detection.observation_source === 'manual_upload');
     const hasAudioConfirmed = $derived(!isManualObservation && !!detection.audio_confirmed);
     const upstreamMissing = $derived(!isManualObservation && detection.frigate_status === 'missing');
-    const canPlayVideo = $derived(!!onPlay && !!detection.has_clip);
+    const canPlayVideo = $derived(!!onPlay && canWatchRecordVideo(authStore) && !!detection.has_clip);
 
     const rowSubject = $derived(`${primaryName}, ${formatTime(detection.detection_time)}`);
     const openLabel = $derived(
@@ -178,12 +176,10 @@
     <!-- The same pop-out the field log uses, so a row and a log entry answer
          "which bird is that" the same way. It reuses the image already fetched,
          opens on focus as well as hover, and closes on Escape. -->
-    <div class="relative z-10 flex justify-center" data-detection-row-photo={mixed ? 'stack' : 'single'}>
-        <!-- A capture with several species stacks its busiest capture behind, as a heard band does. -->
+    <div class="relative z-10 flex justify-center">
         <DetectionPreview
             interactive={!selectionMode}
             {detection}
-            stackBehind={mixed ? (stackFrame ?? detection) : null}
             primaryName={primaryName}
             secondaryName={subName}
             onopen={() => onclick?.()}
@@ -228,14 +224,8 @@
             {/if}
             <span class="min-w-0 truncate">{detection.camera_name}</span>
         </div>
-        {#if mixed && speciesMix}
-            <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.species_in_capture', { default: 'Species in this capture' })}>
-                {#each speciesMix as entry (entry.species)}
-                    <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2 text-2xs font-semibold text-ink">
-                        {$birdNames(entry, showCommon, preferSci).primary}<span class="font-bold tabular-nums text-accent-ink">{entry.count}</span>
-                    </li>
-                {/each}
-            </ul>
+        {#if companions && onopenCapture && !selectionMode}
+            <CompanionSpeciesNote {companions} onopen={onopenCapture} />
         {/if}
     </div>
 
@@ -275,26 +265,7 @@
                         : $_('detection.frame_scan.frames_unit', { default: 'frames' })}
                 </span>
             </div>
-        {:else if mixed && !selectionMode}
-            <!-- One score cannot speak for several species, so the row offers the species instead. -->
-            <button
-                type="button"
-                class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-accent-ink transition-colors hover:bg-accent-soft focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
-                aria-expanded={speciesOpen}
-                aria-controls="{uid}-species"
-                onclick={(event) => {
-                    event.stopPropagation();
-                    speciesOpen = !speciesOpen;
-                }}
-                data-detection-row-species-toggle
-            >
-                <span class="hidden sm:inline">{speciesOpen ? $_('events.hide_species', { default: 'Hide species' }) : $_('events.show_species', { default: 'Show species' })}</span>
-                <span class="sr-only sm:hidden">{speciesOpen ? $_('events.hide_species', { default: 'Hide species' }) : $_('events.show_species', { default: 'Show species' })}</span>
-                <svg class="h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none {speciesOpen ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true">
-                    <path d="m5 7 5 5 5-5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-            </button>
-        {:else if !mixed}
+        {:else}
             <div class="pointer-events-none min-w-[2.75rem] text-right">
                 <BadgeHint text={$_('detection.confidence_hint', { values: { score } })}
                     class="font-display text-sm font-bold tabular-nums leading-tight {scoreTone}"
@@ -322,21 +293,4 @@
             </span>
         {/if}
     </div>
-    {#if mixed && speciesMix}
-        <div id="{uid}-species" hidden={!speciesOpen} class="relative z-10 col-span-full -mx-3 border-t border-line-soft bg-surface-raised/50 px-3 py-2 sm:pl-29" data-detection-row-species>
-            <ul class="divide-y divide-line-soft">
-                {#each speciesMix as entry (entry.species)}
-                    <li class="flex min-h-10 items-center justify-between gap-3 text-sm">
-                        <span class="font-semibold text-strong">{$birdNames(entry, showCommon, preferSci).primary}</span>
-                        <span class="text-xs font-semibold tabular-nums text-muted">{$_('events.birds_count', { values: { count: entry.count }, default: '{count} birds' })}</span>
-                    </li>
-                {/each}
-            </ul>
-            {#if onopenCapture}
-                <button type="button" class="btn btn-secondary mt-2 min-h-11 px-3 text-xs" onclick={onopenCapture}>
-                    {$_('events.open_capture_birds', { default: 'Open the capture to see each bird' })}
-                </button>
-            {/if}
-        </div>
-    {/if}
 </div>

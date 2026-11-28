@@ -7,13 +7,23 @@ before.
 
 import asyncio
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import TYPE_CHECKING, Any, Optional
 
 import aiosqlite
 
 from app.utils.api_datetime import parse_storage_datetime, serialize_api_datetime, serialize_storage_datetime
+from app.utils.audio_source_identity import (
+    AudioSourceDirectory,
+    SourceKey,
+    SourceObservation,
+    StoredSource,
+    read_stored_source,
+    source_of_payload,
+)
 from app.utils.birdnet_payload import (
     extract_audio_mapping_keys,
     extract_birdnet_id,
@@ -76,6 +86,103 @@ async def public_audio_conditions_sql(db: aiosqlite.Connection, *, match_species
     return sql, params
 
 
+_SOURCE_COLUMNS = ("source_node", "source_id", "source_name")
+
+
+async def _distinct_source_values(
+    db: aiosqlite.Connection, column: str, prefix: list[tuple[str, str | None]]
+) -> list[str | None]:
+    """Each value ``column`` takes under the fixed ``prefix``, by index seeks rather than a scan.
+
+    The identity index orders calls by node, id and name, so each next value is one seek past the
+    last: the work grows with the number of sources, never with the number of calls.
+    """
+    fixed = [f"{name} IS ?" for name, _ in prefix]
+    params = [value for _, value in prefix]
+    values: list[str | None] = []
+    async with db.execute(
+        f"SELECT 1 FROM audio_detections WHERE {' AND '.join([*fixed, f'{column} IS NULL'])} LIMIT 1", params
+    ) as cursor:
+        if await cursor.fetchone() is not None:
+            values.append(None)
+    last: str | None = None
+    while True:
+        bound = f"{column} > ?" if last is not None else f"{column} IS NOT NULL"
+        async with db.execute(
+            f"SELECT MIN({column}) FROM audio_detections WHERE {' AND '.join([*fixed, bound])}",
+            [*params, *([last] if last is not None else [])],
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row is None or row[0] is None:
+            return values
+        last = str(row[0])
+        values.append(last)
+
+
+async def load_audio_source_directory(
+    db: aiosqlite.Connection,
+    *,
+    minimum_start: datetime | None = None,
+    maximum_end: datetime | None = None,
+    hidden: bool = False,
+    owner_evidence: bool = False,
+) -> AudioSourceDirectory:
+    """Every source the history has heard, under each name it carried, read by index seeks.
+
+    Names and the newest name come from the calls a view shows: visible ones, or hidden ones for
+    the owner's hidden view. With ``owner_evidence``, every call the owner keeps also says which
+    source carried which name, so hiding a call never moves an older id-less call to another
+    source. A guest's view passes the shared window and no owner evidence, so no name or id from
+    outside the shared calls reaches them, not even through a filter or an older call joining a
+    renamed source.
+
+    Each (node, id, name) a call carries is found by seeking the identity index, and its newest
+    call in the view by one more seek, so a request costs the same however many calls are stored.
+    """
+    bounds, bound_params = [], []
+    if minimum_start is not None:
+        bounds.append("timestamp >= ?")
+        bound_params.append(serialize_storage_datetime(minimum_start))
+    if maximum_end is not None:
+        bounds.append("timestamp < ?")
+        bound_params.append(serialize_storage_datetime(maximum_end))
+
+    async def newest(identity: tuple[str | None, ...], is_hidden: bool) -> str | None:
+        clauses = [f"{column} IS ?" for column in _SOURCE_COLUMNS] + ["is_hidden = ?", *bounds]
+        async with db.execute(
+            f"SELECT MAX(timestamp) FROM audio_detections WHERE {' AND '.join(clauses)}",
+            [*identity, int(is_hidden), *bound_params],
+        ) as cursor:
+            row = await cursor.fetchone()
+        return str(row[0]) if row and row[0] is not None else None
+
+    observations: list[SourceObservation] = []
+    for node in await _distinct_source_values(db, "source_node", []):
+        for source_id in await _distinct_source_values(db, "source_id", [("source_node", node)]):
+            names = await _distinct_source_values(db, "source_name", [("source_node", node), ("source_id", source_id)])
+            for name in names:
+                identity = (node, source_id, name)
+                # The other visibility only ever serves as the owner's evidence of who carried a name.
+                for is_hidden in (hidden, not hidden) if owner_evidence else (hidden,):
+                    last_seen = await newest(identity, is_hidden)
+                    if last_seen is not None:
+                        observations.append(
+                            SourceObservation(
+                                node=node,
+                                source_id=source_id,
+                                name=name,
+                                last_seen=last_seen,
+                                shown=is_hidden == hidden,
+                            )
+                        )
+    return AudioSourceDirectory(observations)
+
+
+def filter_names_a_source(source: str | None, search: str | None, search_include_source: bool) -> bool:
+    """Whether a history filter can match a source by name or id, so its sources must be read."""
+    return bool(source) or bool(search and search.strip() and search_include_source)
+
+
 async def public_audio_evidence_sql(db: aiosqlite.Connection) -> tuple[str, list]:
     conditions, params = await public_audio_conditions_sql(db)
     return f"EXISTS (SELECT 1 FROM audio_detections a WHERE {conditions})", params
@@ -88,6 +195,19 @@ class _AudioContextWindow:
     target: datetime
     start: str
     end: str
+
+
+def _calendar_day(stored: object, zone: tzinfo) -> date | None:
+    """The day a stored UTC timestamp falls on in ``zone``, or None for one that cannot be read."""
+    if not isinstance(stored, str):
+        return None
+    try:
+        instant = datetime.fromisoformat(stored)
+    except ValueError:
+        return None
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=timezone.utc)
+    return instant.astimezone(zone).date()
 
 
 def rank_audio_context(
@@ -179,11 +299,13 @@ class AudioHistoryRepository:
         # Catalogue freshness checks can stat and reload SQLite tables. Finish
         # them off-loop before beginning the history write transaction.
         species_id = await asyncio.to_thread(resolve_audio_identity, scientific_name)
+        # The only change to ingest for #1111: record the source cleaned, beside the payload.
+        source = source_of_payload(sensor_id, raw_data)
         cursor = await self.db.execute(
             """INSERT INTO audio_detections (
                    timestamp, species, confidence, sensor_id, raw_data, scientific_name, source_event_id,
-                   species_id
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                   species_id, source_node, source_id, source_name, source_resolved
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
                ON CONFLICT(source_event_id) DO NOTHING""",
             (
                 serialize_storage_datetime(timestamp),
@@ -197,6 +319,10 @@ class AudioHistoryRepository:
                 # share an identity. Unresolvable names record nothing and keep
                 # behaving exactly as they do today.
                 species_id,
+                # The id survives a rename in BirdNET-Go, so history keeps one source whole (#1111).
+                source.node,
+                source.source_id,
+                source.name,
             ),
         )
         inserted = cursor.rowcount > 0
@@ -286,6 +412,71 @@ class AudioHistoryRepository:
         async with self.db.execute("SELECT is_hidden FROM audio_detections WHERE id = ?", (detection_id,)) as cursor:
             row = await cursor.fetchone()
         return row is not None and not bool(row[0])
+
+    async def resolve_pending_sources(self, limit: int) -> int:
+        """Read the source of up to ``limit`` calls stored without it, by the rule ingest uses.
+
+        Only a release from before source tracking stores such a call, after a rollback. They are
+        found through a partial index that holds nothing else, so with none to read this is one
+        empty seek, and a call already read is never read again.
+        """
+        async with self.db.execute(
+            "SELECT id, sensor_id, raw_data FROM audio_detections WHERE source_resolved = 0 ORDER BY id LIMIT ?",
+            (limit,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        if not rows:
+            return 0
+        updates = []
+        for row_id, sensor_id, raw_data in rows:
+            try:
+                payload = json.loads(raw_data) if raw_data else None
+            except (TypeError, ValueError, RecursionError):
+                payload = None
+            source = source_of_payload(sensor_id, payload)
+            updates.append((source.node, source.source_id, source.name, row_id))
+        await self.db.executemany(
+            """UPDATE audio_detections
+               SET source_node = ?, source_id = ?, source_name = ?, source_resolved = 1
+               WHERE id = ? AND source_resolved = 0""",
+            updates,
+        )
+        await self.db.commit()
+        return len(rows)
+
+    @asynccontextmanager
+    async def one_reading(self) -> AsyncIterator[None]:
+        """Every read inside sees the same committed history.
+
+        The sources a view names are read before the calls it counts. Without one reading, a call
+        hidden in between could still lend its name to the calls that stay shown.
+        """
+        if self.db.in_transaction:
+            yield
+            return
+        await self.db.execute("BEGIN")
+        try:
+            yield
+        finally:
+            if self.db.in_transaction:
+                await self.db.rollback()
+
+    async def load_audio_source_directory(
+        self,
+        *,
+        minimum_start: datetime | None = None,
+        maximum_end: datetime | None = None,
+        hidden: bool = False,
+        owner_evidence: bool = False,
+    ) -> AudioSourceDirectory:
+        """Every source the history has heard, keyed by BirdNET-Go's source id on its install."""
+        return await load_audio_source_directory(
+            self.db,
+            minimum_start=minimum_start,
+            maximum_end=maximum_end,
+            hidden=hidden,
+            owner_evidence=owner_evidence,
+        )
 
     async def get_recent_audio_source_observations(
         self, limit: int = 200, start_date: datetime | None = None, end_date: datetime | None = None
@@ -476,7 +667,30 @@ class AudioHistoryRepository:
 
         return rank_audio_context(rows, target_time, mapping_value, limit)
 
-    def _build_audio_history_filter(
+    @staticmethod
+    def _source_identity_clause(text: str, directory: AudioSourceDirectory) -> tuple[str, list]:
+        """A term finding every call of each source ``text`` names, under any name it has carried.
+
+        Text that names a source by its old name, its new name or its id finds the whole of its
+        history, including the calls from before BirdNET-Go reported ids. The directory resolves
+        which stored (node, id, name) belong to those sources, the same way the Sources list counts
+        them. They reach the database as one JSON list, so the term has the same size however many
+        there are, and the database runs no code per call.
+        """
+        identities = directory.stored_identities_of(directory.keys_matching_text(text))
+        if not identities:
+            return "0", []
+        # A control character never survives cleaning, so it stands for an empty column.
+        stored = [["\x01" if part is None else part for part in identity] for identity in identities]
+        return (
+            """(IFNULL(source_node, char(1)), IFNULL(source_id, char(1)), IFNULL(source_name, char(1))) IN (
+                   SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]')
+                   FROM json_each(?)
+               )""",
+            [json.dumps(stored)],
+        )
+
+    async def _build_audio_history_filter(
         self,
         start_date: Optional[datetime],
         end_date: Optional[datetime],
@@ -488,9 +702,14 @@ class AudioHistoryRepository:
         only_hidden: bool = False,
         search: Optional[str] = None,
         search_include_source: bool = True,
+        directory: AudioSourceDirectory | None = None,
     ) -> tuple[str, list]:
         clauses: list[str] = ["is_hidden = 1" if only_hidden else "is_hidden = 0"]
         params: list = []
+        if filter_names_a_source(source, search, search_include_source) and directory is None:
+            directory = await load_audio_source_directory(
+                self.db, maximum_end=maximum_end, hidden=only_hidden, owner_evidence=True
+            )
 
         if start_date is not None:
             clauses.append("timestamp >= ?")
@@ -512,18 +731,23 @@ class AudioHistoryRepository:
             # `scientific_name = ?` would miss rows. The window's timestamp range bounds the scan.
             clauses.append("LOWER(TRIM(scientific_name)) = ?")
             params.append(scientific_name.strip().casefold())
-        if source:
+        if source and directory is not None:
+            # As before, the text also matches a call's own stored sensor and payload.
             source_like = f"%{source.strip().casefold()}%"
-            clauses.append("(LOWER(COALESCE(sensor_id, '')) LIKE ? OR LOWER(COALESCE(raw_data, '')) LIKE ?)")
-            params.extend([source_like, source_like])
+            named, named_params = self._source_identity_clause(source, directory)
+            clauses.append(
+                f"(LOWER(COALESCE(sensor_id, '')) LIKE ? OR LOWER(COALESCE(raw_data, '')) LIKE ? OR {named})"
+            )
+            params.extend([source_like, source_like, *named_params])
         if search and search.strip():
             search_like = f"%{search.strip().casefold()}%"
-            if search_include_source:
+            if search_include_source and directory is not None:
+                named, named_params = self._source_identity_clause(search, directory)
                 clauses.append(
                     "(LOWER(species) LIKE ? OR LOWER(COALESCE(scientific_name, '')) LIKE ? "
-                    "OR LOWER(COALESCE(sensor_id, '')) LIKE ? OR LOWER(COALESCE(raw_data, '')) LIKE ?)"
+                    f"OR LOWER(COALESCE(sensor_id, '')) LIKE ? OR LOWER(COALESCE(raw_data, '')) LIKE ? OR {named})"
                 )
-                params.extend([search_like, search_like, search_like, search_like])
+                params.extend([search_like, search_like, search_like, search_like, *named_params])
             else:
                 clauses.append("(LOWER(species) LIKE ? OR LOWER(COALESCE(scientific_name, '')) LIKE ?)")
                 params.extend([search_like, search_like])
@@ -546,9 +770,14 @@ class AudioHistoryRepository:
         only_hidden: bool = False,
         search: Optional[str] = None,
         search_include_source: bool = True,
+        directory: AudioSourceDirectory | None = None,
     ) -> dict:
-        """Return persisted BirdNET detections for history browsing."""
-        where_sql, params = self._build_audio_history_filter(
+        """Return persisted BirdNET detections for history browsing.
+
+        A source filter finds every call of the source it names, under any name the source has
+        carried (#1111). A guest's caller passes the ``directory`` read from the shared window only.
+        """
+        where_sql, params = await self._build_audio_history_filter(
             start_date=start_date,
             end_date=end_date,
             species=species,
@@ -558,6 +787,7 @@ class AudioHistoryRepository:
             only_hidden=only_hidden,
             search=search,
             search_include_source=search_include_source,
+            directory=directory,
         )
 
         async with self.db.execute(f"SELECT COUNT(*) FROM audio_detections{where_sql}", params) as cursor:
@@ -616,9 +846,20 @@ class AudioHistoryRepository:
         only_hidden: bool = False,
         search: Optional[str] = None,
         search_include_source: bool = True,
+        calendar_zone: tzinfo = timezone.utc,
+        directory: AudioSourceDirectory | None = None,
     ) -> dict:
-        """Return rollups over persisted BirdNET detections."""
-        where_sql, params = self._build_audio_history_filter(
+        """Return rollups over persisted BirdNET detections, with calls per day on ``calendar_zone``'s calendar.
+
+        Sources are counted by BirdNET-Go's source id, so a renamed source is one entry under its
+        latest name with all of its calls (#1111). A guest's caller passes the ``directory`` read
+        from the shared window only.
+        """
+        if directory is None:
+            directory = await load_audio_source_directory(
+                self.db, maximum_end=maximum_end, hidden=only_hidden, owner_evidence=True
+            )
+        where_sql, params = await self._build_audio_history_filter(
             start_date=start_date,
             end_date=end_date,
             species=species,
@@ -628,6 +869,7 @@ class AudioHistoryRepository:
             only_hidden=only_hidden,
             search=search,
             search_include_source=search_include_source,
+            directory=directory,
         )
 
         async with self.db.execute(
@@ -650,16 +892,6 @@ class AudioHistoryRepository:
             top_species_rows = await cursor.fetchall()
 
         async with self.db.execute(
-            f"""SELECT DATE(timestamp), COUNT(*)
-                FROM audio_detections
-                {where_sql}
-                GROUP BY DATE(timestamp)
-                ORDER BY DATE(timestamp) ASC""",
-            params,
-        ) as cursor:
-            daily_rows = await cursor.fetchall()
-
-        async with self.db.execute(
             f"""SELECT CAST(strftime('%H', timestamp) AS INTEGER), COUNT(*)
                 FROM audio_detections
                 {where_sql}
@@ -669,9 +901,13 @@ class AudioHistoryRepository:
         ) as cursor:
             hourly_rows = await cursor.fetchall()
 
-        source_totals: dict[str, dict] = {}
+        source_totals: dict[SourceKey, dict] = {}
+        resolved: dict[tuple, tuple[StoredSource, SourceKey]] = {}
+        # Days are the viewer's, not UTC's: SQLite knows no zones, so each call's day is read here, in
+        # the same pass that totals the sources, which also stays exact for half-hour offsets and DST.
+        daily_totals: dict[date, int] = {}
         async with self.db.execute(
-            f"""SELECT timestamp, sensor_id, raw_data
+            f"""SELECT timestamp, source_node, source_id, source_name
                 FROM audio_detections
                 {where_sql}
                 ORDER BY timestamp DESC""",
@@ -679,16 +915,27 @@ class AudioHistoryRepository:
         ) as cursor:
             while source_rows := await cursor.fetchmany(512):
                 for row in source_rows:
-                    source_name = extract_birdnet_source_name(row[1], row[2])
-                    if not source_name:
-                        source_name = "Unknown source"
-                    if source_name not in source_totals:
-                        source_totals[source_name] = {
-                            "source_name": source_name,
+                    day = _calendar_day(row[0], calendar_zone)
+                    if day is not None:
+                        daily_totals[day] = daily_totals.get(day, 0) + 1
+                    stored = (row[1], row[2], row[3])
+                    # Calls repeat a handful of sources: each stored identity is resolved once.
+                    if stored not in resolved:
+                        source = read_stored_source(*stored)
+                        resolved[stored] = (source, directory.key_for(source.node, source.source_id, source.name))
+                    source, source_key = resolved[stored]
+                    if source_key not in source_totals:
+                        source_totals[source_key] = {
+                            "source_name": directory.display_name(source_key)
+                            or source.name
+                            or source.source_id
+                            or "Unknown source",
+                            "source_id": directory.source_id(source_key) or source.source_id,
+                            "source_node": directory.source_node(source_key),
                             "count": 0,
                             "last_heard": serialize_api_datetime(parse_storage_datetime(row[0])),
                         }
-                    source_totals[source_name]["count"] += 1
+                    source_totals[source_key]["count"] += 1
 
         top_species = [
             {
@@ -705,7 +952,12 @@ class AudioHistoryRepository:
 
         sources = sorted(
             source_totals.values(),
-            key=lambda item: (-int(item["count"]), str(item["source_name"]).casefold()),
+            key=lambda item: (
+                -int(item["count"]),
+                str(item["source_name"]).casefold(),
+                str(item["source_id"] or ""),
+                str(item["source_node"] or ""),
+            ),
         )
 
         return {
@@ -713,12 +965,12 @@ class AudioHistoryRepository:
             "species_count": int(totals[1] or 0) if totals else 0,
             "source_count": len(sources),
             "top_species": top_species,
-            "daily_counts": [{"date": row[0], "count": int(row[1] or 0)} for row in daily_rows],
+            "daily_counts": [{"date": day.isoformat(), "count": count} for day, count in sorted(daily_totals.items())],
             "hourly_counts": [{"hour": int(row[0] or 0), "count": int(row[1] or 0)} for row in hourly_rows],
             "sources": sources,
         }
 
-    async def get_audio_activity_utc_hourly_counts(
+    async def get_audio_activity_utc_quarter_hour_counts(
         self,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
@@ -730,9 +982,15 @@ class AudioHistoryRepository:
         only_hidden: bool = False,
         search: Optional[str] = None,
         search_include_source: bool = True,
+        directory: AudioSourceDirectory | None = None,
     ) -> list[tuple[datetime, int]]:
-        """Visible calls per UTC hour, under the summary's filters, optionally for one species exactly."""
-        where_sql, params = self._build_audio_history_filter(
+        """Visible calls per UTC quarter hour, under the summary's filters, optionally for one species exactly.
+
+        Quarter hours, not hours: every zone's offset is a whole number of quarter hours, so each bucket
+        lies inside one local hour. A UTC hour would not in India (UTC+5:30), where 18:40 UTC on Tuesday
+        is 00:10 on Wednesday but its UTC hour starts at 23:30 on Tuesday.
+        """
+        where_sql, params = await self._build_audio_history_filter(
             start_date=start_date,
             end_date=end_date,
             species=species,
@@ -743,9 +1001,13 @@ class AudioHistoryRepository:
             only_hidden=only_hidden,
             search=search,
             search_include_source=search_include_source,
+            directory=directory,
         )
         async with self.db.execute(
-            f"""SELECT strftime('%Y-%m-%d %H:00:00', timestamp) AS bucket_start, COUNT(*)
+            f"""SELECT strftime('%Y-%m-%d %H:', timestamp)
+                       || printf('%02d', (CAST(strftime('%M', timestamp) AS INTEGER) / 15) * 15)
+                       || ':00' AS bucket_start,
+                       COUNT(*)
                 FROM audio_detections
                 {where_sql}
                 GROUP BY bucket_start

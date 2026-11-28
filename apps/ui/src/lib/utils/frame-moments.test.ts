@@ -5,6 +5,8 @@ import {
     currentMoment,
     formatOffset,
     groupCandidatesIntoMoments,
+    holdsSelectedCandidate,
+    momentCandidateIds,
     momentThumbnailUrl,
     preferredCandidate,
     outlineLabelClass,
@@ -155,6 +157,10 @@ describe('currentMoment', () => {
 
     it('resolves the camera snapshot by source rather than by candidate id', () => {
         expect(currentMoment(moments, null, 'frigate_snapshot')?.asRecorded).toBe(true);
+        expect(currentMoment(moments, null, 'frigate_snapshot_cropped')?.asRecorded).toBe(true);
+        expect(currentMoment(moments, null, 'frigate_snapshot_uncropped')?.asRecorded).toBe(true);
+        expect(currentMoment(moments, null, 'frigate_snapshot_unverified')?.asRecorded).toBe(true);
+        expect(currentMoment(moments, null, 'manual_upload')?.asRecorded).toBe(true);
     });
 
     it('is null when the photograph is none of the moments', () => {
@@ -311,5 +317,88 @@ describe('outlineLabelPlace', () => {
                 expect(outlineLabelClass({ block, inline })).toMatch(/\b(bottom-full|top-full)\b/);
             }
         }
+    });
+});
+
+describe('removing a photo choice removes every candidate behind it (#1107)', () => {
+    const folded = [
+        candidate({ candidate_id: 'model', source_mode: 'model_crop', crop_box: [20, 20, 180, 180], ranking_score: 0.6 }),
+        candidate({ candidate_id: 'hint', source_mode: 'frigate_hint_crop', crop_box: [0, 0, 200, 200], ranking_score: 0.7 }),
+        candidate({ candidate_id: 'whole', source_mode: 'full_frame' }),
+        candidate({ candidate_id: 'other-frame', frame_index: 2, frame_offset_seconds: 2, source_mode: 'model_crop' })
+    ];
+
+    it('names every framing of a folded frame, the shown crop first', () => {
+        const [moment] = groupCandidatesIntoMoments(folded);
+        expect(moment.choice).toBe('folded');
+        expect(momentCandidateIds(moment)).toEqual(['model', 'hint', 'whole']);
+    });
+
+    it('drops the folded frame from the strip at once, never showing its whole frame in its place', () => {
+        const removed = new Set(momentCandidateIds(groupCandidatesIntoMoments(folded)[0]));
+        const after = groupCandidatesIntoMoments(
+            folded.map((item) => ({ ...item, photo_hidden: removed.has(item.candidate_id) }))
+        );
+        expect(after.map((moment) => momentCandidateIds(moment))).toEqual([['other-frame']]);
+    });
+
+    it('restores the same folded choice when its removal is undone', () => {
+        const shape = (moments: ReturnType<typeof groupCandidatesIntoMoments>) =>
+            moments.map((moment) => [moment.key, preferredCandidate(moment)?.candidate_id, momentCandidateIds(moment)]);
+        const restored = groupCandidatesIntoMoments(folded.map((item) => ({ ...item, photo_hidden: false })));
+        expect(shape(restored)).toEqual(shape(groupCandidatesIntoMoments(folded)));
+        expect(preferredCandidate(restored[0])?.candidate_id).toBe('model');
+    });
+
+    const birds = (selected: string | null, hidden: string[] = []) => groupCandidatesIntoMoments([
+        candidate({ candidate_id: 'whole', source_mode: 'full_frame', selected: selected === 'whole' }),
+        candidate({ candidate_id: 'bird-1', source_mode: 'model_crop', crop_box: [0, 0, 160, 160], selected: selected === 'bird-1' }),
+        candidate({ candidate_id: 'bird-2', source_mode: 'model_crop', crop_box: [200, 0, 360, 160], selected: selected === 'bird-2' })
+    ].map((item) => ({ ...item, photo_hidden: hidden.includes(item.candidate_id) && !item.selected })));
+
+    it.each([null, 'whole', 'bird-2'])('keeps a multi-bird frame split when one bird is removed (saved: %s)', (selected) => {
+        const after = birds(selected, ['bird-1']);
+        expect(after.map((moment) => [moment.choice, momentCandidateIds(moment)])).toEqual([
+            ['whole', ['whole']],
+            ['crop', ['bird-2']]
+        ]);
+    });
+
+    it('removes only a split crop, never the whole scene it is previewed on', () => {
+        const crop = birds(null).find((moment) => moment.choice === 'crop');
+        expect(crop?.whole?.candidate_id).toBe('whole');
+        expect(crop && momentCandidateIds(crop)).toEqual(['bird-1']);
+    });
+
+    it('removes every whole scene behind a split frame\'s whole slot', () => {
+        const moments = groupCandidatesIntoMoments([
+            candidate({ candidate_id: 'scene', source_mode: 'full_frame' }),
+            candidate({ candidate_id: 'scene-hq', source_mode: 'hq_candidate_full_frame' }),
+            candidate({ candidate_id: 'left', source_mode: 'model_crop', crop_box: [0, 0, 160, 160] }),
+            candidate({ candidate_id: 'right', source_mode: 'model_crop', crop_box: [200, 0, 360, 160] })
+        ]);
+        const whole = moments.find((moment) => moment.choice === 'whole');
+        expect(whole && momentCandidateIds(whole)).toEqual(['scene', 'scene-hq']);
+        expect(moments).toHaveLength(3);
+    });
+
+    it('protects a choice whose saved photograph is any of its framings, not only the shown one', () => {
+        const [moment] = groupCandidatesIntoMoments(folded.map((item) => ({ ...item, selected: item.candidate_id === 'hint' })));
+        expect(preferredCandidate(moment)?.candidate_id).toBe('hint');
+        const [byWhole] = groupCandidatesIntoMoments([
+            candidate({ candidate_id: 'scene', source_mode: 'full_frame' }),
+            candidate({ candidate_id: 'scene-hq', source_mode: 'hq_candidate_full_frame', selected: true }),
+            candidate({ candidate_id: 'crop', source_mode: 'model_crop' })
+        ]);
+        expect(holdsSelectedCandidate(byWhole)).toBe(true);
+        expect(currentMoment([byWhole], 'scene-hq', 'hq_candidate_hq_candidate_full_frame')?.key).toBe(byWhole.key);
+    });
+
+    it('names the camera snapshot and an earlier photograph on their own', () => {
+        const moments = groupCandidatesIntoMoments(
+            [candidate({ candidate_id: 'earlier', source_mode: 'retained_photo' })],
+            { asRecordedAvailable: true }
+        );
+        expect(moments.map((moment) => momentCandidateIds(moment))).toEqual([[AS_RECORDED_KEY], ['earlier']]);
     });
 });

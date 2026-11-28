@@ -34,7 +34,7 @@
   "kind_auto_video": "Automatische Videoanalyse",
   "kind_video_analysis": "Videoanalyse",
   "kind_high_quality_snapshot": "Aufnahmen in bester Qualität",
-  "kind_full_visit": "Clips vollständiger Besuche",
+  "kind_full_visit": "Vollständige Clips",
   "errors_clear": "Fehlerverlauf löschen",
   "errors_backend_empty": "Das Backend hat seit dem letzten Leeren des Fehlerverlaufs keine Warnungen oder Fehler aufgezeichnet. Verbindungsprobleme stehen oben auf dieser Seite, nicht hier.",
   "errors_export_failed": "Die Diagnose konnte nicht gelesen werden. Versuchen Sie es erneut; schlägt es weiter fehl, prüfen Sie, ob YA-WAMF läuft.",
@@ -109,17 +109,21 @@
   "errors_filtered_hint": "Senken Sie die minimale Konfidenzuntergrenze unter Einstellungen → Vögel bestimmen, um mehr davon als „Unbekannter Vogel“ zu behalten.",
   "errors_filtered_recent": "Zuletzt",
   "errors_activity_title": "Was passiert ist",
-  "errors_activity_subtitle": "Erfasste Besuche, herausgefilterte Ereignisse und Fehler in der Reihenfolge, in der sie auftraten",
+  "errors_activity_subtitle": "Erfasste Besuche, herausgefilterte Ereignisse, absichtlich übersprungene Arbeit und Fehler in der Reihenfolge, in der sie auftraten",
   "errors_activity_window": "Seit dem Start dieser Instanz, {started}",
   "errors_activity_no_window": "Diese Instanz hat ihren Startzeitpunkt nicht gemeldet, daher lässt sich die Aktivität noch keinem Zeitfenster zuordnen.",
-  "errors_activity_empty": "Seit dem Start dieser Instanz vor {started} wurden keine Besuche, herausgefilterten Ereignisse oder Fehler gemeldet.",
+  "errors_activity_empty": "Seit dem Start dieser Instanz vor {started} wurden keine Besuche, herausgefilterten Ereignisse, absichtlich übersprungene Arbeit oder Fehler gemeldet.",
   "errors_activity_earlier": "{count, plural, one {# früheres Ereignis in diesem Zeitfenster} other {# frühere Ereignisse in diesem Zeitfenster}}",
   "errors_activity_key": "Aktivitätslegende",
   "errors_activity_recorded": "Erfasster Besuch",
   "errors_activity_filtered": "Herausgefiltert",
   "errors_activity_fault": "Fehler",
+  "errors_activity_held_back": "Absichtlich übersprungen",
   "errors_activity_view_record": "Eintrag ansehen",
   "errors_fault_preview": "Vorschau des fehlgeschlagenen Bildes für {species}",
+  "errors_held_back_preview": "Vorschau des Bildes für {subject}",
+  "errors_held_back_subject": "Frigate-Ereignis",
+  "errors_held_back_subject_camera": "Frigate-Ereignis von {camera}",
   "errors_subsystems_title": "Details nach Bereich",
   "errors_filtered_preview": "Vorschau des als {species} gefilterten Bildes",
   "errors_filtered_frame_gone": "Frigate hat dieses Bild nicht mehr",
@@ -418,6 +422,14 @@
     "retention_paused_daily_totals": {
       "title": "Die automatische Verlaufsbereinigung wurde pausiert, weil die Tageszählungen zuvor nicht gespeichert werden konnten.",
       "next": "Es wurden keine Besuche gelöscht. Prüfen Sie Datenbank und freien Speicher; beim nächsten Lauf erfolgt ein neuer Versuch."
+    },
+    "media_set_aside_unreturned": {
+      "title": "Einige Fotos oder Videos, die bei der Bereinigung beiseitegelegt wurden, konnten noch nicht zurückgelegt werden.",
+      "next": "Es wurde nichts gelöscht. YA-WAMF versucht es bei der nächsten Speicherprüfung erneut. Wenn das wiederholt passiert, prüfen Sie, ob der Datenträger des Medienordners freien Speicher hat und beschreibbar ist."
+    },
+    "media_kept_copies": {
+      "title": "Einige Fotos oder Videos wurden als Ersatzkopien aufbewahrt, weil die Bereinigung sie nicht zurücklegen konnte.",
+      "next": "Es ging nichts verloren: Eine andere Datei hatte ihren Platz eingenommen, daher wurden beide behalten. Wenn Sie die Aufnahme löschen, wird auch ihre Ersatzkopie entfernt. Die Speicheranleitung erklärt, wie Sie eine zurücklegen."
     },
     "notification_queue_full": {
       "title": "Eine Benachrichtigung wurde verworfen, weil die Warteschlange voll war.",

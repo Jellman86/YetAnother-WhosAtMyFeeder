@@ -3,6 +3,7 @@ import detectionCardSource from './DetectionCard.svelte?raw';
 import eventsPageSource from '../pages/Events.svelte?raw';
 import dashboardPageSource from '../pages/Dashboard.svelte?raw';
 import mediaApiSource from '../api/media.ts?raw';
+import openerSource from './RecordDialogs.svelte?raw';
 
 describe('detection card full-visit fetch wiring', () => {
     it('threads recording availability and fetch state into the card flow', () => {
@@ -37,14 +38,11 @@ describe('detection card full-visit fetch wiring', () => {
         expect(eventsPageSource).toContain('fullVisitAvailability');
         expect(eventsPageSource).toContain('fullVisitFetchState');
         expect(eventsPageSource).toContain('onFetchFullVisit');
-        expect(eventsPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');
+        expect(openerSource).toContain("initialFullVisitPromoted={fullVisitStore.fetchState[video.frigateEvent] === 'ready'}");
         expect(eventsPageSource).not.toContain('preferredClipVariantByEvent');
         expect(eventsPageSource).not.toContain('initialClipVariant={videoClipVariant}');
 
-        expect(dashboardPageSource).toContain('fullVisitAvailability');
-        expect(dashboardPageSource).toContain('fullVisitFetchState');
-        expect(dashboardPageSource).toContain('onFetchFullVisit');
-        expect(dashboardPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');
+        expect(dashboardPageSource).toContain('<RecordDialogs');
         expect(dashboardPageSource).not.toContain('preferredClipVariantByEvent');
         expect(dashboardPageSource).not.toContain('initialClipVariant={videoClipVariant}');
     });

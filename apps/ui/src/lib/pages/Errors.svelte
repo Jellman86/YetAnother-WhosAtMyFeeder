@@ -13,13 +13,14 @@
     import { formatDateTime } from '../utils/datetime';
     import {
         eventPipelineVerdict,
-        expectedDropCount,
-        expectedDropReasons,
         faultDiagnostics,
         faultDropCount,
-        hasExpectedDrops,
+        filteredDropCount,
+        filteredDropReasons,
+        heldBackDropReasons,
         recentFaultDetections,
         recentFilteredDetections,
+        recentHeldBackDetections,
         keyedPipelineDetections
     } from '../utils/pipeline-health';
     import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
@@ -248,6 +249,7 @@
             visits: keptVisits,
             filtered: recentFilteredDetections(health?.event_pipeline, 25),
             faults: recentFaultDetections(health?.event_pipeline, 25),
+            heldBack: recentHeldBackDetections(health?.event_pipeline, 25),
             limit: 25
         })
     );
@@ -649,11 +651,15 @@
     // Filtering is reported on its own, away from the health verdict: it is useful
     // to see how much the confidence threshold is rejecting, but it is not a fault.
     function filteredStatus(): string {
-        return hasExpectedDrops(health?.event_pipeline) ? 'info' : 'clear';
+        return filteredDropCount(health?.event_pipeline) > 0 ? 'info' : 'clear';
     }
 
+    // Work held back on purpose is neither a fault nor the filter, so it is listed under the
+    // pipeline in its own words rather than vanishing once it stopped counting as a fault.
+    const heldBackReasons = $derived(heldBackDropReasons(health?.event_pipeline));
+
     function filteredSummary(): string {
-        const count = expectedDropCount(health?.event_pipeline);
+        const count = filteredDropCount(health?.event_pipeline);
         if (count === 0) {
             return $_('jobs.errors_filtered_none', { default: 'Nothing has been filtered out yet.' });
         }
@@ -1129,15 +1135,30 @@
                         { label: $_('jobs.errors_metric_dropped', { default: 'Dropped' }), value: asNumber(health?.event_pipeline?.dropped_events).toLocaleString() },
                         { label: $_('jobs.errors_metric_critical', { default: 'Critical' }), value: asNumber(health?.event_pipeline?.critical_failures).toLocaleString() }
                     ])}
+                    {#if heldBackReasons.length > 0}
+                        <p class="mt-3 text-xs font-bold text-ink">{$_('jobs.errors_activity_held_back', { default: 'Skipped on purpose' })}</p>
+                        <dl class="mt-1 grid grid-cols-1 gap-2 text-xs sm:max-w-md" data-health-held-back>
+                            {#each heldBackReasons as entry (entry.reason)}
+                                {@const words = diagnosticWords(entry.reason)}
+                                <div class="flex items-baseline justify-between gap-3">
+                                    <dt class="min-w-0 wrap-break-word text-ink">
+                                        {words.title}
+                                        {#if words.next}<span class="block text-muted">{words.next}</span>{/if}
+                                    </dt>
+                                    <dd class="shrink-0 font-semibold tabular-nums text-strong">{entry.count.toLocaleString()}</dd>
+                                </div>
+                            {/each}
+                        </dl>
+                    {/if}
                 </li>
 
                 <!-- Filtering is the detection settings working, not a state: its chip is a count in neutral ink. -->
                 <li class="py-4" data-health-subsystem="filtered">
-                    {@render subsystemHead($_('jobs.errors_filtered_title', { default: 'Filtered out' }), expectedDropCount(health?.event_pipeline).toLocaleString(), 'unknown', filteredStatus())}
+                    {@render subsystemHead($_('jobs.errors_filtered_title', { default: 'Filtered out' }), filteredDropCount(health?.event_pipeline).toLocaleString(), 'unknown', filteredStatus())}
                     <p class="mt-1 text-sm text-ink">{filteredSummary()}</p>
-                    {#if expectedDropReasons(health?.event_pipeline).length > 0}
+                    {#if filteredDropReasons(health?.event_pipeline).length > 0}
                         <dl class="mt-2 grid grid-cols-1 gap-1 text-xs sm:max-w-md">
-                            {#each expectedDropReasons(health?.event_pipeline) as entry (entry.reason)}
+                            {#each filteredDropReasons(health?.event_pipeline) as entry (entry.reason)}
                                 <div class="flex items-baseline justify-between gap-3">
                                     <dt class="min-w-0 wrap-break-word text-ink">{filteredReasonLabel(entry.reason)}</dt>
                                     <dd class="shrink-0 font-semibold tabular-nums text-strong">{entry.count.toLocaleString()}</dd>
@@ -1287,7 +1308,7 @@
             <Panel
                 title={$_('jobs.errors_activity_title', { default: 'What happened' })}
                 description={$_('jobs.errors_activity_subtitle', {
-                    default: 'Recorded visits, filtered events and faults, in the order they happened'
+                    default: 'Recorded visits, filtered events, work skipped on purpose and faults, in the order they happened'
                 })}
                 data-health-timeline
             >
@@ -1318,7 +1339,7 @@
                             rows={timelineRows}
                             emptyMessage={$_('jobs.errors_activity_empty', {
                                 values: { started: startedAgoText() },
-                                default: 'No visits, filtered events or faults have been reported since this instance started {started} ago.'
+                                default: 'No visits, filtered events, work skipped on purpose or faults have been reported since this instance started {started} ago.'
                             })}
                             hiddenCount={timelineHidden}
                             hiddenLabel={$_('jobs.errors_activity_earlier', {

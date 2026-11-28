@@ -7,19 +7,16 @@ the media cache metadata, so full scenes are not mistaken for close photographs 
 
 import asyncio
 import os
-from collections import OrderedDict
+import sqlite3
 from datetime import datetime, timedelta
-from io import BytesIO
 from pathlib import Path as FilePath
 from typing import Awaitable, Callable, Literal, Optional
 from urllib.parse import quote
 
-import aiofiles
-import aiofiles.os
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
 from fastapi.responses import FileResponse
-from PIL import Image, ImageOps
 from pydantic import BaseModel
+import structlog
 
 from app.auth import AuthContext, get_auth_context_with_legacy
 from app.config import settings
@@ -27,37 +24,37 @@ from app.database import get_db
 from app.models import Detection
 from app.ratelimit import guest_rate_limit
 from app.repositories.detection_repository import DetectionRepository
-from app.routers.proxy import SNAPSHOT_NO_STORE_HEADERS, require_event_access, validate_event_id
+from app.routers.proxy import (
+    SNAPSHOT_NO_STORE_HEADERS,
+    require_event_access,
+    validate_event_id,
+)
 from app.services.classification_input_provenance import cached_snapshot_input_provenance
 from app.services.community_stats_service import community_stats_service
-from app.services.media_cache import media_cache
+from app.services.media_cache import cached_thumbnail_allowed_for_current_snapshot, media_cache
+from app.services.reel_image_service import (
+    REEL_IMAGE_CACHE_ENTRIES as REEL_IMAGE_CACHE_ENTRIES,
+    REEL_IMAGE_MAX_EDGE as REEL_IMAGE_MAX_EDGE,
+    REEL_IMAGE_QUALITY as REEL_IMAGE_QUALITY,
+    REEL_TILE_MAX_EDGE as REEL_TILE_MAX_EDGE,
+    ReelImageSize,
+    ReelImageUnavailableError,
+    reel_image_service,
+    resize_for_reel as resize_for_reel,
+)
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.language import get_user_language
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.public_access import effective_public_events_days, public_events_window, public_media_window
 
+log = structlog.get_logger()
 router = APIRouter()
 
 # How far back the reel looks, and how many metadata files it will read to fill itself.
 SHOWCASE_SCAN_LIMIT = 400
 SHOWCASE_METADATA_READS = 60
 SHOWCASE_DEFAULT_LIMIT = 12
-
-# The stored photograph can be a full-resolution frame of several megabytes; a card wants a
-# few hundred pixels. The reel serves a resized copy, kept in memory for the handful of
-# photographs the reel can show, keyed on the file so a re-chosen frame is picked up.
-REEL_IMAGE_MAX_EDGE = 480
-# A leaderboard wall draws about eighty visits in cells under ninety pixels wide. A card-sized
-# copy of each is megabytes of photograph the screen cannot show, so the wall asks for a tile.
-REEL_TILE_MAX_EDGE = 240
-REEL_IMAGE_QUALITY = 82
-# Room for a whole wall of tiles beside the reel's cards, so drawing one does not evict the other.
-REEL_IMAGE_CACHE_ENTRIES = 256
-ReelImageSize = Literal["card", "tile"]
-_REEL_MAX_EDGE: dict[str, int] = {"card": REEL_IMAGE_MAX_EDGE, "tile": REEL_TILE_MAX_EDGE}
-_reel_images: "OrderedDict[tuple[str, int, int, str], bytes]" = OrderedDict()
-_reel_lock = asyncio.Lock()
 
 
 class ShowcaseItem(BaseModel):
@@ -379,33 +376,8 @@ async def get_feeder_portrait(
     )
 
 
-def resize_for_reel(image_bytes: bytes, max_edge: int = REEL_IMAGE_MAX_EDGE) -> bytes:
-    """A card-sized JPEG of the stored photograph; the crop is kept, only the size changes."""
-    with Image.open(BytesIO(image_bytes)) as opened:
-        image = (ImageOps.exif_transpose(opened) or opened).convert("RGB")
-        image.thumbnail((max_edge, max_edge))
-        out = BytesIO()
-        image.save(out, format="JPEG", quality=REEL_IMAGE_QUALITY, optimize=True)
-        return out.getvalue()
-
-
 async def reel_image_for(path: FilePath, size: ReelImageSize = "card") -> bytes:
-    stat = await aiofiles.os.stat(path)
-    key = (str(path), int(stat.st_mtime), int(stat.st_size), size)
-    async with _reel_lock:
-        cached = _reel_images.get(key)
-        if cached is not None:
-            _reel_images.move_to_end(key)
-            return cached
-    async with aiofiles.open(path, "rb") as handle:
-        raw = await handle.read()
-    resized = await asyncio.to_thread(resize_for_reel, raw, _REEL_MAX_EDGE[size])
-    async with _reel_lock:
-        _reel_images[key] = resized
-        _reel_images.move_to_end(key)
-        while len(_reel_images) > REEL_IMAGE_CACHE_ENTRIES:
-            _reel_images.popitem(last=False)
-    return resized
+    return await reel_image_service.from_file(path, size)
 
 
 @router.get("/about/showcase/{event_id}.jpg", response_class=Response)
@@ -416,21 +388,89 @@ async def get_about_reel_image(
     size: ReelImageSize = Query("card", description="card for a single photograph, tile for a wall of many"),
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ) -> Response:
-    """The stored photograph at card or tile size, under the same access rules as the photograph."""
+    """The visit photograph at card or tile size, under the same access rules as snapshot.jpg."""
     lang = get_user_language(request)
-    if not validate_event_id(event_id):
+    if not validate_event_id(event_id) or ".." in event_id:
         raise HTTPException(status_code=400, detail="Invalid event ID format")
     await require_event_access(event_id, auth, lang, media="snapshot")
-    path = await media_cache.get_snapshot_path(event_id)
-    if path is None:
-        from app.services.archive_service import archive_service
 
-        path = await archive_service.snapshot_path(event_id)
-    if path is None:
-        raise HTTPException(status_code=404, detail="Snapshot not found")
+    # Local stored photographs always take precedence so a newly chosen crop or archive wins
+    # immediately. If a cached file disappears mid-read (concurrent eviction) or is corrupt,
+    # fall through to the next eligible source instead of turning a valid visit into a 404.
+    path = await media_cache.get_snapshot_path(event_id)
+    if path is not None:
+        try:
+            content = await reel_image_for(path, size)
+            return Response(content=content, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        except Exception as exc:
+            log.debug(
+                "Cached reel snapshot unreadable; trying next source", event_id=event_id, error=type(exc).__name__
+            )
+
+    from app.services.archive_service import archive_service
+
+    archive_path = await archive_service.snapshot_path(event_id)
+    if archive_path is not None:
+        try:
+            content = await reel_image_for(archive_path, size)
+            return Response(content=content, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+        except Exception as exc:
+            log.debug(
+                "Archived reel snapshot unreadable; trying next source", event_id=event_id, error=type(exc).__name__
+            )
+
+    # Manual uploads live in manual_observation_service and must never be probed against Frigate.
+    if event_id.startswith("manual_"):
+        from app.services.manual_observation_service import manual_observation_service
+
+        manual_path = await manual_observation_service.path_for_event(event_id, preview=True)
+        if manual_path is None:
+            raise HTTPException(status_code=404, detail="Snapshot not found")
+        try:
+            content = await reel_image_for(manual_path, size)
+        except Exception:
+            raise HTTPException(status_code=404, detail="Snapshot not found")
+        return Response(content=content, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+
+    # Require a known detection row before serving cached thumbnails, consulting the warm
+    # fallback cache, or calling Frigate. This stops owner requests with arbitrary IDs from
+    # probing Frigate and stops deleted detections from serving stale thumbnails or fallback bytes.
     try:
-        content = await reel_image_for(path, size)
-    except Exception:  # a corrupt file is a missing photograph, not a broken page
+        async with get_db() as db:
+            detection = await DetectionRepository(db).get_by_frigate_event(event_id)
+    except sqlite3.OperationalError as exc:
+        log.warning("Failed to verify detection for reel image; refusing fallback", error_type=type(exc).__name__)
+        raise HTTPException(
+            status_code=503,
+            detail="Snapshot temporarily unavailable",
+            headers={"Retry-After": "5"},
+        ) from exc
+    if detection is None:
+        raise HTTPException(status_code=404, detail="Snapshot not found")
+
+    # An eligible locally cached thumbnail avoids an upstream round trip without serving stale
+    # thumbnails that were derived from a now-missing snapshot.
+    thumb_path = await media_cache.get_thumbnail_path(event_id)
+    if thumb_path is not None:
+        thumb_meta = await media_cache.get_thumbnail_metadata(event_id)
+        if cached_thumbnail_allowed_for_current_snapshot(thumb_meta, has_snapshot=False):
+            try:
+                content = await reel_image_for(thumb_path, size)
+                return Response(content=content, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+            except Exception as exc:
+                log.debug(
+                    "Cached reel thumbnail unreadable; trying Frigate", event_id=event_id, error=type(exc).__name__
+                )
+
+    try:
+        content = await reel_image_service.from_frigate(event_id, size)
+    except ReelImageUnavailableError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Snapshot temporarily unavailable",
+            headers={"Retry-After": "5"},
+        ) from exc
+    if content is None:
         raise HTTPException(status_code=404, detail="Snapshot not found")
     # The photograph can change (a candidate applied, the HQ pipeline settling), and a guest's
     # browser must not keep a copy once snapshots are turned off: same rule as the snapshot route.

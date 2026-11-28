@@ -24,7 +24,7 @@ def test_each_counted_species_carries_its_catalogue_names_and_keeps_its_label():
     summaries = {"event": _summary(("Prunella modularis", 2), ("Rattus norvegicus", 1))}
     named = name_summaries(
         summaries,
-        {"prunella modularis": SpeciesIdentityNames(display="Dunnock", scientific="Prunella modularis")},
+        {"prunella modularis": SpeciesIdentityNames(display="Dunnock", scientific="Prunella modularis", species_id=31)},
     )
     assert named["event"]["species"] == [
         {
@@ -32,8 +32,9 @@ def test_each_counted_species_carries_its_catalogue_names_and_keeps_its_label():
             "count": 2,
             "common_name": "Dunnock",
             "scientific_name": "Prunella modularis",
+            "species_id": 31,
         },
-        {"species": "Rattus norvegicus", "count": 1, "common_name": None, "scientific_name": None},
+        {"species": "Rattus norvegicus", "count": 1, "common_name": None, "scientific_name": None, "species_id": None},
     ]
     assert summaries["event"]["species"][0] == {"species": "Prunella modularis", "count": 2}
 
@@ -65,5 +66,8 @@ def test_labels_resolve_through_the_catalogue_in_the_reader_language(catalogue):
     resolver, lookup = SpeciesCatalogResolver(catalogue), SpeciesNameLookup(catalogue)
     english = resolve_label_names(["Rattus norvegicus", "Not a species"], "en", resolver=resolver, lookup=lookup)
     german = resolve_label_names(["Rattus norvegicus"], "de", resolver=resolver, lookup=lookup)
-    assert english == {"rattus norvegicus": SpeciesIdentityNames(display="Brown Rat", scientific="Rattus norvegicus")}
+    # The catalogue identity travels with the names, so a client compares species by id, not by label.
+    assert english == {
+        "rattus norvegicus": SpeciesIdentityNames(display="Brown Rat", scientific="Rattus norvegicus", species_id=77)
+    }
     assert german["rattus norvegicus"].display == "Wanderratte"

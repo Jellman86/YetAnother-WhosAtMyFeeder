@@ -16,6 +16,8 @@ const summary = {
     ],
     hourly_counts: Array.from({ length: 24 }, (_, hour) => ({ hour, count: hour === 8 ? 18 : hour % 5 })),
     sources: [{ source_name: 'BirdCam', count: 73, last_heard: '2026-09-26T12:00:00Z' }],
+    window_start: '2026-08-27T12:00:00Z',
+    window_end: '2026-09-26T12:00:00Z',
 };
 
 // The same 73 calls by weekday and hour: Monday 08:00 is the busiest slot.
@@ -184,10 +186,10 @@ test('the hour of day is a weekday-by-hour grid of calls heard, read with the sa
     await expect(page.locator('[data-audio-standing]')).toContainText('Busiest hour');
     await expect(page.locator('[data-audio-standing]')).toContainText('08:00');
     await expect(page.locator('[data-audio-standing]')).toContainText('27 calls heard');
-    await expect(page.locator('[data-audio-analytics-window]')).toHaveText(/^30 days · .+-.+$/);
+    await expect(page.locator('[data-audio-analytics-window]')).toHaveText(/^Last 30 days · .+-.+$/);
 
     // The grid follows the page: a new window and an applied species are both sent.
-    await page.locator('[data-audio-window-bar] [data-segment="7"]').click();
+    await page.locator('[data-audio-window-bar] [data-segment="7d"]').click();
     await expect.poll(() => requests.at(-1)?.get('days')).toBe('7');
     await page.getByRole('textbox', { name: 'Species' }).fill('Dunnock');
     await page.getByRole('textbox', { name: 'Species' }).press('Enter');
@@ -198,6 +200,92 @@ test('the hour of day is a weekday-by-hour grid of calls heard, read with the sa
     const figure = page.locator('[data-audio-history-analytics] figure').filter({ has: page.locator('[data-audio-heatmap]') });
     await figure.locator('summary').filter({ hasText: 'Show the data as a table' }).click();
     await expect(figure.locator('table tbody tr')).toHaveCount(7);
+});
+
+test('Today asks the list, the summary and the grid for one pair of instants, and says when nothing is heard yet', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'drives the window bar, which is the desktop control');
+    const asked: Record<string, URLSearchParams[]> = { history: [], summary: [], 'activity-heatmap': [] };
+    await page.route(/\/api\/audio\/(history|summary|activity-heatmap)\?/, route => {
+        const url = new URL(route.request().url());
+        const surface = url.pathname.split('/').at(-1) ?? '';
+        asked[surface].push(url.searchParams);
+        if (surface === 'history') return route.fulfill({ json: { items: [], total: 0, limit: 25, offset: 0 } });
+        if (surface === 'summary') return route.fulfill({ json: { ...summary, total: 0, top_species: [], daily_counts: [] } });
+        return route.fulfill({ json: { ...heatmap, total_count: 0, max_cell_count: 0, cells: heatmapCells.map(cell => ({ ...cell, count: 0 })) } });
+    });
+    await page.reload();
+
+    await page.locator('[data-audio-window-bar] [data-segment="today"]').click();
+    await expect.poll(() => asked['activity-heatmap'].at(-1)?.get('start_date')).toBeTruthy();
+
+    const [history, totals, grid] = [asked.history.at(-1), asked.summary.at(-1), asked['activity-heatmap'].at(-1)];
+    const start = history?.get('start_date') ?? '';
+    const end = history?.get('end_date') ?? '';
+    const localMidnight = await page.evaluate(() => { const midnight = new Date(); midnight.setHours(0, 0, 0, 0); return midnight.toISOString(); });
+    expect(start).toBe(localMidnight);
+    expect(Date.parse(end)).toBeGreaterThanOrEqual(Date.parse(start));
+    for (const params of [totals, grid]) {
+        expect(params?.get('start_date')).toBe(start);
+        expect(params?.get('end_date')).toBe(end);
+    }
+    expect(history?.get('offset')).toBe('0');
+    await expect(page.locator('[data-audio-history-empty-today]')).toHaveText('No calls heard yet today. Select Refresh to check for new calls.');
+    await expect(page.locator('[data-audio-analytics-window]')).toHaveText(/^Today · .+-.+$/);
+});
+
+/** Holds the list, summary and grid reads until released, so a test can look at the page while they load. */
+async function holdAudioReads(page: Page): Promise<{ held: () => number; release: () => void }> {
+    let opened = false;
+    let open: () => void = () => undefined;
+    const gate = new Promise<void>(resolve => { open = resolve; });
+    let held = 0;
+    await page.route(/\/api\/audio\/(history|summary|activity-heatmap)\?/, async route => {
+        if (!opened) {
+            held += 1;
+            await gate;
+        }
+        await route.fallback();
+    });
+    return { held: () => held, release: () => { opened = true; open(); } };
+}
+
+test('choosing Today shows no dates beside its name until Today has been read', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'drives the window bar, which is the desktop control');
+    const windowLine = page.locator('[data-audio-analytics-window]');
+    await expect(windowLine).toHaveText(/^Last 30 days · .+-.+$/);
+
+    const reads = await holdAudioReads(page);
+    await page.locator('[data-audio-window-bar] [data-segment="today"]').click();
+    await expect.poll(reads.held).toBeGreaterThanOrEqual(3);
+    // The 30 days' dates never stand beside Today's name.
+    await expect(windowLine).toHaveText('Today');
+
+    reads.release();
+    await expect(windowLine).toHaveText(/^Today · .+-.+$/);
+});
+
+test('at midnight Today reads the new day and hides the old day\'s range until it lands', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'drives the window bar, which is the desktop control');
+    await page.clock.install({ time: new Date('2026-11-25T23:59:30') });
+    await page.reload();
+    const windowLine = page.locator('[data-audio-analytics-window]');
+    await page.locator('[data-audio-window-bar] [data-segment="today"]').click();
+    await expect(windowLine).toHaveText(/^Today · .+-.+$/);
+
+    const asked: string[] = [];
+    page.on('request', request => {
+        const url = new URL(request.url());
+        if (url.pathname === '/api/audio/summary') asked.push(url.searchParams.get('start_date') ?? '');
+    });
+    const reads = await holdAudioReads(page);
+    await page.clock.fastForward('01:00');
+    await expect.poll(reads.held).toBeGreaterThanOrEqual(3);
+    await expect(windowLine).toHaveText('Today');
+    // The new day starts at the next local midnight (the fixture's zone is London, at UTC in November).
+    expect(asked.at(-1)).toBe('2026-11-26T00:00:00.000Z');
+
+    reads.release();
+    await expect(windowLine).toHaveText(/^Today · .+-.+$/);
 });
 
 test('a window with no calls says so in the grid, not as an empty grid', async ({ page }) => {
@@ -271,7 +359,7 @@ test('a species chip shows that species’ calls by hour and weekday, read under
     await expect(picker.getByRole('button')).toHaveText(['All species', 'Dunnock', 'Robin', 'Wren']);
     await expect(all).toHaveAttribute('aria-pressed', 'true');
 
-    await page.locator('[data-audio-window-bar] [data-segment="7"]').click();
+    await page.locator('[data-audio-window-bar] [data-segment="7d"]').click();
     await expect.poll(() => requests.at(-1)?.get('days')).toBe('7');
     await page.getByRole('textbox', { name: 'Source' }).fill('BirdCam');
     await page.getByRole('textbox', { name: 'Source' }).press('Enter');
@@ -372,7 +460,7 @@ test('a page species filter hides the chips, and a window without the chosen spe
 
     // The week heard no Wren, so the choice lapses rather than asking for a species not on offer.
     await page.route('**/api/audio/summary?*', route => route.fulfill({ json: { ...namedSummary, top_species: namedSummary.top_species.slice(0, 2) } }));
-    await page.locator('[data-audio-window-bar] [data-segment="7"]').click();
+    await page.locator('[data-audio-window-bar] [data-segment="7d"]').click();
     await expect(picker.getByRole('button')).toHaveText(['All species', 'Dunnock', 'Robin']);
     await expect(picker.getByRole('button', { name: 'All species', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByRole('grid', { name: /Wren/ })).toHaveCount(0);
@@ -426,4 +514,40 @@ test('a refresh keeps the chosen species’ grid on screen, dimmed, until its ne
     release();
     await expect(frame).toHaveAttribute('aria-busy', 'false');
     await expect(page.getByRole('grid', { name: /Robin\.$/ })).toBeVisible();
+});
+
+test('a renamed source is one entry, and two sources that share a name show their BirdNET-Go ids', async ({ page }) => {
+    await page.route('**/api/audio/summary*', route => route.fulfill({
+        json: {
+            ...summary,
+            source_count: 8,
+            sources: [
+                { source_name: 'Feeder', source_id: 'rtsp_3af0d74c', count: 40, last_heard: '2026-09-26T12:00:00Z' },
+                { source_name: 'nestcam', source_id: 'rtsp_0d6c2ad3', count: 20, last_heard: '2026-09-26T11:00:00Z' },
+                { source_name: 'nestcam', source_id: 'rtsp_9e1b77a0', count: 9, last_heard: '2026-09-20T11:00:00Z' },
+                { source_name: 'nestcam', source_id: null, count: 4, last_heard: '2026-08-30T11:00:00Z' },
+                { source_name: 'Default Audio Device', source_id: 'audio_card_22a9b331', source_node: 'Shed', count: 3, last_heard: '2026-08-29T11:00:00Z' },
+                { source_name: 'Default Audio Device', source_id: 'audio_card_22a9b331', source_node: 'House', count: 2, last_heard: '2026-08-28T11:00:00Z' },
+                { source_name: 'Unknown source', source_id: null, source_node: 'Shed', count: 1, last_heard: '2026-08-27T11:00:00Z' },
+                { source_name: 'Unknown source', source_id: null, source_node: 'House', count: 1, last_heard: '2026-08-26T11:00:00Z' },
+            ],
+        },
+    }));
+    await page.reload();
+
+    const sources = page.getByRole('heading', { name: 'Sources', exact: true }).locator('xpath=following-sibling::div[1]');
+    await expect(sources.getByText('Feeder', { exact: true })).toHaveCount(1);
+    await expect(sources.getByText('nestcam', { exact: true })).toHaveCount(3);
+    // A name only one source carries needs no id beside it.
+    await expect(sources.locator('[data-audio-source-id]')).toHaveText([
+        'BirdNET-Go id rtsp_0d6c2ad3',
+        'BirdNET-Go id rtsp_9e1b77a0',
+        'Calls without a usable BirdNET-Go id',
+        // Two installs whose sound cards share a name and an id are told apart by the install.
+        'BirdNET-Go id audio_card_22a9b331 on Shed',
+        'BirdNET-Go id audio_card_22a9b331 on House',
+        // Calls with no id that share a name are told apart by their install.
+        'Calls without a usable BirdNET-Go id on Shed',
+        'Calls without a usable BirdNET-Go id on House',
+    ]);
 });

@@ -34,6 +34,8 @@
         colourFor: (key: string | null) => string;
         otherColour: string;
         loading: boolean;
+        /** Incremented when a real wall refetch settles so transiently failed tiles can retry. */
+        retryGeneration?: number;
         /** Visits to draw at most; a guest's photographs share a request budget, so the page caps them. */
         maxTiles?: number;
         onopen: (key: string) => void;
@@ -41,7 +43,20 @@
         onchecks: () => void;
     }
 
-    let { tiles, rows, eyebrow, label, countLabel, colourFor, otherColour, loading, maxTiles, onopen, onchecks }: Props = $props();
+    let {
+        tiles,
+        rows,
+        eyebrow,
+        label,
+        countLabel,
+        colourFor,
+        otherColour,
+        loading,
+        retryGeneration = 0,
+        maxTiles,
+        onopen,
+        onchecks
+    }: Props = $props();
 
     const id = $props.id();
     const popoutId = `wall-popout-${id}`;
@@ -91,7 +106,15 @@
     const rowCount = $derived(opened ? OPENED_ROWS : width < 520 ? CLOSED_ROWS_NARROW : CLOSED_ROWS);
     const tilePixels = (tile: WallTile): number => Math.round(large(tile) ? cell * 2 + GAP : cell);
 
-    let failed = $state<Set<string>>(new Set());
+    // Reset failed tiles automatically via writable $derived whenever a real wall refetch
+    // (retryGeneration) or "Show more visits" re-expansion (expandGeneration) advances,
+    // without flickering on unrelated showcaseRows rebuilds or retaining previous epochs.
+    let expandGeneration = $state(0);
+    let failed = $derived.by(() => {
+        void retryGeneration;
+        void expandGeneration;
+        return new Set<string>();
+    });
     function markFailed(event: string): void {
         failed = new Set([...failed, event]);
     }
@@ -531,7 +554,17 @@
                     {$_('leaderboard.wall_footer', { values: { count: shown.length }, default: '{count, plural, one {# recent visit. It opens its species.} other {# recent visits. Each opens its species.}}' })}
                 </p>
                 {#if hasMore || opened}
-                    <button type="button" class="btn btn-ghost text-xs" aria-expanded={opened} onclick={() => (opened = !opened)} data-capture-wall-more>
+                    <button
+                        type="button"
+                        class="btn btn-ghost text-xs"
+                        aria-expanded={opened}
+                        onclick={() => {
+                            const next = !opened;
+                            opened = next;
+                            if (next) expandGeneration += 1;
+                        }}
+                        data-capture-wall-more
+                    >
                         {opened ? $_('leaderboard.wall_less', { default: 'Show fewer visits' }) : $_('leaderboard.wall_more', { default: 'Show more visits' })}
                     </button>
                 {/if}

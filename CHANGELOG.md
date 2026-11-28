@@ -6,6 +6,246 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.25.0] - 2026-11-28
+
+### Today and the periods
+
+- **The Dashboard has a Today window.** Beside the heading, choose **Today** to see what has
+  visited since your local midnight, or **Last 24 hours** (still the default, so an early morning
+  is never empty). Each device remembers its choice. Every figure, the field log, Garden visits,
+  the activity chart, the Heard card, the species checks and **Needs your call** count the same
+  window, so the waiting captures agree with the **Unresolved** figure. A new species still waits
+  for you whenever it was first seen in the last fortnight. The field log's earlier-visits line
+  opens the Explorer on the same window, and on Today it reads "earlier visits today". "Open the
+  checks on the Leaderboard" opens the Leaderboard's Today too. While the new window is read,
+  nothing from the old one is shown under its name. An open Dashboard reads the new day at
+  midnight, and a read that crosses midnight is asked again rather than showing one day's figures
+  beside the other's visits or calls. An open review walkthrough takes the new day's list. When a
+  guest's shared history starts after their midnight, the Dashboard says from what time Today is
+  shown.
+- **Visits after midnight land in the right hour in every time zone.** In zones a half or three
+  quarters of an hour off UTC, such as India or Newfoundland, the day summary's hourly counts filed
+  a capture just after midnight under 23:00 the day before. Each capture is now counted in the local
+  hour it was made in.
+- **The Explorer's periods match the rest of the app.** **Week** and **Month** are now **Last 7
+  days** and **Last 30 days**, and they cover exactly 7 and 30 calendar days including today. They
+  used to cover 8 and 31. Links that use `date=week` and `date=month` still work.
+- **The Dashboard no longer says "nothing" when it could not look.** A refresh that fails after an
+  empty reading now says the visits could not be loaded. With Garden visits unreadable, an empty
+  log says "No bird visits" and no earlier Garden rows stay on screen, and the Heard card says when
+  its calls could not be loaded instead of "No calls heard". Its latest call is always one from the
+  window it counted.
+- **The day's counts share one window edge.** The day summary and Needs your call now count from
+  `window_start` up to, but not including, `window_end`, so a capture made at that instant is
+  counted once, by the next read, in every figure, new species included.
+- **The Explorer reads Today again on the new day.** Reading the same period again after midnight
+  now asks for the new day's dates instead of the day the page was opened on.
+- **Audio history has a Today window.** Choose **Today** to see the calls heard since your local
+  midnight. The page does not follow new calls as they are heard: when nothing has been heard yet it
+  says "No calls heard yet today. Select Refresh to check for new calls." If the page is left open,
+  it reads the new day at midnight. The windows now use the same names as the rest of the app: **Last
+  24 hours**, **Last 7 days**, **Last 30 days** (still the default), **Last 90 days** and **Last 365
+  days**. The list, the figures and the calls grid all count the same instants, and the dates beside
+  the window's name only appear once that window has been read. When a guest's shared history starts
+  later than their midnight, the page says from what time it is shown.
+- **Calls over time are counted on your own calendar.** Audio history's daily chart used to file
+  calls by UTC date, so near midnight a call could appear under yesterday or tomorrow. Each call is
+  now counted on the date it was heard in your time zone. `GET /api/audio/summary` also reports the
+  `window_start` and `window_end` it counted (#1097).
+- The Leaderboard has a **Today** period, counted from your local midnight, and its other
+  periods now say what they count: Last 24 hours, Last 7 days, Last 30 days and All time (they
+  were Day, Week, Month and Total). Seen, Heard, the photo wall, the charts and the heatmaps all
+  count the same stretch, and a page loaded across midnight asks again rather than mixing two
+  days. Today's trend compares with yesterday up to the same time, and is left out, with the
+  reason, when a clock change, the history shared with guests or cleanup would make the
+  comparison uneven. Early in the day the board says no visits have arrived yet, and a guest
+  whose shared history starts after their midnight sees the time counting starts from. While a
+  new period loads, the rows on screen keep the name of the period they were counted over.
+  Links with `span=day` still open Last 24 hours; the API takes `span=today`
+  ([docs/api.md](docs/api.md)) (part of #1097).
+- In time zones whose offset is not a whole hour, such as India and Nepal, the Leaderboard's
+  timeline and activity heatmaps now put each visit in its own local hour and day; a visit just
+  after midnight no longer lands in the hour before.
+- The field log's "earlier visits in the last 24 hours, open in Explorer" line now opens the
+  Explorer on those same 24 hours instead of all time (#1098). The Explorer has a new "Last 24
+  hours" choice under When, and the link names the visitors the log showed, birds alone or birds
+  with Garden, so a device last left on Garden alone still shows the visits the line counted.
+  "See full history" in the log's header still opens the whole history.
+- `GET /api/events` and `GET /api/events/count` accept exact `start_time` and `end_time`
+  instants, as `GET /api/visits` already did. They outrank `start_date` and `end_date`, include
+  both bounds, and stay inside a guest's shared window. See [the API reference](docs/api.md).
+- Exact `start_time` and `end_time` on the events, count and visit endpoints must now be an ISO
+  8601 date and time with an offset (`Z` or `±HH:MM`). A date alone, a time with no offset, a Unix
+  timestamp, an out-of-range part such as `+01:60`, or a time with no UTC date is refused with
+  `422`; an end before the start, or more than 365 days after it, with `400`.
+- The numbers beside the Explorer's filters now count what each choice would show. Under
+  **Today** the species list counts today, and switching **Show** between **Visits** and
+  **Captures** switches what is counted; the list names the unit beside **All species**, and a
+  screen reader hears it with each number. Cameras, **Favourites**, **Audio matches** and
+  **Hidden** follow the same period and filters. Each species is counted by the same filter that
+  choosing it applies, including older records and Unknown bird, and the counts are read over the
+  same moments as the results, so the number beside a species is the number of results it shows. A
+  list is never narrowed by its own choice, so every species stays listed while one is chosen,
+  with **0** for one not seen in the period. **Hidden** lists the species and cameras only hidden
+  records hold. The numbers are read after the results, so the page arrives first. While they are
+  read the list says **Counting…**: under new filters, or after **Refresh options**, each number
+  waits in a placeholder of the same width, and on another page of the same filters the last
+  numbers stay in view until the new ones arrive. An answer for filters you have since changed is
+  never shown, and a failed read says so. Counts are read again whenever the results are, from the
+  history as it is, so hiding, deleting, naming or favouriting a record, or a new capture arriving,
+  is counted with the next results (part of #1097).
+- `GET /api/events/filters` accepts the window and filters the visit and event lists take, and a
+  `unit` of `visits` or `captures`, so its counts can follow them. Without them it counts captures
+  in all visible history, as before ([docs/api.md](docs/api.md)).
+
+### Visits, Unknown birds and the Dashboard counts
+
+- The Dashboard now says how many of its visits are Unknown birds, and why **Visits** can fall when they are named. An Unknown bird is usually its own visit; once it is named, by **Analyse all unknowns** or by you, it can join a visit of the same species on the same camera within the visit gap, so **Visits** can fall while every capture stays. The count sits under **Visits**, and it is the same number **Top visitors** shows for Unknown bird when Unknown bird appears there; hover over it, focus it or tap it for the reason. **Unresolved** counts the captures still waiting for a decision, so it falls when a capture is named at or above the naming threshold or confirmed by you. The two often fall together during a batch, but a batch result below the naming threshold can join a visit while still waiting in **Unresolved**. The daily summary reports the count as `unknown_visit_count`, read together with `visit_count` so it never exceeds it ([API](docs/api.md#statistics)) (#1096).
+- **Guests and owners see the same Unresolved count.** The Dashboard's **Unresolved** figure now
+  comes from the day summary's `unresolved_count` for everyone, so a guest no longer sees a
+  smaller number counted over only the 50 most recent captures (#1086).
+- Video analysis no longer deletes a record because of its own failure. With the legacy `MAINTENANCE__AUTO_DELETE_MISSING_CLIPS` setting on, an unexpected worker failure, a downloaded clip YA-WAMF could not read or decode, or a clip load that ended without any answer from Frigate applied the missing-media policy: under **Delete records YA-WAMF has no photo for** it could delete the record and its counted birds, so **Analyse all unknowns** could lower the day's captures. Only Frigate reporting the event as gone or the clip as not retained now applies that policy, and never to a record you added by hand (#1096).
+- A visit renamed to a domestic bird you keep moves to Garden only while its name is still unconfirmed. If your confirmation is saved before the move hides the record, the record stays in bird history and nothing is written to Garden (#1096).
+- **Analyse all unknowns** now explains that a capture that gets named can join a nearby visit of the same species on the same camera, which lowers the visit count, not the number of captures (#1096).
+
+### The Explorer and the record
+
+- The Explorer has an **Owner confirmed** choice under **Only**, for owners (#1099). It shows the
+  visits and captures where an owner named the species: a species pick, a confirmed upload or a
+  requested video reclassification. A visit counts when any of its captures was named, which is
+  what its Owner confirmed badge already says, so Favourites and Owner confirmed together find a
+  visit whose favourite is one capture and whose confirmation is another. Captures tagged Unknown
+  Bird confirm nothing. The choice is kept in the address as `confirmed=1` for the owner only;
+  visitors never see it and a link that names it shows them the ordinary view. Heard calls and
+  Garden captures step aside while it is on, and the page says so. See
+  [the API reference](docs/api.md).
+- A visit whose photo shows Unknown Bird now wears its Owner confirmed badge when another of its
+  captures was confirmed, and the badge's hint says the confirmed capture may not be the one
+  shown. With a filter on in Captures, changing a capture (a new species, a favourite) reads the
+  list and its count again, so a capture that no longer matches leaves the page.
+- An Explorer visit is now always named by its own species. A Blue Tit visit whose busiest capture
+  also caught a Wood Pigeon used to be renamed **Multiple species**, while its photo and the record
+  it opened showed only the Blue Tit. The card and list row now say **Eurasian Blue Tit**, with a
+  note such as **Also in one capture: Common Wood-Pigeon** that opens the capture holding the pigeon.
+  The list row no longer stacks that other capture's photo behind the visit's own. Under the
+  **Multiple bird species** filter, each visit points at a capture that holds them.
+- The record no longer calls one capture's media the whole visit. **Full visit** is now **Full
+  clip**, the recording Frigate kept around that capture, and the photo options say "from this
+  capture". The full clip's length is the one measured on the clip, never worked out from today's
+  settings. A record opened from a longer visit, in the Explorer or the Dashboard field log, adds
+  **Part of a visit** with the visit's captures and time span. The setting is renamed **Full
+  clips** to match; it works as before.
+- **A record offers the same controls wherever you open it:** Opening the latest visit from About
+  now shows its play button and full clip, and plays the clip in the same player as the Dashboard
+  and the Explorer. Owners can also reclassify from there, and an open record now updates when a
+  reclassification or a correction arrives, on every page. What a record offers now depends only on
+  who is looking. A guest sees a play button only while **Share video with guests** is on, on
+  records, Explorer cards and rows, the Dashboard's field log and Garden captures alike, rather than
+  a button whose clip then fails to load. A guest on the Dashboard is now offered the full clip the
+  Explorer already offered. A guest's open record on About now closes when you hide that
+  visit, as it already did elsewhere.
+
+### Photos
+
+- **Photos you confirmed or chose are kept (#1109):** Captures you confirmed, and captures whose
+  photo you chose, now keep their main photograph when the storage limit, the per-species limit or
+  age cleanup removes media. Their clips, previews and other photo choices can still go. A photo
+  already deleted before this change cannot be recovered once Frigate no longer has it. Settings →
+  Storage & upkeep now says that space used stays above the storage limit when favourites and kept
+  photographs alone take more, and both per-species limits now say that they count captures, not
+  visits. Using a photo that is missing or cannot be read is refused before the current photograph
+  is replaced ([`POST /api/frigate/{event_id}/snapshot/apply`](docs/api.md)).
+- **Thumbnails follow a photo change at once:** Choosing or regenerating a photograph in a record
+  now refreshes its thumbnails in Explorer without reloading the page, even when you open another
+  record before it finishes. That other record's photo controls stay usable meanwhile, and no
+  longer stay locked when a photo removal finishes after you switch.
+- **A photo you choose stays chosen, even if the save is interrupted:** Using a photo now marks it as
+  your choice before the photo itself is written, and finishes saving it and the record's selected
+  photo even if the connection drops part-way. If the save fails, the old photo and its settings are left as
+  they were. Refreshing a visit's timing hints no longer drops the choice when its photo settings
+  file cannot be read, a video recovery no longer brings back a choice whose photo had gone, and
+  caching one capture's photo no longer deletes another capture's chosen photo when their names
+  overlap.
+- **Storage cleanup is gentler and stops at the limit:** Removing cached files that no longer belong
+  to a capture, and removing media older than the history window, no longer hold the database while
+  files are deleted, so other saves do not wait for a slow disk; a file that cannot be deleted is
+  finished on the next cleanup. Removing media to meet the storage limit or the per-species limit
+  still holds it while each capture's files are deleted. The storage limit now weighs only files
+  really on disk and counts Garden media as freed only once it is removed, so a missing Garden photo
+  no longer pushes out an older bird photo. When a capture is confirmed while cleanup runs, cleanup
+  goes on to the next oldest capture until space used is under the limit. A capture you favourite or
+  confirm while old media is being removed keeps its media, and its favourite archive waits for it
+  rather than recording it as unavailable. If YA-WAMF stops part-way through, the media it had set
+  aside goes back when it starts again, before anything reads the cache. Nothing written under its
+  name meanwhile is overwritten. The set-aside copy gives way only to a photo you chose, when its
+  saved settings prove that photo is the one at the name; otherwise both are kept, the set-aside one
+  as a hidden spare copy that counts towards Space used, shows in Health and goes with the
+  capture's other files once you delete it (the storage guide explains how to put one back). Media that cannot be put back yet
+  stays set aside, nothing automatic takes its name, and Health shows it until it is back; asking
+  for a new photo meanwhile says the photo is being put back and that Health shows when it is. A long cleanup of old media no longer holds up the
+  storage limit. Clear cached files pressed while one is running shares that work and still takes
+  about as long. Empty-file cleanup no
+  longer removes a clip, a recording clip that is still downloading, or a preview while it is being
+  written.
+- **A photo change that fails after you switch records is reported:** If using, regenerating or
+  removing a photo fails after you have opened another record, the error names the species and time
+  of the record it was for, instead of disappearing.
+- **Regenerating says when it kept the photo:** If regenerating a record's photo keeps the current
+  photo, because you chose another photo meanwhile or because the photo's saved settings cannot be
+  read, the record now says so and what to do next, instead of reporting a new photo.
+- Removing a photo from a record's photo choices now removes it on the first click. A thumbnail can stand for several framings of one frame (the bird detector's crop, the camera's crop and the whole scene); before, only the crop shown was removed, so the strip kept its count and showed the whole frame in its place until you removed it again. **Undo** brings back exactly what that click removed and leaves anything you removed earlier as it was (#1107).
+- In a frame with several birds, removing one bird's crop now leaves the other crops and the whole scene as separate choices, and **Undo** stays on screen even when the removal leaves no choices. A whole scene you removed can still be looked at, but no longer offers **Use the whole scene as the photograph** (#1107).
+- `PATCH /api/frigate/{event_id}/snapshot/candidates/{candidate_id}` accepts optional `companion_candidate_ids` and `expected_content_identities`, and reports `changed_dismissals`; see [the API reference](docs/api.md) (#1107).
+- **As Frigate recorded it can be removed from the photo choices.** When it is not the
+  photograph in use, a record's **As Frigate recorded it** choice now offers **Remove photo
+  choice** like the others, and **Undo** brings it back. While it is removed, going back to
+  Frigate's original photo is refused until you restore it. Pass `as-recorded` as the
+  `candidate_id` to `PATCH /api/frigate/{event_id}/snapshot/candidates/{candidate_id}`; the
+  candidate list reports `as_recorded_dismissed` ([the API reference](docs/api.md)) (#1093).
+- Expanding **Show more visits** on the Leaderboard wall now shows thumbnails and hover posters for visits whose local cached photo was evicted by storage limits (such as per-species or cache size caps) while Frigate still has the photo, as well as manual uploads without a cached override. Fallback photos are fetched read-only and resized in memory without writing evicted files back to disk; see [the API reference](docs/api.md) (#1108).
+
+### Audio history
+
+- Renaming an audio source in BirdNET-Go no longer adds a second entry under **Audio history → Sources**. YA-WAMF now identifies a source by the id BirdNET-Go derives from its stream address or sound card, on the BirdNET-Go install that sent it, so a renamed source stays one entry under its newest name with all of its calls, and the source filter finds its whole history by its old name, its new name or its id. Calls stored before BirdNET-Go sent ids join the source that carried their name, unless two sources have carried it. Changing a stream's address gives it a new id in BirdNET-Go, so it is listed as a new source; two sources that share a name show their ids. Two BirdNET-Go installs that send the same id stay two sources. Camera mappings are unchanged: a camera mapped by a source's old name still needs its mapping updated in Settings after a rename, as before. The upgrade copies each stored call's source id from its saved message; see [the BirdNET-Go guide](docs/integrations/birdnet-go.md#renaming-a-source-in-birdnet-go) and [the API reference](docs/api.md) (#1111).
+
+### Health, notifications and reliability
+
+- **GPUs and NPUs say Not measured until their first reading.** The sidebar load meters and
+  Health now list a detected GPU or NPU as `Not measured` before its first reading arrives,
+  distinct from `0%`. An Intel, AMD or other supported GPU passed through to the container is
+  listed from startup, before any classifier worker has opened it, under the same name it keeps
+  once readings start; a host GPU the container cannot reach is not listed. Accelerators stay
+  listed across short gaps in their readings within the 30-minute history window, a single
+  reading (including `0%`) is drawn on the Health chart, and the Health legend, sample table and
+  unreadable-device notes stay visible when CPU counters are unmeasured (#1088).
+- Health no longer turns **Degraded** when YA-WAMF pauses a Frigate update retry to avoid repeating
+  work. A paused retry, a follow-up to an event Frigate called a false positive, and a nest-mode
+  repeat never cost a visit by themselves, so they no longer count as issues in the sidebar. They
+  stay visible: the **Pipeline** card lists them under **Skipped on purpose**, and **What happened**
+  shows them as **Skipped on purpose** instead of **Fault**. A visit that is still lost after a
+  paused retry is recorded as its own fault, as before. See
+  [Work skipped on purpose](docs/troubleshooting/diagnostics.md#work-skipped-on-purpose).
+- With **Recording frame** chosen as the image to identify from, a visit whose first frame was not
+  saved is now retried from Frigate's updates again. The retry waited for its recording frame and
+  was then paused by its own 5-second limit, so only the end of the visit was ever retried.
+- A Frigate MQTT message can no longer set the time YA-WAMF records for its arrival.
+  YA-WAMF always stamps that time itself, so a message on the broker can't make a bird
+  event look too old to identify live, or keep one looking fresh past the live deadline.
+- **Your custom notification triggers survive a look at the presets.** Under **Settings →
+  Notifications**, moving from **custom rules** to another choice and back now brings back the
+  triggers you set, instead of the last preset's. The note under **Custom rules** now says the
+  switches can be changed only with custom rules, and that the other choices set their own start
+  and update triggers and video wait.
+
+### Languages
+
+- **Fixes across all 9 languages.** Messages that were missing their time or fallback value now
+  show them, missing frontend messages (a failed diagnostic step, video fallback reasons and
+  HTTP status wording) and 3 photo preview errors are translated, destructive confirmations use
+  the same default wording everywhere, Russian counts such as 21 take the right plural form, and
+  the browser's language preferences are read in order and regardless of case. Frontend and
+  backend checks now catch these gaps.
+
 ## [2.24.2] - 2026-11-23
 
 - **Needs your call focuses multi-bird reviews on uncertain birds (#1085):** Clicking frames in the

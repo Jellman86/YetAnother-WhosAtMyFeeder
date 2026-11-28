@@ -1,3 +1,4 @@
+import { toLocalYMD } from './date-only';
 import type { ExplorerSubjects, GardenReview } from './garden-explorer';
 
 /**
@@ -9,7 +10,7 @@ import type { ExplorerSubjects, GardenReview } from './garden-explorer';
  * Explorer does not own (a shared clip's `event`, `share` and `video`) are left as they are.
  */
 
-export type ExplorerDatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
+export type ExplorerDatePreset = 'all' | '24h' | 'today' | 'week' | 'month' | 'custom';
 
 export interface ExplorerQuery {
     /** Null when the link does not say, so this device's own choice applies. */
@@ -25,6 +26,8 @@ export interface ExplorerQuery {
     favoritesOnly: boolean;
     audioConfirmedOnly: boolean;
     multipleSpeciesOnly: boolean;
+    /** Owner-only: records an owner named a species for. */
+    ownerConfirmedOnly: boolean;
     showHidden: boolean;
     /** Visits (one bird's stay) or every capture on its own. */
     groupVisits: boolean;
@@ -37,11 +40,11 @@ export interface ExplorerQueryAccess {
     gardenAvailable: boolean;
 }
 
-const OWNED_KEYS = ['visitors', 'review', 'date', 'start', 'end', 'species', 'taxon', 'camera', 'favorites', 'audio', 'multiple', 'hidden', 'show', 'page'] as const;
+const OWNED_KEYS = ['visitors', 'review', 'date', 'start', 'end', 'species', 'taxon', 'camera', 'favorites', 'audio', 'multiple', 'confirmed', 'hidden', 'show', 'page'] as const;
 const GARDEN_KEYS = new Set<string>(['visitors', 'review']);
 const SUBJECTS: readonly ExplorerSubjects[] = ['birds', 'garden', 'all'];
 const REVIEWS: readonly GardenReview[] = ['pending', 'confirmed', 'dismissed'];
-const DATE_PRESETS: readonly ExplorerDatePreset[] = ['all', 'today', 'week', 'month', 'custom'];
+const DATE_PRESETS: readonly ExplorerDatePreset[] = ['all', '24h', 'today', 'week', 'month', 'custom'];
 // The API refuses longer camera names, and no species value comes near this.
 const MAX_NAME_LENGTH = 128;
 const MAX_SPECIES_LENGTH = 256;
@@ -62,6 +65,7 @@ export function defaultExplorerQuery(): ExplorerQuery {
         favoritesOnly: false,
         audioConfirmedOnly: false,
         multipleSpeciesOnly: false,
+        ownerConfirmedOnly: false,
         showHidden: false,
         groupVisits: true,
         page: 1
@@ -131,6 +135,7 @@ export function parseExplorerQuery(search: string | URLSearchParams, access: Pic
     query.audioConfirmedOnly = flag(params.get('audio'));
     if (access.owner) {
         query.multipleSpeciesOnly = flag(params.get('multiple'));
+        query.ownerConfirmedOnly = flag(params.get('confirmed'));
         query.showHidden = flag(params.get('hidden'));
     }
     query.groupVisits = params.get('show') !== 'captures';
@@ -163,8 +168,88 @@ export function writeExplorerQuery(current: string | URLSearchParams, query: Exp
     if (query.favoritesOnly) params.set('favorites', '1');
     if (query.audioConfirmedOnly) params.set('audio', '1');
     if (access.owner && query.multipleSpeciesOnly) params.set('multiple', '1');
+    if (access.owner && query.ownerConfirmedOnly) params.set('confirmed', '1');
     if (access.owner && query.showHidden) params.set('hidden', '1');
     if (!query.groupVisits) params.set('show', 'captures');
     if (query.page > 1) params.set('page', String(query.page));
     return params.toString();
+}
+
+/**
+ * Whether a change to one record (a new species, a favourite, hiding it) must re-read the page.
+ * Grouped visits can join or split; a filtered capture list can gain or lose the record, and its
+ * count with it. An unfiltered capture list is patched in place, and a selection is left alone.
+ */
+export function rereadsAfterRecordChange(
+    view: Pick<ExplorerQuery, 'groupVisits' | 'speciesFilter' | 'taxonFilter' | 'favoritesOnly' | 'audioConfirmedOnly' | 'multipleSpeciesOnly' | 'ownerConfirmedOnly' | 'showHidden'> & { selectionMode: boolean }
+): boolean {
+    if (view.selectionMode) return false;
+    if (view.groupVisits) return true;
+    return Boolean(
+        view.speciesFilter || view.taxonFilter !== null || view.favoritesOnly || view.audioConfirmedOnly
+            || view.multipleSpeciesOnly || view.ownerConfirmedOnly || view.showHidden
+    );
+}
+
+const ROLLING_DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The window one Explorer read covers, as the history reads ask for it and as two instants. */
+export interface ExplorerWindow {
+    /** Calendar days for the day presets; exact instants for the last 24 hours, which no day can state. */
+    request: { startDate?: string; endDate?: string; startTime?: string; endTime?: string };
+    /** The same window as instants, for the Garden, heard-call and timeline reads; null where open. */
+    start: Date | null;
+    end: Date | null;
+}
+
+/** Local midnight of a day, or its last instant, as a date input's YYYY-MM-DD names it. */
+function localDayBound(day: string | undefined, end: boolean): Date | null {
+    if (!day) return null;
+    const bound = new Date(`${day}T${end ? '23:59:59.999' : '00:00:00'}`);
+    return Number.isNaN(bound.getTime()) ? null : bound;
+}
+
+/**
+ * The window for a preset at `now`. The caller fixes `now` once per read, so the visits, the
+ * captures, their count, Garden and the heard calls all share one last 24 hours.
+ */
+/** How many calendar days each named period holds, today included. */
+const PRESET_CALENDAR_DAYS: Readonly<Partial<Record<ExplorerDatePreset, number>>> = { today: 1, week: 7, month: 30 };
+
+/**
+ * The calendar days a period names, on the viewer's clock. "Last 7 days" is today and the six
+ * before it, as Audio history and the glossary count them; the last 24 hours is a pair of instants
+ * (`explorerWindow`), not days.
+ */
+export function explorerPresetDays(
+    preset: ExplorerDatePreset,
+    custom: { start: string; end: string },
+    today: Date
+): { start?: string; end?: string } {
+    if (preset === 'custom') return { start: custom.start || undefined, end: custom.end || undefined };
+    const days = PRESET_CALENDAR_DAYS[preset];
+    if (days === undefined) return { start: undefined, end: undefined };
+    const first = new Date(today);
+    first.setDate(first.getDate() - (days - 1));
+    return { start: toLocalYMD(first), end: toLocalYMD(today) };
+}
+
+export function explorerWindow(preset: ExplorerDatePreset, days: { start?: string; end?: string }, now: Date): ExplorerWindow {
+    if (preset === '24h') {
+        const start = new Date(now.getTime() - ROLLING_DAY_MS);
+        const end = new Date(now.getTime());
+        return { request: { startTime: start.toISOString(), endTime: end.toISOString() }, start, end };
+    }
+    const request: ExplorerWindow['request'] = {};
+    if (days.start) request.startDate = days.start;
+    if (days.end) request.endDate = days.end;
+    return { request, start: localDayBound(days.start, false), end: localDayBound(days.end, true) };
+}
+
+/**
+ * What one read of the Explorer asks for: its calendar days and its instants, both from the one
+ * `now` the read was started at, so reading the same period again after midnight reads the new day.
+ */
+export function explorerReadWindow(preset: ExplorerDatePreset, custom: { start: string; end: string }, now: Date): ExplorerWindow {
+    return explorerWindow(preset, explorerPresetDays(preset, custom, now), now);
 }

@@ -1,27 +1,33 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { formatHour } from '../utils/datetime';
+    import type { DeskWindowKind } from '../utils/desk-window';
 
     /**
-     * Visits per hour over the desk's rolling 24 hours. `data` is indexed by local clock hour, so
-     * the bars are turned to run oldest to newest and end at the current hour: drawn midnight to
-     * 23:00, yesterday evening would sit to the right of this morning.
+     * Visits per hour over the desk's window. `data` is indexed by local clock hour. Over the last
+     * 24 hours the bars are turned to run oldest to newest and end at the current hour: drawn
+     * midnight to 23:00, yesterday evening would sit to the right of this morning. Today runs from
+     * midnight to the current hour, with no hour still to come drawn as an empty one.
      */
     interface Props {
         data: number[];
         title?: string;
         /** The clock hour the window ends in; the page passes it so the axis and the count agree. */
         currentHour?: number;
+        windowKind?: DeskWindowKind;
     }
 
-    let { data, title, currentHour = new Date().getHours() }: Props = $props();
+    let { data, title, currentHour = new Date().getHours(), windowKind = 'rolling' }: Props = $props();
 
     const bars = $derived(
-        Array.from({ length: 24 }, (_, offset) => {
-            const hour = (currentHour + 1 + offset) % 24;
-            return { hour, value: data[hour] ?? 0, isNow: offset === 23 };
-        })
+        windowKind === 'today'
+            ? Array.from({ length: currentHour + 1 }, (_, hour) => ({ hour, value: data[hour] ?? 0, isNow: hour === currentHour }))
+            : Array.from({ length: 24 }, (_, offset) => {
+                const hour = (currentHour + 1 + offset) % 24;
+                return { hour, value: data[hour] ?? 0, isNow: offset === 23 };
+            })
     );
+    const middle = $derived(bars[Math.floor((bars.length - 1) / 2)]);
     const maxVal = $derived(Math.max(...bars.map((bar) => bar.value), 1));
     const total = $derived(bars.reduce((sum, bar) => sum + bar.value, 0));
     const peak = $derived(bars.reduce((best, bar) => (bar.value > best.value ? bar : best), bars[0]));
@@ -34,7 +40,11 @@
             <svg class="h-5 w-5 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 18V9m4 9V5m4 13v-7m4 7V7m4 11V3" /></svg>
             {title ?? $_('dashboard.histogram.title')}
         </h2>
-        <p class="mt-0.5 text-sm text-muted">{$_('dashboard.histogram.visits_per_hour', { default: 'Visits per hour, last 24 hours' })}</p>
+        <p class="mt-0.5 text-sm text-muted">
+            {windowKind === 'today'
+                ? $_('dashboard.histogram.visits_per_hour_today', { default: 'Visits per hour, today' })
+                : $_('dashboard.histogram.visits_per_hour', { default: 'Visits per hour, last 24 hours' })}
+        </p>
     </div>
 
     {#if total > 0}
@@ -47,10 +57,15 @@
         <div
             class="relative flex h-24 items-end gap-0.5"
             role="img"
-            aria-label={$_('dashboard.histogram.aria', {
-                values: { count: total, time: formatHour(peak.hour) },
-                default: 'Visits per hour over the last 24 hours: {count, plural, one {# visit} other {# visits}} in all, busiest at {time}'
-            })}
+            aria-label={windowKind === 'today'
+                ? $_('dashboard.histogram.aria_today', {
+                    values: { count: total, time: formatHour(peak.hour) },
+                    default: 'Visits per hour today: {count, plural, one {# visit} other {# visits}} in all, busiest at {time}'
+                })
+                : $_('dashboard.histogram.aria', {
+                    values: { count: total, time: formatHour(peak.hour) },
+                    default: 'Visits per hour over the last 24 hours: {count, plural, one {# visit} other {# visits}} in all, busiest at {time}'
+                })}
         >
             {#each bars as bar (bar.hour)}
                 <div
@@ -71,10 +86,14 @@
         </div>
         <div class="flex justify-between text-xs text-muted" aria-hidden="true">
             <span>{formatHour(bars[0].hour)}</span>
-            <span>{formatHour(bars[12].hour)}</span>
+            {#if middle !== bars[0] && !middle.isNow}<span>{formatHour(middle.hour)}</span>{/if}
             <span class="font-semibold text-ink">{$_('dashboard.histogram.now', { default: 'now' })}</span>
         </div>
     {:else}
-        <p class="text-xs text-muted" role="status">{$_('dashboard.no_detections')}</p>
+        <p class="text-xs text-muted" role="status">
+            {windowKind === 'today'
+                ? $_('dashboard.no_detections_today', { default: 'No visits yet today.' })
+                : $_('dashboard.no_detections')}
+        </p>
     {/if}
 </section>

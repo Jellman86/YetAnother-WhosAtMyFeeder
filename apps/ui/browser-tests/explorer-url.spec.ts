@@ -31,7 +31,7 @@ async function openExplorer(page: Page, query = ''): Promise<URL[]> {
     await page.setViewportSize({ width: 1280, height: 900 });
     const requests = await mockApi(page);
     await page.goto(`/browser-tests/owner-history.html?surface=explorer${query}`);
-    await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ })).toBeVisible();
     return requests;
 }
 
@@ -40,14 +40,14 @@ function lastRead(requests: URL[], path: string): URL | undefined {
 }
 
 async function chooseFilters(page: Page): Promise<void> {
-    await page.getByRole('button', { name: /^Dunnock.*12$/ }).click();
+    await page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ }).click();
     const when = page.locator('[data-explorer-date-facet]');
     await when.getByRole('button', { name: 'Custom', exact: true }).click();
     await page.getByLabel('From', { exact: true }).fill('2026-10-01');
     await page.getByLabel('To', { exact: true }).fill('2026-10-28');
     const only = page.locator('[data-explorer-only-facet]');
     await only.locator('summary').click();
-    await page.getByRole('button', { name: 'Favourites 3', exact: true }).click();
+    await page.getByRole('button', { name: /^Favourites 3 (visits?|captures?)$/ }).click();
     await page.locator('[data-explorer-show="captures"]').click();
 }
 
@@ -70,7 +70,7 @@ test('a reload keeps the chosen filters and asks the API for them again', async 
 
     requests.length = 0;
     await page.reload();
-    await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByLabel('From', { exact: true })).toHaveValue('2026-10-01');
     await expect(page.getByLabel('To', { exact: true })).toHaveValue('2026-10-28');
     await expect(page.locator('[data-explorer-show="captures"]')).toHaveAttribute('aria-pressed', 'true');
@@ -95,9 +95,9 @@ test('Back leaves the Explorer for where it was opened from, and Forward returns
     const requests = await mockApi(page);
     await page.goto('/browser-tests/owner-history.html?surface=species');
     await page.goto('/browser-tests/owner-history.html?surface=explorer');
-    await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toBeVisible();
-    await page.getByRole('button', { name: /^Dunnock.*12$/ }).click();
-    await page.locator('[data-explorer-date-facet]').getByRole('button', { name: 'Week', exact: true }).click();
+    await expect(page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ })).toBeVisible();
+    await page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ }).click();
+    await page.locator('[data-explorer-date-facet]').getByRole('button', { name: 'Last 7 days', exact: true }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get('date')).toBe('week');
 
     await page.goBack();
@@ -105,32 +105,32 @@ test('Back leaves the Explorer for where it was opened from, and Forward returns
 
     requests.length = 0;
     await page.goForward();
-    await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('[data-explorer-date-facet]').getByRole('button', { name: 'Week', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-explorer-date-facet]').getByRole('button', { name: 'Last 7 days', exact: true })).toHaveAttribute('aria-pressed', 'true');
     expect(new URL(page.url()).searchParams.get('species')).toBe('Prunella modularis');
 });
 
 test('another history entry for the Explorer is read again when Back reaches it', async ({ page }) => {
     // The app links into the Explorer with filters while it may already be open.
     const requests = await openExplorer(page, '&species=Prunella%20modularis');
-    await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ })).toHaveAttribute('aria-pressed', 'true');
     await page.evaluate(() => {
         history.pushState(null, '', `${location.pathname}?surface=explorer&species=Erithacus%20rubecula`);
         window.dispatchEvent(new PopStateEvent('popstate'));
     });
-    await expect(page.getByRole('button', { name: /^European Robin.*8$/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: /^European Robin.* 8 (visits?|captures?)$/ })).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => lastRead(requests, '/api/visits')?.searchParams.get('species')).toBe('Erithacus rubecula');
 
     await page.evaluate(() => history.back());
-    await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ })).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => lastRead(requests, '/api/visits')?.searchParams.get('species')).toBe('Prunella modularis');
 });
 
 test('a pasted link opens with its filters and ignores values it cannot trust', async ({ page }) => {
     const requests = await openExplorer(page, '&species=Erithacus%20rubecula&camera=garden&date=week&start=2026-99-01&page=2&show=everything&favorites=maybe');
-    await expect(page.getByRole('button', { name: /^European Robin.*8$/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: /^European Robin.* 8 (visits?|captures?)$/ })).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('[data-explorer-camera-facet] summary')).toContainText('garden');
-    await expect(page.locator('[data-explorer-date-facet]').getByRole('button', { name: 'Week', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-explorer-date-facet]').getByRole('button', { name: 'Last 7 days', exact: true })).toHaveAttribute('aria-pressed', 'true');
     // Visits stay grouped: "everything" is not a way to show results.
     await expect(page.locator('[data-explorer-show="visits"]')).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => lastRead(requests, '/api/visits')?.searchParams.get('offset')).toBe('24');
@@ -141,7 +141,7 @@ test('a pasted link opens with its filters and ignores values it cannot trust', 
 
     // The next change states only what is applied.
     await page.locator('[data-explorer-only-facet] summary').click();
-    await page.getByRole('button', { name: 'Favourites 3', exact: true }).click();
+    await page.getByRole('button', { name: /^Favourites 3 (visits?|captures?)$/ }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get('favorites')).toBe('1');
     const address = new URL(page.url()).searchParams;
     expect(address.has('start')).toBe(false);
@@ -149,11 +149,28 @@ test('a pasted link opens with its filters and ignores values it cannot trust', 
     expect(address.get('page')).toBeNull();
 });
 
+test('a visitor opening a shared clip link loses the owner-only filters it names', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockApi(page);
+    await page.goto('/browser-tests/owner-history.html?surface=explorer&guest=1&confirmed=1&multiple=1&hidden=1&event=clip-1&share=tok&video=1');
+    await expect.poll(() => new URL(page.url()).searchParams.has('confirmed')).toBe(false);
+    const address = new URL(page.url()).searchParams;
+    expect(address.has('multiple')).toBe(false);
+    expect(address.has('hidden')).toBe(false);
+    // The shared clip itself is another feature's address and is kept.
+    expect(address.get('event')).toBe('clip-1');
+    expect(address.get('share')).toBe('tok');
+    expect(address.get('video')).toBe('1');
+});
+
 test('a link cannot give a visitor the owner-only filters', async ({ page }) => {
-    const requests = await openExplorer(page, '&guest=1&hidden=1&multiple=1&review=pending&species=Prunella%20modularis');
-    await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toHaveAttribute('aria-pressed', 'true');
+    const requests = await openExplorer(page, '&guest=1&hidden=1&multiple=1&confirmed=1&review=pending&species=Prunella%20modularis');
+    await expect(page.getByRole('button', { name: /^Dunnock.* 12 (visits?|captures?)$/ })).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => lastRead(requests, '/api/visits')?.searchParams.get('species')).toBe('Prunella modularis');
     const read = lastRead(requests, '/api/visits');
     expect(read?.searchParams.has('only_hidden')).toBe(false);
     expect(read?.searchParams.has('multiple_species_only')).toBe(false);
+    expect(read?.searchParams.has('owner_confirmed_only')).toBe(false);
+    await expect(page.locator('[data-explorer-owner-confirmed-facet]')).toHaveCount(0);
+    await expect.poll(() => new URL(page.url()).searchParams.has('confirmed')).toBe(false);
 });

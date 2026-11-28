@@ -1,6 +1,8 @@
 import type { AudioSpeciesLeaderboardItem, LeaderboardSpan, LeaderboardSpeciesResponse } from '../api';
 import type { ChecksStatus } from '../utils/needs-your-call';
 import { evidenceFor, isUnlikelyHere, type EvidenceContext, type EvidenceRow } from './evidence';
+import { LEADERBOARD_SPANS } from './period';
+import type { DeskWindowKind } from '../utils/desk-window';
 
 /**
  * The range check, shared by the Species page's "Needs a check" card and the Dashboard's
@@ -89,11 +91,12 @@ export function readRangeCheck(
     return { ...previous, status: 'unavailable' };
 }
 
-const LINK_SPANS: readonly LeaderboardSpan[] = ['day', 'week', 'month', 'all'];
 const CHECKS_ANCHOR = 'checks';
 
-/** The Species page over the Dashboard's 24 hours, opened at its species checks. */
-export const SPECIES_CHECKS_LINK = `/species?span=day#${CHECKS_ANCHOR}`;
+/** The Species page over the Dashboard's window (Today, or the last 24 hours), opened at its species checks. */
+export function speciesChecksLink(window: DeskWindowKind): string {
+    return `/species?span=${window === 'today' ? 'today' : 'day'}#${CHECKS_ANCHOR}`;
+}
 
 export interface SpeciesPageLink {
     /** The window the link asks for, or null to keep the page's default. */
@@ -104,6 +107,6 @@ export interface SpeciesPageLink {
 
 export function parseSpeciesPageLink(search: string, hash: string): SpeciesPageLink {
     const requested = new URLSearchParams(search).get('span');
-    const span = LINK_SPANS.find((candidate) => candidate === requested) ?? null;
+    const span = LEADERBOARD_SPANS.find((candidate) => candidate === requested) ?? null;
     return { span, focusChecks: hash.replace(/^#/, '') === CHECKS_ANCHOR };
 }

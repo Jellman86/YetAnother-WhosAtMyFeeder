@@ -69,8 +69,8 @@ describe('dashboard field desk layout', () => {
 
     it('counts visits everywhere the desk says visits', () => {
         // The summary's frame count is a different unit; the day bar takes its visit count.
-        expect(dashboardSource).toContain('let last24hCount = $derived(summary?.visit_count ?? allVisits.length);');
-        expect(dashboardSource).toContain('<DailyHistogram data={summary.hourly_visits ?? []} currentHour={summaryHour} />');
+        expect(dashboardSource).toContain('let windowVisitCount = $derived(summary?.visit_count ?? allVisits.length);');
+        expect(dashboardSource).toContain('<DailyHistogram data={summary.hourly_visits ?? []} currentHour={summaryHour} windowKind={deskKind} />');
         expect(dashboardSource).toContain('cameraVisits={summary?.camera_visits ?? null}');
         expect(visitorsSource).toContain('item.visit_count ?? item.count');
         expect(histogramSource).toContain("dashboard.histogram.visits_per_hour");
@@ -102,7 +102,7 @@ describe('dashboard field desk layout', () => {
     });
 
     it('describes one window everywhere so the desk cannot contradict itself', () => {
-        expect(dashboardSource).toContain('withinDeskWindow(detectionsStore.detections)');
+        expect(dashboardSource).toContain('withinDeskWindow(detectionsStore.detections, now.getTime(), deskWindowStart(deskKind, now))');
         expect(dashboardSource).toContain('detections={deskDetections}');
         // The overview ribbon is replaced by the compact day bar.
         expect(dashboardSource).not.toContain('StatsRibbon');

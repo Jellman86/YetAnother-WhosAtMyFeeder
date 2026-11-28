@@ -188,10 +188,31 @@ audio_detections = Table(
     Column("is_hidden", Boolean, nullable=False, server_default="0"),
     Column("raw_data", String),
     Column("created_at", TIMESTAMP, server_default=func.now()),
+    # BirdNET-Go's node, its id for the source (hashed from the stream URL or device) and the
+    # source's name on this call, so a rename keeps one source (#1111).
+    Column("source_node", String),
+    Column("source_id", String),
+    Column("source_name", String),
+    # Whether the three above have been read from the payload. A release from before them stores
+    # calls with the default, and they are read at the next start.
+    Column("source_resolved", Boolean, nullable=False, server_default="0"),
 )
 
 Index("idx_audio_detections_time", audio_detections.c.timestamp)
 Index("idx_audio_detections_sensor", audio_detections.c.sensor_id)
+Index(
+    "idx_audio_detections_source_identity",
+    audio_detections.c.source_node,
+    audio_detections.c.source_id,
+    audio_detections.c.source_name,
+    audio_detections.c.is_hidden,
+    audio_detections.c.timestamp,
+)
+Index(
+    "idx_audio_detections_source_pending",
+    audio_detections.c.id,
+    sqlite_where=audio_detections.c.source_resolved == 0,
+)
 Index("uq_audio_detections_source_event_id", audio_detections.c.source_event_id, unique=True)
 
 leaderboard_analyses = Table(

@@ -3,6 +3,7 @@ import eventsSource from './Events.svelte?raw';
 import filtersSource from '../components/ExplorerFilters.svelte?raw';
 import paginationSource from '../components/Pagination.svelte?raw';
 import sidebarSource from '../components/Sidebar.svelte?raw';
+import detectionSyncSource from '../utils/detection-sync.ts?raw';
 
 describe('Explorer page layout', () => {
     it('replaces the stacked selects with a token bar and counted facets', () => {
@@ -110,12 +111,14 @@ describe('Explorer page layout', () => {
     });
 
     it('treats AI analysis fields as part of selected-event sync state', () => {
-        expect(eventsSource).toContain('asText(d.ai_analysis)');
-        expect(eventsSource).toContain('asText(d.ai_analysis_timestamp)');
+        // The list and the open record share one sync signature.
+        expect(eventsSource).toContain("import { withLiveFields } from '../utils/detection-sync';");
+        expect(detectionSyncSource).toContain('asText(d.ai_analysis)');
+        expect(detectionSyncSource).toContain('asText(d.ai_analysis_timestamp)');
     });
 
     it('refreshes filter metadata after delete and hide mutations', () => {
-        expect(eventsSource).toContain('await refreshEventMetadata(true, false);');
+        expect(eventsSource).toContain('await refreshEventMetadata(true);');
     });
 
     it('wires modal delete and hide success back into page refresh logic', () => {
@@ -134,7 +137,7 @@ describe('Explorer page layout', () => {
         // Custom range, refresh options and hidden all survived the rebuild.
         expect(filtersSource).toContain("datePreset === 'custom'");
         expect(filtersSource).toContain('events.filters.refresh_options');
-        expect(eventsSource).toContain('onrefresh={() => refreshEventMetadata(true, true)}');
+        expect(eventsSource).toContain('onrefresh={() => refreshEventMetadata(true)}');
         expect(filtersSource).toContain('events.filters.start_date');
         expect(filtersSource).toContain('events.filters.end_date');
     });
@@ -158,8 +161,8 @@ describe('Explorer page layout', () => {
     it('does not ask a guest for the owner-only hidden count', () => {
         // A guest is always refused this endpoint and never sees the value, so the
         // request only ever produced a console 403 on every Explorer load.
-        expect(eventsSource).toContain('authStore.hasOwnerAccess ? await fetchHiddenCount()');
-        expect(eventsSource).not.toMatch(/\n\s+fetchHiddenCount\(\)\.catch/);
+        const read = eventsSource.slice(eventsSource.indexOf('async function loadHiddenCount(): Promise<void> {'));
+        expect(read.slice(0, read.indexOf('fetchHiddenCount()'))).toContain('if (!authStore.hasOwnerAccess) {');
     });
 
     it('exposes the day-chip scope and selection to a screen reader, not only to the eye', () => {
@@ -184,7 +187,9 @@ describe('Explorer page layout', () => {
 it('withdraws stale guest rows and choices before reloading public history', () => {
     expect(eventsSource).toContain('events = [];\n            pageVisits = [];\n            totalCount = 0;\n            loading = true;');
     expect(eventsSource).toContain('void refreshCurrentEventsPage(version);');
-    expect(eventsSource).toContain('const filters = await eventMetadataRefresh.load(forceRefresh);');
+    expect(eventsSource).toContain('const filters = await eventMetadataRefresh.load(forceRefresh, explorerFacetOptions(choice, window), () => read.generation === facetGeneration);');
+    // Answers read before the visitor's history changed are never shown.
+    expect(eventsSource).toContain('eventMetadataRefresh.invalidate();\n            clearEventMetadata();');
 });
 
 describe('the listening history and the Explorer', () => {

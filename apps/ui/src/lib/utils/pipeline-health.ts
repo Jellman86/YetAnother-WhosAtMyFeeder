@@ -4,7 +4,10 @@
  * The backend counts every dropped event in one total, but only some drops are
  * faults. A detection rejected by the confidence threshold or a blocklist is the
  * pipeline working as configured, so it must not be presented as degradation:
- * on a working feeder that counter only ever climbs.
+ * on a working feeder that counter only ever climbs. The backend also grades
+ * work it held back on purpose (a retry paused to avoid repeating work, a nest
+ * mode repeat) as expected, and that is told apart from the filter here because
+ * it has nothing to do with the identification settings.
  */
 
 export interface EventPipelineHealth {
@@ -38,16 +41,24 @@ function toReasonCounts(value: unknown): DropReasonCount[] {
         .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason));
 }
 
+const FILTER_PREFIX = 'filter_';
+
 export function faultDropCount(pipeline: EventPipelineHealth | null | undefined): number {
     return toCount(pipeline?.fault_drops);
 }
 
-export function expectedDropCount(pipeline: EventPipelineHealth | null | undefined): number {
-    return toCount(pipeline?.expected_drops);
+/** Expected drops the identification settings made: the low-confidence, blocked and out-of-range frames. */
+export function filteredDropReasons(pipeline: EventPipelineHealth | null | undefined): DropReasonCount[] {
+    return toReasonCounts(pipeline?.expected_drop_reasons).filter(entry => entry.reason.startsWith(FILTER_PREFIX));
 }
 
-export function expectedDropReasons(pipeline: EventPipelineHealth | null | undefined): DropReasonCount[] {
-    return toReasonCounts(pipeline?.expected_drop_reasons);
+export function filteredDropCount(pipeline: EventPipelineHealth | null | undefined): number {
+    return filteredDropReasons(pipeline).reduce((total, entry) => total + entry.count, 0);
+}
+
+/** Expected drops that were work held back on purpose rather than the filter. */
+export function heldBackDropReasons(pipeline: EventPipelineHealth | null | undefined): DropReasonCount[] {
+    return toReasonCounts(pipeline?.expected_drop_reasons).filter(entry => !entry.reason.startsWith(FILTER_PREFIX));
 }
 
 export function faultDropReasons(pipeline: EventPipelineHealth | null | undefined): DropReasonCount[] {
@@ -72,11 +83,6 @@ export function eventPipelineVerdict(
     return verdict;
 }
 
-/** Whether anything was filtered out by configuration rather than by failure. */
-export function hasExpectedDrops(pipeline: EventPipelineHealth | null | undefined): boolean {
-    return expectedDropCount(pipeline) > 0;
-}
-
 export interface FilteredDetection {
     eventId: string;
     reason: string;
@@ -86,17 +92,25 @@ export interface FilteredDetection {
 }
 
 export type FaultDetection = FilteredDetection;
+/**
+ * Work held back on purpose carries no score, and usually no species: a paused retry or a
+ * follow-up to a withdrawn Frigate event says only which camera it came from. Nest mode records
+ * the species it already saved as `species`.
+ */
+export interface HeldBackDetection extends FilteredDetection {
+    camera: string | null;
+}
 
 /**
  * An event can have several pipeline attempts. Give each attempt a stable key,
  * retaining even indistinguishable records instead of silently hiding history.
  * Count duplicates from the oldest end so a new attempt does not rename older rows.
  */
-export function keyedPipelineDetections(
-    detections: readonly FilteredDetection[]
-): { key: string; entry: FilteredDetection }[] {
+export function keyedPipelineDetections<T extends FilteredDetection>(
+    detections: readonly T[]
+): { key: string; entry: T }[] {
     const occurrences = new Map<string, number>();
-    const keyed: { key: string; entry: FilteredDetection }[] = [];
+    const keyed: { key: string; entry: T }[] = [];
     for (let index = detections.length - 1; index >= 0; index--) {
         const entry = detections[index];
         const identity = JSON.stringify([
@@ -120,37 +134,62 @@ function toScore(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+type DropKind = 'filtered' | 'held_back' | 'fault';
+
 /**
- * The most recently filtered detections, newest first.
- *
- * Read from `recent_outcomes` so the card can say what was rejected and how
- * confident the model was, rather than only how many. Entries without an event
- * id are skipped: an unidentifiable row helps nobody diagnose anything.
+ * Which list a dropped outcome belongs on. The backend states its severity on each one; a
+ * drop from an older backend that does not is graded as it was then, so it is never hidden.
  */
-export function recentFilteredDetections(
+function dropKind(record: Record<string, unknown>, reason: string): DropKind {
+    if (reason.startsWith(FILTER_PREFIX)) return 'filtered';
+    return toText(record.severity)?.toLowerCase() === 'info' ? 'held_back' : 'fault';
+}
+
+/**
+ * The most recent dropped outcomes of one kind, newest first, each read by `read`. Entries without
+ * an event id are skipped: an unidentifiable row helps nobody diagnose anything.
+ */
+function recentDrops<T>(
     pipeline: EventPipelineHealth | null | undefined,
-    limit = 5
-): FilteredDetection[] {
+    kind: DropKind,
+    limit: number,
+    read: (record: Record<string, unknown>, drop: FilteredDetection) => T
+): T[] {
     const outcomes = pipeline?.recent_outcomes;
     if (!Array.isArray(outcomes)) return [];
-    const filtered: FilteredDetection[] = [];
+    const drops: T[] = [];
     for (const entry of outcomes) {
         if (!entry || typeof entry !== 'object') continue;
         const record = entry as Record<string, unknown>;
         if (record.outcome !== 'dropped') continue;
         const reason = toText(record.reason);
-        if (!reason || !reason.startsWith('filter_')) continue;
+        if (!reason || dropKind(record, reason) !== kind) continue;
         const eventId = toText(record.event_id);
         if (!eventId) continue;
-        filtered.push({
+        drops.push(read(record, {
             eventId,
             reason,
             label: toText(record.label),
             score: toScore(record.score),
             timestamp: toText(record.timestamp)
-        });
+        }));
     }
-    return filtered.reverse().slice(0, Math.max(0, limit));
+    return drops.reverse().slice(0, Math.max(0, limit));
+}
+
+function asDetection(_record: Record<string, unknown>, drop: FilteredDetection): FilteredDetection {
+    return drop;
+}
+
+/**
+ * The most recently filtered detections, newest first, read from `recent_outcomes` so the card
+ * can say what was rejected and how confident the model was, rather than only how many.
+ */
+export function recentFilteredDetections(
+    pipeline: EventPipelineHealth | null | undefined,
+    limit = 5
+): FilteredDetection[] {
+    return recentDrops(pipeline, 'filtered', limit, asDetection);
 }
 
 /**
@@ -164,26 +203,22 @@ export function recentFaultDetections(
     pipeline: EventPipelineHealth | null | undefined,
     limit = 5
 ): FaultDetection[] {
-    const outcomes = pipeline?.recent_outcomes;
-    if (!Array.isArray(outcomes)) return [];
-    const faults: FaultDetection[] = [];
-    for (const entry of outcomes) {
-        if (!entry || typeof entry !== 'object') continue;
-        const record = entry as Record<string, unknown>;
-        if (record.outcome !== 'dropped') continue;
-        const reason = toText(record.reason);
-        if (!reason || reason.startsWith('filter_')) continue;
-        const eventId = toText(record.event_id);
-        if (!eventId) continue;
-        faults.push({
-            eventId,
-            reason,
-            label: toText(record.label),
-            score: toScore(record.score),
-            timestamp: toText(record.timestamp)
-        });
-    }
-    return faults.reverse().slice(0, Math.max(0, limit));
+    return recentDrops(pipeline, 'fault', limit, asDetection);
+}
+
+/**
+ * The most recent work held back on purpose, such as a retry paused to avoid repeating work.
+ * It stays on the record so the owner can see it happened, without being called a fault.
+ */
+export function recentHeldBackDetections(
+    pipeline: EventPipelineHealth | null | undefined,
+    limit = 5
+): HeldBackDetection[] {
+    return recentDrops(pipeline, 'held_back', limit, (record, drop) => ({
+        ...drop,
+        label: drop.label ?? toText(record.species),
+        camera: toText(record.camera)
+    }));
 }
 
 /**

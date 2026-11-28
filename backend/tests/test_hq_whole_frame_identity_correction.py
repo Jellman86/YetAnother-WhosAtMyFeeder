@@ -249,9 +249,11 @@ async def test_hq_renames_detection_1564_from_whole_frame_magpie_to_pigeon_crop_
     downstream.notify.assert_not_awaited()
     downstream.birdweather.assert_not_awaited()
     async with get_db() as db:
-        counts = await DetectionRepository(db).get_daily_species_counts(
-            captured_at - timedelta(seconds=1), captured_at + timedelta(seconds=1)
-        )
+        counts = (
+            await DetectionRepository(db).get_window_visits(
+                captured_at - timedelta(seconds=1), captured_at + timedelta(seconds=1)
+            )
+        ).rows
     assert {row["scientific_name"] for row in counts} == {"Columba palumbus"}
 
 

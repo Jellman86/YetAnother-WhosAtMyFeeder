@@ -65,6 +65,16 @@ describe('health timeline', () => {
         expect(rows.map(row => row.kind)).toEqual(['filtered', 'fault', 'visit']);
     });
 
+    it('places work held back on purpose in the chronology as neither filtered nor a fault', () => {
+        const rows = buildHealthTimeline({
+            visits: [visit('a', '2026-08-15T06:12:04Z')],
+            faults: [{ eventId: 'fault', reason: 'classify_snapshot_timeout', label: null, score: null, timestamp: '2026-08-15T06:14:00Z' }],
+            heldBack: [{ eventId: 'paused', reason: 'update_recovery_cooldown', label: null, score: null, timestamp: '2026-08-15T06:13:00Z', camera: 'patiocam' }]
+        });
+        expect(rows.map(row => row.kind)).toEqual(['fault', 'held_back', 'visit']);
+        expect(representedEventCount(rows)).toBe(3);
+    });
+
     it('keeps an unreadable timestamp at the end instead of dropping the event', () => {
         const rows = buildHealthTimeline({
             visits: [visit('a', '2026-08-15T06:12:04Z')],

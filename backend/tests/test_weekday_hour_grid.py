@@ -73,3 +73,18 @@ def test_london_spring_forward_skips_the_missing_hour_and_autumn_fall_back_adds_
     assert _count_at(autumn, 0, 2) == 0
     assert autumn.total_count == 7
     assert autumn.max_cell_count == 7
+
+
+def test_a_quarter_hour_bucket_in_a_half_hour_zone_lands_in_the_hour_it_was_heard():
+    # 18:30 and 18:45 UTC on Tuesday are 00:00 and 00:15 on Wednesday in India (UTC+5:30); 18:15 is 23:45 on Tuesday.
+    counts = [
+        (datetime(2026, 11, 24, 18, 15), 1),
+        (datetime(2026, 11, 24, 18, 30), 2),
+        (datetime(2026, 11, 24, 18, 45), 4),
+    ]
+
+    grid = weekday_hour_grid(counts, ZoneInfo("Asia/Kolkata"))
+
+    cell = {(c.day_of_week, c.hour): c.count for c in grid.cells}
+    assert cell[(3, 0)] == 6
+    assert cell[(2, 23)] == 1

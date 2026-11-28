@@ -12,8 +12,6 @@ export type DetectionVisit = Omit<VisitResponse, 'representative' | 'latest' | '
     peak_capture: Detection | null;
 };
 export interface VisitOptions extends FetchEventsOptions {
-    startTime?: string;
-    endTime?: string;
     /** A bound on the whole read, body included; omit for the Explorer's own unbounded reads. */
     timeoutMs?: number;
 }
@@ -62,6 +60,7 @@ function query(options: VisitOptions): URLSearchParams {
         species: options.species, camera: options.camera, sort: options.sort,
         favorites: options.favoritesOnly, audio_confirmed_only: options.audioConfirmedOnly,
         only_hidden: options.onlyHidden, multiple_species_only: options.multipleSpeciesOnly,
+        owner_confirmed_only: options.ownerConfirmedOnly,
         taxon: options.taxon
     };
     for (const [key, value] of Object.entries(fields)) {

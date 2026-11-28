@@ -61,7 +61,7 @@ cameras:
       retain:
         default: 7 # Days to keep snapshots in Frigate
 
-    # --- RECORDINGS FOR VIDEO AND FULL-VISIT CLIPS ---
+    # --- RECORDINGS FOR VIDEO AND FULL CLIPS ---
     record:
       enabled: True
       # Frigate 0.17+ uses tiered retention. Keep at least 1 day of continuous
@@ -170,24 +170,24 @@ unnecessary transcoding when the camera already emits AAC.
 
 ### 🎥 Record Mode (Frigate 0.17+)
 **Auto video analysis** needs a usable retained clip. Continuous recording with
-positive retention gives the broader coverage needed by **Full-visit clips** and
+positive retention gives the broader coverage needed by **Full clips** and
 recording-frame workflows. Keep `record.enabled: True`, a `record` FFmpeg role and
-positive `continuous.days` on every selected camera when enabling full visits.
+positive `continuous.days` on every selected camera when enabling full clips.
 Longer continuous retention is optional and costs more storage. `mode: all` under
 alerts/detections retains their overlapping segments, rather than guaranteeing
 an uninterrupted timeline between those events. See
 [Frigate recording retention](https://docs.frigate.video/configuration/record/).
 
-The optional **Full-visit clips** feature uses the same recording store, but proxies a longer camera-level window around the detection time and persists that result locally in YA-WAMF. In YA-WAMF, this is gated in **Settings → Cameras & connection → More options → Frigate details → Full-visit clips** and only becomes switchable when **every selected camera** is enabled, has an FFmpeg input with the `record` role, has recording enabled, and inherits or declares a positive `record.continuous.days` value. The UI reports the guaranteed minimum continuous retention across those cameras and names each camera whose configuration is incomplete.
+The optional **Full clips** feature uses the same recording store, but proxies a longer camera-level window around the detection time and persists that result locally in YA-WAMF. In YA-WAMF, this is gated in **Settings → Cameras & connection → More options → Frigate details → Full clips** and only becomes switchable when **every selected camera** is enabled, has an FFmpeg input with the `record` role, has recording enabled, and inherits or declares a positive `record.continuous.days` value. The UI reports the guaranteed minimum continuous retention across those cameras and names each camera whose configuration is incomplete.
 
-Frigate treats continuous, motion, alert, and detection retention as separate tiers. Keeping alerts or detections for 30 days does **not** provide an uninterrupted 30-day timeline: with `continuous.days: 0`, only matching event segments survive. YA-WAMF may keep a playable partial event clip as a fallback, but it does not advertise that as reliable Full-visit coverage because the requested pre/post window can start late or end early. See Frigate's [recording retention documentation](https://docs.frigate.video/configuration/record/) for the upstream semantics.
+Frigate treats continuous, motion, alert, and detection retention as separate tiers. Keeping alerts or detections for 30 days does **not** provide an uninterrupted 30-day timeline: with `continuous.days: 0`, only matching event segments survive. YA-WAMF may keep a playable partial event clip as a fallback, but it does not advertise that as reliable full clip coverage because the requested pre/post window can start late or end early. See Frigate's [recording retention documentation](https://docs.frigate.video/configuration/record/) for the upstream semantics.
 
 Important behavior:
 - In-browser playback uses Frigate's HLS VOD endpoint when it is available. Safari and iOS use
   native HLS; other supported browsers use Media Source Extensions through `hls.js`. Cached,
   archived and downloaded clips continue to use YA-WAMF's MP4 endpoint, which is also the automatic
   fallback for older Frigate versions without HLS VOD support.
-- When recording clips are enabled and YA-WAMF's local media folder is writable, YA-WAMF automatically tries to generate a full-visit clip after eligible Frigate `end` events. It waits beyond the requested end timestamp so Frigate can finalize the newest segment, validates the resulting duration, and makes bounded delayed attempts to upgrade a partial result.
+- When recording clips are enabled and YA-WAMF's local media folder is writable, YA-WAMF automatically tries to generate a full clip after eligible Frigate `end` events. It waits beyond the requested end timestamp so Frigate can finalize the newest segment, validates the resulting duration, and makes bounded delayed attempts to upgrade a partial result.
 - Recording downloads are written to a staging file. A validated candidate replaces the live cache atomically only when it is longer, so a failed or shorter retry cannot corrupt or shorten an existing playable visit.
 - YA-WAMF's normal clip route (`/api/frigate/{event_id}/clip.mp4`) prefers a persisted recording automatically. A near-complete recording is presented as **Full visit**; a shorter but decodable recording remains playable and is explicitly presented as **Partial visit** instead of silently falling back to the much shorter event clip.
 - The requested recording window is configurable in YA-WAMF with sane defaults of `30` seconds before the detection and `90` seconds after it, for a default target window of about `120` seconds total.

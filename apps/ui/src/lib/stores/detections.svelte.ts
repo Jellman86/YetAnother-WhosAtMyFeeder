@@ -345,6 +345,10 @@ export class DetectionsStore {
         const wasInList = this.detections.find(d => d.frigate_event === eventId);
         if (wasInList) {
             this.detections = this.detections.filter(d => d.frigate_event !== eventId);
+        }
+        if (eventId) {
+            // Even when a deleted or hidden event fell outside the 50-row buffer, server-side
+            // window totals (such as the daily summary's unresolved count) still need a refresh.
             this.markMutated();
         }
 

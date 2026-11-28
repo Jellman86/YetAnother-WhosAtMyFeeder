@@ -30,6 +30,7 @@
   "detections_all_time": "Rilevamenti, da sempre",
   "detections_shared": "Rilevamenti, cronologia condivisa",
   "visits_day": "Visite, ultime 24 ore",
+  "visits_today": "Visite, oggi",
   "visits_week": "Visite, ultimi 7 giorni",
   "visits_month": "Visite, ultimi 30 giorni",
   "detections_note": "Ogni cattura identificata conta una volta. Una visita può contenere più catture, quindi i conteggi delle visite in classifica sono più bassi.",

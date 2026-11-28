@@ -42,8 +42,8 @@ See [Explorer and reviewing visits](explorer.md) for the viewing and correction 
 
 ## How it works
 
-YA-WAMF waits briefly for Frigate to finish a new clip. It prefers a usable cached full-visit
-recording, then a partial recording, then an event clip, before asking Frigate for media. Missing
+YA-WAMF waits briefly for Frigate to finish a new clip. It prefers a usable cached full
+clip, then a partial recording, then an event clip, before asking Frigate for media. Missing
 video has bounded retries and a snapshot fallback. A shorter, decodable clip remains useful evidence.
 
 The default is **15 frames**, configurable with **Video frames** under **Settings → Identifying
@@ -118,7 +118,7 @@ storage eviction are checked before a replacement is saved.
 Open a detection, choose **More actions**, then **Score again**. The record also carries **Confirm
 <species>** and **Pick a different species** for correcting an identification by hand, **Change
 the common name** under **More actions** for the name shown, and **Ask the AI naturalist** for the
-behavioural note. When an event clip or fetched full-visit
+behavioural note. When an event clip or fetched full
 clip is available, YA-WAMF performs temporal video analysis; it does not replace that explicit video run
 with a faster snapshot-only result. If the video is unavailable, cannot form a safe consensus, or
 only produces a below-threshold candidate, it explains the downgrade and uses the best cached or
@@ -136,7 +136,7 @@ for the replacement; exhausted retries fail visibly. Check **Notifications → J
 worker repeatedly restarts.
 
 This source selection is independent of stale Frigate metadata. If the detection says its event
-clip is gone but YA-WAMF can still play a cached full-visit recording, the **Score again** action uses
+clip is gone but YA-WAMF can still play a cached full clip, the **Score again** action uses
 that recording. Completing a cached-video run also replaces any obsolete `event_not_found` status
 with the result of the new attempt.
 
@@ -185,7 +185,7 @@ A missing clip is a media-availability problem; it does not establish an inferen
 the recording configuration on the specific camera, including after changing its power or network
 connection. A working live stream or snapshots do not prove that Frigate recorded a clip.
 
-- Enable recording and an FFmpeg `record` role on every analyzed camera. Event clips need retained event footage. **Full-visit clips** additionally require positive `record.continuous.days` (at least `1` in the example configuration); alert/detection retention alone cannot guarantee that longer window.
+- Enable recording and an FFmpeg `record` role on every analyzed camera. Event clips need retained event footage. **Full clips** additionally require positive `record.continuous.days` (at least `1` in the example configuration); alert/detection retention alone cannot guarantee that longer window.
 - The active model must be downloaded. Deep Video Analysis uses the same model as real-time detection.
 
 See the [Recommended Frigate Config](../setup/frigate-config.md) for the exact recording settings needed.

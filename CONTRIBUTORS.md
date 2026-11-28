@@ -50,6 +50,10 @@ Reports, recordings, support bundles and retests help reproduce problems and che
 - [@miroslawkluz](https://github.com/miroslawkluz)
   Thanks for the [report and numbers on the Needs your call undercount (#917)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/917),
   and for retesting the fix on v2.23.1.
+  Thanks also for the [Today request (#1097)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1097), with a retest that caught Explorer counts
+  ignoring the period, the [earlier-visits link report (#1098)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1098), the
+  [Owner confirmed filter request (#1099)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1099), confirmed on the development image, and the
+  [renamed BirdNET-Go source report (#1111)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1111), with the stream id clue and a retest.
 - [@zobe123](https://github.com/zobe123)
   Thanks for the [report that the Species page failed when two birds shared a German name (#938)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/938),
   with the exact taxa, the browser error and a working workaround.
@@ -62,5 +66,11 @@ Reports, recordings, support bundles and retests help reproduce problems and che
   explained with a busy feeder's numbers and a working stopgap, for the
   [species picker duplicates fix (#1043)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/pull/1043),
   for reporting the [BirdNET-Go audio hide error (#1075)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1075),
-  and for reporting the [guest vs. owner Unresolved count difference (#1086)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1086),
-  which stays open while it is investigated.
+  and for reporting the [guest vs. owner Unresolved count difference (#1086)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1086).
+  Thanks also for the [hidden GPU meter report and retest (#1088)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1088), the
+  [As Frigate recorded it removal report (#1093)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1093), the
+  [falling Dashboard counts report and Today retest (#1096)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1096), the
+  [photo removal (#1107)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1107) and [Leaderboard thumbnail (#1108)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1108) reports, both
+  confirmed on the development image, and the
+  [missing owner-confirmed photos report (#1109)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/1109), which stays open until a retest
+  confirms the fix.
