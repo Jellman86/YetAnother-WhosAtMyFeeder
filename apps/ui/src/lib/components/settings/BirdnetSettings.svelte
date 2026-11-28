@@ -11,7 +11,7 @@
         relinkByStreamId,
         renamedLinks,
         sameLinkToken,
-        sourceDetail,
+        sourceLines,
         sourceLinkLabel
     } from '../../settings/audio-source-links';
     import SettingsCard from './_primitives/SettingsCard.svelte';
@@ -102,7 +102,7 @@
     // One entry per stream: the value saved is the stream id where BirdNET-Go sends one, so a
     // rename in BirdNET-Go keeps the camera linked.
     const birdnetMappingOptions = $derived(
-        birdnetSourceOptions.map((source) => ({ value: source.mapping_value, label: sourceLinkLabel(source, birdnetSourceOptions) }))
+        birdnetSourceOptions.map((source) => ({ value: source.mapping_value, label: sourceLinkLabel(source) }))
     );
 
     function formatRelativeTime(raw: string | null | undefined): string {
@@ -331,7 +331,7 @@
                                     <li class="text-xs" data-audio-link-token>
                                         <div class="flex items-start justify-between gap-2">
                                             <div class="min-w-0">
-                                                <div class="flex items-center gap-0.5">
+                                                <div class="flex items-center gap-2">
                                                     <span class="min-w-0 break-words text-accent-ink">{linked.name}</span>
                                                     <button
                                                         type="button"
@@ -343,8 +343,11 @@
                                                         <span aria-hidden="true">&times;</span>
                                                     </button>
                                                 </div>
-                                                {#if linked.detail}
-                                                    <span class="block font-mono text-muted break-words">{linked.detail}</span>
+                                                {#if linked.id}
+                                                    <span class="block font-mono text-muted break-all">{linked.id}</span>
+                                                {/if}
+                                                {#if linked.install}
+                                                    <span class="block text-muted break-words">{linked.install}</span>
                                                 {/if}
                                             </div>
                                             {#if linked.lastHeard}
@@ -396,6 +399,7 @@
                             {#each birdnetSourceOptions.slice(0, 12) as source, sourceIndex}
                                 {@const fade = Math.max(0.45, 1 - sourceIndex * 0.06)}
                                 {@const sourceValue = source.mapping_value}
+                                {@const lines = sourceLines(source)}
                                 <li>
                                     <button
                                         type="button"
@@ -409,16 +413,19 @@
                                         disabled={availableCameras.length === 0}
                                         title={availableCameras[0]
                                             ? $_('settings.integrations.birdnet.source_discovery_add_to', {
-                                                  values: { source: sourceLinkLabel(source, birdnetSourceOptions), time: formatRelativeTime(source.last_seen), camera: availableCameras[0] },
+                                                  values: { source: sourceLinkLabel(source), time: formatRelativeTime(source.last_seen), camera: availableCameras[0] },
                                                   default: '{source}, heard {time}. Select it to add it to {camera}.'
                                               })
-                                            : sourceLinkLabel(source, birdnetSourceOptions)}
+                                            : sourceLinkLabel(source)}
                                     >
                                         <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface-sunken text-muted group-hover:bg-accent group-hover:text-accent-fg group-hover:group-disabled:bg-surface-sunken transition-colors text-xs font-semibold leading-none" aria-hidden="true">+</span>
                                         <span class="min-w-0 flex-1 leading-tight">
                                             <span class="block text-xs font-mono font-semibold text-strong break-words">{source.source_name}</span>
-                                            {#if sourceDetail(source, birdnetSourceOptions)}
-                                                <span class="block text-xs font-mono text-muted break-words">{sourceDetail(source, birdnetSourceOptions)}</span>
+                                            {#if lines.id}
+                                                <span class="block text-xs font-mono text-muted break-all">{lines.id}</span>
+                                            {/if}
+                                            {#if lines.install}
+                                                <span class="block text-xs text-muted break-words">{lines.install}</span>
                                             {/if}
                                         </span>
                                         <span class="shrink-0 text-sm font-semibold text-ink whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>

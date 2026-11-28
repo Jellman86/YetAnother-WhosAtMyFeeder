@@ -2539,7 +2539,7 @@
         loadingBirdnetSources = true;
         birdnetSourcesError = null;
         try {
-            const sources = await fetchAudioSources(20, read.signal);
+            const sources = await fetchAudioSources(100, read.signal);
             if (read.isCurrent()) birdnetSourceOptions = sources;
         } catch (e) {
             // Cancelled because the tab closed or a newer read began: nothing failed, and nothing is shown.

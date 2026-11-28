@@ -21,7 +21,7 @@ describe('BirdNET-Go source mapping helper, set up with the cameras', () => {
     });
 
     it('saves each detected stream by the value the server lists for it, from the picker and the recent list', () => {
-        expect(componentSource).toContain('birdnetSourceOptions.map((source) => ({ value: source.mapping_value, label: sourceLinkLabel(source, birdnetSourceOptions) }))');
+        expect(componentSource).toContain('birdnetSourceOptions.map((source) => ({ value: source.mapping_value, label: sourceLinkLabel(source) }))');
         expect(componentSource).toContain('{@const sourceValue = source.mapping_value}');
         expect(componentSource).toContain('addCameraAudioSource(availableCameras[0], sourceValue)');
     });

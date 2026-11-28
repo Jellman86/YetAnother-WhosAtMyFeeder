@@ -9,8 +9,10 @@ import type { AudioSourceOption } from '../api/audio';
 export interface LinkTokenDescription {
     /** The first line: the stream's current name for a linked id, otherwise the token as typed. */
     name: string;
-    /** The line beneath a linked id: the id, and the installs when more than one sends it. */
-    detail: string | null;
+    /** The line beneath a linked id: the id, unless the stream sent no name and the first line is the id. */
+    id: string | null;
+    /** The installs sending a linked id, when more than one does. */
+    install: string | null;
     /** The newest visible call the token matches, as the API sent it; null when none does. */
     lastHeard: string | null;
 }
@@ -21,9 +23,10 @@ export interface RenamedLink {
 }
 
 /**
- * How the server compares a link (`normalize_mapping_key`): trimmed and case-folded, nothing
- * more. Upper then lower case folds as Python's casefold does for the letters that differ from
- * lower case, such as "ß" and "ss".
+ * Close to how the server compares a link (`normalize_mapping_key`: trimmed and case-folded), but
+ * not exact: upper then lower case also joins pairs Python's casefold keeps apart, such as "Pinar"
+ * and "Pınar". It only decides which link a date or a notice belongs to, and whether a picked
+ * source is linked already; it never removes or rewrites a link.
  */
 function fold(value: string | null | undefined): string {
     return (value ?? '').trim().toUpperCase().toLowerCase();
@@ -41,17 +44,6 @@ export function linkTokens(mapping: string | null | undefined): string[] {
         .filter(Boolean);
 }
 
-/** The tokens with each link once, the first spelling kept, in order. */
-function distinct(tokens: string[]): string[] {
-    const seen = new Set<string>();
-    return tokens.filter((token) => {
-        const key = fold(token);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    });
-}
-
 export function addLinkToken(tokens: string[], value: string): string[] {
     const next = value.trim();
     if (!next || tokens.some((token) => sameLinkToken(token, next))) return tokens;
@@ -62,24 +54,32 @@ function streamsWithId(id: string, sources: AudioSourceOption[]): AudioSourceOpt
     return sources.filter((source) => source.source_id && sameLinkToken(source.source_id, id));
 }
 
-function installs(streams: AudioSourceOption[]): string | null {
-    const names = [...new Set(streams.map((source) => source.source_node).filter((node): node is string => Boolean(node)))];
-    return streams.length > 1 && names.length > 0 ? names.join(', ') : null;
+function sharingInstalls(streams: AudioSourceOption[]): string | null {
+    const names = [...new Set(streams.flatMap((source) => source.installs_sharing_id ?? []))];
+    return names.length > 1 ? names.join(', ') : null;
 }
 
-/** The picker's label: name and id, and the install when another install sends the same id. */
-export function sourceLinkLabel(source: AudioSourceOption, sources: AudioSourceOption[]): string {
-    const id = source.source_id;
-    if (!id || sameLinkToken(id, source.source_name)) return source.source_name;
-    const shared = streamsWithId(id, sources).length > 1 && source.source_node;
-    return shared ? `${source.source_name} · ${id} · ${source.source_node}` : `${source.source_name} · ${id}`;
+export interface SourceLines {
+    /** The stream id, unless the stream sent no name and is already named by it. */
+    id: string | null;
+    /** The install, when another install sends the same id. */
+    install: string | null;
 }
 
-/** The line beneath a detected stream's name: its id, and its install when another install sends the same id. */
-export function sourceDetail(source: AudioSourceOption, sources: AudioSourceOption[]): string | null {
+/** What a detected stream shows beneath its name. */
+export function sourceLines(source: AudioSourceOption): SourceLines {
     const id = source.source_id;
-    if (!id || sameLinkToken(id, source.source_name)) return null;
-    return streamsWithId(id, sources).length > 1 && source.source_node ? `${id} · ${source.source_node}` : id;
+    const shared = Boolean(id) && (source.installs_sharing_id ?? []).length > 1;
+    return {
+        id: id && !sameLinkToken(id, source.source_name) ? id : null,
+        install: shared ? source.source_node ?? null : null
+    };
+}
+
+/** The picker's label: name, id and, when another install sends the same id, the install. */
+export function sourceLinkLabel(source: AudioSourceOption): string {
+    const lines = sourceLines(source);
+    return [source.source_name, lines.id, lines.install].filter(Boolean).join(' · ');
 }
 
 function newest(times: Array<string | null | undefined>): string | null {
@@ -91,10 +91,12 @@ export function describeLinkToken(typed: string, sources: AudioSourceOption[]): 
     const streams = streamsWithId(token, sources);
     if (streams.length > 0) {
         const [first] = streams;
-        const ids = installs(streams);
+        const names = [...new Set(streams.map((source) => source.source_name))];
+        const id = first.source_id ?? null;
         return {
-            name: [...new Set(streams.map((source) => source.source_name))].join(', '),
-            detail: ids ? `${first.source_id} · ${ids}` : first.source_id ?? null,
+            name: names.join(', '),
+            id: names.every((name) => sameLinkToken(name, id)) ? null : id,
+            install: sharingInstalls(streams),
             lastHeard: newest(streams.map((source) => source.last_seen))
         };
     }
@@ -102,7 +104,7 @@ export function describeLinkToken(typed: string, sources: AudioSourceOption[]): 
         ...(source.names ?? []).filter((name) => sameLinkToken(name.name, token)).map((name) => name.last_seen),
         ...(!source.source_id && sameLinkToken(source.mapping_value, token) ? [source.last_seen] : [])
     ]);
-    return { name: token, detail: null, lastHeard: newest(times) };
+    return { name: token, id: null, install: null, lastHeard: newest(times) };
 }
 
 /**
@@ -122,9 +124,13 @@ export function renamedLinks(tokens: string[], sources: AudioSourceOption[]): Re
 }
 
 /**
- * The link with a renamed stream's id added right after its old name. The old name stays, so no
- * call it matches is lost; the owner removes it once its last-heard date shows it has stopped.
+ * The link with a renamed stream's id added right after its old name, unless the id is linked
+ * already (compared exactly, once trimmed). Nothing else changes: the old name stays, so no call it
+ * matches is lost, and the owner removes it once its last-heard date shows it has stopped.
  */
 export function relinkByStreamId(tokens: string[], token: string, source: AudioSourceOption): string[] {
-    return distinct(tokens.flatMap((current) => (sameLinkToken(current, token) ? [current, source.mapping_value] : [current])));
+    const id = source.mapping_value.trim();
+    if (tokens.some((linked) => linked.trim() === id)) return tokens;
+    const at = tokens.indexOf(token);
+    return at < 0 ? [...tokens, id] : [...tokens.slice(0, at + 1), id, ...tokens.slice(at + 1)];
 }

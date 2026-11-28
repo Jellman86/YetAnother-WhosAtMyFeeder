@@ -10,16 +10,18 @@ type Source = {
     mapping_value: string;
     source_id: string | null;
     source_node: string | null;
+    installs_sharing_id: string[];
     last_seen: string;
     names: Array<{ name: string; last_seen: string | null; current: boolean; offer_link_by_id: boolean }>;
 };
 
-function stream(name: string, id: string, lastSeen: string, earlier: Source['names'] = [], node = 'BirdNET-Go'): Source {
+function stream(name: string, id: string, lastSeen: string, earlier: Source['names'] = [], node = 'BirdNET-Go', sharing: string[] = []): Source {
     return {
         source_name: name,
         mapping_value: id,
         source_id: id,
         source_node: node,
+        installs_sharing_id: sharing,
         last_seen: lastSeen,
         names: [{ name, last_seen: lastSeen, current: true, offer_link_by_id: false }, ...earlier]
     };
@@ -36,6 +38,11 @@ const RENAMED_SOURCES: Source[] = [
 ];
 
 async function openBirdnetMapping(page: Page, mapping: Record<string, string>, sources: Source[] = RENAMED_SOURCES) {
+    const limits: string[] = [];
+    page.on('request', (request) => {
+        const url = new URL(request.url());
+        if (url.pathname.endsWith('/audio/sources')) limits.push(url.searchParams.get('limit') ?? '');
+    });
     const harness = await openSettings(
         page,
         { birdnet_enabled: true, audio_topic: 'birdnet/text', camera_audio_mapping: mapping },
@@ -50,6 +57,8 @@ async function openBirdnetMapping(page: Page, mapping: Record<string, string>, s
     );
     await page.getByRole('button', { name: 'Audio buffer & sensor mapping' }).click();
     await expect(mappingInput(page)).toBeVisible();
+    // Every stream is asked for, so a linked source resolves on any realistic install.
+    expect(limits).toContain('100');
     return harness;
 }
 
@@ -103,11 +112,13 @@ test('the picker and the detected list save a stream by its ID and show it by it
 test('two installs sending the same stream ID are told apart by install', async ({ page }) => {
     const card = 'audio_card_22a9b331';
     await openBirdnetMapping(page, { birdcam: card }, [
-        stream('House Mic', card, '2026-11-28T09:00:00Z', [], 'House'),
-        stream('Shed Mic', card, '2026-11-28T08:00:00Z', [], 'Shed')
+        stream('House Mic', card, '2026-11-28T09:00:00Z', [], 'House', ['House', 'Shed']),
+        stream('Shed Mic', card, '2026-11-28T08:00:00Z', [], 'Shed', ['House', 'Shed'])
     ]);
     await expect(links(page).first()).toContainText('House Mic, Shed Mic');
-    await expect(links(page).first()).toContainText(`${card} · House, Shed`);
+    // The installs sit on their own line, never after a dot that could wrap away from them.
+    await expect(links(page).first().getByText('House, Shed', { exact: true })).toBeVisible();
+    await expect(links(page).first()).not.toContainText('· House');
     await expect(page.getByLabel('Add detected BirdNET source for birdcam').locator('option')).toHaveText([
         'Add detected source…',
         `House Mic · ${card} · House`,

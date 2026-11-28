@@ -8,7 +8,7 @@ import {
     relinkByStreamId,
     renamedLinks,
     sameLinkToken,
-    sourceDetail,
+    sourceLines,
     sourceLinkLabel
 } from './audio-source-links';
 
@@ -49,6 +49,7 @@ const sources = [esp32, reolink, patio];
 
 function sharedCard(node: string, name: string, lastSeen: string): AudioSourceOption {
     return {
+        installs_sharing_id: ['House', 'Shed'],
         source_name: name,
         mapping_value: 'audio_card_22a9b331',
         source_id: 'audio_card_22a9b331',
@@ -73,8 +74,8 @@ describe('comparing links as the server matches them', () => {
 
 describe('linking a camera to a BirdNET-Go source', () => {
     it('offers a stream by its current name and id, and saves the id', () => {
-        expect(sourceLinkLabel(esp32, sources)).toBe('ESP32 v3.0 X · rtsp_52d54d7d');
-        expect(sourceLinkLabel(patio, sources)).toBe('Patio Mic');
+        expect(sourceLinkLabel(esp32)).toBe('ESP32 v3.0 X · rtsp_52d54d7d');
+        expect(sourceLinkLabel(patio)).toBe('Patio Mic');
         expect(addLinkToken(['ESP32 v2.4'], esp32.mapping_value)).toEqual(['ESP32 v2.4', 'rtsp_52d54d7d']);
         expect(addLinkToken(['RTSP_52D54D7D'], esp32.mapping_value)).toEqual(['RTSP_52D54D7D']);
         expect(addLinkToken(['Patio Mic'], '  ')).toEqual(['Patio Mic']);
@@ -85,23 +86,36 @@ describe('linking a camera to a BirdNET-Go source', () => {
         expect(addLinkToken(['Patio Mic'], patio.mapping_value)).toEqual(['Patio Mic', 'Patio  Mic']);
     });
 
-    it('names the install beside a stream id two installs share', () => {
+    it('names the install on its own line whenever two installs send the stream id', () => {
         const shared = [sharedCard('House', 'House Mic', '2026-11-28T09:00:00Z'), sharedCard('Shed', 'Shed Mic', '2026-11-28T08:00:00Z')];
-        expect(sourceLinkLabel(shared[1], shared)).toBe('Shed Mic · audio_card_22a9b331 · Shed');
-        expect(sourceDetail(shared[1], shared)).toBe('audio_card_22a9b331 · Shed');
-        expect(sourceDetail(esp32, sources)).toBe('rtsp_52d54d7d');
-        expect(sourceDetail(patio, sources)).toBeNull();
+        expect(sourceLinkLabel(shared[1])).toBe('Shed Mic · audio_card_22a9b331 · Shed');
+        expect(sourceLines(shared[1])).toEqual({ id: 'audio_card_22a9b331', install: 'Shed' });
+        expect(sourceLines(esp32)).toEqual({ id: 'rtsp_52d54d7d', install: null });
+        expect(sourceLines(patio)).toEqual({ id: null, install: null });
         expect(describeLinkToken('audio_card_22a9b331', shared)).toEqual({
             name: 'House Mic, Shed Mic',
-            detail: 'audio_card_22a9b331 · House, Shed',
+            id: 'audio_card_22a9b331',
+            install: 'House, Shed',
             lastHeard: '2026-11-28T09:00:00Z'
         });
+        // The other install's stream may be beyond the list; the server still says the id is shared.
+        expect(describeLinkToken('audio_card_22a9b331', [shared[0]])).toMatchObject({ install: 'House, Shed' });
+    });
+
+    it('names a nameless stream by its id once, with its install when the id is shared', () => {
+        const card = 'audio_card_22a9b331';
+        const nameless = (node: string): AudioSourceOption => ({ ...sharedCard(node, card, '2026-11-28T09:00:00Z'), names: [] });
+        expect(sourceLinkLabel(nameless('Shed'))).toBe(`${card} · Shed`);
+        expect(sourceLines(nameless('Shed'))).toEqual({ id: null, install: 'Shed' });
+        const alone = { ...nameless('Shed'), installs_sharing_id: [] };
+        expect(describeLinkToken(card, [alone])).toEqual({ name: card, id: null, install: null, lastHeard: '2026-11-28T09:00:00Z' });
     });
 
     it('shows a linked id as the stream it names, with the newest call carrying the id', () => {
         expect(describeLinkToken('RTSP_52d54d7d', sources)).toEqual({
             name: 'ESP32 v3.0 X',
-            detail: 'rtsp_52d54d7d',
+            id: 'rtsp_52d54d7d',
+            install: null,
             lastHeard: '2026-11-28T08:00:00Z'
         });
     });
@@ -115,13 +129,13 @@ describe('linking a camera to a BirdNET-Go source', () => {
             names: [{ name: 'Garden', last_seen: lastSeen, current, offer_link_by_id: false }]
         });
         const both = [garden('rtsp_a', '2026-11-01T09:00:00Z', false), garden('rtsp_b', '2026-11-25T09:00:00Z', true)];
-        expect(describeLinkToken(' garden ', both)).toEqual({ name: 'garden', detail: null, lastHeard: '2026-11-25T09:00:00Z' });
-        expect(describeLinkToken('ESP32 v3.0', sources)).toEqual({ name: 'ESP32 v3.0', detail: null, lastHeard: '2026-11-27T09:00:00Z' });
-        expect(describeLinkToken('Reolink', sources)).toEqual({ name: 'Reolink', detail: null, lastHeard: null });
+        expect(describeLinkToken(' garden ', both)).toEqual({ name: 'garden', id: null, install: null, lastHeard: '2026-11-25T09:00:00Z' });
+        expect(describeLinkToken('ESP32 v3.0', sources)).toEqual({ name: 'ESP32 v3.0', id: null, install: null, lastHeard: '2026-11-27T09:00:00Z' });
+        expect(describeLinkToken('Reolink', sources)).toEqual({ name: 'Reolink', id: null, install: null, lastHeard: null });
     });
 
     it('shows a token that matches no known source verbatim, with no time', () => {
-        expect(describeLinkToken('rtsp_deadbeef', sources)).toEqual({ name: 'rtsp_deadbeef', detail: null, lastHeard: null });
+        expect(describeLinkToken('rtsp_deadbeef', sources)).toEqual({ name: 'rtsp_deadbeef', id: null, install: null, lastHeard: null });
     });
 });
 
@@ -149,11 +163,27 @@ describe('a camera linked by a name its stream no longer uses', () => {
         ]);
     });
 
-    it('leaves each link once, in order', () => {
-        expect(relinkByStreamId(['ESP32 v3.0', 'esp32 v3.0', 'Shed'], 'ESP32 v3.0', esp32)).toEqual([
+    it('adds the id and changes no other link, even one only display treats as the same', () => {
+        const garden: AudioSourceOption = { ...esp32, mapping_value: 'rtsp_a', source_id: 'rtsp_a' };
+        expect(relinkByStreamId(['Garden Mic', 'Pinar', 'Pınar'], 'Garden Mic', garden)).toEqual([
+            'Garden Mic',
+            'rtsp_a',
+            'Pinar',
+            'Pınar'
+        ]);
+        expect(relinkByStreamId(['ESP32 v3.0', 'esp32 v3.0'], 'ESP32 v3.0', esp32)).toEqual([
             'ESP32 v3.0',
             'rtsp_52d54d7d',
-            'Shed'
+            'esp32 v3.0'
         ]);
+    });
+
+    it('adds nothing when the id is linked already', () => {
+        expect(relinkByStreamId(['ESP32 v3.0', ' rtsp_52d54d7d '], 'ESP32 v3.0', esp32)).toEqual(['ESP32 v3.0', ' rtsp_52d54d7d ']);
+    });
+
+    it('compares names for display only: Pinar and Pınar share a date but neither is ever removed', () => {
+        expect(sameLinkToken('Pinar', 'Pınar')).toBe(true);
+        expect(relinkByStreamId(['Pınar', 'Pinar'], 'Pınar', esp32)).toEqual(['Pınar', 'rtsp_52d54d7d', 'Pinar']);
     });
 });

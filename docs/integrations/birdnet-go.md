@@ -52,7 +52,8 @@ the container. **If the links go nowhere** but spectrograms are fine, the browse
 For correlation to work, YA-WAMF needs to know which audio sensor belongs to which camera.
 1. Go to **Settings → Integrations → BirdNET-Go → Audio buffer & sensor mapping**.
 2. Check **Recently detected BirdNET sources** after audio messages have arrived. Each stream is
-   listed once, under its current name and its BirdNET-Go stream ID, newest first.
+   listed once, under its current name and its BirdNET-Go stream ID, newest first. Settings reads
+   up to the 100 most recently heard streams, which is also how far a linked source is named.
 3. Under **BirdNET source mapping (Optional)**, use **Add detected source…** beside the camera
    the source belongs to. Selecting a source in **Recently detected BirdNET sources** adds it to
    the first camera listed, so use each camera's own **Add detected source…** for the others. Either
@@ -120,8 +121,8 @@ So:
   `sourceId` is listed and linked by its name, and a rename in BirdNET-Go then needs the camera
   linked again.
 - **A link by ID hears every install that sends the same ID,** as it always has. When two installs
-  send the same ID, the list shows each one under its own name with its install beside the ID, so
-  you can tell them apart.
+  send the same ID, the list shows each one under its own name with its install beneath the ID,
+  so you can tell them apart.
 - **Changing a source's address makes a new source.** A new RTSP URL hashes to a new id in
   BirdNET-Go, so YA-WAMF lists it separately, even under the same name. When two sources share a
   name, the **Sources** list shows each one's BirdNET-Go id, and its install when that is what
