@@ -326,7 +326,13 @@ DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score
                       d.species_id, d.model_artifact_id, d.model_output_index,
                       f.archive_snapshot_state, f.archive_clip_state, d.classification_input_json,
                       (SELECT i.classification_input_json FROM detection_initial_classifications i WHERE i.detection_id = d.id),
-                      d.illuminance_lux"""
+                      d.illuminance_lux, d.reading_agreement,
+                      CASE WHEN d.reading_agreement = 'disagree' THEN (
+                          SELECT json_object('display_name', i.display_name, 'category_name', i.category_name,
+                                             'scientific_name', i.scientific_name, 'common_name', i.common_name,
+                                             'score', i.score)
+                          FROM detection_initial_classifications i WHERE i.detection_id = d.id
+                      ) END"""
 
 
 @dataclass
@@ -392,6 +398,21 @@ class Detection:
     ai_analysis_timestamp: Optional[datetime] = None
     # Blocked label flag
     video_result_blocked: bool = False
+    # Whether the snapshot and video readings name the same bird; None when never compared (#804).
+    reading_agreement: Optional[str] = None
+    # The first (snapshot) reading's names and score, read only when the readings disagree.
+    snapshot_reading: Optional[dict] = None
+
+
+@dataclass(frozen=True)
+class SnapshotReading:
+    """What the model said when the capture arrived, with the output that said it."""
+
+    label: str
+    score: float
+    model_artifact_id: Optional[int]
+    model_output_index: Optional[int]
+    label_source: Optional[str]
 
 
 @dataclass
@@ -571,7 +592,21 @@ def _row_to_detection(row: aiosqlite.Row) -> Detection:
     if len(row) > 53:
         d.illuminance_lux = row[53]
 
+    if len(row) > 55:
+        d.reading_agreement = row[54]
+        d.snapshot_reading = _parse_snapshot_reading(row[55])
+
     return d
+
+
+def _parse_snapshot_reading(value: object) -> dict | None:
+    if not isinstance(value, (str, bytes)):
+        return None
+    try:
+        parsed = json.loads(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
 
 
 def _parse_classification_input(value: object) -> ClassificationEvidence | None:
@@ -624,6 +659,27 @@ class DetectionRepository:
         ) as cursor:
             row = await cursor.fetchone()
         return list(dict.fromkeys(str(label) for label in row if label)) if row is not None else None
+
+    async def get_snapshot_reading(self, frigate_event: str) -> SnapshotReading | None:
+        """The capture's first reading as the model gave it, for comparing a later reading with."""
+        if not await self._table_exists("detection_initial_classifications"):
+            return None
+        async with self.db.execute(
+            """SELECT i.category_name, i.score, i.model_artifact_id, i.model_output_index, i.label_source
+               FROM detection_initial_classifications i
+               JOIN detections d ON d.id = i.detection_id WHERE d.frigate_event = ?""",
+            (frigate_event,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row is None:
+            return None
+        return SnapshotReading(
+            label=str(row[0]),
+            score=float(row[1]),
+            model_artifact_id=row[2],
+            model_output_index=row[3],
+            label_source=row[4],
+        )
 
     async def get_initial_label_source(self, frigate_event: str) -> str | None:
         """Where the first stored label came from, or None when it was not recorded."""
@@ -1448,8 +1504,13 @@ class DetectionRepository:
         input_source: Optional[str] = None,
         diagnostics: Optional[dict] = None,
         blocked: bool = False,
+        reading_agreement: Optional[str] = None,
     ) -> None:
-        """Update video classification results for an event."""
+        """Update video classification results for an event.
+
+        ``reading_agreement`` is this video reading compared with the snapshot reading; it is
+        written with the reading so a later reading never keeps an earlier comparison.
+        """
         now = utc_naive_now()
         await self.db.execute(
             """
@@ -1465,7 +1526,8 @@ class DetectionRepository:
                 video_classification_model_id = ?,
                 video_classification_input_source = ?,
                 video_classification_diagnostics = ?,
-                video_result_blocked = ?
+                video_result_blocked = ?,
+                reading_agreement = ?
             WHERE frigate_event = ?
         """,
             (
@@ -1480,6 +1542,7 @@ class DetectionRepository:
                 input_source,
                 json.dumps(diagnostics, separators=(",", ":"), sort_keys=True) if diagnostics else None,
                 blocked,
+                reading_agreement,
                 frigate_event,
             ),
         )

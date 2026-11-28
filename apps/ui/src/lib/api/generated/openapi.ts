@@ -954,8 +954,10 @@ export interface components {
     is_hidden?: boolean;
     manual_tagged?: boolean;
     observation_source?: string;
+    reading_agreement?: "agree" | "disagree" | "cannot_compare" | null;
     scientific_name?: string | null;
     score: number;
+    snapshot_reading?: components['schemas']['SnapshotReading'] | null;
     species_id?: number | null;
     sub_label?: string | null;
     taxa_id?: number | null;
@@ -1052,8 +1054,10 @@ export interface components {
     observation_longitude?: number | null;
     observation_notes?: string | null;
     observation_source?: string;
+    reading_agreement?: "agree" | "disagree" | "cannot_compare" | null;
     scientific_name?: string | null;
     score: number;
+    snapshot_reading?: components['schemas']['SnapshotReading'] | null;
     species_id?: number | null;
     sub_label?: string | null;
     taxa_id?: number | null;
@@ -3028,6 +3032,13 @@ export interface components {
     result: string;
     source?: string | null;
     status: "already_hq_bird_crop" | "generated_hq_bird_crop" | "generated_hq_snapshot" | "existing_crop_preserved" | "manual_selection_preserved" | "photo_settings_unreadable" | "photo_set_aside";
+};
+    SnapshotReading: {
+    category_name: string;
+    common_name?: string | null;
+    display_name: string;
+    scientific_name?: string | null;
+    score: number;
 };
     SnapshotStatusResponse: {
     already_hq_bird_crop: boolean;

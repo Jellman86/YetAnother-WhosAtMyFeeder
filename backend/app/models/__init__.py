@@ -1,4 +1,5 @@
 from app.models.classification_evidence import ClassificationEvidence
+from app.services.reading_agreement import ReadingAgreement
 from pydantic import BaseModel, Field, PrivateAttr, computed_field, field_serializer, field_validator
 from datetime import date, datetime
 from urllib.parse import urlparse
@@ -42,6 +43,16 @@ class APIModel(BaseModel):
     )
     def _serialize_datetime_fields(self, value: datetime | None) -> str | None:
         return serialize_api_datetime(value)
+
+
+class SnapshotReading(BaseModel):
+    """What the model named when the capture arrived, before any later reading changed it."""
+
+    display_name: str
+    category_name: str
+    scientific_name: str | None = None
+    common_name: str | None = None
+    score: float
 
 
 class Detection(APIModel):
@@ -101,6 +112,10 @@ class Detection(APIModel):
     video_classification_model_name: str | None = None
     video_classification_input_source: str | None = None
     video_classification_diagnostics: dict[str, object] | None = None
+    # Owner-only: whether the snapshot and video readings name the same bird, None when never
+    # compared (#804). The snapshot reading is given only when they disagree.
+    reading_agreement: ReadingAgreement | None = None
+    snapshot_reading: SnapshotReading | None = None
     # AI naturalist analysis fields
     ai_analysis: str | None = None
     ai_analysis_timestamp: datetime | None = None

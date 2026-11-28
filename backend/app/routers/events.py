@@ -889,7 +889,13 @@ _LIST_FIELDS = {
     "manual_tagged",
 }
 # Localized birds are owner evidence from the private candidate scan, never a guest field.
-_OWNER_ONLY_FIELDS = {"bird_summary", "classification_input", "initial_classification_input"}
+_OWNER_ONLY_FIELDS = {
+    "bird_summary",
+    "classification_input",
+    "initial_classification_input",
+    "reading_agreement",
+    "snapshot_reading",
+}
 _DETAIL_FIELDS = set()  # Empty = all fields
 
 

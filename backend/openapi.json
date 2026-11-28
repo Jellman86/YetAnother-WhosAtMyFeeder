@@ -6588,6 +6588,22 @@
             "title": "Observation Source",
             "type": "string"
           },
+          "reading_agreement": {
+            "anyOf": [
+              {
+                "enum": [
+                  "agree",
+                  "disagree",
+                  "cannot_compare"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reading Agreement"
+          },
           "scientific_name": {
             "anyOf": [
               {
@@ -6602,6 +6618,16 @@
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "snapshot_reading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SnapshotReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "species_id": {
             "anyOf": [
@@ -7434,6 +7460,22 @@
             "title": "Observation Source",
             "type": "string"
           },
+          "reading_agreement": {
+            "anyOf": [
+              {
+                "enum": [
+                  "agree",
+                  "disagree",
+                  "cannot_compare"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reading Agreement"
+          },
           "scientific_name": {
             "anyOf": [
               {
@@ -7448,6 +7490,16 @@
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "snapshot_reading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SnapshotReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "species_id": {
             "anyOf": [
@@ -23098,6 +23150,52 @@
           "result"
         ],
         "title": "SnapshotGenerateResponse",
+        "type": "object"
+      },
+      "SnapshotReading": {
+        "description": "What the model named when the capture arrived, before any later reading changed it.",
+        "properties": {
+          "category_name": {
+            "title": "Category Name",
+            "type": "string"
+          },
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "display_name",
+          "category_name",
+          "score"
+        ],
+        "title": "SnapshotReading",
         "type": "object"
       },
       "SnapshotStatusResponse": {

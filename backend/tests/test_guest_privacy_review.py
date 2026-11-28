@@ -558,3 +558,29 @@ async def test_classifier_input_coordinates_are_owner_only(private_history, fiel
     assert not any(row.get("classification_input") or row.get("initial_classification_input") for row in guest.json())
     visible = next(row for row in owner.json() if row["frigate_event"] == "visible")
     assert visible["classification_input"]["box"] == [10, 20, 30, 40]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fields", ["detail", "reading_agreement,snapshot_reading"])
+async def test_reading_disagreement_is_owner_work(private_history, fields):
+    _, history_db = private_history
+    async with history_db() as db:
+        await db.execute(
+            """UPDATE detections SET reading_agreement='disagree', video_classification_status='completed',
+               video_classification_label='Pica pica', video_classification_score=.68
+               WHERE frigate_event='visible'"""
+        )
+        await db.commit()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        guest = await client.get("/api/events", params={"fields": fields})
+        owner = await client.get(
+            "/api/events",
+            params={"fields": fields},
+            headers={"Authorization": f"Bearer {create_access_token('owner')}"},
+        )
+    assert guest.status_code == owner.status_code == 200
+    assert not any(row.get("reading_agreement") or row.get("snapshot_reading") for row in guest.json())
+    visible = next(row for row in owner.json() if row["frigate_event"] == "visible")
+    assert visible["reading_agreement"] == "disagree"
+    assert visible["snapshot_reading"]["display_name"] == "Robin"
+    assert visible["snapshot_reading"]["score"] == pytest.approx(0.9)

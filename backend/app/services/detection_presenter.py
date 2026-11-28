@@ -14,7 +14,7 @@ from dataclasses import dataclass
 import aiosqlite
 
 from app.config import settings
-from app.models import DetectionBirdSummary, DetectionResponse
+from app.models import DetectionBirdSummary, DetectionResponse, SnapshotReading
 from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.detection_repository import Detection as StoredDetection
@@ -386,6 +386,11 @@ async def present_detections(
         if scope.is_owner:
             summary = bird_summaries.get(event.frigate_event)
             response_event.bird_summary = DetectionBirdSummary.model_validate(summary) if summary else None
+            response_event.reading_agreement = getattr(event, "reading_agreement", None)
+            snapshot_reading = getattr(event, "snapshot_reading", None)
+            response_event.snapshot_reading = (
+                SnapshotReading.model_validate(snapshot_reading) if isinstance(snapshot_reading, dict) else None
+            )
         if not scope.is_owner:
             # Public HTTP responses are the authoritative projection used after
             # SSE invalidation; producer diagnostics are owner information.
