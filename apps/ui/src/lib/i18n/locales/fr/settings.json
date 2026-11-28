@@ -502,7 +502,7 @@
       "source_discovery_error": "Échec du chargement des noms de sources BirdNET récents.",
       "source_discovery_add": "Sélectionnez-en une pour l’ajouter",
       "source_discovery_add_to": "{source}, entendue {time}. Sélectionnez-la pour l’ajouter à {camera}.",
-      "source_renamed": "{old} s’appelle désormais {new}.",
+      "source_renamed": "{old} porte désormais le nom {new}.",
       "source_link_by_id": "Lier par ID de flux",
       "source_link_by_id_label": "Lier {camera} à {source} par l’ID de flux {id}",
       "source_last_heard": "Dernière écoute {time}",

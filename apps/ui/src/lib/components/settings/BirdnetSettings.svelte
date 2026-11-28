@@ -274,6 +274,7 @@
         >
             <div class="divide-y divide-line-soft" role="group">
                 {#each availableCameras as camera}
+                    {@const cameraRenames = renamedLinks(mappingTokensFor(camera), birdnetSourceOptions)}
                     <div class="py-3 first:pt-0 space-y-2">
                         <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                             <span class="inline-flex max-w-full items-center break-all rounded-md bg-surface-sunken px-2 py-0.5 text-xs font-semibold text-muted">{camera}</span>
@@ -307,42 +308,45 @@
                             </select>
                         </div>
                         {#if mappingTokensFor(camera).length > 0}
-                            <div
-                                class="flex flex-wrap gap-1.5"
+                            <ul
+                                class="space-y-1.5"
                                 aria-label={$_('settings.integrations.birdnet.source_token_list_label', { values: { camera } })}
                             >
                                 {#each mappingTokensFor(camera) as sourceToken, sourceTokenIndex}
                                     {@const linked = describeLinkToken(sourceToken, birdnetSourceOptions)}
-                                    <span class="inline-flex max-w-full items-center gap-1.5 text-xs text-accent-ink" data-audio-link-token>
-                                        <span class="break-all">{linked.text}</span>
-                                        {#if linked.lastHeard}
-                                            <span class="whitespace-nowrap text-muted">{$_('settings.integrations.birdnet.source_last_heard', { values: { time: formatRelativeTime(linked.lastHeard) }, default: 'Last heard {time}' })}</span>
+                                    {@const renamed = cameraRenames.find((rename) => rename.token === sourceToken)}
+                                    <li class="text-xs" data-audio-link-token>
+                                        <div class="flex items-baseline gap-2">
+                                            <span class="min-w-0 break-words text-accent-ink">{linked.text}</span>
+                                            <button
+                                                type="button"
+                                                class="shrink-0 rounded-full text-accent-ink hover:text-status-fail focus:outline-hidden focus:ring-2 focus:ring-focus"
+                                                aria-label={$_('settings.integrations.birdnet.source_token_remove', { values: { source: sourceToken, camera } })}
+                                                onclick={() => removeCameraAudioSourceToken(camera, sourceTokenIndex)}
+                                            >
+                                                &times;
+                                            </button>
+                                            {#if linked.lastHeard}
+                                                <span class="ml-auto shrink-0 whitespace-nowrap text-muted">{$_('settings.integrations.birdnet.source_last_heard', { values: { time: formatRelativeTime(linked.lastHeard) }, default: 'Last heard {time}' })}</span>
+                                            {/if}
+                                        </div>
+                                        {#if renamed}
+                                            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1" data-audio-link-renamed>
+                                                <p class="text-ink">{$_('settings.integrations.birdnet.source_renamed', { values: { old: renamed.token, new: renamed.source.source_name }, default: '{old} is now called {new}.' })}</p>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-secondary min-h-11 px-3 py-1.5 text-xs"
+                                                    aria-label={$_('settings.integrations.birdnet.source_link_by_id_label', { values: { camera, source: renamed.source.source_name, id: renamed.source.mapping_value }, default: 'Link {camera} to {source} by stream ID {id}' })}
+                                                    onclick={() => linkByStreamId(camera, renamed.token, renamed.source)}
+                                                >
+                                                    {$_('settings.integrations.birdnet.source_link_by_id', { default: 'Link by stream ID' })}
+                                                </button>
+                                            </div>
                                         {/if}
-                                        <button
-                                            type="button"
-                                            class="shrink-0 rounded-full text-accent-ink hover:text-status-fail focus:outline-hidden focus:ring-2 focus:ring-focus"
-                                            aria-label={$_('settings.integrations.birdnet.source_token_remove', { values: { source: sourceToken, camera } })}
-                                            onclick={() => removeCameraAudioSourceToken(camera, sourceTokenIndex)}
-                                        >
-                                            &times;
-                                        </button>
-                                    </span>
+                                    </li>
                                 {/each}
-                            </div>
+                            </ul>
                         {/if}
-                        {#each renamedLinks(mappingTokensFor(camera), birdnetSourceOptions) as renamed}
-                            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" data-audio-link-renamed>
-                                <p class="text-ink">{$_('settings.integrations.birdnet.source_renamed', { values: { old: renamed.token, new: renamed.source.source_name }, default: '{old} is now called {new}.' })}</p>
-                                <button
-                                    type="button"
-                                    class="btn btn-secondary min-h-11 px-3 py-1.5 text-xs"
-                                    aria-label={$_('settings.integrations.birdnet.source_link_by_id_label', { values: { camera, source: renamed.source.source_name, id: renamed.source.mapping_value }, default: 'Link {camera} to {source} by stream ID {id}' })}
-                                    onclick={() => linkByStreamId(camera, renamed.token, renamed.source)}
-                                >
-                                    {$_('settings.integrations.birdnet.source_link_by_id', { default: 'Link by stream ID' })}
-                                </button>
-                            </div>
-                        {/each}
                     </div>
                 {/each}
                 <datalist id="birdnet-source-options">
@@ -390,10 +394,10 @@
                                             : sourceLinkLabel(source)}
                                     >
                                         <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-surface-sunken text-muted group-hover:bg-accent group-hover:text-accent-fg group-hover:group-disabled:bg-surface-sunken transition-colors text-xs font-semibold leading-none" aria-hidden="true">+</span>
-                                        <span class="min-w-0 flex-1 text-xs font-mono font-semibold text-strong break-all leading-tight">
-                                            {source.source_name}
+                                        <span class="min-w-0 flex-1 leading-tight">
+                                            <span class="block text-xs font-mono font-semibold text-strong break-words">{source.source_name}</span>
                                             {#if source.source_id && source.source_id !== source.source_name}
-                                                <span class="font-normal text-muted">· {source.source_id}</span>
+                                                <span class="block text-xs font-mono text-muted break-all">{source.source_id}</span>
                                             {/if}
                                         </span>
                                         <span class="shrink-0 text-sm font-semibold text-ink whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>
