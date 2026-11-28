@@ -587,6 +587,12 @@ export interface components {
     ClassificationInputContext: {
     is_cropped?: boolean;
 };
+    ClassificationReading: {
+    common_name?: string | null;
+    label: string;
+    scientific_name?: string | null;
+    score: number;
+};
     ClassificationStatusResponse: {
     event_id: string;
     video_classification_backend?: string | null;
@@ -957,7 +963,7 @@ export interface components {
     reading_agreement?: "agree" | "disagree" | "cannot_compare" | null;
     scientific_name?: string | null;
     score: number;
-    snapshot_reading?: components['schemas']['SnapshotReading'] | null;
+    snapshot_reading?: components['schemas']['ClassificationReading'] | null;
     species_id?: number | null;
     sub_label?: string | null;
     taxa_id?: number | null;
@@ -973,6 +979,7 @@ export interface components {
     video_classification_score?: number | null;
     video_classification_status?: string | null;
     video_classification_timestamp?: string | null;
+    video_reading?: components['schemas']['ClassificationReading'] | null;
     weather_cloud_cover?: number | null;
     weather_condition?: string | null;
     weather_precipitation?: number | null;
@@ -1057,7 +1064,7 @@ export interface components {
     reading_agreement?: "agree" | "disagree" | "cannot_compare" | null;
     scientific_name?: string | null;
     score: number;
-    snapshot_reading?: components['schemas']['SnapshotReading'] | null;
+    snapshot_reading?: components['schemas']['ClassificationReading'] | null;
     species_id?: number | null;
     sub_label?: string | null;
     taxa_id?: number | null;
@@ -1073,6 +1080,7 @@ export interface components {
     video_classification_score?: number | null;
     video_classification_status?: string | null;
     video_classification_timestamp?: string | null;
+    video_reading?: components['schemas']['ClassificationReading'] | null;
     weather_cloud_cover?: number | null;
     weather_condition?: string | null;
     weather_precipitation?: number | null;
@@ -3032,13 +3040,6 @@ export interface components {
     result: string;
     source?: string | null;
     status: "already_hq_bird_crop" | "generated_hq_bird_crop" | "generated_hq_snapshot" | "existing_crop_preserved" | "manual_selection_preserved" | "photo_settings_unreadable" | "photo_set_aside";
-};
-    SnapshotReading: {
-    category_name: string;
-    common_name?: string | null;
-    display_name: string;
-    scientific_name?: string | null;
-    score: number;
 };
     SnapshotStatusResponse: {
     already_hq_bird_crop: boolean;

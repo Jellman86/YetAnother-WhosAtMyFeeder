@@ -895,6 +895,7 @@ _OWNER_ONLY_FIELDS = {
     "initial_classification_input",
     "reading_agreement",
     "snapshot_reading",
+    "video_reading",
 }
 _DETAIL_FIELDS = set()  # Empty = all fields
 

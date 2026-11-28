@@ -45,13 +45,14 @@ class APIModel(BaseModel):
         return serialize_api_datetime(value)
 
 
-class SnapshotReading(BaseModel):
-    """What the model named when the capture arrived, before any later reading changed it."""
+class ClassificationReading(BaseModel):
+    """One reading of a capture, named as the visit itself is named."""
 
-    display_name: str
-    category_name: str
-    scientific_name: str | None = None
-    common_name: str | None = None
+    label: str = Field(..., description="The label the model gave, as stored")
+    scientific_name: str | None = Field(None, description="Catalogue scientific name, when the label resolves")
+    common_name: str | None = Field(
+        None, description="Catalogue name in the reader's language; for the snapshot, its stored name otherwise"
+    )
     score: float
 
 
@@ -113,9 +114,10 @@ class Detection(APIModel):
     video_classification_input_source: str | None = None
     video_classification_diagnostics: dict[str, object] | None = None
     # Owner-only: whether the snapshot and video readings name the same bird, None when never
-    # compared (#804). The snapshot reading is given only when they disagree.
+    # compared (#804). Both readings are given, named, only when they disagree.
     reading_agreement: ReadingAgreement | None = None
-    snapshot_reading: SnapshotReading | None = None
+    snapshot_reading: ClassificationReading | None = None
+    video_reading: ClassificationReading | None = None
     # AI naturalist analysis fields
     ai_analysis: str | None = None
     ai_analysis_timestamp: datetime | None = None

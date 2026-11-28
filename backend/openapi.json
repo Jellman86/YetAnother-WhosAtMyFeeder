@@ -3880,6 +3880,50 @@
         "title": "ClassificationInputContext",
         "type": "object"
       },
+      "ClassificationReading": {
+        "description": "One reading of a capture, named as the visit itself is named.",
+        "properties": {
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Catalogue name in the reader's language; for the snapshot, its stored name otherwise",
+            "title": "Common Name"
+          },
+          "label": {
+            "description": "The label the model gave, as stored",
+            "title": "Label",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Catalogue scientific name, when the label resolves",
+            "title": "Scientific Name"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "label",
+          "score"
+        ],
+        "title": "ClassificationReading",
+        "type": "object"
+      },
       "ClassificationStatusResponse": {
         "properties": {
           "event_id": {
@@ -6622,7 +6666,7 @@
           "snapshot_reading": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/SnapshotReading"
+                "$ref": "#/components/schemas/ClassificationReading"
               },
               {
                 "type": "null"
@@ -6794,6 +6838,16 @@
               }
             ],
             "title": "Video Classification Timestamp"
+          },
+          "video_reading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "weather_cloud_cover": {
             "anyOf": [
@@ -7494,7 +7548,7 @@
           "snapshot_reading": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/SnapshotReading"
+                "$ref": "#/components/schemas/ClassificationReading"
               },
               {
                 "type": "null"
@@ -7666,6 +7720,16 @@
               }
             ],
             "title": "Video Classification Timestamp"
+          },
+          "video_reading": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassificationReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "weather_cloud_cover": {
             "anyOf": [
@@ -23150,52 +23214,6 @@
           "result"
         ],
         "title": "SnapshotGenerateResponse",
-        "type": "object"
-      },
-      "SnapshotReading": {
-        "description": "What the model named when the capture arrived, before any later reading changed it.",
-        "properties": {
-          "category_name": {
-            "title": "Category Name",
-            "type": "string"
-          },
-          "common_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Common Name"
-          },
-          "display_name": {
-            "title": "Display Name",
-            "type": "string"
-          },
-          "scientific_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Scientific Name"
-          },
-          "score": {
-            "title": "Score",
-            "type": "number"
-          }
-        },
-        "required": [
-          "display_name",
-          "category_name",
-          "score"
-        ],
-        "title": "SnapshotReading",
         "type": "object"
       },
       "SnapshotStatusResponse": {
